@@ -115,6 +115,22 @@ const transporter = createTransporter();
 // Serve static files (client)
 app.use(express.static(path.join(__dirname)));
 
+// Simple request logger for debugging
+app.use((req, res, next) => {
+  try { console.log(new Date().toISOString(), req.method, req.url); } catch(e) {}
+  next();
+});
+
+// Global exception handlers (log and continue)
+process.on('uncaughtException', err => {
+  console.error('uncaughtException', err && err.stack ? err.stack : err);
+  try { fs.appendFileSync(path.join(__dirname, 'server.log'), JSON.stringify({ t: new Date().toISOString(), type: 'uncaughtException', error: String(err) }) + '\n'); } catch(e) {}
+});
+process.on('unhandledRejection', err => {
+  console.error('unhandledRejection', err);
+  try { fs.appendFileSync(path.join(__dirname, 'server.log'), JSON.stringify({ t: new Date().toISOString(), type: 'unhandledRejection', error: String(err) }) + '\n'); } catch(e) {}
+});
+
 // POST /auth/google - verify id_token and create session
 app.post('/auth/google', async (req, res) => {
   const idToken = req.body.id_token;
@@ -152,7 +168,21 @@ app.post('/auth/login', async (req, res) => {
 
   const users = loadUsers();
   const user = users[username];
-  if (!user) return res.status(401).json({ error: 'invalid credentials' });
+  if (!user) {
+    // Fallback: allow DEV_ADMIN_PASSWORD from .env for local testing
+    if (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD) {
+      req.session.user = { email: process.env.ALLOWED_EMAIL || 'admin@example.com', name: 'Admin' };
+      return res.json({ success: true, email: req.session.user.email, name: req.session.user.name });
+    }
+    return res.status(401).json({ error: 'invalid credentials' });
+  }
+
+
+  // Allow DEV_ADMIN_PASSWORD to bypass stored password for quick local testing, even when user exists
+  if (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD) {
+    req.session.user = { email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com', name: user.name || 'Admin' };
+    return res.json({ success: true, email: req.session.user.email, name: req.session.user.name });
+  }
 
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'invalid credentials' });
@@ -269,6 +299,15 @@ app.post('/api/posts', requireAuth, (req, res) => {
 app.post('/api/upload', requireAuth, (req, res) => {
   if (!req.files || !req.files.image) return res.status(400).json({ error: 'no file uploaded' });
   const image = req.files.image;
+  // Validate file size (<=5MB) and type
+  const MAX_BYTES = 5 * 1024 * 1024;
+  const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowed.includes(image.mimetype)) {
+    return res.status(400).json({ error: 'invalid_file_type' });
+  }
+  if (image.size > MAX_BYTES) {
+    return res.status(400).json({ error: 'file_too_large' });
+  }
   // sanitize filename
   const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
   const filename = Date.now() + '_' + safe;
@@ -337,18 +376,38 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
 // Categories API
 // GET /api/categories - public
 app.get('/api/categories', (req, res) => {
-  const categories = loadCategories();
+  let categories = loadCategories();
+  // Return categories sorted by name for stable UI ordering
+  categories = categories.slice().sort((a, b) => ('' + a.name).localeCompare(b.name));
   return res.json({ categories });
 });
 
 // POST /api/categories - create (admin only)
 app.post('/api/categories', requireAuth, (req, res) => {
-  const { name, slug, description } = req.body;
+  const { name, slug: providedSlug, description } = req.body;
   if (!name) return res.status(400).json({ error: 'missing name' });
 
   const cats = loadCategories();
+
+  // If a category with the same name exists (case-insensitive), return it instead of creating a duplicate
+  const existingByName = cats.find(c => (c.name || '').toLowerCase() === (name || '').toLowerCase());
+  if (existingByName) {
+    return res.json({ success: true, category: existingByName });
+  }
+
+  // Generate a slug and ensure it's unique
+  const baseSlug = (providedSlug && String(providedSlug).trim())
+    ? String(providedSlug).trim().toLowerCase().replace(/[^a-z0-9]+/g,'-')
+    : String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g,'-');
+
+  let slug = baseSlug;
+  let suffix = 1;
+  while (cats.some(c => (c.slug || '') === slug)) {
+    slug = `${baseSlug}-${suffix++}`;
+  }
+
   const id = Date.now();
-  const category = { id, name, slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g,'-'), description: description || '' };
+  const category = { id, name, slug, description: description || '' };
   cats.push(category);
   saveCategories(cats);
   return res.json({ success: true, category });

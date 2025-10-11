@@ -491,6 +491,9 @@
                         <div class="form-group">
                             <label>Image URL (optional)</label>
                             <input v-model="postForm.image" type="text" placeholder="https://...">
+                            <div v-if="postForm.image" style="margin-top:0.5rem;">
+                                <img :src="postForm.image" alt="preview" style="max-width:200px; border-radius:8px; display:block; box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+                            </div>
                             <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center">
                                 <input type="file" ref="imageInput" @change="onSelectFile" accept="image/*">
                                 <button class="btn btn-small" @click.prevent="uploadImage" :disabled="!selectedFile">Upload</button>
@@ -603,7 +606,7 @@
         createApp({
             data() {
                 return {
-                    blogTitle: 'My Personal Blog',
+                    blogTitle: 'zedong254ke',
                     currentView: 'blog',
                     selectedPost: null,
                     posts: [],
@@ -874,20 +877,37 @@
                     }
                 },
                 login() {
-                    if (this.loginUsername === 'admin' && this.loginPassword === 'password') {
-                        this.isLoggedIn = true;
-                        this.setData('isLoggedIn', true);
-                        this.loginError = '';
-                        this.loginUsername = '';
-                        this.loginPassword = '';
-                    } else {
-                        this.loginError = 'Invalid username or password';
-                    }
+                    // Call server-side login to create a session cookie
+                    fetch('/auth/login', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: this.loginUsername, password: this.loginPassword })
+                    })
+                    .then(r => r.json().then(j => ({ status: r.status, body: j })).catch(() => ({ status: r.status })))
+                    .then(({ status, body }) => {
+                        if (status === 200 && body && body.success) {
+                            this.isLoggedIn = true;
+                            this.setData('isLoggedIn', true);
+                            this.loginError = '';
+                            this.loginUsername = '';
+                            this.loginPassword = '';
+                            // refresh categories and posts
+                            this.fetchCategories();
+                            this.fetchPosts();
+                        } else if (status === 401) {
+                            this.loginError = (body && body.error) ? body.error : 'Invalid credentials';
+                        } else {
+                            this.loginError = (body && body.error) ? body.error : 'Login failed';
+                        }
+                    })
+                    .catch(() => {
+                        this.loginError = 'Network error';
+                    });
                 },
                 logout() {
-                    // Call server to destroy session
-                    fetch('/auth/logout', { method: 'POST' })
-                        .then(r => r.json())
+                    // Call server to destroy session and clear client state
+                    fetch('/auth/logout', { method: 'POST', credentials: 'include' })
                         .then(() => {
                             this.isLoggedIn = false;
                             this.setData('isLoggedIn', false);
