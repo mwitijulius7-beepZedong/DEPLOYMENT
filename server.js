@@ -32,6 +32,7 @@ const multer = require('multer');
 
 const USERS_FILE = path.join(__dirname, 'users.json');
 const POSTS_FILE = path.join(__dirname, 'posts.json');
+const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
 
 // Ensure uploads directory exists and serve it
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
@@ -76,6 +77,18 @@ function loadPosts() {
 
 function savePosts(posts) {
   fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
+}
+
+function loadCategories() {
+  try {
+    return JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveCategories(categories) {
+  fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
 }
 
 function requireAuth(req, res, next) {
@@ -242,8 +255,17 @@ app.post('/api/posts', requireAuth, (req, res) => {
     date: new Date().toISOString(),
     tags: Array.isArray(body.tags) ? body.tags : (body.tags || []).map ? body.tags : [],
     image: body.image || '',
-    featured: !!body.featured
+    featured: !!body.featured,
+    categoryId: null
   };
+
+  // validate categoryId if provided
+  if (body && ('categoryId' in body) && body.categoryId != null) {
+    const cats = loadCategories();
+    const exists = cats.some(c => c.id === body.categoryId);
+    if (!exists) return res.status(400).json({ error: 'invalid categoryId' });
+    post.categoryId = body.categoryId;
+  }
 
   // ensure only one featured post
   if (post.featured) {
@@ -278,8 +300,21 @@ app.put('/api/posts/:id', requireAuth, (req, res) => {
     content: body.content || posts[idx].content,
     tags: Array.isArray(body.tags) ? body.tags : posts[idx].tags,
     image: body.image || posts[idx].image,
-    featured: !!body.featured
+    featured: !!body.featured,
+    categoryId: posts[idx].categoryId
   };
+
+  // validate categoryId if provided in update
+  if ('categoryId' in body) {
+    if (body.categoryId == null) {
+      updated.categoryId = null;
+    } else {
+      const cats = loadCategories();
+      const exists = cats.some(c => c.id === body.categoryId);
+      if (!exists) return res.status(400).json({ error: 'invalid categoryId' });
+      updated.categoryId = body.categoryId;
+    }
+  }
 
   if (updated.featured) {
     posts.forEach(p => p.featured = false);
@@ -298,6 +333,58 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   posts.splice(idx, 1);
   savePosts(posts);
+  return res.json({ success: true });
+});
+
+// Categories API
+// GET /api/categories - public
+app.get('/api/categories', (req, res) => {
+  const categories = loadCategories();
+  return res.json({ categories });
+});
+
+// POST /api/categories - create (admin only)
+app.post('/api/categories', requireAuth, (req, res) => {
+  const { name, slug, description } = req.body;
+  if (!name) return res.status(400).json({ error: 'missing name' });
+
+  const cats = loadCategories();
+  const id = Date.now();
+  const category = { id, name, slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g,'-'), description: description || '' };
+  cats.push(category);
+  saveCategories(cats);
+  return res.json({ success: true, category });
+});
+
+// PUT /api/categories/:id - update (admin only)
+app.put('/api/categories/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { name, slug, description } = req.body;
+  const cats = loadCategories();
+  const idx = cats.findIndex(c => c.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  cats[idx] = { ...cats[idx], name: name || cats[idx].name, slug: slug || cats[idx].slug, description: description || cats[idx].description };
+  saveCategories(cats);
+  return res.json({ success: true, category: cats[idx] });
+});
+
+// DELETE /api/categories/:id - delete (admin only)
+app.delete('/api/categories/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  let cats = loadCategories();
+  const idx = cats.findIndex(c => c.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+
+  // Remove category and unset from posts
+  cats.splice(idx, 1);
+  saveCategories(cats);
+
+  const posts = loadPosts();
+  posts.forEach(p => {
+    if (p.categoryId === id) p.categoryId = null;
+  });
+  savePosts(posts);
+
   return res.json({ success: true });
 });
 
