@@ -439,27 +439,49 @@
 
             <!-- Admin View -->
             <div v-if="currentView === 'admin'">
-                <!-- Login -->
+                <!-- Login or Setup -->
                 <div v-if="!isLoggedIn" class="login-container">
-                    <h2>Admin Login</h2>
-                    <div v-if="loginError" class="error-message">{{ loginError }}</div>
-                    <div class="form-group">
-                        <label>Username</label>
-                        <input v-model="loginUsername" type="text" placeholder="admin" @keyup.enter="login">
-                    </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
-                    </div>
-                    <button class="btn" style="width: 100%;" @click="login">Login</button>
-                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem; text-align: center;">\n+                        Default: admin / password
-                    </p>
-                    <!-- Google Sign-In -->
-                    <div style="text-align: center; margin-top: 1.25rem;">
-                        <div id="gSignInButton"></div>
-                        <p style="margin-top:0.75rem; color:#666; font-size:0.9rem;">Or sign in with your Google account</p>
-                        <p style="margin-top:0.25rem; color:#9ca3af; font-size:0.8rem;">(Replace the placeholder client ID in the script with your Google Cloud OAuth 2.0 Client ID)</p>
-                    </div>
+                    <template v-if="setupRequired">
+                        <h2>Initial Setup</h2>
+                        <div v-if="loginError" class="error-message">{{ loginError }}</div>
+                        <div class="form-group">
+                            <label>Admin username</label>
+                            <input v-model="setupForm.username" type="text" placeholder="admin">
+                        </div>
+                        <div class="form-group">
+                            <label>Admin password</label>
+                            <input v-model="setupForm.password" type="password" placeholder="password">
+                        </div>
+                        <div class="form-group">
+                            <label>Display name</label>
+                            <input v-model="setupForm.name" type="text" placeholder="Admin">
+                        </div>
+                        <div class="form-group">
+                            <label>Email (optional)</label>
+                            <input v-model="setupForm.email" type="email" placeholder="you@example.com">
+                        </div>
+                        <button class="btn" style="width: 100%;" @click="setup">Create Admin</button>
+                    </template>
+                    <template v-else>
+                        <h2>Admin Login</h2>
+                        <div v-if="loginError" class="error-message">{{ loginError }}</div>
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input v-model="loginUsername" type="text" placeholder="admin" @keyup.enter="login">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
+                        </div>
+                        <button class="btn" style="width: 100%;" @click="login">Login</button>
+                        <p style="margin-top: 1rem; color: #666; font-size: 0.9rem; text-align: center;">Default: admin / password</p>
+                        <!-- Google Sign-In -->
+                        <div style="text-align: center; margin-top: 1.25rem;">
+                            <div id="gSignInButton"></div>
+                            <p style="margin-top:0.75rem; color:#666; font-size:0.9rem;">Or sign in with your Google account</p>
+                            <p style="margin-top:0.25rem; color:#9ca3af; font-size:0.8rem;">(Replace the placeholder client ID in the script with your Google Cloud OAuth 2.0 Client ID)</p>
+                        </div>
+                    </template>
                 </div>
 
                 <!-- Admin Panel -->
@@ -471,6 +493,7 @@
                                 + New Post
                             </button>
                             <button class="btn" style="margin-left: 1rem;" @click="logout">Logout</button>
+                            <button class="btn" style="margin-left: 1rem; background:#6b7280;" @click="showAdminSettings = !showAdminSettings">Admin Settings</button>
                         </div>
                     </div>
 
@@ -491,6 +514,9 @@
                         <div class="form-group">
                             <label>Image URL (optional)</label>
                             <input v-model="postForm.image" type="text" placeholder="https://...">
+                            <div v-if="postForm.image" style="margin-top:0.5rem;">
+                                <img :src="postForm.image" alt="preview" style="max-width:200px; border-radius:8px; display:block; box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+                            </div>
                             <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center">
                                 <input type="file" ref="imageInput" @change="onSelectFile" accept="image/*">
                                 <button class="btn btn-small" @click.prevent="uploadImage" :disabled="!selectedFile">Upload</button>
@@ -603,7 +629,7 @@
         createApp({
             data() {
                 return {
-                    blogTitle: 'My Personal Blog',
+                    blogTitle: 'zedong254ke',
                     currentView: 'blog',
                     selectedPost: null,
                     posts: [],
@@ -611,6 +637,9 @@
                     loginUsername: '',
                     loginPassword: '',
                     loginError: '',
+                    // Setup flow: when no admin users exist on the server
+                    setupRequired: false,
+                    setupForm: { username: 'admin', password: 'password', name: 'Admin', email: '' },
                     showNewPostForm: false,
                     editingPost: null,
                     postForm: {
@@ -624,6 +653,7 @@
                     nextId: 1,
                     selectedFile: null
                     ,categories: [],
+                    showAdminSettings: false,
                     categoryForm: { name: '', slug: '', description: '' },
                     editingCategory: null
                 };
@@ -631,8 +661,9 @@
             mounted() {
                 // Initialize Google Identity after mount
                 this.initGoogleIdentity();
-                // Check server session status
+                // Check server session status and whether initial setup is required
                 this.checkAuthStatus();
+                this.checkSetupStatus();
                 // Load posts from server
                 this.fetchPosts();
                 this.fetchCategories();
@@ -742,6 +773,32 @@
                     }
                 },
 
+                async updateAdmin() {
+                    // Only available to logged-in admins
+                    const payload = {
+                        username: this.setupForm.username,
+                        password: this.setupForm.password,
+                        name: this.setupForm.name,
+                        email: this.setupForm.email
+                    };
+                    try {
+                        const r = await fetch('/auth/setup', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const j = await r.json();
+                        if (r.status === 401) return alert('Not authorized');
+                        if (!j || !j.success) return alert('Failed: ' + (j && j.error));
+                        alert('Admin credentials updated');
+                        this.showAdminSettings = false;
+                    } catch (e) {
+                        console.error(e);
+                        alert('Update failed');
+                    }
+                },
+
                 async deleteCategory(id) {
                     if (!confirm('Delete this category? Posts assigned to it will be uncategorized.')) return;
                     try {
@@ -806,6 +863,44 @@
                         }
                     } catch (e) {
                         this.isLoggedIn = false;
+                    }
+                },
+
+                async checkSetupStatus() {
+                    try {
+                        const r = await fetch('/auth/setup-status');
+                        const j = await r.json();
+                        // j.setup === true means users exist; so setup not required
+                        this.setupRequired = !(j && j.setup);
+                        // If setup is not required, clear any setup form to avoid confusion
+                        if (!this.setupRequired) this.setupForm = { username: 'admin', password: 'password', name: 'Admin', email: '' };
+                    } catch (e) {
+                        // On error, assume setup is not required to avoid locking UI
+                        console.error('failed to check setup status', e);
+                        this.setupRequired = false;
+                    }
+                },
+
+                async setup() {
+                    if (!this.setupForm.username || !this.setupForm.password) return this.loginError = 'Username and password required';
+                    try {
+                        const r = await fetch('/auth/setup', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.setupForm)
+                        });
+                        const j = await r.json();
+                        if (r.status === 401) return this.loginError = 'Not authorized to create admin';
+                        if (!j || !j.success) return this.loginError = j && j.error ? j.error : 'Failed to create admin';
+                        // Created: attempt auto-login
+                        this.loginUsername = this.setupForm.username;
+                        this.loginPassword = this.setupForm.password;
+                        await this.login();
+                        this.setupRequired = false;
+                        this.loginError = '';
+                    } catch (e) {
+                        console.error(e);
+                        this.loginError = 'Setup failed';
                     }
                 },
 
@@ -874,20 +969,37 @@
                     }
                 },
                 login() {
-                    if (this.loginUsername === 'admin' && this.loginPassword === 'password') {
-                        this.isLoggedIn = true;
-                        this.setData('isLoggedIn', true);
-                        this.loginError = '';
-                        this.loginUsername = '';
-                        this.loginPassword = '';
-                    } else {
-                        this.loginError = 'Invalid username or password';
-                    }
+                    // Call server-side login to create a session cookie
+                    fetch('/auth/login', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: this.loginUsername, password: this.loginPassword })
+                    })
+                    .then(r => r.json().then(j => ({ status: r.status, body: j })).catch(() => ({ status: r.status })))
+                    .then(({ status, body }) => {
+                        if (status === 200 && body && body.success) {
+                            this.isLoggedIn = true;
+                            this.setData('isLoggedIn', true);
+                            this.loginError = '';
+                            this.loginUsername = '';
+                            this.loginPassword = '';
+                            // refresh categories and posts
+                            this.fetchCategories();
+                            this.fetchPosts();
+                        } else if (status === 401) {
+                            this.loginError = (body && body.error) ? body.error : 'Invalid credentials';
+                        } else {
+                            this.loginError = (body && body.error) ? body.error : 'Login failed';
+                        }
+                    })
+                    .catch(() => {
+                        this.loginError = 'Network error';
+                    });
                 },
                 logout() {
-                    // Call server to destroy session
-                    fetch('/auth/logout', { method: 'POST' })
-                        .then(r => r.json())
+                    // Call server to destroy session and clear client state
+                    fetch('/auth/logout', { method: 'POST', credentials: 'include' })
                         .then(() => {
                             this.isLoggedIn = false;
                             this.setData('isLoggedIn', false);

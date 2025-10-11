@@ -4,5 +4,17 @@
     "name": "General",
     "slug": "general",
     "description": "General posts"
+  },
+  {
+    "id": 1760205591874,
+    "name": "Announcements",
+    "slug": "announcements",
+    "description": "Site announcements"
+  },
+  {
+    "id": 1760211464274,
+    "name": "Smoke Test",
+    "slug": "smoke-test",
+    "description": ""
   }
 ]
