@@ -10,5 +10,11 @@
     "name": "Announcements",
     "slug": "announcements",
     "description": "Site announcements"
+  },
+  {
+    "id": 1760211464274,
+    "name": "Smoke Test",
+    "slug": "smoke-test",
+    "description": ""
   }
 ]

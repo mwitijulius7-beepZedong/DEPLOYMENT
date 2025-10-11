@@ -122,9 +122,21 @@ function Upload-FileMultipart {
 function Test-ServerAlive {
     param([string]$Url)
     try {
-        Invoke-RestMethod -Uri (Join-Path $Url 'auth/status') -Method Get -TimeoutSec 5 -ErrorAction Stop | Out-Null
+        $u = Build-Url $Url 'auth/status'
+        Invoke-RestMethod -Uri $u -Method Get -TimeoutSec 5 -ErrorAction Stop | Out-Null
         return $true
     } catch { return $false }
+}
+
+function Build-Url {
+    param(
+        [Parameter(Mandatory=$true)][string] $BaseUrl,
+        [Parameter(Mandatory=$true)][string] $Path
+    )
+    # ensure no duplicate slashes when building URLs
+    $b = $BaseUrl.TrimEnd('/')
+    $p = $Path.TrimStart('/')
+    return "$b/$p"
 }
 
 $proc = $null
@@ -148,15 +160,15 @@ $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
 Write-Host "Logging in as $Username..."
 $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
-$login = Invoke-RestMethod -Uri (Join-Path $Base 'auth/login') -Method Post -Body $loginBody -ContentType 'application/json' -WebSession $session -ErrorAction Stop
+$login = Invoke-RestMethod -Uri (Build-Url $Base 'auth/login') -Method Post -Body $loginBody -ContentType 'application/json' -WebSession $session -ErrorAction Stop
 Write-Host "Login response:`n"; $login | ConvertTo-Json -Depth 4 | Write-Host
 
 Write-Host "Checking auth status..."
-$status = Invoke-RestMethod -Uri (Join-Path $Base 'auth/status') -Method Get -WebSession $session -ErrorAction Stop
+$status = Invoke-RestMethod -Uri (Build-Url $Base 'auth/status') -Method Get -WebSession $session -ErrorAction Stop
 Write-Host "Auth status:`n"; $status | ConvertTo-Json -Depth 4 | Write-Host
 
 Write-Host "Creating category '$CategoryName'..."
-$cat = Invoke-RestMethod -Uri (Join-Path $Base 'api/categories') -Method Post -Body (@{ name = $CategoryName } | ConvertTo-Json) -ContentType 'application/json' -WebSession $session -ErrorAction Stop
+$cat = Invoke-RestMethod -Uri (Build-Url $Base 'api/categories') -Method Post -Body (@{ name = $CategoryName } | ConvertTo-Json) -ContentType 'application/json' -WebSession $session -ErrorAction Stop
 Write-Host "Created category:`n"; $cat | ConvertTo-Json -Depth 4 | Write-Host
 
 if (-not (Test-Path $ImagePath)) { Write-Error "Image file not found: $ImagePath"; exit 5 }
@@ -165,7 +177,7 @@ if (-not (Test-Path $ImagePath)) { Write-Error "Image file not found: $ImagePath
 $cookieHeader = ($session.Cookies.GetCookies($Base) | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join '; '
 
 Write-Host "Uploading image $ImagePath..."
-$uploadBody = Upload-FileMultipart -Url (Join-Path $Base 'api/upload') -FilePath $ImagePath -Fields @{} -Headers @{ Cookie = $cookieHeader }
+$uploadBody = Upload-FileMultipart -Url (Build-Url $Base 'api/upload') -FilePath $ImagePath -Fields @{} -Headers @{ Cookie = $cookieHeader }
 $uploadJson = $uploadBody | ConvertFrom-Json
 Write-Host "Upload response:`n"; $uploadJson | ConvertTo-Json -Depth 6 | Write-Host
 
@@ -179,11 +191,11 @@ $postObj = @{
     categoryId = $cat.id
     featured = $false
 }
-$created = Invoke-RestMethod -Uri (Join-Path $Base 'api/posts') -Method Post -Body ($postObj | ConvertTo-Json) -ContentType 'application/json' -WebSession $session -ErrorAction Stop
+$created = Invoke-RestMethod -Uri (Build-Url $Base 'api/posts') -Method Post -Body ($postObj | ConvertTo-Json) -ContentType 'application/json' -WebSession $session -ErrorAction Stop
 Write-Host "Created post:`n"; $created | ConvertTo-Json -Depth 6 | Write-Host
 
 Write-Host "Listing posts..."
-$posts = Invoke-RestMethod -Uri (Join-Path $Base 'api/posts') -Method Get -ErrorAction Stop
+$posts = Invoke-RestMethod -Uri (Build-Url $Base 'api/posts') -Method Get -ErrorAction Stop
 Write-Host "Posts:`n"; $posts | ConvertTo-Json -Depth 6 | Write-Host
 
 if ($StopServer -and $proc -ne $null) {

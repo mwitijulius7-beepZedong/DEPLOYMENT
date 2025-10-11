@@ -1,5 +1,15 @@
 [
   {
+    "id": 1760212244005,
+    "title": "Smoke test minimal",
+    "author": "Smoke",
+    "content": "Created by automated test",
+    "date": "2025-10-11T19:50:44.005Z",
+    "image": "",
+    "featured": false,
+    "categoryId": null
+  },
+  {
     "id": 1760206797856,
     "title": "Smoke test post",
     "author": "LocalTester",
