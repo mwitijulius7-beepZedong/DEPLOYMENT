@@ -125,8 +125,8 @@
         }
 
         .tag {
-            background: #ffe4e8; /* soft pink */
-            color: #e11d48; /* red */
+            background: #e0e7ff;
+            color: #667eea;
             padding: 0.25rem 0.75rem;
             border-radius: 15px;
             font-size: 0.85rem;
@@ -193,7 +193,7 @@
         }
 
         .btn {
-            background: #e11d48; /* red accent */
+            background: #667eea;
             color: white;
             border: none;
             padding: 0.75rem 1.5rem;
@@ -204,7 +204,7 @@
         }
 
         .btn:hover {
-            background: #c0263b;
+            background: #5568d3;
         }
 
         .btn-danger {
@@ -319,54 +319,6 @@
             border-radius: 8px;
             margin-bottom: 1rem;
         }
-        /* Hero and image styles */
-        .hero {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 1.5rem;
-            margin-top: 2rem;
-        }
-
-        .hero-card {
-            position: relative;
-            border-radius: 12px;
-            overflow: hidden;
-            min-height: 320px;
-            background-size: cover;
-            background-position: center;
-            color: white;
-            display: flex;
-            align-items: flex-end;
-            padding: 2rem;
-        }
-
-        .hero-overlay {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%);
-        }
-
-        .hero-content { position: relative; z-index: 2; }
-
-        .post-image {
-            height: 200px;
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-            margin-bottom: 1rem;
-            background-size: cover;
-            background-position: center;
-        }
-
-        .post-image .overlay {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.25); display:flex; align-items:flex-end; padding:1rem; color:white;
-        }
-
-        @media (max-width: 900px) {
-            .hero { grid-template-columns: 1fr; }
-            .post-image { height: 180px; }
-            .posts-grid { grid-template-columns: 1fr; }
-        }
     </style>
 </head>
 <body>
@@ -385,36 +337,13 @@
             <!-- Blog View -->
             <div v-if="currentView === 'blog' && !selectedPost">
                 <h1 style="margin: 2rem 0; color: #374151;">Latest Posts</h1>
-                <!-- Hero: featured post + sidebar recent list -->
-                <div v-if="posts.length > 0" class="hero">
-                    <div v-if="featuredPost" class="hero-card" :style="{ backgroundImage: featuredPost.image ? 'url(' + featuredPost.image + ')' : '' }">
-                        <div class="hero-overlay"></div>
-                        <div class="hero-content">
-                            <h2 style="font-size:2rem; margin-bottom:0.5rem">{{ featuredPost.title }}</h2>
-                            <div style="opacity:0.95">{{ getExcerpt(featuredPost.content) }}</div>
-                            <div style="margin-top:0.75rem; font-size:0.9rem; opacity:0.95">{{ formatDate(featuredPost.date) }} · {{ featuredPost.author }}</div>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 style="margin-bottom:0.5rem; color:#374151">Recent</h3>
-                        <div v-for="p in posts.slice(0,6)" :key="p.id" style="background:white; border-radius:10px; padding:0.75rem; margin-bottom:0.75rem; box-shadow:0 1px 4px rgba(0,0,0,0.06); cursor:pointer;" @click="viewPost(p)">
-                            <div style="font-weight:600">{{ p.title }}</div>
-                            <div style="font-size:0.85rem; color:#6b7280">{{ formatDate(p.date) }} · {{ p.author }}</div>
-                        </div>
-                    </div>
-                </div>
-                <div v-else class="empty-state">
+                <div v-if="posts.length === 0" class="empty-state">
                     <h3>No posts yet</h3>
                     <p>Check back soon for new content!</p>
                 </div>
-
-                <!-- Posts Grid -->
-                <div class="posts-grid" v-if="posts.length > 0">
-                    <div v-for="post in postsFiltered" :key="post.id" class="post-card" @click="viewPost(post)">
-                        <div v-if="post.image" class="post-image" :style="{ backgroundImage: 'url(' + post.image + ')' }">
-                            <div class="overlay"><div style="font-weight:700">{{ post.title }}</div></div>
-                        </div>
-                        <h2 class="post-title" v-if="!post.image">{{ post.title }}</h2>
+                <div v-else class="posts-grid">
+                    <div v-for="post in posts" :key="post.id" class="post-card" @click="viewPost(post)">
+                        <h2 class="post-title">{{ post.title }}</h2>
                         <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }}</div>
                         <p class="post-excerpt">{{ getExcerpt(post.content) }}</p>
                         <div class="post-tags">
@@ -452,7 +381,18 @@
                         <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
                     </div>
                     <button class="btn" style="width: 100%;" @click="login">Login</button>
-                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem; text-align: center;">\n+                        Default: admin / password
+                    <p style="text-align:center; margin-top:0.75rem;"><a href="#" @click.prevent="showReset = true">Forgot password?</a></p>
+                    <div v-if="showReset" style="margin-top:1rem; background:#f9fafb; padding:1rem; border-radius:8px;">
+                        <div class="form-group">
+                            <label>Enter admin email to receive reset link</label>
+                            <input v-model="resetEmail" type="email" placeholder="email@example.com">
+                        </div>
+                        <button class="btn" @click="requestReset">Send reset email</button>
+                        <button class="btn" style="background:#6b7280; margin-left:0.5rem;" @click="showReset = false">Cancel</button>
+                        <div v-if="resetMessage" style="margin-top:0.75rem; color:#444">{{ resetMessage }}</div>
+                    </div>
+                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem; text-align: center;">
+                        Default: admin / password
                     </p>
                     <!-- Google Sign-In -->
                     <div style="text-align: center; margin-top: 1.25rem;">
@@ -487,18 +427,6 @@
                         <div class="form-group">
                             <label>Content</label>
                             <textarea v-model="postForm.content" placeholder="Write your post content here..."></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Image URL (optional)</label>
-                            <input v-model="postForm.image" type="text" placeholder="https://...">
-                            <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center">
-                                <input type="file" ref="imageInput" @change="onSelectFile" accept="image/*">
-                                <button class="btn btn-small" @click.prevent="uploadImage" :disabled="!selectedFile">Upload</button>
-                                <span style="color:#6b7280; font-size:0.9rem; margin-left:0.5rem">or paste an external URL above</span>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" v-model="postForm.featured"> Featured (show in hero)</label>
                         </div>
                         <div class="form-group">
                             <label>Tags (comma-separated)</label>
@@ -538,8 +466,8 @@
     </div>
 
     <script>
-        // OAuth 2.0 Web Client ID from Google Cloud
-        const GOOGLE_CLIENT_ID = '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com';
+    // OAuth 2.0 Web Client ID from Google Cloud
+    const GOOGLE_CLIENT_ID = '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com';
 
         // Minimal JWT decoder for client-side ID token parsing (no signature verification)
         function decodeJwt (token) {
@@ -566,65 +494,29 @@
                     loginUsername: '',
                     loginPassword: '',
                     loginError: '',
+                    showReset: false,
+                    resetEmail: '',
+                    resetMessage: '',
                     showNewPostForm: false,
                     editingPost: null,
                     postForm: {
                         title: '',
                         author: '',
                         content: '',
-                        tags: '',
-                        image: '',
-                        featured: false
+                        tags: ''
                     },
-                    nextId: 1,
-                    selectedFile: null
+                    nextId: 1
                 };
             },
             mounted() {
+                this.loadData();
+                this.addSamplePosts();
                 // Initialize Google Identity after mount
                 this.initGoogleIdentity();
                 // Check server session status
                 this.checkAuthStatus();
-                // Load posts from server
-                this.fetchPosts();
             },
-            computed: {
-                postsFiltered() {
-                    // Basic passthrough for now; place to add search/filter
-                    return this.posts;
-                },
-                featuredPost() {
-                    return this.posts.find(p => p.featured) || this.posts[0] || null;
-                }
-            },
-        methods: {
-
-                    onSelectFile(e) {
-                        const f = e.target.files && e.target.files[0];
-                        this.selectedFile = f || null;
-                    },
-
-                    async uploadImage() {
-                        if (!this.selectedFile) return alert('Select a file first');
-                        const form = new FormData();
-                        form.append('image', this.selectedFile);
-                        try {
-                            const r = await fetch('/api/upload', { method: 'POST', body: form });
-                            const j = await r.json();
-                            if (j && j.url) {
-                                this.postForm.image = j.url;
-                                // reset file input
-                                if (this.$refs && this.$refs.imageInput) this.$refs.imageInput.value = null;
-                                this.selectedFile = null;
-                                alert('Image uploaded and URL set');
-                            } else {
-                                alert('Upload failed');
-                            }
-                        } catch (e) {
-                            console.error(e);
-                            alert('Upload error');
-                        }
-                    },
+            methods: {
                 initGoogleIdentity() {
                     // Wait until the Google Identity script has loaded
                     if (!window.google || !window.google.accounts || !window.google.accounts.id) {
@@ -692,7 +584,6 @@
                         this.isLoggedIn = false;
                     }
                 },
-
                 loadData() {
                     const saved = this.getData('blogPosts');
                     if (saved) {
@@ -703,21 +594,6 @@
                 },
                 saveData() {
                     this.setData('blogPosts', this.posts);
-                },
-                async fetchPosts() {
-                    try {
-                        const resp = await fetch('/api/posts');
-                        const data = await resp.json();
-                        if (data && Array.isArray(data.posts)) {
-                            this.posts = data.posts;
-                            this.nextId = Math.max(...this.posts.map(p => p.id), 0) + 1;
-                            return;
-                        }
-                    } catch (e) {
-                        // ignore and fallback to local samples
-                    }
-                    // Fallback when server unavailable
-                    this.addSamplePosts();
                 },
                 getData(key) {
                     try {
@@ -732,41 +608,62 @@
                 },
                 addSamplePosts() {
                     if (this.posts.length === 0) {
-                            this.posts = [
+                        this.posts = [
                             {
                                 id: this.nextId++,
                                 title: 'Getting Started with Vue.js',
                                 author: 'Admin',
-                                    content: 'Vue.js is an amazing framework for building user interfaces. In this post, we\'ll explore the basics of Vue.js and why it\'s become so popular among developers.\n\nVue is progressive, meaning you can adopt it incrementally. Start with a simple script tag, or build a full-featured single-page application. The choice is yours!\n\nKey features include:\n- Reactive data binding\n- Component-based architecture\n- Virtual DOM for efficient updates\n- Easy to learn and use\n\nWhether you\'re building a small widget or a large application, Vue.js provides the tools you need to succeed.',
+                                content: 'Vue.js is an amazing framework for building user interfaces. In this post, we\'ll explore the basics of Vue.js and why it\'s become so popular among developers.\n\nVue is progressive, meaning you can adopt it incrementally. Start with a simple script tag, or build a full-featured single-page application. The choice is yours!\n\nKey features include:\n- Reactive data binding\n- Component-based architecture\n- Virtual DOM for efficient updates\n- Easy to learn and use\n\nWhether you\'re building a small widget or a large application, Vue.js provides the tools you need to succeed.',
                                 date: new Date().toISOString(),
-                                    tags: ['vue', 'javascript', 'tutorial'],
-                                    image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1400&auto=format&fit=crop&crop=entropy',
-                                    featured: true
+                                tags: ['vue', 'javascript', 'tutorial']
                             },
                             {
                                 id: this.nextId++,
                                 title: 'The Power of Modern Web Development',
                                 author: 'Admin',
-                                    content: 'Modern web development has come a long way. With tools like Vue, React, and Angular, we can build incredible user experiences that were impossible just a few years ago.\n\nThe web platform continues to evolve, adding new APIs and capabilities regularly. From Progressive Web Apps to WebAssembly, the possibilities are endless.\n\nIn this blog, I\'ll be sharing my journey learning these technologies and building cool projects. Stay tuned for more content!',
+                                content: 'Modern web development has come a long way. With tools like Vue, React, and Angular, we can build incredible user experiences that were impossible just a few years ago.\n\nThe web platform continues to evolve, adding new APIs and capabilities regularly. From Progressive Web Apps to WebAssembly, the possibilities are endless.\n\nIn this blog, I\'ll be sharing my journey learning these technologies and building cool projects. Stay tuned for more content!',
                                 date: new Date(Date.now() - 86400000).toISOString(),
-                                    tags: ['web development', 'programming', 'technology'],
-                                    image: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?q=80&w=1400&auto=format&fit=crop&crop=entropy',
-                                    featured: false
+                                tags: ['web development', 'programming', 'technology']
                             }
                         ];
                         this.saveData();
                     }
                 },
                 login() {
-                    if (this.loginUsername === 'admin' && this.loginPassword === 'password') {
-                        this.isLoggedIn = true;
-                        this.setData('isLoggedIn', true);
-                        this.loginError = '';
-                        this.loginUsername = '';
-                        this.loginPassword = '';
-                    } else {
-                        this.loginError = 'Invalid username or password';
-                    }
+                    // Try server-side login first
+                    fetch('/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: this.loginUsername, password: this.loginPassword })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data && data.success) {
+                            this.isLoggedIn = true;
+                            this.setData('isLoggedIn', true);
+                            this.loginError = '';
+                            this.loginUsername = '';
+                            this.loginPassword = '';
+                        } else {
+                            this.loginError = data && data.error ? data.error : 'Invalid username or password';
+                        }
+                    })
+                    .catch(() => this.loginError = 'Network error');
+                },
+
+                requestReset() {
+                    if (!this.resetEmail) { this.resetMessage = 'Please enter an email'; return; }
+                    fetch('/auth/request-reset', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: this.resetEmail })
+                    })
+                    .then(r => r.json())
+                    .then(() => {
+                        this.resetMessage = 'If an account exists, a reset email has been sent.';
+                        this.resetEmail = '';
+                    })
+                    .catch(() => this.resetMessage = 'Network error');
                 },
                 logout() {
                     // Call server to destroy session
@@ -795,17 +692,15 @@
                         title: post.title,
                         author: post.author,
                         content: post.content,
-                        tags: post.tags.join(', '),
-                        image: post.image || '',
-                        featured: !!post.featured
+                        tags: post.tags.join(', ')
                     };
                 },
                 cancelEdit() {
                     this.showNewPostForm = false;
                     this.editingPost = null;
-                    this.postForm = { title: '', author: '', content: '', tags: '', image: '', featured: false };
+                    this.postForm = { title: '', author: '', content: '', tags: '' };
                 },
-                async savePost() {
+                savePost() {
                     if (!this.postForm.title || !this.postForm.content) {
                         alert('Please fill in title and content');
                         return;
@@ -817,69 +712,32 @@
                         .filter(t => t);
 
                     if (this.editingPost) {
-                        // Update via API
-                        try {
-                            const resp = await fetch('/api/posts/' + this.editingPost.id, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    title: this.postForm.title,
-                                    author: this.postForm.author || 'Anonymous',
-                                    content: this.postForm.content,
-                                    tags: tags,
-                                    image: this.postForm.image || '',
-                                    featured: !!this.postForm.featured
-                                })
-                            });
-                            const data = await resp.json();
-                            if (data && data.success) {
-                                await this.fetchPosts();
-                            } else {
-                                alert('Failed to update post');
-                            }
-                        } catch (e) {
-                            alert('Network error');
-                        }
+                        const idx = this.posts.findIndex(p => p.id === this.editingPost.id);
+                        this.posts[idx] = {
+                            ...this.editingPost,
+                            title: this.postForm.title,
+                            author: this.postForm.author || 'Anonymous',
+                            content: this.postForm.content,
+                            tags: tags
+                        };
                     } else {
-                        // Create via API
-                        try {
-                            const resp = await fetch('/api/posts', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    title: this.postForm.title,
-                                    author: this.postForm.author || 'Anonymous',
-                                    content: this.postForm.content,
-                                    tags: tags,
-                                    image: this.postForm.image || '',
-                                    featured: !!this.postForm.featured
-                                })
-                            });
-                            const data = await resp.json();
-                            if (data && data.success) {
-                                await this.fetchPosts();
-                            } else {
-                                alert('Failed to create post');
-                            }
-                        } catch (e) {
-                            alert('Network error');
-                        }
+                        this.posts.unshift({
+                            id: this.nextId++,
+                            title: this.postForm.title,
+                            author: this.postForm.author || 'Anonymous',
+                            content: this.postForm.content,
+                            date: new Date().toISOString(),
+                            tags: tags
+                        });
                     }
 
+                    this.saveData();
                     this.cancelEdit();
                 },
                 deletePost(id) {
-                    if (!confirm('Are you sure you want to delete this post?')) return;
-                    try {
-                        fetch('/api/posts/' + id, { method: 'DELETE' })
-                            .then(r => r.json())
-                            .then(d => {
-                                if (d && d.success) this.fetchPosts();
-                                else alert('Failed to delete');
-                            })
-                            .catch(() => alert('Network error'));
-                    } catch (e) {
-                        alert('Network error');
+                    if (confirm('Are you sure you want to delete this post?')) {
+                        this.posts = this.posts.filter(p => p.id !== id);
+                        this.saveData();
                     }
                 },
                 formatDate(dateString) {
@@ -898,3 +756,11 @@
     </script>
 </body>
 </html>
+<!--
+    Google Sign-In Integration Notes:
+    1) Replace GOOGLE_CLIENT_ID constant in the script with your OAuth 2.0 Web Client ID from Google Cloud Console.
+    2) This implementation performs only client-side ID token decoding for convenience. For security, send the
+         ID token (response.credential) to your backend and verify it using Google's tokeninfo endpoint or
+         a Google OAuth client library before granting access.
+    3) If you want to restrict admin access to specific emails or domains, enforce that check on the server.
+-->
