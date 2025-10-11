@@ -658,7 +658,7 @@
                         const form = new FormData();
                         form.append('image', this.selectedFile);
                         try {
-                            const r = await fetch('/api/upload', { method: 'POST', body: form });
+                            const r = await fetch('/api/upload', { method: 'POST', body: form, credentials: 'include' });
                             const j = await r.json();
                             if (j && j.url) {
                                 this.postForm.image = j.url;
@@ -699,7 +699,7 @@
 
                 async fetchCategories() {
                     try {
-                        const r = await fetch('/api/categories');
+                        const r = await fetch('/api/categories', { credentials: 'include' });
                         const j = await r.json();
                         this.categories = j.categories || [];
                     } catch (e) {
@@ -722,19 +722,19 @@
                     if (!this.categoryForm.name) return alert('Name required');
                     try {
                         if (this.editingCategory) {
-                            const r = await fetch('/api/categories/' + this.editingCategory.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.categoryForm) });
+                            const r = await fetch('/api/categories/' + this.editingCategory.id, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.categoryForm) });
                             const j = await r.json();
-                            if (j.success) {
-                                await this.fetchCategories();
-                                this.cancelCategoryEdit();
-                            } else alert('Failed to update');
+                            if (r.status === 401) return alert('Not authenticated. Please login.');
+                            if (!j.success) return alert('Failed to update: ' + (j.error || JSON.stringify(j)));
+                            await this.fetchCategories();
+                            this.cancelCategoryEdit();
                         } else {
-                            const r = await fetch('/api/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.categoryForm) });
+                            const r = await fetch('/api/categories', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.categoryForm) });
                             const j = await r.json();
-                            if (j.success) {
-                                await this.fetchCategories();
-                                this.cancelCategoryEdit();
-                            } else alert('Failed to create');
+                            if (r.status === 401) return alert('Not authenticated. Please login.');
+                            if (!j.success) return alert('Failed to create: ' + (j.error || JSON.stringify(j)));
+                            await this.fetchCategories();
+                            this.cancelCategoryEdit();
                         }
                     } catch (e) {
                         console.error(e);
@@ -745,12 +745,13 @@
                 async deleteCategory(id) {
                     if (!confirm('Delete this category? Posts assigned to it will be uncategorized.')) return;
                     try {
-                        const r = await fetch('/api/categories/' + id, { method: 'DELETE' });
+                        const r = await fetch('/api/categories/' + id, { method: 'DELETE', credentials: 'include' });
                         const j = await r.json();
+                        if (r.status === 401) return alert('Not authenticated. Please login.');
                         if (j.success) {
                             await this.fetchCategories();
                             await this.fetchPosts();
-                        } else alert('Failed to delete');
+                        } else alert('Failed to delete: ' + (j.error || JSON.stringify(j)));
                     } catch (e) {
                         console.error(e);
                         alert('Delete error');
@@ -772,6 +773,7 @@
 
                     fetch('/auth/google', {
                         method: 'POST',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ id_token: token })
                     })
@@ -795,7 +797,7 @@
 
                 async checkAuthStatus() {
                     try {
-                        const resp = await fetch('/auth/status');
+                        const resp = await fetch('/auth/status', { credentials: 'include' });
                         const data = await resp.json();
                         if (data.loggedIn) {
                             this.isLoggedIn = true;
@@ -820,7 +822,7 @@
                 },
                 async fetchPosts() {
                     try {
-                        const resp = await fetch('/api/posts');
+                        const resp = await fetch('/api/posts', { credentials: 'include' });
                         const data = await resp.json();
                         if (data && Array.isArray(data.posts)) {
                             this.posts = data.posts;
@@ -936,6 +938,7 @@
                         try {
                             const resp = await fetch('/api/posts/' + this.editingPost.id, {
                                 method: 'PUT',
+                                credentials: 'include',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     title: this.postForm.title,
@@ -961,6 +964,7 @@
                         try {
                             const resp = await fetch('/api/posts', {
                                 method: 'POST',
+                                credentials: 'include',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     title: this.postForm.title,

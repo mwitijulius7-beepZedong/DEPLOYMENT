@@ -28,7 +28,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
-const multer = require('multer');
+const fileUpload = require('express-fileupload');
 
 const USERS_FILE = path.join(__dirname, 'users.json');
 const POSTS_FILE = path.join(__dirname, 'posts.json');
@@ -40,20 +40,8 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR);
 }
 app.use('/uploads', express.static(UPLOADS_DIR));
-
-// Multer storage config (local disk)
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, UPLOADS_DIR);
-  },
-  filename: function (req, file, cb) {
-    // sanitize original name and prefix with timestamp
-    const safe = file.originalname.replace(/[^a-z0-9.\-\_]/gi, '_');
-    cb(null, Date.now() + '_' + safe);
-  }
-});
-
-const upload = multer({ storage });
+// express-fileupload middleware (for simpler local uploads)
+app.use(fileUpload({ createParentPath: true }));
 
 function loadUsers() {
   try {
@@ -278,11 +266,21 @@ app.post('/api/posts', requireAuth, (req, res) => {
 });
 
 // POST /api/upload - upload image (admin only)
-app.post('/api/upload', requireAuth, upload.single('image'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'no file uploaded' });
-  // Return public URL
-  const url = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-  return res.json({ success: true, url });
+app.post('/api/upload', requireAuth, (req, res) => {
+  if (!req.files || !req.files.image) return res.status(400).json({ error: 'no file uploaded' });
+  const image = req.files.image;
+  // sanitize filename
+  const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
+  const filename = Date.now() + '_' + safe;
+  const dest = path.join(UPLOADS_DIR, filename);
+  try {
+    image.mv(dest);
+    const url = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
+    return res.json({ success: true, url });
+  } catch (e) {
+    console.error('upload error', e);
+    return res.status(500).json({ error: 'upload failed' });
+  }
 });
 
 // PUT /api/posts/:id - update (admin only)
