@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personal Blog & Admin</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <!-- Google Identity Services (replace CLIENT_ID below with your real client ID) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * {
             margin: 0;
@@ -379,9 +381,14 @@
                         <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
                     </div>
                     <button class="btn" style="width: 100%;" @click="login">Login</button>
-                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem; text-align: center;">
-                        Default: admin / password
+                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem; text-align: center;">\n+                        Default: admin / password
                     </p>
+                    <!-- Google Sign-In -->
+                    <div style="text-align: center; margin-top: 1.25rem;">
+                        <div id="gSignInButton"></div>
+                        <p style="margin-top:0.75rem; color:#666; font-size:0.9rem;">Or sign in with your Google account</p>
+                        <p style="margin-top:0.25rem; color:#9ca3af; font-size:0.8rem;">(Replace the placeholder client ID in the script with your Google Cloud OAuth 2.0 Client ID)</p>
+                    </div>
                 </div>
 
                 <!-- Admin Panel -->
@@ -448,6 +455,21 @@
     </div>
 
     <script>
+        // OAuth 2.0 Web Client ID from Google Cloud
+        const GOOGLE_CLIENT_ID = '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com';
+
+        // Minimal JWT decoder for client-side ID token parsing (no signature verification)
+        function decodeJwt (token) {
+            try {
+                const parts = token.split('.');
+                if (parts.length !== 3) return null;
+                const payload = parts[1];
+                const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+                return JSON.parse(decodeURIComponent(escape(json)));
+            } catch (e) {
+                return null;
+            }
+        }
         const { createApp } = Vue;
 
         createApp({
@@ -475,8 +497,80 @@
             mounted() {
                 this.loadData();
                 this.addSamplePosts();
+                // Initialize Google Identity after mount
+                this.initGoogleIdentity();
+                // Check server session status
+                this.checkAuthStatus();
             },
             methods: {
+                initGoogleIdentity() {
+                    // Wait until the Google Identity script has loaded
+                    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+                        // Retry shortly if script hasn't loaded yet
+                        setTimeout(() => this.initGoogleIdentity(), 200);
+                        return;
+                    }
+
+                    // Render the Google Sign-In button
+                    window.google.accounts.id.initialize({
+                        client_id: GOOGLE_CLIENT_ID,
+                        callback: (response) => this.handleGoogleCredential(response)
+                    });
+
+                    window.google.accounts.id.renderButton(
+                        document.getElementById('gSignInButton'),
+                        { theme: 'outline', size: 'large', width: '250' } // customization
+                    );
+
+                    // Optionally prompt the One Tap UX (commented out by default)
+                    // window.google.accounts.id.prompt();
+                },
+
+                handleGoogleCredential(response) {
+                    // response.credential is a JWT ID token. Send it to server for verification.
+                    const token = response && response.credential;
+                    if (!token) {
+                        this.loginError = 'Google sign-in failed';
+                        return;
+                    }
+
+                    fetch('/auth/google', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id_token: token })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data && data.success) {
+                            this.isLoggedIn = true;
+                            this.setData('isLoggedIn', true);
+                            this.loginError = '';
+                            this.loginUsername = '';
+                            this.loginPassword = '';
+                        } else {
+                            this.loginError = data && data.error ? data.error : 'Server verification failed';
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        this.loginError = 'Network error';
+                    });
+                },
+
+                async checkAuthStatus() {
+                    try {
+                        const resp = await fetch('/auth/status');
+                        const data = await resp.json();
+                        if (data.loggedIn) {
+                            this.isLoggedIn = true;
+                        } else {
+                            this.isLoggedIn = false;
+                        }
+                    } catch (e) {
+                        this.isLoggedIn = false;
+                    }
+                },
+
                 loadData() {
                     const saved = this.getData('blogPosts');
                     if (saved) {
@@ -534,10 +628,22 @@
                     }
                 },
                 logout() {
-                    this.isLoggedIn = false;
-                    this.setData('isLoggedIn', false);
-                    this.showNewPostForm = false;
-                    this.editingPost = null;
+                    // Call server to destroy session
+                    fetch('/auth/logout', { method: 'POST' })
+                        .then(r => r.json())
+                        .then(() => {
+                            this.isLoggedIn = false;
+                            this.setData('isLoggedIn', false);
+                            this.showNewPostForm = false;
+                            this.editingPost = null;
+                        })
+                        .catch(() => {
+                            // Fallback: clear client state even if server call fails
+                            this.isLoggedIn = false;
+                            this.setData('isLoggedIn', false);
+                            this.showNewPostForm = false;
+                            this.editingPost = null;
+                        });
                 },
                 viewPost(post) {
                     this.selectedPost = post;
