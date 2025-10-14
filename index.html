@@ -426,12 +426,19 @@
 
             <!-- Single Post View -->
             <div v-if="currentView === 'blog' && selectedPost">
-                <button class="back-button" @click="selectedPost = null">← Back to Posts</button>
+                <button class="back-button" @click="goBackToList">← Back to Posts</button>
                 <div class="post-detail">
                     <h1 class="post-title">{{ selectedPost.title }}</h1>
                     <div class="post-meta">{{ formatDate(selectedPost.date) }} · {{ selectedPost.author }}</div>
-                    <div class="post-tags" style="margin: 1rem 0 2rem 0;">
+                    <div class="post-tags" style="margin: 1rem 0 1rem 0;">
                         <span v-for="tag in selectedPost.tags" :key="tag" class="tag">{{ tag }}</span>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:1.5rem;">
+                        <span style="color:#6b7280;">Share:</span>
+                        <a :href="shareLinks.twitter" target="_blank" rel="noopener" class="btn btn-small" style="background:#1DA1F2;">Twitter</a>
+                        <a :href="shareLinks.facebook" target="_blank" rel="noopener" class="btn btn-small" style="background:#1877F2;">Facebook</a>
+                        <a :href="shareLinks.linkedin" target="_blank" rel="noopener" class="btn btn-small" style="background:#0A66C2;">LinkedIn</a>
+                        <button class="btn btn-small" style="background:#6b7280;" @click="copyPermalink">Copy link</button>
                     </div>
                     <div class="post-content">{{ selectedPost.content }}</div>
                 </div>
@@ -1016,6 +1023,16 @@
                 },
                 viewPost(post) {
                     this.selectedPost = post;
+                    // Update URL for sharable permalinks
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('post', String(post.id));
+                    window.history.pushState({ postId: post.id }, '', url.toString());
+                },
+                goBackToList() {
+                    this.selectedPost = null;
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('post');
+                    window.history.pushState({}, '', url.toString());
                 },
                 editPost(post) {
                     this.editingPost = post;
@@ -1125,6 +1142,55 @@
                 },
                 getExcerpt(content) {
                     return content.length > 150 ? content.substring(0, 150) + '...' : content;
+                },
+                async copyPermalink() {
+                    const baseUrl = window.location.origin + window.location.pathname;
+                    const url = new URL(baseUrl);
+                    if (this.selectedPost) url.searchParams.set('post', String(this.selectedPost.id));
+                    const link = url.toString();
+                    try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(link);
+                            alert('Link copied to clipboard');
+                        } else {
+                            throw new Error('clipboard not available');
+                        }
+                    } catch (e) {
+                        prompt('Copy this link:', link);
+                    }
+                }
+            },
+            computed: {
+                shareLinks() {
+                    const baseUrl = window.location.origin + window.location.pathname;
+                    const title = this.selectedPost ? this.selectedPost.title : this.blogTitle;
+                    const url = new URL(baseUrl);
+                    if (this.selectedPost) url.searchParams.set('post', String(this.selectedPost.id));
+                    const u = encodeURIComponent(url.toString());
+                    const t = encodeURIComponent(title);
+                    return {
+                        twitter: `https://twitter.com/intent/tweet?url=${u}&text=${t}`,
+                        facebook: `https://www.facebook.com/sharer/sharer.php?u=${u}`,
+                        linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${u}`
+                    };
+                }
+            },
+            mounted() {
+                // existing mounted content is above; add popstate and deep link handling
+                window.addEventListener('popstate', () => {
+                    const id = parseInt(new URLSearchParams(window.location.search).get('post'), 10);
+                    if (id && Array.isArray(this.posts)) {
+                        const p = this.posts.find(x => x.id === id);
+                        this.selectedPost = p || null;
+                    } else {
+                        this.selectedPost = null;
+                    }
+                });
+                // If a permalink is opened directly
+                const initialId = parseInt(new URLSearchParams(window.location.search).get('post'), 10);
+                if (initialId && Array.isArray(this.posts)) {
+                    const p = this.posts.find(x => x.id === initialId);
+                    if (p) this.selectedPost = p;
                 }
             }
         }).mount('#app');
