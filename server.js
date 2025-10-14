@@ -4,6 +4,7 @@ const fetch = require('node-fetch');
 const { OAuth2Client } = require('google-auth-library');
 const session = require('express-session');
 const path = require('path');
+const fileUpload = require('express-fileupload');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,12 +25,30 @@ app.use(session({
   cookie: { secure: false } // secure: true requires HTTPS
 }));
 
+// Static files and file uploads
 const fs = require('fs');
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+// Enable multipart file uploads
+app.use(fileUpload({
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit (validated again in handler)
+  useTempFiles: false,
+  createParentPath: true
+}));
+
+// Serve the uploads directory and public assets (index.html, reset.html, etc.)
+app.use('/uploads', express.static(UPLOADS_DIR));
+app.use(express.static(__dirname));
+
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const POSTS_FILE = path.join(__dirname, 'posts.json');
+const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
 
 function loadUsers() {
   try {
@@ -53,6 +72,18 @@ function loadPosts() {
 
 function savePosts(posts) {
   fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
+}
+
+function loadCategories() {
+  try {
+    return JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveCategories(categories) {
+  fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
 }
 
 
@@ -232,7 +263,7 @@ app.post('/api/posts', requireAuth, (req, res) => {
 });
 
 // POST /api/upload - upload image (admin only)
-app.post('/api/upload', requireAuth, (req, res) => {
+app.post('/api/upload', requireAuth, async (req, res) => {
   try {
     if (!req.files || !req.files.image) return res.status(400).json({ error: 'no file uploaded' });
     const image = req.files.image;
@@ -254,8 +285,8 @@ app.post('/api/upload', requireAuth, (req, res) => {
       if (image.data && Buffer.isBuffer(image.data)) {
         fs.writeFileSync(dest, image.data);
       } else if (typeof image.mv === 'function') {
-        // fallback to mv if available
-        image.mv(dest, (err) => { if (err) throw err; });
+        // Promisify mv to ensure completion before responding
+        await new Promise((resolve, reject) => image.mv(dest, err => err ? reject(err) : resolve()));
       } else {
         return res.status(500).json({ error: 'no_write_method' });
       }
@@ -319,7 +350,6 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
 
 // Categories API
 // GET /api/categories - public
-// Categories API temporarily disabled due to stability issues. Return 501 for now.
 app.get('/api/categories', (req, res) => {
   let categories = loadCategories();
   // Return categories sorted by name for stable UI ordering
