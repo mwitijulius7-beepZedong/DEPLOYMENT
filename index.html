@@ -108,6 +108,7 @@
             padding: 1.5rem 0;
             box-shadow: 0 2px 20px rgba(0,0,0,0.15);
             backdrop-filter: blur(10px);
+            overflow: visible;
         }
 
         .header-content {
@@ -128,6 +129,7 @@
             display: flex;
             gap: 1rem;
             align-items: center;
+            overflow: visible;
         }
 
         .theme-toggle {
@@ -154,6 +156,8 @@
             padding: 0.5rem 1rem;
             border-radius: 5px;
             transition: background 0.3s;
+            position: relative;
+            z-index: 1;
         }
 
         .nav button:hover {
@@ -169,6 +173,7 @@
             max-width: 1200px;
             margin: 2rem auto;
             padding: 0 2rem;
+            overflow: visible;
         }
 
         /* Blog Posts */
@@ -273,6 +278,7 @@
             box-shadow: 0 4px 20px rgba(139, 115, 85, 0.15);
             backdrop-filter: blur(5px);
             border: 1px solid var(--border-color);
+            overflow: visible;
         }
 
         .admin-header {
@@ -630,6 +636,58 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
 
+        .settings-dropdown {
+            position: relative;
+            display: inline-block;
+            z-index: 2147483647;
+        }
+
+        .dropdown-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 2147483647;
+            pointer-events: none;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: 80px;
+            right: 2rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            min-width: 150px;
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+        }
+
+        .dropdown-menu button {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: none;
+            border: none;
+            color: var(--text-color);
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .dropdown-menu button:hover {
+            background: var(--bg-color);
+        }
+
+        .dropdown-menu button:first-child {
+            border-radius: 8px 8px 0 0;
+        }
+
+        .dropdown-menu button:last-child {
+            border-radius: 0 0 8px 8px;
+        }
+
         .comments-section {
             margin-top: 3rem;
             padding-top: 2rem;
@@ -694,10 +752,28 @@
                 <div class="logo">{{ blogTitle }}</div>
                 <nav class="nav">
                     <button @click="currentView = 'blog'" :class="{ active: currentView === 'blog' }">Blog</button>
-                    <button @click="currentView = 'admin'" :class="{ active: currentView === 'admin' }">Admin</button>
-                    <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
-                        {{ isDarkMode ? '☀️' : '🌙' }}
-                    </button>
+                    <template v-if="currentView === 'admin' && isLoggedIn">
+                        <button @click="showNewPostForm = true; currentView = 'admin'">+ New Post</button>
+                        <button @click="showAnalytics = !showAnalytics; currentView = 'admin'">Analytics</button>
+                        <div class="settings-dropdown" @mouseenter="showSettingsMenu = true" @mouseleave="showSettingsMenu = false">
+                            <button>Settings ▼</button>
+                            <div v-if="showSettingsMenu" class="dropdown-backdrop">
+                                <div class="dropdown-menu">
+                                    <button @click="openSettings('general')">General</button>
+                                    <button @click="openSettings('background')">Background</button>
+                                    <button @click="openSettings('social')">Social Links</button>
+                                    <button @click="openSettings('email')">Email Config</button>
+                                    <button @click="openSettings('categories')">Categories</button>
+                                </div>
+                            </div>
+                        </div>
+                        <button @click="logout">Logout</button>
+                    </template>
+                    <template v-if="currentView === 'blog'">
+                        <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
+                            {{ isDarkMode ? '☀️' : '🌙' }}
+                        </button>
+                    </template>
                 </nav>
             </div>
         </div>
@@ -779,6 +855,13 @@
                         <a v-if="socialLinks.twitter" :href="socialLinks.twitter" target="_blank" class="social-link" style="background:#1da1f2; color:white;">🐦 Twitter</a>
                         <a v-if="socialLinks.whatsapp" :href="socialLinks.whatsapp" target="_blank" class="social-link" style="background:#25d366; color:white;">📱 WhatsApp</a>
                     </div>
+                </div>
+                
+                <!-- Admin Access (Bottom Right) -->
+                <div v-if="currentView === 'blog'" style="position:fixed; bottom:2rem; right:2rem; z-index:1000;">
+                    <button @click="currentView = 'admin'" style="background:var(--primary-color); color:white; border:none; padding:1rem; border-radius:50%; cursor:pointer; font-size:1.2rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="Admin Portal">
+                        🔒
+                    </button>
                 </div>
             </div>
 
@@ -904,15 +987,7 @@
                 <!-- Admin Panel -->
                 <div v-if="isLoggedIn" class="admin-panel">
                     <div class="admin-header">
-                        <h2>{{ editingPost ? 'Edit Post' : 'Manage Posts' }}</h2>
-                        <div>
-                            <button v-if="!editingPost && !showNewPostForm" class="btn" @click="showNewPostForm = true">
-                                + New Post
-                            </button>
-                            <button class="btn" style="margin-left: 1rem;" @click="logout">Logout</button>
-                            <button class="btn" style="margin-left: 1rem; background:#6b7280;" @click="showAnalytics = !showAnalytics">Analytics</button>
-                            <button class="btn" style="margin-left: 1rem; background:#6b7280;" @click="showAdminSettings = !showAdminSettings">Settings</button>
-                        </div>
+                        <h2>{{ getAdminTitle() }}</h2>
                     </div>
 
                     <!-- New/Edit Post Form -->
@@ -1074,123 +1149,131 @@
                         </div>
                     </div>
                     
-                    <!-- Admin Settings -->
-                    <div v-if="showAdminSettings" style="margin-top:2rem; background:var(--card-bg); padding:2rem; border-radius:12px; border:1px solid var(--border-color);">
-                        <h3 style="color:var(--text-color); margin-bottom:1.5rem;">Admin Settings</h3>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem;">
-                            <div>
-                                <h4 style="margin-bottom:1rem; color:var(--text-color);">Backup & Export</h4>
-                                <div style="display:flex; flex-direction:column; gap:0.5rem;">
-                                    <button class="btn" @click="exportData">Export All Data</button>
-                                    <button class="btn" @click="exportPosts">Export Posts Only</button>
-                                    <input type="file" ref="importFile" @change="importData" accept=".json" style="display:none;">
-                                    <button class="btn" style="background:#6b7280;" @click="$refs.importFile.click()">Import Data</button>
+                    <!-- Settings Sections -->
+                    <div v-if="activeSettingsTab" style="margin-top:2rem; background:var(--card-bg); padding:2rem; border-radius:12px; border:1px solid var(--border-color);">
+                        <h3 style="color:var(--text-color); margin-bottom:1.5rem;">{{ getSettingsTitle() }}</h3>
+                        
+                        <!-- General Settings -->
+                        <div v-if="activeSettingsTab === 'general'">
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem;">
+                                <div>
+                                    <h4 style="margin-bottom:1rem; color:var(--text-color);">Update Admin</h4>
+                                    <div class="form-group">
+                                        <label>Username</label>
+                                        <input v-model="setupForm.username" type="text">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>New Password</label>
+                                        <input v-model="setupForm.password" type="password">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Display Name</label>
+                                        <input v-model="setupForm.name" type="text">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Email</label>
+                                        <input v-model="setupForm.email" type="email">
+                                    </div>
+                                    <button class="btn" @click="updateAdmin">Update Admin</button>
                                 </div>
-                            </div>
-                            <div>
-                                <h4 style="margin-bottom:1rem; color:var(--text-color);">Update Admin</h4>
-                                <div class="form-group">
-                                    <label>Username</label>
-                                    <input v-model="setupForm.username" type="text">
-                                </div>
-                                <div class="form-group">
-                                    <label>New Password</label>
-                                    <input v-model="setupForm.password" type="password">
-                                </div>
-                                <div class="form-group">
-                                    <label>Display Name</label>
-                                    <input v-model="setupForm.name" type="text">
-                                </div>
-                                <div class="form-group">
-                                    <label>Email</label>
-                                    <input v-model="setupForm.email" type="email">
-                                </div>
-                                <button class="btn" @click="updateAdmin">Update Admin</button>
-                            </div>
-                            <div>
-                                <h4 style="margin-bottom:1rem; color:var(--text-color);">Background Settings</h4>
-                                <div class="form-group">
-                                    <label>Background Image URL</label>
-                                    <input v-model="backgroundForm.url" type="url" placeholder="https://example.com/image.jpg">
-                                </div>
-                                <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
-                                    <input type="file" ref="bgImageInput" @change="onSelectBgFile" accept="image/*" style="flex:1;">
-                                    <button class="btn btn-small" @click="uploadBackgroundImage" :disabled="!selectedBgFile">Upload</button>
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:0.5rem;">
-                                    <button class="btn" @click="setBackground">Set Background</button>
-                                    <button class="btn" style="background:#6b7280;" @click="previewBackground">Preview</button>
-                                    <button class="btn btn-danger" @click="removeBackground">Remove Background</button>
-                                </div>
-                                <div v-if="backgroundForm.url" style="margin-top:1rem;">
-                                    <img :src="backgroundForm.url" alt="Background preview" style="width:100%; max-width:200px; border-radius:8px; opacity:0.7;">
-                                </div>
-                            </div>
-                            <div>
-                                <h4 style="margin-bottom:1rem; color:var(--text-color);">Categories</h4>
-                                <div style="max-height:200px; overflow-y:auto; margin-bottom:1rem;">
-                                    <div v-for="cat in categories" :key="cat.id" style="background:var(--bg-color); padding:0.5rem; border-radius:4px; margin-bottom:0.5rem; display:flex; justify-content:space-between; align-items:center;">
-                                        <div>
-                                            <strong>{{ cat.name }}</strong>
-                                            <div style="font-size:0.8rem; color:var(--text-muted)">{{ cat.description }}</div>
-                                        </div>
-                                        <div style="display:flex; gap:0.25rem;">
-                                            <button class="btn btn-small" style="font-size:0.8rem; padding:0.25rem 0.5rem;" @click="startEditCategory(cat)">Edit</button>
-                                            <button class="btn btn-danger btn-small" style="font-size:0.8rem; padding:0.25rem 0.5rem;" @click="deleteCategory(cat.id)">Delete</button>
-                                        </div>
+                                <div>
+                                    <h4 style="margin-bottom:1rem; color:var(--text-color);">Backup & Export</h4>
+                                    <div style="display:flex; flex-direction:column; gap:0.5rem;">
+                                        <button class="btn" @click="exportData">Export All Data</button>
+                                        <button class="btn" @click="exportPosts">Export Posts Only</button>
+                                        <input type="file" ref="importFile" @change="importData" accept=".json" style="display:none;">
+                                        <button class="btn" style="background:#6b7280;" @click="$refs.importFile.click()">Import Data</button>
                                     </div>
                                 </div>
-                                <div class="form-group">
-                                    <input v-model="categoryForm.name" type="text" placeholder="Category name" style="margin-bottom:0.5rem;">
-                                </div>
-                                <div class="form-group">
-                                    <input v-model="categoryForm.description" type="text" placeholder="Description" style="margin-bottom:0.5rem;">
-                                </div>
-                                <div style="display:flex; gap:0.5rem;">
-                                    <button class="btn btn-small" @click="saveCategory">{{ editingCategory ? 'Update' : 'Add' }}</button>
-                                    <button class="btn btn-small" style="background:#6b7280;" @click="cancelCategoryEdit">Cancel</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Background Settings -->
+                        <div v-if="activeSettingsTab === 'background'">
+                            <div class="form-group">
+                                <label>Background Image URL</label>
+                                <input v-model="backgroundForm.url" type="url" placeholder="https://example.com/image.jpg">
+                            </div>
+                            <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                                <input type="file" ref="bgImageInput" @change="onSelectBgFile" accept="image/*" style="flex:1;">
+                                <button class="btn btn-small" @click="uploadBackgroundImage" :disabled="!selectedBgFile">Upload</button>
+                            </div>
+                            <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                                <button class="btn" @click="setBackground">Set Background</button>
+                                <button class="btn" style="background:#6b7280;" @click="previewBackground">Preview</button>
+                                <button class="btn btn-danger" @click="removeBackground">Remove Background</button>
+                            </div>
+                            <div v-if="backgroundForm.url" style="margin-top:1rem;">
+                                <img :src="backgroundForm.url" alt="Background preview" style="width:100%; max-width:300px; border-radius:8px; opacity:0.7;">
+                            </div>
+                        </div>
+                        
+                        <!-- Social Links Settings -->
+                        <div v-if="activeSettingsTab === 'social'">
+                            <div class="form-group">
+                                <label>LinkedIn URL</label>
+                                <input v-model="socialLinks.linkedin" type="url" placeholder="https://linkedin.com/in/yourprofile">
+                            </div>
+                            <div class="form-group">
+                                <label>Facebook URL</label>
+                                <input v-model="socialLinks.facebook" type="url" placeholder="https://facebook.com/yourprofile">
+                            </div>
+                            <div class="form-group">
+                                <label>Twitter URL</label>
+                                <input v-model="socialLinks.twitter" type="url" placeholder="https://twitter.com/yourhandle">
+                            </div>
+                            <div class="form-group">
+                                <label>WhatsApp URL</label>
+                                <input v-model="socialLinks.whatsapp" type="url" placeholder="https://wa.me/yourphonenumber">
+                            </div>
+                            <button class="btn" @click="saveSocialLinks">Save Social Links</button>
+                        </div>
+                        
+                        <!-- Email Settings -->
+                        <div v-if="activeSettingsTab === 'email'">
+                            <div class="form-group">
+                                <label>SMTP Host</label>
+                                <input v-model="emailSettings.host" type="text" placeholder="smtp.gmail.com">
+                            </div>
+                            <div class="form-group">
+                                <label>SMTP Port</label>
+                                <input v-model="emailSettings.port" type="number" placeholder="587">
+                            </div>
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input v-model="emailSettings.user" type="email" placeholder="your-email@gmail.com">
+                            </div>
+                            <div class="form-group">
+                                <label>App Password</label>
+                                <input v-model="emailSettings.pass" type="password" placeholder="Gmail app password">
+                            </div>
+                            <button class="btn" @click="saveEmailSettings">Save Email Settings</button>
+                            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;">Note: Use Gmail app password, not regular password</p>
+                        </div>
+                        
+                        <!-- Categories Settings -->
+                        <div v-if="activeSettingsTab === 'categories'">
+                            <div style="max-height:300px; overflow-y:auto; margin-bottom:1rem;">
+                                <div v-for="cat in categories" :key="cat.id" style="background:var(--bg-color); padding:0.75rem; border-radius:4px; margin-bottom:0.5rem; display:flex; justify-content:space-between; align-items:center;">
+                                    <div>
+                                        <strong>{{ cat.name }}</strong>
+                                        <div style="font-size:0.8rem; color:var(--text-muted)">{{ cat.description }}</div>
+                                    </div>
+                                    <div style="display:flex; gap:0.5rem;">
+                                        <button class="btn btn-small" @click="startEditCategory(cat)">Edit</button>
+                                        <button class="btn btn-danger btn-small" @click="deleteCategory(cat.id)">Delete</button>
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <h4 style="margin-bottom:1rem; color:var(--text-color);">Social Links</h4>
-                                <div class="form-group">
-                                    <label>LinkedIn URL</label>
-                                    <input v-model="socialLinks.linkedin" type="url" placeholder="https://linkedin.com/in/yourprofile">
-                                </div>
-                                <div class="form-group">
-                                    <label>Facebook URL</label>
-                                    <input v-model="socialLinks.facebook" type="url" placeholder="https://facebook.com/yourprofile">
-                                </div>
-                                <div class="form-group">
-                                    <label>Twitter URL</label>
-                                    <input v-model="socialLinks.twitter" type="url" placeholder="https://twitter.com/yourhandle">
-                                </div>
-                                <div class="form-group">
-                                    <label>WhatsApp URL</label>
-                                    <input v-model="socialLinks.whatsapp" type="url" placeholder="https://wa.me/yourphonenumber">
-                                </div>
-                                <button class="btn" @click="saveSocialLinks">Save Social Links</button>
+                            <div class="form-group">
+                                <input v-model="categoryForm.name" type="text" placeholder="Category name" style="margin-bottom:0.5rem;">
                             </div>
-                            <div>
-                                <h4 style="margin-bottom:1rem; color:var(--text-color);">Email Settings (for password reset)</h4>
-                                <div class="form-group">
-                                    <label>SMTP Host</label>
-                                    <input v-model="emailSettings.host" type="text" placeholder="smtp.gmail.com">
-                                </div>
-                                <div class="form-group">
-                                    <label>SMTP Port</label>
-                                    <input v-model="emailSettings.port" type="number" placeholder="587">
-                                </div>
-                                <div class="form-group">
-                                    <label>Email</label>
-                                    <input v-model="emailSettings.user" type="email" placeholder="your-email@gmail.com">
-                                </div>
-                                <div class="form-group">
-                                    <label>App Password</label>
-                                    <input v-model="emailSettings.pass" type="password" placeholder="Gmail app password">
-                                </div>
-                                <button class="btn" @click="saveEmailSettings">Save Email Settings</button>
-                                <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;">Note: Use Gmail app password, not regular password</p>
+                            <div class="form-group">
+                                <input v-model="categoryForm.description" type="text" placeholder="Description" style="margin-bottom:0.5rem;">
+                            </div>
+                            <div style="display:flex; gap:0.5rem;">
+                                <button class="btn" @click="saveCategory">{{ editingCategory ? 'Update' : 'Add' }}</button>
+                                <button class="btn" style="background:#6b7280;" @click="cancelCategoryEdit">Cancel</button>
                             </div>
                         </div>
                     </div>
@@ -1252,6 +1335,8 @@
                     categories: [],
                     showAdminSettings: false,
                     showAnalytics: false,
+                    showSettingsMenu: false,
+                    activeSettingsTab: null,
                     selectedPosts: [],
                     // Monthly management
                     showMonthModal: false,
@@ -1700,6 +1785,31 @@
                 saveEmailSettings() {
                     // Note: In a real app, these should be stored securely on the server
                     alert('Email settings would be saved on server for password reset functionality');
+                },
+                openSettings(tab) {
+                    this.activeSettingsTab = tab;
+                    this.currentView = 'admin';
+                    this.showSettingsMenu = false;
+                    this.showAnalytics = false;
+                    this.showNewPostForm = false;
+                    this.editingPost = null;
+                },
+                getAdminTitle() {
+                    if (this.editingPost) return 'Edit Post';
+                    if (this.showNewPostForm) return 'New Post';
+                    if (this.showAnalytics) return 'Analytics Dashboard';
+                    if (this.activeSettingsTab) return this.getSettingsTitle();
+                    return 'Manage Posts';
+                },
+                getSettingsTitle() {
+                    const titles = {
+                        general: 'General Settings',
+                        background: 'Background Settings',
+                        social: 'Social Links',
+                        email: 'Email Configuration',
+                        categories: 'Categories Management'
+                    };
+                    return titles[this.activeSettingsTab] || 'Settings';
                 },
                 onSelectFile(e) {
                         const f = e.target.files && e.target.files[0];

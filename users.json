@@ -2,6 +2,8 @@
   "admin": {
     "name": "Mwitijulius7",
     "email": "mwitijulius7@gmail.com",
-    "passwordHash": "Mwitijulius7@Jm"
+    "passwordHash": "Mwitijulius7@Jm",
+    "resetToken": "183bfc6e8171f422eb092c3bfa9d2a0cc5df9e44adc00dfa",
+    "resetExpires": 1760790544833
   }
 }
