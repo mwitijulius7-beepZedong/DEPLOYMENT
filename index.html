@@ -34,6 +34,11 @@
             transition: background 0.3s, color 0.3s;
             margin: 0;
             padding: 0;
+            overflow-x: hidden;
+        }
+        
+        html {
+            overflow-x: hidden;
         }
 
         :root {
@@ -101,6 +106,17 @@
 
         #app {
             min-height: 100vh;
+        }
+        
+        #app .header {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 9999 !important;
+            width: 100% !important;
+            transform: none !important;
+            will-change: auto !important;
         }
 
         /* Header */
@@ -1285,12 +1301,14 @@
     </div>
     <div class="content-overlay">
     <div id="app">
-        <div class="header">
+        <div class="header" style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; z-index: 9999 !important; width: 100% !important;">
             <div class="header-content">
-                <div class="profile-photo" style="width:50px; height:50px; border-radius:50%; background-size:cover; background-position:center; border:2px solid rgba(255,255,255,0.3); cursor:pointer;" :style="{ backgroundImage: profilePhoto ? 'url(' + profilePhoto + ')' : '' }" @click="currentView === 'admin' && isLoggedIn ? showProfileUpload = true : null" :title="currentView === 'admin' && isLoggedIn ? 'Click to change photo' : ''">
-                    <div v-if="!profilePhoto" style="display:flex; align-items:center; justify-content:center; height:100%; color:rgba(255,255,255,0.7); font-size:1.2rem;">👤</div>
+                <div class="header-left">
+                    <div class="profile-photo" style="width:50px; height:50px; border-radius:50%; background-size:cover; background-position:center; border:2px solid rgba(255,255,255,0.3); cursor:pointer;" :style="{ backgroundImage: profilePhoto ? 'url(' + profilePhoto + ')' : '' }" @click="currentView === 'admin' && isLoggedIn ? showProfileUpload = true : null" :title="currentView === 'admin' && isLoggedIn ? 'Click to change photo' : ''">
+                        <div v-if="!profilePhoto" style="display:flex; align-items:center; justify-content:center; height:100%; color:rgba(255,255,255,0.7); font-size:1.2rem;">👤</div>
+                    </div>
+                    <div class="logo">{{ blogTitle }}</div>
                 </div>
-                <div class="logo">{{ blogTitle }}</div>
                 <nav class="nav">
                     <button @click="handleBlogClick" :class="{ active: currentView === 'blog' }">Blog</button>
                     <template v-if="currentView === 'admin' && isLoggedIn">
@@ -1308,7 +1326,7 @@
                                 <button @click="openSettings('background'); showSettingsMenu = false">Background</button>
                                 <button @click="openSettings('social'); showSettingsMenu = false">Social Links</button>
                                 <button @click="openSettings('email'); showSettingsMenu = false">Email Config</button>
-                                <button @click="openSettings('categories'); showSettingsMenu = false">Categories</button>
+                                <button @click="activeSettingsTab = null; showCategoryManagement = true; showSettingsMenu = false">Categories</button>
                                 <button @click="openSettings('profile'); showSettingsMenu = false">Profile Photo</button>
                                 <button @click="logout; showSettingsMenu = false" style="border-top: 2px solid var(--border-color); margin-top: 0.5rem; padding-top: 1rem;">Logout</button>
                             </div>
@@ -1318,7 +1336,7 @@
             </div>
         </div>
 
-        <div class="container">
+        <div class="container" style="margin-top: 120px !important; padding-top: 2rem !important;">
             <!-- New Post Banner -->
             <div v-if="currentView === 'blog' && newestPost && !selectedPost && !isDismissed(newestPost.id)" style="position:fixed; top:120px; right:2rem; background:var(--primary-color); color:white; padding:0.75rem 1rem; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:999; animation:slideIn 0.5s ease;">
                 <button @click="dismissBanner(newestPost.id)" style="position:absolute; top:0.25rem; right:0.25rem; background:rgba(255,255,255,0.2); border:none; color:red; cursor:pointer; font-size:1.2rem; line-height:1; border-radius:50%; width:1.5rem; height:1.5rem; display:flex; align-items:center; justify-content:center; font-weight:bold;">&times;</button>
@@ -2012,27 +2030,143 @@
                         
                         <!-- Categories Settings -->
                         <div v-if="activeSettingsTab === 'categories'">
-                            <div style="max-height:300px; overflow-y:auto; margin-bottom:1rem;">
-                                <div v-for="cat in categories" :key="cat.id" style="background:var(--bg-color); padding:0.75rem; border-radius:4px; margin-bottom:0.5rem; display:flex; justify-content:space-between; align-items:center;">
-                                    <div>
-                                        <strong>{{ cat.name }}</strong>
-                                        <div style="font-size:0.8rem; color:var(--text-muted)">{{ cat.description }}</div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                                <h4 style="color:var(--text-color); margin:0;">Categories Management</h4>
+                                <button class="btn" @click="showCategoryModal = true; categoryForm = { name: '', description: '', color: '' }; editingCategory = null">+ New Category</button>
+                            </div>
+                            
+                            <!-- Categories Table -->
+                            <div style="background:var(--card-bg); border-radius:8px; overflow:hidden; border:1px solid var(--border-color);">
+                                <table style="width:100%; border-collapse:collapse;">
+                                    <thead style="background:var(--bg-color); border-bottom:1px solid var(--border-color);">
+                                        <tr>
+                                            <th style="padding:0.75rem; text-align:left; font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">#ID</th>
+                                            <th style="padding:0.75rem; text-align:left; font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Category Name</th>
+                                            <th style="padding:0.75rem; text-align:left; font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Description</th>
+                                            <th style="padding:0.75rem; text-align:left; font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Posts</th>
+                                            <th style="padding:0.75rem; text-align:left; font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Created</th>
+                                            <th style="padding:0.75rem; text-align:left; font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="cat in categories" :key="cat.id" style="border-bottom:1px solid var(--border-color); transition:background 0.2s;" @mouseover="$event.target.closest('tr').style.background = 'var(--border-color)'" @mouseout="$event.target.closest('tr').style.background = 'transparent'">
+                                            <td style="padding:0.75rem; color:var(--text-color);">{{ cat.id }}</td>
+                                            <td style="padding:0.75rem;">
+                                                <div style="display:flex; align-items:center; gap:0.5rem;">
+                                                    <div style="width:12px; height:12px; border-radius:50%;" :style="{ background: cat.color || getCategoryColor(cat.id) }"></div>
+                                                    <span style="color:var(--text-color); font-weight:500;">{{ cat.name }}</span>
+                                                </div>
+                                            </td>
+                                            <td style="padding:0.75rem; color:var(--text-color);">{{ cat.description || 'No description' }}</td>
+                                            <td style="padding:0.75rem;">
+                                                <span style="background:var(--primary-color); color:white; padding:0.125rem 0.5rem; border-radius:12px; font-size:0.75rem;">{{ getCategoryPostCount(cat.id) }}</span>
+                                            </td>
+                                            <td style="padding:0.75rem; color:var(--text-color); font-size:0.9rem;">{{ formatDate(cat.createdAt || new Date().toISOString()) }}</td>
+                                            <td style="padding:0.75rem;">
+                                                <div style="display:flex; gap:0.25rem;">
+                                                    <button class="btn btn-small" @click="startEditCategory(cat)" style="background:#06b6d4; padding:0.25rem 0.5rem; font-size:0.8rem;">✏️ Edit</button>
+                                                    <button class="btn btn-danger btn-small" @click="deleteCategory(cat.id)" style="padding:0.25rem 0.5rem; font-size:0.8rem;">🗑️ Delete</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <div v-if="categories.length === 0" style="text-align:center; padding:3rem; color:var(--text-muted);">
+                                    <div style="font-size:2rem; margin-bottom:0.5rem;">📂</div>
+                                    <div>No categories yet</div>
+                                    <div style="font-size:0.9rem;">Click "New Category" to create your first category</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Category Management Modal -->
+                        <div v-if="showCategoryManagement" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10001; display:flex; align-items:center; justify-content:center; padding:2rem;" @click="showCategoryManagement = false">
+                            <div style="background:var(--card-bg); border-radius:12px; width:100%; max-width:1000px; max-height:90vh; overflow:hidden; box-shadow:0 25px 80px rgba(0,0,0,0.4);" @click.stop>
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding:2rem; border-bottom:2px solid var(--border-color); background:linear-gradient(135deg, var(--primary-color), var(--accent-color)); color:white;">
+                                    <h2 style="margin:0; font-size:1.5rem; font-weight:600;">📁 Categories Management</h2>
+                                    <button @click="showCategoryManagement = false" style="background:rgba(255,255,255,0.2); border:none; color:white; cursor:pointer; font-size:1.5rem; width:2.5rem; height:2.5rem; border-radius:50%; display:flex; align-items:center; justify-content:center;">&times;</button>
+                                </div>
+                                <div style="padding:2rem; overflow-y:auto; max-height:calc(90vh - 120px);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
+                                        <div style="color:var(--text-color);">
+                                            <h3 style="margin:0; margin-bottom:0.25rem;">Manage Categories</h3>
+                                            <p style="margin:0; color:var(--text-muted); font-size:0.9rem;">Organize your blog posts with categories</p>
+                                        </div>
+                                        <button class="btn" @click="showCategoryModal = true; categoryForm = { name: '', description: '', color: '' }; editingCategory = null" style="background:var(--primary-color);">+ New Category</button>
                                     </div>
-                                    <div style="display:flex; gap:0.5rem;">
-                                        <button class="btn btn-small" @click="startEditCategory(cat)">Edit</button>
-                                        <button class="btn btn-danger btn-small" @click="deleteCategory(cat.id)">Delete</button>
+                                    
+                                    <div style="background:var(--bg-color); border-radius:8px; overflow:hidden; border:1px solid var(--border-color);">
+                                        <table style="width:100%; border-collapse:collapse;">
+                                            <thead style="background:var(--primary-color); color:white;">
+                                                <tr>
+                                                    <th style="padding:1rem; text-align:left; font-weight:600;">#</th>
+                                                    <th style="padding:1rem; text-align:left; font-weight:600;">Category</th>
+                                                    <th style="padding:1rem; text-align:left; font-weight:600;">Description</th>
+                                                    <th style="padding:1rem; text-align:left; font-weight:600;">Posts</th>
+                                                    <th style="padding:1rem; text-align:left; font-weight:600;">Created</th>
+                                                    <th style="padding:1rem; text-align:left; font-weight:600;">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="cat in categories" :key="cat.id" style="border-bottom:1px solid var(--border-color); transition:background 0.2s;" @mouseover="$event.target.closest('tr').style.background = 'var(--border-color)'" @mouseout="$event.target.closest('tr').style.background = 'transparent'">
+                                                    <td style="padding:1rem; color:var(--text-color); font-weight:500;">{{ cat.id }}</td>
+                                                    <td style="padding:1rem;">
+                                                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                                                            <div style="width:16px; height:16px; border-radius:50%; flex-shrink:0;" :style="{ background: cat.color || getCategoryColor(cat.id) }"></div>
+                                                            <span style="color:var(--text-color); font-weight:500; font-size:1rem;">{{ cat.name }}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td style="padding:1rem; color:var(--text-muted); max-width:200px;">{{ cat.description || 'No description' }}</td>
+                                                    <td style="padding:1rem;">
+                                                        <span style="background:var(--primary-color); color:white; padding:0.25rem 0.75rem; border-radius:20px; font-size:0.85rem; font-weight:500;">{{ getCategoryPostCount(cat.id) }}</span>
+                                                    </td>
+                                                    <td style="padding:1rem; color:var(--text-muted); font-size:0.9rem;">{{ formatDate(cat.createdAt || new Date().toISOString()) }}</td>
+                                                    <td style="padding:1rem;">
+                                                        <div style="display:flex; gap:0.5rem;">
+                                                            <button class="btn btn-small" @click="startEditCategory(cat)" style="background:#06b6d4; padding:0.5rem 0.75rem;">✏️ Edit</button>
+                                                            <button class="btn btn-danger btn-small" @click="deleteCategory(cat.id)" style="padding:0.5rem 0.75rem;">🗑️ Delete</button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                        <div v-if="categories.length === 0" style="text-align:center; padding:4rem; color:var(--text-muted);">
+                                            <div style="font-size:3rem; margin-bottom:1rem;">📂</div>
+                                            <h3 style="margin:0; margin-bottom:0.5rem; color:var(--text-color);">No categories yet</h3>
+                                            <p style="margin:0;">Create your first category to organize your blog posts</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="form-group">
-                                <input v-model="categoryForm.name" type="text" placeholder="Category name" style="margin-bottom:0.5rem;">
-                            </div>
-                            <div class="form-group">
-                                <input v-model="categoryForm.description" type="text" placeholder="Description" style="margin-bottom:0.5rem;">
-                            </div>
-                            <div style="display:flex; gap:0.5rem;">
-                                <button class="btn" @click="saveCategory">{{ editingCategory ? 'Update' : 'Add' }}</button>
-                                <button class="btn" style="background:#6b7280;" @click="cancelCategoryEdit">Cancel</button>
+                        </div>
+                        
+                        <!-- Category Modal -->
+                        <div v-if="showCategoryModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10002; display:flex; align-items:center; justify-content:center; padding:1rem;" @click="showCategoryModal = false">
+                            <div style="background:var(--card-bg); border-radius:8px; max-width:500px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.3);" @click.stop>
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding:1.5rem; border-bottom:1px solid var(--border-color);">
+                                    <h3 style="margin:0; color:var(--text-color);">{{ editingCategory ? 'Edit Category' : 'New Category' }}</h3>
+                                    <button @click="showCategoryModal = false" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.5rem;">&times;</button>
+                                </div>
+                                <div style="padding:1.5rem;">
+                                    <div class="form-group">
+                                        <label>Category Name *</label>
+                                        <input v-model="categoryForm.name" type="text" placeholder="Enter category name">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Description</label>
+                                        <input v-model="categoryForm.description" type="text" placeholder="Brief description">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Color</label>
+                                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                                            <div v-for="color in categoryColors" :key="color" @click="categoryForm.color = color" style="width:30px; height:30px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:all 0.2s;" :style="{ background: color, borderColor: categoryForm.color === color ? 'var(--primary-color)' : 'transparent' }"></div>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.5rem;">
+                                        <button class="btn" style="background:#6b7280;" @click="showCategoryModal = false">Cancel</button>
+                                        <button class="btn" @click="saveCategory">{{ editingCategory ? 'Update' : 'Create' }} Category</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
@@ -2175,7 +2309,8 @@
                         tags: '',
                         image: '',
                         featured: false,
-                        isDraft: false
+                        isDraft: false,
+                        categoryId: null
                     },
                     // Category selector
                     showCategoryDropdown: false,
@@ -2204,8 +2339,11 @@
                     // Background management
                     backgroundForm: { url: '' },
                     selectedBgFile: null,
-                    categoryForm: { name: '', slug: '', description: '' },
+                    categoryForm: { name: '', slug: '', description: '', color: '' },
                     editingCategory: null,
+                    categoryColors: ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#64748b', '#0f172a'],
+                    showCategoryModal: false,
+                    showCategoryManagement: false,
                     // UI enhancements
                     isDarkMode: false,
                     searchQuery: '',
@@ -2801,13 +2939,17 @@
                     alert('Email settings would be saved on server for password reset functionality');
                 },
                 openSettings(tab) {
-                    this.activeSettingsTab = tab;
-                    this.dashboardView = 'posts';
-                    this.currentView = 'admin';
+                    if (tab === 'categories') {
+                        this.showCategoryManagement = true;
+                    } else {
+                        this.activeSettingsTab = tab;
+                        this.dashboardView = 'posts';
+                        this.currentView = 'admin';
+                        this.showAnalytics = false;
+                        this.showNewPostForm = false;
+                        this.editingPost = null;
+                    }
                     this.showSettingsMenu = false;
-                    this.showAnalytics = false;
-                    this.showNewPostForm = false;
-                    this.editingPost = null;
                 },
                 resetAdminView() {
                     this.showNewPostForm = false;
@@ -2956,12 +3098,14 @@
 
                 startEditCategory(cat) {
                     this.editingCategory = cat;
-                    this.categoryForm = { name: cat.name, slug: cat.slug, description: cat.description };
+                    this.showCategoryModal = true;
+                    this.categoryForm = { name: cat.name, slug: cat.slug, description: cat.description || '', color: cat.color || '' };
                 },
 
                 cancelCategoryEdit() {
                     this.editingCategory = null;
-                    this.categoryForm = { name: '', slug: '', description: '' };
+                    this.showCategoryModal = false;
+                    this.categoryForm = { name: '', slug: '', description: '', color: '' };
                 },
 
                 async saveCategory() {
@@ -2980,6 +3124,7 @@
                             if (r.status === 401) return alert('Not authenticated. Please login.');
                             if (!j.success) return alert('Failed to create: ' + (j.error || JSON.stringify(j)));
                             await this.fetchCategories();
+                            this.showCategoryModal = false;
                             this.cancelCategoryEdit();
                         }
                     } catch (e) {

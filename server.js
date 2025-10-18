@@ -351,87 +351,91 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
 
 // Categories API
 // GET /api/categories - public
-// Categories API temporarily disabled due to stability issues. Return 501 for now.
 app.get('/api/categories', (req, res) => {
-  let categories = loadCategories();
-  // Return categories sorted by name for stable UI ordering
-  categories = categories.slice().sort((a, b) => ('' + a.name).localeCompare(b.name));
-  return res.json({ categories });
+  try {
+    let categories = loadCategories();
+    categories = categories.slice().sort((a, b) => ('' + a.name).localeCompare(b.name));
+    return res.json({ categories });
+  } catch (e) {
+    console.error('Categories load error:', e);
+    return res.json({ categories: [] });
+  }
 });
 
 // POST /api/categories - create (admin only)
 app.post('/api/categories', requireAuth, (req, res) => {
-  const { name, slug: providedSlug, description } = req.body;
-  if (!name) return res.status(400).json({ error: 'missing name' });
+  try {
+    const { name, description, color } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'missing name' });
 
-  const cats = loadCategories();
+    const cats = loadCategories();
+    const existingByName = cats.find(c => (c.name || '').toLowerCase() === name.trim().toLowerCase());
+    if (existingByName) {
+      return res.json({ success: true, category: existingByName });
+    }
 
-  // If a category with the same name exists (case-insensitive), return it instead of creating a duplicate
-  const existingByName = cats.find(c => (c.name || '').toLowerCase() === (name || '').toLowerCase());
-  if (existingByName) {
-    return res.json({ success: true, category: existingByName });
+    const id = Date.now();
+    const category = { 
+      id, 
+      name: name.trim(), 
+      description: (description || '').trim(),
+      color: color || '#8b7355',
+      createdAt: new Date().toISOString()
+    };
+    cats.push(category);
+    saveCategories(cats);
+    return res.json({ success: true, category });
+  } catch (e) {
+    console.error('Category create error:', e);
+    return res.status(500).json({ error: 'failed to create category' });
   }
-
-  // Generate a slug and ensure it's unique
-  const baseSlug = (providedSlug && String(providedSlug).trim())
-    ? String(providedSlug).trim().toLowerCase().replace(/[^a-z0-9]+/g,'-')
-    : String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g,'-');
-
-  let slug = baseSlug;
-  let suffix = 1;
-  while (cats.some(c => (c.slug || '') === slug)) {
-    slug = `${baseSlug}-${suffix++}`;
-  }
-
-  const id = Date.now();
-  const category = { id, name, slug, description: description || '' };
-  cats.push(category);
-  saveCategories(cats);
-  return res.json({ success: true, category });
 });
 
 // PUT /api/categories/:id - update (admin only)
 app.put('/api/categories/:id', requireAuth, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const { name, slug, description } = req.body;
-  const cats = loadCategories();
-  const idx = cats.findIndex(c => c.id === id);
-  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { name, description, color } = req.body;
+    const cats = loadCategories();
+    const idx = cats.findIndex(c => c.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'not found' });
 
-  // If slug is being updated, ensure uniqueness
-  let newSlug = cats[idx].slug;
-  if (slug && slug !== cats[idx].slug) {
-    const baseSlug = String(slug).trim().toLowerCase().replace(/[^a-z0-9]+/g,'-');
-    newSlug = baseSlug;
-    let s = 1;
-    while (cats.some((c, i) => i !== idx && (c.slug || '') === newSlug)) {
-      newSlug = `${baseSlug}-${s++}`;
-    }
+    cats[idx] = { 
+      ...cats[idx], 
+      name: name ? name.trim() : cats[idx].name,
+      description: description !== undefined ? description.trim() : cats[idx].description,
+      color: color || cats[idx].color
+    };
+    saveCategories(cats);
+    return res.json({ success: true, category: cats[idx] });
+  } catch (e) {
+    console.error('Category update error:', e);
+    return res.status(500).json({ error: 'failed to update category' });
   }
-
-  cats[idx] = { ...cats[idx], name: name || cats[idx].name, slug: newSlug, description: description || cats[idx].description };
-  saveCategories(cats);
-  return res.json({ success: true, category: cats[idx] });
 });
 
 // DELETE /api/categories/:id - delete (admin only)
 app.delete('/api/categories/:id', requireAuth, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  let cats = loadCategories();
-  const idx = cats.findIndex(c => c.id === id);
-  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  try {
+    const id = parseInt(req.params.id, 10);
+    let cats = loadCategories();
+    const idx = cats.findIndex(c => c.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'not found' });
 
-  // Remove category and unset from posts
-  cats.splice(idx, 1);
-  saveCategories(cats);
+    cats.splice(idx, 1);
+    saveCategories(cats);
 
-  const posts = loadPosts();
-  posts.forEach(p => {
-    if (p.categoryId === id) p.categoryId = null;
-  });
-  savePosts(posts);
+    const posts = loadPosts();
+    posts.forEach(p => {
+      if (p.categoryId === id) p.categoryId = null;
+    });
+    savePosts(posts);
 
-  return res.json({ success: true });
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Category delete error:', e);
+    return res.status(500).json({ error: 'failed to delete category' });
+  }
 });
 
 // POST /auth/google - verify Google ID token and create session

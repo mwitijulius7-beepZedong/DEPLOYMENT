@@ -11,7 +11,7 @@
     "image": "",
     "featured": false,
     "isDraft": false,
-    "categoryId": 1760205591874
+    "categoryId": null
   },
   {
     "id": 1760816538792,
@@ -39,6 +39,6 @@
     "image": "",
     "featured": true,
     "isDraft": false,
-    "categoryId": 1
+    "categoryId": null
   }
 ]

@@ -1,26 +1,20 @@
 [
   {
-    "id": 1,
-    "name": "General",
-    "slug": "general",
-    "description": "General posts"
+    "id": 1760818634884,
+    "name": "Technologies",
+    "slug": "technologies",
+    "description": "tECH"
   },
   {
-    "id": 1760205591874,
-    "name": "Announcements",
-    "slug": "announcements",
-    "description": "Site announcements"
-  },
-  {
-    "id": 1760211464274,
-    "name": "Smoke Test",
-    "slug": "smoke-test",
+    "id": 1760820176744,
+    "name": "Social media",
+    "slug": "social-media",
     "description": ""
   },
   {
-    "id": 1760785644966,
-    "name": "TEST CATEGORY",
-    "slug": "test-category",
-    "description": "TEST CATEGORY"
+    "id": 1760820932921,
+    "name": "2025",
+    "slug": "2025",
+    "description": "2025"
   }
 ]
