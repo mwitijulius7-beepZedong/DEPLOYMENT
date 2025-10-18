@@ -16,6 +16,7 @@
     <meta name="twitter:description" :content="pageDescription">
     <meta name="twitter:image" :content="pageImage">
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Google Identity Services (replace CLIENT_ID below with your real client ID) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -74,7 +75,7 @@
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            filter: blur(8px) brightness(0.3) opacity(0.6);
+            filter: blur(5px) brightness(0.7) opacity(0.8);
             animation: slowMove 60s ease-in-out infinite;
         }
 
@@ -85,16 +86,17 @@
             75% { transform: translate(-1%, 1%) scale(1.02); }
         }
 
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
         .content-overlay {
             position: relative;
             z-index: 1;
-            background: rgba(254, 252, 248, 0.85);
-            backdrop-filter: blur(2px);
+            background: transparent;
+            backdrop-filter: blur(3px);
             min-height: 100vh;
-        }
-
-        [data-theme="dark"] .content-overlay {
-            background: rgba(26, 24, 22, 0.85);
         }
 
         #app {
@@ -103,12 +105,18 @@
 
         /* Header */
         .header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%) !important;
             color: white;
             padding: 1.5rem 0;
             box-shadow: 0 2px 20px rgba(0,0,0,0.15);
             backdrop-filter: blur(10px);
             overflow: visible;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 1000 !important;
+            width: 100% !important;
         }
 
         .header-content {
@@ -116,17 +124,19 @@
             margin: 0 auto;
             padding: 0 2rem;
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
             align-items: center;
-            position: relative;
         }
 
         .logo {
             font-size: 1.8rem;
             font-weight: bold;
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
         }
 
         .nav {
@@ -177,6 +187,7 @@
             margin: 2rem auto;
             padding: 0 2rem;
             overflow: visible;
+            margin-top: 120px;
         }
 
         /* Blog Posts */
@@ -273,30 +284,260 @@
             background: var(--accent-color);
         }
 
-        /* Admin Panel */
-        .admin-panel {
+        /* Admin Dashboard */
+        .admin-dashboard {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 2rem;
+            min-height: 80vh;
+        }
+
+        .dashboard-sidebar {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            height: fit-content;
+            position: sticky;
+            top: 2rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .sidebar-menu button {
+            width: 100%;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            text-align: left;
+            cursor: pointer;
+            color: var(--text-color);
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+
+        .sidebar-menu button:hover {
+            background: var(--border-color);
+        }
+
+        .sidebar-menu button.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .dashboard-main {
             background: var(--card-bg);
             border-radius: 12px;
             padding: 2rem;
-            box-shadow: 0 4px 20px rgba(139, 115, 85, 0.15);
-            backdrop-filter: blur(5px);
             border: 1px solid var(--border-color);
-            overflow: visible;
         }
 
-        .admin-header {
+        .dashboard-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 2rem;
             padding-bottom: 1rem;
-            border-bottom: 2px solid #e5e7eb;
+            border-bottom: 2px solid var(--border-color);
         }
 
-        .admin-header h2 {
-            color: var(--primary-color);
-            font-size: 2rem;
+        .dashboard-actions {
+            display: flex;
+            gap: 1rem;
         }
+
+        .dashboard-search {
+            padding: 0.5rem 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .dashboard-filter {
+            padding: 0.5rem 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .metric-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            display: flex;
+            gap: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .metric-icon {
+            font-size: 2.5rem;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .metric-change {
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        .metric-change.positive::before { content: '↑ '; }
+        .metric-change.negative::before { content: '↓ '; }
+
+        .chart-container {
+            background: var(--bg-color);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+        }
+
+        .recent-activity {
+            background: var(--bg-color);
+            padding: 1.5rem;
+            border-radius: 12px;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .activity-icon {
+            font-size: 1.5rem;
+        }
+
+        .activity-text {
+            flex: 1;
+        }
+
+        .activity-time {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .analytics-card {
+            background: var(--bg-color);
+            padding: 1.5rem;
+            border-radius: 12px;
+        }
+
+        .tag-stat, .post-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: var(--card-bg);
+            border-radius: 8px;
+        }
+
+        .calendar-view {
+            background: var(--bg-color);
+            padding: 1.5rem;
+            border-radius: 12px;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .calendar-header button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.5rem;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--card-bg);
+            border-radius: 8px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .calendar-day:hover {
+            background: var(--border-color);
+        }
+
+        .calendar-day.today {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .calendar-day.has-post {
+            border: 2px solid var(--accent-color);
+        }
+
+        .post-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #e11d48;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+        }
+
+        @media (max-width: 900px) {
+            .admin-dashboard {
+                grid-template-columns: 1fr;
+            }
+            .dashboard-sidebar {
+                position: static;
+            }
+            .metric-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+
+
 
         .btn {
             background: #e11d48; /* red accent */
@@ -369,6 +610,8 @@
         /* Posts List in Admin */
         .admin-posts-list {
             margin-top: 2rem;
+            position: relative;
+            z-index: 1;
         }
 
         .admin-post-item {
@@ -653,22 +896,25 @@
             border: 1px solid var(--border-color);
             border-radius: 8px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            min-width: 180px;
             backdrop-filter: blur(10px);
-            z-index: 999999;
+            z-index: 9999;
         }
 
         .dropdown-menu button {
-            width: 100%;
-            padding: 1rem 1.5rem;
+            display: block;
+            padding: 6px 12px;
             background: none;
             border: none;
             color: var(--text-color);
             text-align: left;
             cursor: pointer;
             transition: background 0.2s;
-            font-size: 0.95rem;
+            font-size: 14px;
             border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+            line-height: 1.2;
+            width: auto;
+            min-width: 120px;
         }
 
         .dropdown-menu button:hover {
@@ -719,6 +965,301 @@
             margin-bottom: 2rem;
         }
 
+        /* Modern Category Selector */
+        .category-selector {
+            position: relative;
+        }
+
+        .category-dropdown {
+            position: relative;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--card-bg);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .category-dropdown:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 12px rgba(139, 115, 85, 0.15);
+        }
+
+        .category-dropdown.active {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(139, 115, 85, 0.1);
+        }
+
+        .selected-category {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            gap: 0.75rem;
+        }
+
+        .category-icon {
+            font-size: 1.2rem;
+        }
+
+        .category-name {
+            flex: 1;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .dropdown-arrow {
+            color: var(--text-muted);
+            transition: transform 0.2s;
+        }
+
+        .category-options {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--card-bg);
+            border: 2px solid var(--primary-color);
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            max-height: 300px;
+            overflow: hidden;
+        }
+
+        .category-search {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .category-search input {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        .category-search input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .category-list {
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        .category-option {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            gap: 0.75rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .category-option:hover {
+            background: var(--border-color);
+        }
+
+        .category-option.selected {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .category-option.selected .category-name,
+        .category-option.selected .category-count {
+            color: white;
+        }
+
+        .category-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .category-count {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        .category-actions {
+            padding: 0.75rem;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-color);
+        }
+
+        .category-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Modern Post Editor */
+        .modern-post-editor {
+            background: var(--card-bg);
+            border-radius: 16px;
+            width: 95vw;
+            max-width: 1200px;
+            height: 90vh;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 2px solid var(--border-color);
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+        }
+
+        .editor-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+
+        .close-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .editor-content-wrapper {
+            flex: 1;
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+        }
+
+        .editor-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            height: 100%;
+        }
+
+        .editor-left {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .editor-right {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .compact-editor {
+            min-height: 200px;
+            max-height: 300px;
+            padding: 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 0 0 8px 8px;
+            background: var(--card-bg);
+            color: var(--text-color);
+            outline: none;
+            font-family: inherit;
+            line-height: 1.6;
+            overflow-y: auto;
+        }
+
+        .image-preview {
+            margin-top: 0.5rem;
+        }
+
+        .image-preview img {
+            max-width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .upload-section {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-top: 0.5rem;
+        }
+
+        .upload-section input[type="file"] {
+            flex: 1;
+            font-size: 0.9rem;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: normal;
+        }
+
+        .editor-footer {
+            padding: 1.5rem 2rem;
+            border-top: 2px solid var(--border-color);
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            background: var(--bg-color);
+        }
+
+        .btn-cancel {
+            background: #6b7280;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            padding: 0.75rem 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .editor-grid {
+                grid-template-columns: 1fr;
+            }
+            .modern-post-editor {
+                width: 98vw;
+                height: 95vh;
+            }
+        }
+
         @media (max-width: 900px) {
             .hero { grid-template-columns: 1fr; }
             .post-image { height: 180px; }
@@ -751,16 +1292,14 @@
                 </div>
                 <div class="logo">{{ blogTitle }}</div>
                 <nav class="nav">
-                    <button @click="currentView = 'blog'" :class="{ active: currentView === 'blog' }">Blog</button>
+                    <button @click="handleBlogClick" :class="{ active: currentView === 'blog' }">Blog</button>
                     <template v-if="currentView === 'admin' && isLoggedIn">
-                        <button @click="showNewPostForm = true">+ New Post</button>
+                        <button @click="resetAdminView(); showNewPostForm = true; dashboardView = 'posts'">+ New Post</button>
                         <button @click="showAnalytics = !showAnalytics; currentView = 'admin'">Analytics</button>
                     </template>
-                    <template v-if="currentView === 'blog'">
-                        <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
-                            {{ isDarkMode ? '☀️' : '🌙' }}
-                        </button>
-                    </template>
+                    <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
+                        {{ isDarkMode ? '☀️' : '🌙' }}
+                    </button>
                     <template v-if="currentView === 'admin' && isLoggedIn">
                         <div class="settings-dropdown">
                             <button @click="showSettingsMenu = !showSettingsMenu">Settings ▼</button>
@@ -780,6 +1319,15 @@
         </div>
 
         <div class="container">
+            <!-- New Post Banner -->
+            <div v-if="currentView === 'blog' && newestPost && !selectedPost && !isDismissed(newestPost.id)" style="position:fixed; top:120px; right:2rem; background:var(--primary-color); color:white; padding:0.75rem 1rem; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:999; animation:slideIn 0.5s ease;">
+                <button @click="dismissBanner(newestPost.id)" style="position:absolute; top:0.25rem; right:0.25rem; background:rgba(255,255,255,0.2); border:none; color:red; cursor:pointer; font-size:1.2rem; line-height:1; border-radius:50%; width:1.5rem; height:1.5rem; display:flex; align-items:center; justify-content:center; font-weight:bold;">&times;</button>
+                <div @click="viewPost(newestPost)" style="cursor:pointer;">
+                    <div style="font-size:0.9rem; font-weight:600;">🆕 New Post!</div>
+                    <div style="font-size:0.8rem; opacity:0.9;">{{ newestPost.title.substring(0, 30) }}...</div>
+                </div>
+            </div>
+            
             <!-- Blog View -->
             <div v-if="currentView === 'blog' && !selectedPost">
                 <h1 style="margin: 2rem 0; color: var(--text-color);">Latest Posts</h1>
@@ -858,11 +1406,49 @@
                     </div>
                 </div>
                 
-                <!-- Admin Access (Bottom Right) -->
-                <div v-if="currentView === 'blog'" style="position:fixed; bottom:2rem; right:2rem; z-index:1000;">
+                <!-- Chat & Admin Access (Bottom Right) -->
+                <div v-if="currentView === 'blog'" style="position:fixed; bottom:2rem; right:2rem; z-index:1000; display:flex; flex-direction:column; gap:1rem;">
+                    <button @click="showChat = !showChat" style="background:#25d366; color:white; border:none; padding:1rem; border-radius:50%; cursor:pointer; font-size:1.2rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="Chat with Admin">
+                        💬
+                    </button>
                     <button @click="currentView = 'admin'" style="background:var(--primary-color); color:white; border:none; padding:1rem; border-radius:50%; cursor:pointer; font-size:1.2rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="Admin Portal">
                         🔒
                     </button>
+                </div>
+                
+                <!-- Chat Widget -->
+                <div v-if="showChat" style="position:fixed; bottom:6rem; right:2rem; width:350px; height:500px; background:var(--card-bg); border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.3); z-index:1001; display:flex; flex-direction:column; border:1px solid var(--border-color);">
+                    <div style="padding:1rem; background:var(--primary-color); color:white; border-radius:12px 12px 0 0; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="font-weight:600;">💬 Chat with Admin</div>
+                        <button @click="showChat = false" style="background:none; border:none; color:white; cursor:pointer; font-size:1.2rem;">&times;</button>
+                    </div>
+                    <div v-if="!chatSession.name" style="padding:1rem;">
+                        <div class="form-group">
+                            <input v-model="chatForm.name" type="text" placeholder="Your name" style="margin-bottom:0.5rem;">
+                        </div>
+                        <div class="form-group">
+                            <input v-model="chatForm.email" type="email" placeholder="Your email">
+                        </div>
+                        <button class="btn" @click="startChat" style="width:100%; margin-top:0.5rem;">Start Chat</button>
+                    </div>
+                    <div v-else style="flex:1; display:flex; flex-direction:column;">
+                        <div style="flex:1; padding:1rem; overflow-y:auto; max-height:350px;">
+                            <div v-for="msg in getChatMessages()" :key="msg.id" style="margin-bottom:1rem;">
+                                <div :style="{ textAlign: msg.isAdmin ? 'left' : 'right' }">
+                                    <div :style="{ display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '12px', maxWidth: '80%', background: msg.isAdmin ? 'var(--border-color)' : 'var(--primary-color)', color: msg.isAdmin ? 'var(--text-color)' : 'white' }">
+                                        <div style="font-size:0.9rem;">{{ msg.message }}</div>
+                                        <div style="font-size:0.7rem; opacity:0.7; margin-top:0.25rem;">{{ formatChatTime(msg.timestamp) }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="padding:1rem; border-top:1px solid var(--border-color);">
+                            <div style="display:flex; gap:0.5rem;">
+                                <input v-model="chatMessage" type="text" placeholder="Type a message..." @keyup.enter="sendMessage" style="flex:1; padding:0.5rem; border:1px solid var(--border-color); border-radius:6px;">
+                                <button @click="sendMessage" class="btn btn-small">🚀</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -989,73 +1575,279 @@
                 </div>
 
                 <!-- Admin Panel -->
-                <div v-if="isLoggedIn" class="admin-panel">
-                    <div class="admin-header">
-                        <h2>{{ getAdminTitle() }}</h2>
-                    </div>
+                <div v-if="isLoggedIn" class="admin-dashboard">
+                    <!-- Dashboard Sidebar -->
+                    <aside class="dashboard-sidebar">
+                        <div class="sidebar-menu">
+                            <button @click="dashboardView = 'overview'" :class="{active: dashboardView === 'overview'}">📊 Overview</button>
+                            <button @click="dashboardView = 'posts'" :class="{active: dashboardView === 'posts'}">📝 Posts</button>
+                            <button @click="dashboardView = 'chats'" :class="{active: dashboardView === 'chats'}">💬 Chats</button>
+                            <button @click="dashboardView = 'analytics'" :class="{active: dashboardView === 'analytics'}">📈 Analytics</button>
+                            <button @click="dashboardView = 'calendar'" :class="{active: dashboardView === 'calendar'}">📅 Calendar</button>
+                        </div>
+                    </aside>
+
+                    <!-- Dashboard Main -->
+                    <div class="dashboard-main">
+                        <div class="dashboard-header">
+                            <h2>{{ getDashboardTitle() }}</h2>
+                            <div class="dashboard-actions">
+                                <input v-model="dashboardSearch" type="text" placeholder="Search..." class="dashboard-search">
+                                <select v-model="dashboardFilter" class="dashboard-filter">
+                                    <option value="all">All</option>
+                                    <option value="published">Published</option>
+                                    <option value="draft">Drafts</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Overview Dashboard -->
+                        <div v-if="dashboardView === 'overview'" class="dashboard-overview">
+                            <!-- Metric Cards -->
+                            <div class="metric-cards">
+                                <div class="metric-card">
+                                    <div class="metric-icon">📝</div>
+                                    <div class="metric-info">
+                                        <div class="metric-value">{{ posts.length }}</div>
+                                        <div class="metric-label">Total Posts</div>
+                                        <div class="metric-change positive">+12% this week</div>
+                                    </div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-icon">👁️</div>
+                                    <div class="metric-info">
+                                        <div class="metric-value">{{ totalViews }}</div>
+                                        <div class="metric-label">Total Views</div>
+                                        <div class="metric-change positive">+8% this week</div>
+                                    </div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-icon">💬</div>
+                                    <div class="metric-info">
+                                        <div class="metric-value">{{ totalComments }}</div>
+                                        <div class="metric-label">Comments</div>
+                                        <div class="metric-change positive">+15% this week</div>
+                                    </div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-icon">❤️</div>
+                                    <div class="metric-info">
+                                        <div class="metric-value">{{ totalLikes }}</div>
+                                        <div class="metric-label">Likes</div>
+                                        <div class="metric-change negative">-3% this week</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Activity Chart -->
+                            <div class="chart-container">
+                                <h3>Post Views Over Time</h3>
+                                <canvas ref="viewsChart" style="max-height: 300px;"></canvas>
+                            </div>
+
+                            <!-- Recent Activity -->
+                            <div class="recent-activity">
+                                <h3>Recent Activity</h3>
+                                <div v-for="activity in recentActivity" :key="activity.id" class="activity-item">
+                                    <span class="activity-icon">{{ activity.icon }}</span>
+                                    <span class="activity-text">{{ activity.text }}</span>
+                                    <span class="activity-time">{{ activity.time }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Analytics View -->
+                        <div v-if="dashboardView === 'analytics'">
+                            <div class="analytics-grid">
+                                <div class="analytics-card">
+                                    <h3>Popular Tags</h3>
+                                    <div v-for="tag in popularTags" :key="tag.name" class="tag-stat">
+                                        <span>{{ tag.name }}</span>
+                                        <span class="tag-count">{{ tag.count }}</span>
+                                    </div>
+                                </div>
+                                <div class="analytics-card">
+                                    <h3>Top Posts</h3>
+                                    <div v-for="post in topPosts" :key="post.id" class="post-stat">
+                                        <span>{{ post.title }}</span>
+                                        <span class="post-views">{{ post.views || 0 }} views</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Calendar View -->
+                        <div v-if="dashboardView === 'calendar'" class="calendar-view">
+                            <div class="calendar-header">
+                                <button @click="changeMonth(-1)">←</button>
+                                <h3>{{ currentMonthName }} {{ currentYear }}</h3>
+                                <button @click="changeMonth(1)">→</button>
+                            </div>
+                            <div class="calendar-grid">
+                                <div v-for="day in calendarDays" :key="day.date" class="calendar-day" :class="{today: day.isToday, 'has-post': day.hasPost}">
+                                    <span class="day-number">{{ day.day }}</span>
+                                    <span v-if="day.postCount" class="post-badge">{{ day.postCount }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chat Management View -->
+                        <div v-if="dashboardView === 'chats'">
+                            <div style="display:grid; grid-template-columns:1fr 2fr; gap:2rem; height:70vh;">
+                                <div style="background:var(--bg-color); border-radius:8px; padding:1rem; overflow-y:auto;">
+                                    <h4 style="margin-bottom:1rem; color:var(--text-color);">Chat Sessions</h4>
+                                    <div v-for="session in chatSessions" :key="session.id" @click="selectChatSession(session)" :class="{ active: selectedChatSession?.id === session.id }" style="padding:0.75rem; margin-bottom:0.5rem; border-radius:6px; cursor:pointer; border:1px solid var(--border-color); transition:background 0.2s;" :style="{ background: selectedChatSession?.id === session.id ? 'var(--primary-color)' : 'var(--card-bg)', color: selectedChatSession?.id === session.id ? 'white' : 'var(--text-color)' }">
+                                        <div style="font-weight:600;">{{ session.name }}</div>
+                                        <div style="font-size:0.8rem; opacity:0.8;">{{ session.email }}</div>
+                                        <div style="font-size:0.7rem; opacity:0.7;">{{ formatChatTime(session.startTime) }}</div>
+                                    </div>
+                                </div>
+                                <div style="background:var(--bg-color); border-radius:8px; padding:1rem; display:flex; flex-direction:column;">
+                                    <div v-if="!selectedChatSession" style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted);">
+                                        Select a chat session to view messages
+                                    </div>
+                                    <div v-else style="display:flex; flex-direction:column; height:100%;">
+                                        <div style="padding-bottom:1rem; border-bottom:1px solid var(--border-color); margin-bottom:1rem;">
+                                            <h4 style="margin:0; color:var(--text-color);">{{ selectedChatSession.name }}</h4>
+                                            <div style="font-size:0.9rem; color:var(--text-muted);">{{ selectedChatSession.email }}</div>
+                                        </div>
+                                        <div style="flex:1; overflow-y:auto; margin-bottom:1rem;">
+                                            <div v-for="msg in getSelectedChatMessages()" :key="msg.id" style="margin-bottom:1rem;">
+                                                <div :style="{ textAlign: msg.isAdmin ? 'right' : 'left' }">
+                                                    <div :style="{ display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '12px', maxWidth: '80%', background: msg.isAdmin ? 'var(--primary-color)' : 'var(--border-color)', color: msg.isAdmin ? 'white' : 'var(--text-color)' }">
+                                                        <div style="font-size:0.9rem;">{{ msg.message }}</div>
+                                                        <div style="font-size:0.7rem; opacity:0.7; margin-top:0.25rem;">{{ formatChatTime(msg.timestamp) }}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style="display:flex; gap:0.5rem;">
+                                            <input v-model="adminChatMessage" type="text" placeholder="Type your response..." @keyup.enter="sendAdminMessage" style="flex:1; padding:0.5rem; border:1px solid var(--border-color); border-radius:6px;">
+                                            <button @click="sendAdminMessage" class="btn btn-small">🚀 Send</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Posts Management View -->
+                        <div v-if="dashboardView === 'posts'">
 
                     <!-- New/Edit Post Modal -->
-                    <div v-if="showNewPostForm || editingPost" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); z-index:10000; display:flex; align-items:flex-start; justify-content:center; overflow-y:auto; padding:2rem 0;" @click="cancelEdit">
-                        <div style="background:var(--card-bg); border-radius:16px; padding:3rem; width:95%; max-width:1000px; min-height:80vh; box-shadow:0 20px 60px rgba(0,0,0,0.3); border:1px solid var(--border-color);" @click.stop>
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem; padding-bottom:1rem; border-bottom:2px solid var(--border-color);">
-                                <h2 style="color:var(--primary-color); margin:0; font-size:2rem;">{{ editingPost ? 'Edit Post' : 'Create New Post' }}</h2>
-                                <button @click="cancelEdit" style="background:var(--border-color); border:none; font-size:1.5rem; cursor:pointer; color:var(--text-color); padding:0.75rem; border-radius:50%; width:3rem; height:3rem; display:flex; align-items:center; justify-content:center; transition:background 0.3s;" onmouseover="this.style.background='var(--primary-color)'; this.style.color='white'" onmouseout="this.style.background='var(--border-color)'; this.style.color='var(--text-color)'">&times;</button>
+                    <div v-if="showNewPostForm || editingPost" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); z-index:10000; display:flex; align-items:center; justify-content:center; padding:1rem;" @click="cancelEdit">
+                        <div class="modern-post-editor" @click.stop>
+                            <div class="editor-header">
+                                <h2>{{ editingPost ? '✏️ Edit Post' : '✨ Create New Post' }}</h2>
+                                <button @click="cancelEdit" class="close-btn">&times;</button>
                             </div>
-                        <div class="form-group">
-                            <label>Title</label>
-                            <input v-model="postForm.title" type="text" placeholder="Enter post title">
-                        </div>
-                        <div class="form-group">
-                            <label>Author</label>
-                            <input v-model="postForm.author" type="text" placeholder="Your name">
-                        </div>
-                        <div class="form-group">
-                            <label>Content</label>
-                            <div class="editor-toolbar">
-                                <button type="button" class="editor-btn" @click="formatText('bold')"><b>B</b></button>
-                                <button type="button" class="editor-btn" @click="formatText('italic')"><i>I</i></button>
-                                <button type="button" class="editor-btn" @click="formatText('underline')"><u>U</u></button>
-                                <button type="button" class="editor-btn" @click="formatText('insertOrderedList')">1.</button>
-                                <button type="button" class="editor-btn" @click="formatText('insertUnorderedList')">•</button>
-                                <button type="button" class="editor-btn" @click="formatText('createLink')">Link</button>
-                                <button type="button" class="editor-btn" @click="formatText('formatBlock', 'h2')">H2</button>
-                                <button type="button" class="editor-btn" @click="formatText('formatBlock', 'h3')">H3</button>
+                            <div class="editor-content-wrapper">
+                                <div class="editor-grid">
+                                    <div class="editor-left">
+                                        <div class="form-row" style="grid-template-columns: 2fr 1fr 0.3fr 1fr 1fr; gap: 0.75rem;">
+                                            <div class="form-group" style="margin-bottom: 0;">
+                                                <label>📝 Title</label>
+                                                <input v-model="postForm.title" type="text" placeholder="Enter post title">
+                                            </div>
+                                            <div class="form-group" style="margin-bottom: 0;">
+                                                <label>👤 Author</label>
+                                                <input v-model="postForm.author" type="text" placeholder="Author name">
+                                            </div>
+                                            <div class="form-group" style="margin-bottom: 0;">
+                                                <label style="font-size: 0.8rem;">Details</label>
+                                                <div class="author-dropdown" :class="{ active: showAuthorDropdown }" @click="showAuthorDropdown = !showAuthorDropdown" style="cursor: pointer; padding: 0.4rem; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.8rem; color: var(--text-muted); text-align: center; display: flex; align-items: center; justify-content: center; gap: 0.25rem;">
+                                                    📧 {{ showAuthorDropdown ? '▲' : '▼' }}
+                                                </div>
+                                            </div>
+                                            <div class="form-group" style="margin-bottom: 0;">
+                                                <label>🏷️ Tags</label>
+                                                <input v-model="postForm.tags" type="text" placeholder="tag1, tag2">
+                                            </div>
+                                            <div class="form-group" style="margin-bottom: 0;">
+                                                <label>📁 Category</label>
+                                                <div class="category-selector">
+                                                    <div class="category-dropdown" :class="{ active: showCategoryDropdown }" @click="showCategoryDropdown = !showCategoryDropdown">
+                                                        <div class="selected-category">
+                                                            <span class="category-name">{{ getSelectedCategoryName() }}</span>
+                                                            <span class="dropdown-arrow">{{ showCategoryDropdown ? '▲' : '▼' }}</span>
+                                                        </div>
+                                                        <div v-if="showCategoryDropdown" class="category-options" @click.stop>
+                                                            <div class="category-search">
+                                                                <input v-model="categorySearch" type="text" placeholder="Search categories..." @input="filterCategories">
+                                                            </div>
+                                                            <div class="category-list">
+                                                                <div class="category-option" :class="{ selected: postForm.categoryId === null }" @click="selectCategory(null)">
+                                                                    <span class="category-color" style="background: #9ca3af;"></span>
+                                                                    <span class="category-name">Uncategorized</span>
+                                                                    <span class="category-count">({{ getUncategorizedCount() }})</span>
+                                                                </div>
+                                                                <div v-for="c in filteredCategories" :key="c.id" class="category-option" :class="{ selected: postForm.categoryId === c.id }" @click="selectCategory(c.id)">
+                                                                    <span class="category-color" :style="{ background: c.color || getCategoryColor(c.id) }"></span>
+                                                                    <span class="category-name">{{ c.name }}</span>
+                                                                    <span class="category-count">({{ getCategoryPostCount(c.id) }})</span>
+                                                                </div>
+                                                            </div>
+                                                            <div class="category-actions">
+                                                                <button type="button" class="btn btn-small" @click="showNewCategoryForm = true">+ New Category</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div v-if="showAuthorDropdown" class="form-group" style="margin-bottom: 1rem; margin-top: 0.5rem;">
+                                            <div style="padding: 1rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color);" @click.stop>
+                                                <input v-model="postForm.authorEmail" type="email" placeholder="📧 Author email" style="margin-bottom: 0.5rem; width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                                                <input v-model="postForm.authorLinkedIn" type="url" placeholder="💼 LinkedIn profile" style="margin-bottom: 0.5rem; width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                                                <input v-model="postForm.authorTwitter" type="url" placeholder="🐦 Twitter profile" style="margin-bottom: 0.5rem; width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                                                <input v-model="postForm.authorWhatsApp" type="url" placeholder="📱 WhatsApp profile" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                                            </div>
+                                        </div>
+                                        <div class="form-group" style="margin-bottom: 1rem;">
+                                            <label>📄 Content</label>
+                                            <div class="editor-toolbar">
+                                                <button type="button" class="editor-btn" @click="formatText('bold')"><b>B</b></button>
+                                                <button type="button" class="editor-btn" @click="formatText('italic')"><i>I</i></button>
+                                                <button type="button" class="editor-btn" @click="formatText('underline')"><u>U</u></button>
+                                                <button type="button" class="editor-btn" @click="formatText('insertOrderedList')">1.</button>
+                                                <button type="button" class="editor-btn" @click="formatText('insertUnorderedList')">•</button>
+                                                <button type="button" class="editor-btn" @click="formatText('createLink')">Link</button>
+                                            </div>
+                                            <div ref="editor" class="compact-editor" contenteditable="true" @input="updateContent" @paste="handlePaste"></div>
+                                        </div>
+                                    </div>
+                                    <div class="editor-right">
+
+                                    </div>
+                                    
+                                    <div class="form-group" style="margin-bottom: 1rem;">
+                                        <label>🖼️ Image</label>
+                                        <input v-model="postForm.image" type="text" placeholder="https://...">
+                                        <div v-if="postForm.image" class="image-preview">
+                                            <img :src="postForm.image" alt="preview">
+                                        </div>
+                                        <div class="upload-section">
+                                            <input type="file" ref="imageInput" @change="onSelectFile" accept="image/*">
+                                            <button class="btn btn-small" @click.prevent="uploadImage" :disabled="!selectedFile">Upload</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <div class="checkbox-group">
+                                            <label><input type="checkbox" v-model="postForm.featured"> ⭐ Featured</label>
+                                            <label><input type="checkbox" v-model="postForm.isDraft"> 📄 Draft</label>
+                                        </div>
+                                    </div>
+
+                                </div>
                             </div>
-                            <div ref="editor" class="editor-content" contenteditable="true" @input="updateContent" @paste="handlePaste"></div>
-                        </div>
-                        <div class="form-group">
-                            <label>Image URL (optional)</label>
-                            <input v-model="postForm.image" type="text" placeholder="https://...">
-                            <div v-if="postForm.image" style="margin-top:0.5rem;">
-                                <img :src="postForm.image" alt="preview" style="max-width:200px; border-radius:8px; display:block; box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-                            </div>
-                            <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center">
-                                <input type="file" ref="imageInput" @change="onSelectFile" accept="image/*">
-                                <button class="btn btn-small" @click.prevent="uploadImage" :disabled="!selectedFile">Upload</button>
-                                <span style="color:#6b7280; font-size:0.9rem; margin-left:0.5rem">or paste an external URL above</span>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" v-model="postForm.featured"> Featured (show in hero)</label>
-                            <label style="margin-left: 1rem;"><input type="checkbox" v-model="postForm.isDraft"> Save as draft</label>
-                        </div>
-                        <div class="form-group">
-                            <label>Tags (comma-separated)</label>
-                            <input v-model="postForm.tags" type="text" placeholder="technology, coding, vue">
-                        </div>
-                        <div class="form-group">
-                            <label>Category</label>
-                            <select v-model="postForm.categoryId">
-                                <option :value="null">Uncategorized</option>
-                                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-                            </select>
-                        </div>
-                            <div class="form-actions" style="margin-top:3rem; padding-top:2rem; border-top:2px solid var(--border-color); display:flex; gap:1rem; justify-content:flex-end;">
-                                <button class="btn" style="background:#6b7280; padding:1rem 2rem; font-size:1.1rem;" @click="cancelEdit">Cancel</button>
-                                <button class="btn" style="padding:1rem 2rem; font-size:1.1rem; background:var(--primary-color);" @click="savePost">
-                                    {{ editingPost ? 'Update Post' : 'Publish Post' }}
+                            <div class="editor-footer">
+                                <button class="btn btn-cancel" @click="cancelEdit">Cancel</button>
+                                <button class="btn btn-primary" @click="savePost">
+                                    {{ editingPost ? '✨ Update Post' : '🚀 Publish Post' }}
                                 </button>
                             </div>
+                        </div>
+                    </div>
                         </div>
                     </div>
 
@@ -1101,20 +1893,77 @@
                         <!-- Background Settings -->
                         <div v-if="activeSettingsTab === 'background'">
                             <div class="form-group">
-                                <label>Background Image URL</label>
-                                <input v-model="backgroundForm.url" type="url" placeholder="https://example.com/image.jpg">
+                                <label>Background Type</label>
+                                <select v-model="backgroundType" style="width:100%; padding:0.75rem; border:2px solid var(--border-color); border-radius:8px; background:var(--card-bg); color:var(--text-color);">
+                                    <option value="image">Image</option>
+                                    <option value="gradient">Gradient</option>
+                                    <option value="solid">Solid Color</option>
+                                </select>
                             </div>
-                            <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
-                                <input type="file" ref="bgImageInput" @change="onSelectBgFile" accept="image/*" style="flex:1;">
-                                <button class="btn btn-small" @click="uploadBackgroundImage" :disabled="!selectedBgFile">Upload</button>
+
+                            <!-- Image Background -->
+                            <div v-if="backgroundType === 'image'">
+                                <div class="form-group">
+                                    <label>Background Image URL</label>
+                                    <input v-model="backgroundForm.url" type="url" placeholder="https://example.com/image.jpg">
+                                </div>
+                                <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                                    <input type="file" ref="bgImageInput" @change="onSelectBgFile" accept="image/*" style="flex:1;">
+                                    <button class="btn btn-small" @click="uploadBackgroundImage" :disabled="!selectedBgFile">Upload</button>
+                                </div>
+                                <div class="form-group">
+                                    <label>Blur Amount (0-20px)</label>
+                                    <input v-model.number="bgBlur" type="range" min="0" max="20" style="width:100%;">
+                                    <span>{{ bgBlur }}px</span>
+                                </div>
+                                <div class="form-group">
+                                    <label>Brightness (0-1)</label>
+                                    <input v-model.number="bgBrightness" type="range" min="0" max="1" step="0.1" style="width:100%;">
+                                    <span>{{ bgBrightness }}</span>
+                                </div>
+                                <div class="form-group">
+                                    <label>Opacity (0-1)</label>
+                                    <input v-model.number="bgOpacity" type="range" min="0" max="1" step="0.1" style="width:100%;">
+                                    <span>{{ bgOpacity }}</span>
+                                </div>
                             </div>
-                            <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
-                                <button class="btn" @click="setBackground">Set Background</button>
+
+                            <!-- Gradient Background -->
+                            <div v-if="backgroundType === 'gradient'">
+                                <div class="form-group">
+                                    <label>Gradient Color 1</label>
+                                    <input v-model="gradientColor1" type="color" style="width:100%; height:50px; border:none; border-radius:8px; cursor:pointer;">
+                                </div>
+                                <div class="form-group">
+                                    <label>Gradient Color 2</label>
+                                    <input v-model="gradientColor2" type="color" style="width:100%; height:50px; border:none; border-radius:8px; cursor:pointer;">
+                                </div>
+                                <div class="form-group">
+                                    <label>Gradient Direction</label>
+                                    <select v-model="gradientDirection" style="width:100%; padding:0.75rem; border:2px solid var(--border-color); border-radius:8px; background:var(--card-bg); color:var(--text-color);">
+                                        <option value="to right">Left to Right</option>
+                                        <option value="to bottom">Top to Bottom</option>
+                                        <option value="to bottom right">Diagonal</option>
+                                        <option value="135deg">135deg</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Solid Color Background -->
+                            <div v-if="backgroundType === 'solid'">
+                                <div class="form-group">
+                                    <label>Background Color</label>
+                                    <input v-model="solidColor" type="color" style="width:100%; height:50px; border:none; border-radius:8px; cursor:pointer;">
+                                </div>
+                            </div>
+
+                            <div style="display:flex; gap:0.5rem; margin-top:1.5rem;">
+                                <button class="btn" @click="applyBackground">Apply Background</button>
                                 <button class="btn" style="background:#6b7280;" @click="previewBackground">Preview</button>
-                                <button class="btn btn-danger" @click="removeBackground">Remove Background</button>
+                                <button class="btn btn-danger" @click="removeBackground">Reset to Default</button>
                             </div>
-                            <div v-if="backgroundForm.url" style="margin-top:1rem;">
-                                <img :src="backgroundForm.url" alt="Background preview" style="width:100%; max-width:300px; border-radius:8px; opacity:0.7;">
+                            <div v-if="backgroundForm.url || backgroundType !== 'image'" style="margin-top:1rem; padding:1rem; border-radius:8px; min-height:100px;" :style="getBackgroundPreviewStyle()">
+                                <p style="color:white; text-shadow:0 2px 4px rgba(0,0,0,0.5);">Preview</p>
                             </div>
                         </div>
                         
@@ -1203,8 +2052,12 @@
                         </div>
                     </div>
 
+                        </div>
+                    </div>
+                </div>
+
                     <!-- Posts List -->
-                    <div v-if="!showNewPostForm && !editingPost" class="admin-posts-list">
+                    <div v-if="!showNewPostForm && !editingPost && !activeSettingsTab && isLoggedIn" class="admin-posts-list">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
                             <h3 style="color: var(--text-color);">Your Posts ({{ filteredPostsByYear.length }})</h3>
                             <div style="display:flex; gap:0.5rem; align-items:center;">
@@ -1241,44 +2094,7 @@
                         </div>
                     </div>
 
-                    <!-- Analytics Dashboard -->
-                    <div v-if="showAnalytics" style="margin-top:2rem; background:var(--card-bg); padding:2rem; border-radius:12px; border:1px solid var(--border-color);">
-                        <h3 style="color:var(--text-color); margin-bottom:1.5rem;">Analytics Dashboard</h3>
-                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; margin-bottom:2rem;">
-                            <div style="background:var(--primary-color); color:white; padding:1.5rem; border-radius:8px; text-align:center;">
-                                <div style="font-size:2rem; font-weight:bold;">{{ posts.length }}</div>
-                                <div>Total Posts</div>
-                            </div>
-                            <div style="background:var(--accent-color); color:white; padding:1.5rem; border-radius:8px; text-align:center;">
-                                <div style="font-size:2rem; font-weight:bold;">{{ publishedPosts.length }}</div>
-                                <div>Published</div>
-                            </div>
-                            <div style="background:#10b981; color:white; padding:1.5rem; border-radius:8px; text-align:center;">
-                                <div style="font-size:2rem; font-weight:bold;">{{ draftPosts.length }}</div>
-                                <div>Drafts</div>
-                            </div>
-                            <div style="background:#f59e0b; color:white; padding:1.5rem; border-radius:8px; text-align:center;">
-                                <div style="font-size:2rem; font-weight:bold;">{{ totalComments }}</div>
-                                <div>Comments</div>
-                            </div>
-                        </div>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem;">
-                            <div>
-                                <h4 style="margin-bottom:1rem; color:var(--text-color);">Popular Tags</h4>
-                                <div v-for="tag in popularTags" :key="tag.name" style="display:flex; justify-content:space-between; padding:0.5rem; background:var(--bg-color); border-radius:4px; margin-bottom:0.5rem;">
-                                    <span>{{ tag.name }}</span>
-                                    <span style="color:var(--text-muted);">{{ tag.count }}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <h4 style="margin-bottom:1rem; color:var(--text-color);">Recent Activity</h4>
-                                <div v-for="post in recentPosts" :key="post.id" style="padding:0.5rem; background:var(--bg-color); border-radius:4px; margin-bottom:0.5rem;">
-                                    <div style="font-weight:600;">{{ post.title }}</div>
-                                    <div style="font-size:0.8rem; color:var(--text-muted);">{{ formatDate(post.date) }}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+
 
                     <!-- Monthly Posts Modal -->
                     <div v-if="showMonthModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:50; display:flex; align-items:center; justify-content:center;" @click="showMonthModal = false">
@@ -1351,17 +2167,34 @@
                     postForm: {
                         title: '',
                         author: '',
+                        authorEmail: '',
+                        authorLinkedIn: '',
+                        authorTwitter: '',
+                        authorWhatsApp: '',
                         content: '',
                         tags: '',
                         image: '',
                         featured: false,
                         isDraft: false
                     },
+                    // Category selector
+                    showCategoryDropdown: false,
+                    categorySearch: '',
+                    showNewCategoryForm: false,
+                    // Author dropdown
+                    showAuthorDropdown: false,
                     nextId: 1,
                     selectedFile: null,
                     categories: [],
                     showAdminSettings: false,
                     showAnalytics: false,
+                    dashboardView: 'overview',
+                    dashboardSearch: '',
+                    dashboardFilter: 'all',
+                    totalViews: 1247,
+                    totalLikes: 89,
+                    currentMonthIndex: new Date().getMonth(),
+                    currentYear: new Date().getFullYear(),
                     showSettingsMenu: false,
                     activeSettingsTab: null,
                     selectedPosts: [],
@@ -1387,6 +2220,14 @@
                     currentUrl: window.location.href,
                     // Background
                     backgroundImage: localStorage.getItem('blogBackground') || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=2070',
+                    backgroundType: localStorage.getItem('bgType') || 'image',
+                    bgBlur: parseFloat(localStorage.getItem('bgBlur')) || 5,
+                    bgBrightness: parseFloat(localStorage.getItem('bgBrightness')) || 0.7,
+                    bgOpacity: parseFloat(localStorage.getItem('bgOpacity')) || 0.8,
+                    gradientColor1: localStorage.getItem('gradientColor1') || '#8b7355',
+                    gradientColor2: localStorage.getItem('gradientColor2') || '#d4a574',
+                    gradientDirection: localStorage.getItem('gradientDirection') || '135deg',
+                    solidColor: localStorage.getItem('solidColor') || '#fefcf8',
                     // Social Links
                     socialLinks: {
                         linkedin: localStorage.getItem('socialLinkedIn') || '',
@@ -1403,7 +2244,18 @@
                         port: 587,
                         user: '',
                         pass: ''
-                    }
+                    },
+                    // Chat system
+                    showChat: false,
+                    chatForm: { name: '', email: '' },
+                    chatSession: JSON.parse(localStorage.getItem('chatSession') || '{}'),
+                    chatMessage: '',
+                    chatMessages: JSON.parse(localStorage.getItem('chatMessages') || '[]'),
+                    // Admin chat management
+                    selectedChatSession: null,
+                    adminChatMessage: '',
+                    // Banner control
+                    dismissedBanners: JSON.parse(localStorage.getItem('dismissedBanners') || '[]')
                 };
             },
             mounted() {
@@ -1421,21 +2273,31 @@
                 this.loadComments();
                 // Load background settings
                 this.backgroundForm.url = this.backgroundImage;
-                // Ensure background loads
-                if (this.backgroundImage) {
-                    this.$nextTick(() => {
-                        const bgElement = document.querySelector('.bg-image');
-                        if (bgElement) {
-                            bgElement.style.backgroundImage = `url(${this.backgroundImage})`;
-                        }
-                    });
-                }
+                // Apply saved background on mount
+                this.$nextTick(() => {
+                    const bgElement = document.querySelector('.bg-image');
+                    if (!bgElement) return;
+                    
+                    if (this.backgroundType === 'image' && this.backgroundImage) {
+                        bgElement.style.backgroundImage = `url("${this.backgroundImage}")`;
+                        bgElement.style.filter = `blur(${this.bgBlur}px) brightness(${this.bgBrightness}) opacity(${this.bgOpacity})`;
+                    } else if (this.backgroundType === 'gradient') {
+                        bgElement.style.backgroundImage = `linear-gradient(${this.gradientDirection}, ${this.gradientColor1}, ${this.gradientColor2})`;
+                        bgElement.style.filter = 'none';
+                    } else if (this.backgroundType === 'solid') {
+                        bgElement.style.backgroundImage = 'none';
+                        bgElement.style.backgroundColor = this.solidColor;
+                        bgElement.style.filter = 'none';
+                    }
+                });
                 // Close dropdown when clicking outside
                 document.addEventListener('click', (e) => {
                     if (!e.target.closest('.settings-dropdown')) {
                         this.showSettingsMenu = false;
                     }
                 });
+                // Initialize chart
+                this.$nextTick(() => this.initChart());
             },
             computed: {
                 postsFiltered() {
@@ -1464,7 +2326,15 @@
                         );
                     }
                     
-                    return filtered;
+                    // Sort by date (newest first)
+                    return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+                },
+                newestPost() {
+                    const publishedPosts = this.posts.filter(p => !p.isDraft);
+                    if (publishedPosts.length === 0) return null;
+                    const newest = publishedPosts.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+                    const daysSincePost = (Date.now() - new Date(newest.date)) / (1000 * 60 * 60 * 24);
+                    return daysSincePost <= 3 ? newest : null;
                 },
                 paginatedPosts() {
                     const start = (this.currentPage - 1) * this.postsPerPage;
@@ -1545,6 +2415,38 @@
                         .sort((a, b) => new Date(b.date) - new Date(a.date))
                         .slice(0, 5);
                 },
+                recentActivity() {
+                    return [
+                        { id: 1, icon: '📝', text: 'New post published', time: '2 hours ago' },
+                        { id: 2, icon: '💬', text: 'New comment received', time: '4 hours ago' },
+                        { id: 3, icon: '❤️', text: 'Post liked', time: '6 hours ago' },
+                        { id: 4, icon: '👁️', text: '50 new views', time: '1 day ago' }
+                    ];
+                },
+                topPosts() {
+                    return this.posts.slice(0, 5).map((p, i) => ({ ...p, views: 100 - i * 15 }));
+                },
+                currentMonthName() {
+                    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                    return months[this.currentMonthIndex];
+                },
+                calendarDays() {
+                    const days = [];
+                    const firstDay = new Date(this.currentYear, this.currentMonthIndex, 1).getDay();
+                    const daysInMonth = new Date(this.currentYear, this.currentMonthIndex + 1, 0).getDate();
+                    const today = new Date();
+                    
+                    for (let i = 0; i < firstDay; i++) days.push({ day: '', date: null });
+                    
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const date = new Date(this.currentYear, this.currentMonthIndex, day);
+                        const isToday = date.toDateString() === today.toDateString();
+                        const postsOnDay = this.posts.filter(p => new Date(p.date).toDateString() === date.toDateString());
+                        days.push({ day, date: date.toISOString(), isToday, hasPost: postsOnDay.length > 0, postCount: postsOnDay.length });
+                    }
+                    
+                    return days;
+                },
                 availableYears() {
                     const years = new Set();
                     this.posts.forEach(p => {
@@ -1576,6 +2478,31 @@
                     return Object.values(months).sort((a, b) => {
                         return monthNames.indexOf(b.name) - monthNames.indexOf(a.name);
                     });
+                },
+                filteredCategories() {
+                    if (!this.categorySearch) return this.categories;
+                    return this.categories.filter(c => 
+                        c.name.toLowerCase().includes(this.categorySearch.toLowerCase())
+                    );
+                },
+                chatSessions() {
+                    const sessions = new Map();
+                    this.chatMessages.forEach(msg => {
+                        if (!sessions.has(msg.sessionId)) {
+                            const session = JSON.parse(localStorage.getItem('chatSession') || '{}');
+                            if (session.id === msg.sessionId) {
+                                sessions.set(msg.sessionId, session);
+                            } else {
+                                sessions.set(msg.sessionId, {
+                                    id: msg.sessionId,
+                                    name: 'Unknown User',
+                                    email: msg.userEmail || 'unknown@email.com',
+                                    startTime: msg.timestamp
+                                });
+                            }
+                        }
+                    });
+                    return Array.from(sessions.values()).sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
                 }
             },
         methods: {
@@ -1743,9 +2670,6 @@
                 onSelectBgFile(e) {
                     const f = e.target.files && e.target.files[0];
                     this.selectedBgFile = f || null;
-                    if (f) {
-                        this.backgroundForm.url = URL.createObjectURL(f);
-                    }
                 },
                 async uploadBackgroundImage() {
                     if (!this.selectedBgFile) return alert('Select a file first');
@@ -1758,7 +2682,7 @@
                             this.backgroundForm.url = j.url;
                             this.selectedBgFile = null;
                             if (this.$refs.bgImageInput) this.$refs.bgImageInput.value = null;
-                            alert('Background image uploaded!');
+                            alert('Image uploaded! Click "Apply Background" to use it.');
                         } else {
                             alert('Upload failed');
                         }
@@ -1766,27 +2690,81 @@
                         alert('Upload error');
                     }
                 },
-                setBackground() {
-                    if (!this.backgroundForm.url) return alert('Enter a background image URL');
-                    this.backgroundImage = this.backgroundForm.url;
-                    localStorage.setItem('blogBackground', this.backgroundImage);
-                    this.$nextTick(() => {
-                        const bgElement = document.querySelector('.bg-image');
-                        if (bgElement) {
-                            bgElement.style.backgroundImage = `url(${this.backgroundImage})`;
-                        }
-                    });
-                    alert('Background updated!');
+                applyBackground() {
+                    const bgElement = document.querySelector('.bg-image');
+                    if (!bgElement) return;
+
+                    localStorage.setItem('bgType', this.backgroundType);
+
+                    if (this.backgroundType === 'image') {
+                        if (!this.backgroundForm.url) return alert('Enter or upload an image');
+                        this.backgroundImage = this.backgroundForm.url;
+                        localStorage.setItem('blogBackground', this.backgroundImage);
+                        localStorage.setItem('bgBlur', this.bgBlur);
+                        localStorage.setItem('bgBrightness', this.bgBrightness);
+                        localStorage.setItem('bgOpacity', this.bgOpacity);
+                        bgElement.style.backgroundImage = `url("${this.backgroundImage}")`;
+                        bgElement.style.filter = `blur(${this.bgBlur}px) brightness(${this.bgBrightness}) opacity(${this.bgOpacity})`;
+                    } else if (this.backgroundType === 'gradient') {
+                        localStorage.setItem('gradientColor1', this.gradientColor1);
+                        localStorage.setItem('gradientColor2', this.gradientColor2);
+                        localStorage.setItem('gradientDirection', this.gradientDirection);
+                        bgElement.style.backgroundImage = `linear-gradient(${this.gradientDirection}, ${this.gradientColor1}, ${this.gradientColor2})`;
+                        bgElement.style.filter = 'none';
+                    } else if (this.backgroundType === 'solid') {
+                        localStorage.setItem('solidColor', this.solidColor);
+                        bgElement.style.backgroundImage = 'none';
+                        bgElement.style.backgroundColor = this.solidColor;
+                        bgElement.style.filter = 'none';
+                    }
+                    alert('Background applied!');
+                },
+                getBackgroundPreviewStyle() {
+                    if (this.backgroundType === 'image' && this.backgroundForm.url) {
+                        return {
+                            backgroundImage: `url("${this.backgroundForm.url}")`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            filter: `blur(${this.bgBlur}px) brightness(${this.bgBrightness}) opacity(${this.bgOpacity})`
+                        };
+                    } else if (this.backgroundType === 'gradient') {
+                        return {
+                            backgroundImage: `linear-gradient(${this.gradientDirection}, ${this.gradientColor1}, ${this.gradientColor2})`
+                        };
+                    } else if (this.backgroundType === 'solid') {
+                        return { backgroundColor: this.solidColor };
+                    }
+                    return {};
                 },
                 previewBackground() {
-                    if (!this.backgroundForm.url) return alert('Enter a background image URL');
-                    this.backgroundImage = this.backgroundForm.url;
+                    const bgElement = document.querySelector('.bg-image');
+                    if (!bgElement) return;
+                    const style = this.getBackgroundPreviewStyle();
+                    Object.assign(bgElement.style, style);
                 },
                 removeBackground() {
-                    this.backgroundImage = '';
-                    this.backgroundForm.url = '';
+                    this.backgroundType = 'image';
+                    this.backgroundImage = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=2070';
+                    this.backgroundForm.url = this.backgroundImage;
+                    this.bgBlur = 5;
+                    this.bgBrightness = 0.7;
+                    this.bgOpacity = 0.8;
                     localStorage.removeItem('blogBackground');
-                    alert('Background removed!');
+                    localStorage.removeItem('bgType');
+                    localStorage.removeItem('bgBlur');
+                    localStorage.removeItem('bgBrightness');
+                    localStorage.removeItem('bgOpacity');
+                    localStorage.removeItem('gradientColor1');
+                    localStorage.removeItem('gradientColor2');
+                    localStorage.removeItem('gradientDirection');
+                    localStorage.removeItem('solidColor');
+                    const bgElement = document.querySelector('.bg-image');
+                    if (bgElement) {
+                        bgElement.style.backgroundImage = `url("${this.backgroundImage}")`;
+                        bgElement.style.backgroundColor = '';
+                        bgElement.style.filter = 'blur(5px) brightness(0.7) opacity(0.8)';
+                    }
+                    alert('Background reset to default!');
                 },
                 saveSocialLinks() {
                     localStorage.setItem('socialLinkedIn', this.socialLinks.linkedin);
@@ -1824,6 +2802,7 @@
                 },
                 openSettings(tab) {
                     this.activeSettingsTab = tab;
+                    this.dashboardView = 'posts';
                     this.currentView = 'admin';
                     this.showSettingsMenu = false;
                     this.showAnalytics = false;
@@ -1837,12 +2816,43 @@
                     this.activeSettingsTab = null;
                     this.showSettingsMenu = false;
                 },
-                getAdminTitle() {
+                getDashboardTitle() {
                     if (this.editingPost) return 'Edit Post';
                     if (this.showNewPostForm) return 'New Post';
-                    if (this.showAnalytics) return 'Analytics Dashboard';
                     if (this.activeSettingsTab) return this.getSettingsTitle();
-                    return 'Manage Posts';
+                    const titles = { overview: 'Dashboard Overview', posts: 'Manage Posts', chats: 'Chat Management', analytics: 'Analytics', calendar: 'Content Calendar' };
+                    return titles[this.dashboardView] || 'Dashboard';
+                },
+                changeMonth(dir) {
+                    this.currentMonthIndex += dir;
+                    if (this.currentMonthIndex < 0) { this.currentMonthIndex = 11; this.currentYear--; }
+                    if (this.currentMonthIndex > 11) { this.currentMonthIndex = 0; this.currentYear++; }
+                },
+                initChart() {
+                    if (!this.$refs.viewsChart || !window.Chart) return;
+                    const ctx = this.$refs.viewsChart.getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                            datasets: [{
+                                label: 'Views',
+                                data: [120, 190, 300, 250, 400, 350, 450, 500, 480, 520, 600, 650],
+                                borderColor: 'rgb(139, 115, 85)',
+                                backgroundColor: 'rgba(139, 115, 85, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { beginAtZero: true }
+                            }
+                        }
+                    });
                 },
                 getSettingsTitle() {
                     const titles = {
@@ -2232,6 +3242,10 @@
                     this.postForm = {
                         title: post.title,
                         author: post.author,
+                        authorEmail: post.authorEmail || '',
+                        authorLinkedIn: post.authorLinkedIn || '',
+                        authorTwitter: post.authorTwitter || '',
+                        authorWhatsApp: post.authorWhatsApp || '',
                         content: post.content,
                         tags: post.tags.join(', '),
                         image: post.image || '',
@@ -2248,7 +3262,7 @@
                 cancelEdit() {
                     this.showNewPostForm = false;
                     this.editingPost = null;
-                    this.postForm = { title: '', author: '', content: '', tags: '', image: '', featured: false, isDraft: false };
+                    this.postForm = { title: '', author: '', authorEmail: '', authorLinkedIn: '', authorTwitter: '', authorWhatsApp: '', content: '', tags: '', image: '', featured: false, isDraft: false };
                     if (this.$refs.editor) {
                         this.$refs.editor.innerHTML = '';
                     }
@@ -2274,6 +3288,10 @@
                                 body: JSON.stringify({
                                     title: this.postForm.title,
                                     author: this.postForm.author || 'Anonymous',
+                                    authorEmail: this.postForm.authorEmail || '',
+                                    authorLinkedIn: this.postForm.authorLinkedIn || '',
+                                    authorTwitter: this.postForm.authorTwitter || '',
+                                    authorWhatsApp: this.postForm.authorWhatsApp || '',
                                     content: this.postForm.content,
                                     tags: tags,
                                     image: this.postForm.image || '',
@@ -2301,6 +3319,10 @@
                                 body: JSON.stringify({
                                     title: this.postForm.title,
                                     author: this.postForm.author || 'Anonymous',
+                                    authorEmail: this.postForm.authorEmail || '',
+                                    authorLinkedIn: this.postForm.authorLinkedIn || '',
+                                    authorTwitter: this.postForm.authorTwitter || '',
+                                    authorWhatsApp: this.postForm.authorWhatsApp || '',
                                     content: this.postForm.content,
                                     tags: tags,
                                     image: this.postForm.image || '',
@@ -2346,6 +3368,115 @@
                 },
                 getExcerpt(content) {
                     return content.length > 150 ? content.substring(0, 150) + '...' : content;
+                },
+                getSelectedCategoryName() {
+                    if (!this.postForm.categoryId) return 'Uncategorized';
+                    const category = this.categories.find(c => c.id === this.postForm.categoryId);
+                    return category ? category.name : 'Uncategorized';
+                },
+                selectCategory(categoryId) {
+                    this.postForm.categoryId = categoryId;
+                    this.showCategoryDropdown = false;
+                    this.categorySearch = '';
+                },
+                filterCategories() {
+                    // Filtering is handled by computed property
+                },
+                getCategoryColor(categoryId) {
+                    const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
+                    return colors[categoryId % colors.length];
+                },
+                getCategoryPostCount(categoryId) {
+                    return this.posts.filter(p => p.categoryId === categoryId).length;
+                },
+                getUncategorizedCount() {
+                    return this.posts.filter(p => !p.categoryId).length;
+                },
+                startChat() {
+                    if (!this.chatForm.name || !this.chatForm.email) {
+                        alert('Please enter your name and email');
+                        return;
+                    }
+                    this.chatSession = {
+                        id: Date.now(),
+                        name: this.chatForm.name,
+                        email: this.chatForm.email,
+                        startTime: new Date().toISOString()
+                    };
+                    localStorage.setItem('chatSession', JSON.stringify(this.chatSession));
+                    this.chatForm = { name: '', email: '' };
+                },
+                sendMessage() {
+                    if (!this.chatMessage.trim()) return;
+                    const message = {
+                        id: Date.now(),
+                        sessionId: this.chatSession.id,
+                        message: this.chatMessage,
+                        isAdmin: false,
+                        timestamp: new Date().toISOString(),
+                        userEmail: this.chatSession.email
+                    };
+                    this.chatMessages.push(message);
+                    localStorage.setItem('chatMessages', JSON.stringify(this.chatMessages));
+                    this.notifyAdmin(message);
+                    this.chatMessage = '';
+                },
+                getChatMessages() {
+                    return this.chatMessages.filter(m => m.sessionId === this.chatSession.id);
+                },
+                formatChatTime(timestamp) {
+                    return new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                },
+                async notifyAdmin(message) {
+                    try {
+                        await fetch('/api/chat/notify', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                userEmail: message.userEmail,
+                                userName: this.chatSession.name,
+                                message: message.message,
+                                timestamp: message.timestamp
+                            })
+                        });
+                    } catch (e) {
+                        console.log('Email notification failed');
+                    }
+                },
+                selectChatSession(session) {
+                    this.selectedChatSession = session;
+                },
+                getSelectedChatMessages() {
+                    if (!this.selectedChatSession) return [];
+                    return this.chatMessages.filter(m => m.sessionId === this.selectedChatSession.id);
+                },
+                sendAdminMessage() {
+                    if (!this.adminChatMessage.trim() || !this.selectedChatSession) return;
+                    const message = {
+                        id: Date.now(),
+                        sessionId: this.selectedChatSession.id,
+                        message: this.adminChatMessage,
+                        isAdmin: true,
+                        timestamp: new Date().toISOString(),
+                        userEmail: this.selectedChatSession.email
+                    };
+                    this.chatMessages.push(message);
+                    localStorage.setItem('chatMessages', JSON.stringify(this.chatMessages));
+                    this.adminChatMessage = '';
+                },
+                handleBlogClick() {
+                    if (this.isLoggedIn) {
+                        window.open(window.location.origin + window.location.pathname, '_blank');
+                    } else {
+                        this.currentView = 'blog';
+                    }
+                },
+                dismissBanner(postId) {
+                    this.dismissedBanners.push(postId);
+                    localStorage.setItem('dismissedBanners', JSON.stringify(this.dismissedBanners));
+                },
+                isDismissed(postId) {
+                    return this.dismissedBanners.includes(postId);
                 }
             },
             watch: {
