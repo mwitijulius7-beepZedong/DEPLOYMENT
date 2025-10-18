@@ -116,13 +116,17 @@
             margin: 0 auto;
             padding: 0 2rem;
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
             align-items: center;
+            position: relative;
         }
 
         .logo {
             font-size: 1.8rem;
             font-weight: bold;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
         }
 
         .nav {
@@ -366,6 +370,8 @@
         /* Posts List in Admin */
         .admin-posts-list {
             margin-top: 2rem;
+            position: relative;
+            z-index: 1;
         }
 
         .admin-post-item {
@@ -639,35 +645,38 @@
         .settings-dropdown {
             position: relative;
             display: inline-block;
-            z-index: 2147483647;
+            z-index: 999999;
         }
 
         .dropdown-menu {
-            position: absolute;
-            top: 100%;
-            right: 0;
+            position: fixed;
+            top: 70px;
+            right: 2rem;
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 8px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            min-width: 150px;
+            min-width: 180px;
             backdrop-filter: blur(10px);
-            z-index: 2147483647;
+            z-index: 999999;
         }
 
         .dropdown-menu button {
             width: 100%;
-            padding: 0.75rem 1rem;
+            padding: 1rem 1.5rem;
             background: none;
             border: none;
             color: var(--text-color);
             text-align: left;
             cursor: pointer;
             transition: background 0.2s;
+            font-size: 0.95rem;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .dropdown-menu button:hover {
-            background: var(--bg-color);
+            background: var(--primary-color);
+            color: white;
         }
 
         .dropdown-menu button:first-child {
@@ -676,6 +685,7 @@
 
         .dropdown-menu button:last-child {
             border-radius: 0 0 8px 8px;
+            border-bottom: none;
         }
 
         .comments-section {
@@ -739,28 +749,34 @@
     <div id="app">
         <div class="header">
             <div class="header-content">
+                <div class="profile-photo" style="width:50px; height:50px; border-radius:50%; background-size:cover; background-position:center; border:2px solid rgba(255,255,255,0.3); cursor:pointer;" :style="{ backgroundImage: profilePhoto ? 'url(' + profilePhoto + ')' : '' }" @click="currentView === 'admin' && isLoggedIn ? showProfileUpload = true : null" :title="currentView === 'admin' && isLoggedIn ? 'Click to change photo' : ''">
+                    <div v-if="!profilePhoto" style="display:flex; align-items:center; justify-content:center; height:100%; color:rgba(255,255,255,0.7); font-size:1.2rem;">👤</div>
+                </div>
                 <div class="logo">{{ blogTitle }}</div>
                 <nav class="nav">
                     <button @click="currentView = 'blog'" :class="{ active: currentView === 'blog' }">Blog</button>
                     <template v-if="currentView === 'admin' && isLoggedIn">
                         <button @click="showNewPostForm = true">+ New Post</button>
                         <button @click="showAnalytics = !showAnalytics; currentView = 'admin'">Analytics</button>
-                        <div class="settings-dropdown" @mouseenter="showSettingsMenu = true" @mouseleave="showSettingsMenu = false">
-                            <button>Settings ▼</button>
-                            <div v-if="showSettingsMenu" class="dropdown-menu">
-                                <button @click="openSettings('general')">General</button>
-                                <button @click="openSettings('background')">Background</button>
-                                <button @click="openSettings('social')">Social Links</button>
-                                <button @click="openSettings('email')">Email Config</button>
-                                <button @click="openSettings('categories')">Categories</button>
-                            </div>
-                        </div>
-                        <button @click="logout">Logout</button>
                     </template>
                     <template v-if="currentView === 'blog'">
                         <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
                             {{ isDarkMode ? '☀️' : '🌙' }}
                         </button>
+                    </template>
+                    <template v-if="currentView === 'admin' && isLoggedIn">
+                        <div class="settings-dropdown">
+                            <button @click="showSettingsMenu = !showSettingsMenu">Settings ▼</button>
+                            <div v-if="showSettingsMenu" class="dropdown-menu" @click.stop>
+                                <button @click="openSettings('general'); showSettingsMenu = false">General</button>
+                                <button @click="openSettings('background'); showSettingsMenu = false">Background</button>
+                                <button @click="openSettings('social'); showSettingsMenu = false">Social Links</button>
+                                <button @click="openSettings('email'); showSettingsMenu = false">Email Config</button>
+                                <button @click="openSettings('categories'); showSettingsMenu = false">Categories</button>
+                                <button @click="openSettings('profile'); showSettingsMenu = false">Profile Photo</button>
+                                <button @click="logout; showSettingsMenu = false" style="border-top: 2px solid var(--border-color); margin-top: 0.5rem; padding-top: 1rem;">Logout</button>
+                            </div>
+                        </div>
                     </template>
                 </nav>
             </div>
@@ -808,10 +824,10 @@
                 <!-- Posts Grid -->
                 <div class="posts-grid" v-if="paginatedPosts.length > 0">
                     <div v-for="post in paginatedPosts" :key="post.id" class="post-card" @click="viewPost(post)">
-                        <div v-if="post.image" class="post-image" :style="{ backgroundImage: 'url(' + post.image + ')' }">
+                        <div v-if="post.image && post.image.trim()" class="post-image" :style="{ backgroundImage: 'url(' + post.image + ')' }">
                             <div class="overlay"><div style="font-weight:700">{{ post.title }}</div></div>
                         </div>
-                        <h2 class="post-title" v-if="!post.image">{{ post.title }}</h2>
+                        <h2 class="post-title" v-if="!post.image || !post.image.trim()">{{ post.title }}</h2>
                         <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }}</div>
                         <p class="post-excerpt">{{ getExcerpt(post.content) }}</p>
                         <div class="post-tags">
@@ -857,6 +873,9 @@
             <div v-if="currentView === 'blog' && selectedPost">
                 <button class="back-button" @click="selectedPost = null">← Back to Posts</button>
                 <div class="post-detail">
+                    <div v-if="selectedPost.image && selectedPost.image.trim()" style="margin-bottom: 2rem;">
+                        <img :src="selectedPost.image" :alt="selectedPost.title" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 12px;">
+                    </div>
                     <h1 class="post-title">{{ selectedPost.title }}</h1>
                     <div class="post-meta">{{ formatDate(selectedPost.date) }} · {{ selectedPost.author }}</div>
                     <div class="post-tags" style="margin: 1rem 0 2rem 0;">
@@ -979,11 +998,11 @@
                     </div>
 
                     <!-- New/Edit Post Modal -->
-                    <div v-if="showNewPostForm || editingPost" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; display:flex; align-items:center; justify-content:center; overflow-y:auto;" @click="cancelEdit">
-                        <div style="background:var(--card-bg); border-radius:12px; padding:2rem; max-width:800px; width:90%; max-height:90%; overflow-y:auto; margin:2rem;" @click.stop>
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-                                <h3 style="color:var(--text-color); margin:0;">{{ editingPost ? 'Edit Post' : 'New Post' }}</h3>
-                                <button @click="cancelEdit" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-color); padding:0.5rem;">&times;</button>
+                    <div v-if="showNewPostForm || editingPost" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); z-index:10000; display:flex; align-items:flex-start; justify-content:center; overflow-y:auto; padding:2rem 0;" @click="cancelEdit">
+                        <div style="background:var(--card-bg); border-radius:16px; padding:3rem; width:95%; max-width:1000px; min-height:80vh; box-shadow:0 20px 60px rgba(0,0,0,0.3); border:1px solid var(--border-color);" @click.stop>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem; padding-bottom:1rem; border-bottom:2px solid var(--border-color);">
+                                <h2 style="color:var(--primary-color); margin:0; font-size:2rem;">{{ editingPost ? 'Edit Post' : 'Create New Post' }}</h2>
+                                <button @click="cancelEdit" style="background:var(--border-color); border:none; font-size:1.5rem; cursor:pointer; color:var(--text-color); padding:0.75rem; border-radius:50%; width:3rem; height:3rem; display:flex; align-items:center; justify-content:center; transition:background 0.3s;" onmouseover="this.style.background='var(--primary-color)'; this.style.color='white'" onmouseout="this.style.background='var(--border-color)'; this.style.color='var(--text-color)'">&times;</button>
                             </div>
                         <div class="form-group">
                             <label>Title</label>
@@ -1034,117 +1053,17 @@
                                 <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
                             </select>
                         </div>
-                            <div class="form-actions">
-                                <button class="btn" @click="savePost">
+                            <div class="form-actions" style="margin-top:3rem; padding-top:2rem; border-top:2px solid var(--border-color); display:flex; gap:1rem; justify-content:flex-end;">
+                                <button class="btn" style="background:#6b7280; padding:1rem 2rem; font-size:1.1rem;" @click="cancelEdit">Cancel</button>
+                                <button class="btn" style="padding:1rem 2rem; font-size:1.1rem; background:var(--primary-color);" @click="savePost">
                                     {{ editingPost ? 'Update Post' : 'Publish Post' }}
                                 </button>
-                                <button class="btn" style="background: #6b7280;" @click="cancelEdit">Cancel</button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Posts List -->
-                    <div v-if="!showNewPostForm && !editingPost" class="admin-posts-list">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-                            <h3 style="color: var(--text-color);">Your Posts ({{ filteredPostsByYear.length }})</h3>
-                            <div style="display:flex; gap:0.5rem; align-items:center;">
-                                <select v-model="selectedYear" style="padding:0.5rem; border-radius:4px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-color);">
-                                    <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
-                                </select>
-                                <button class="btn btn-small" @click="showMonthModal = true">Monthly View</button>
-                                <div v-if="selectedPosts.length > 0" style="display:flex; gap:0.5rem;">
-                                    <button class="btn btn-small" @click="bulkPublish">Publish Selected</button>
-                                    <button class="btn btn-small" @click="bulkDraft">Draft Selected</button>
-                                    <button class="btn btn-danger btn-small" @click="bulkDelete">Delete Selected</button>
-                                    <button class="btn btn-small" style="background:#6b7280;" @click="selectedPosts = []">Clear Selection</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div v-if="posts.length === 0" class="empty-state">
-                            <h3>No posts yet</h3>
-                            <p>Create your first post to get started!</p>
-                        </div>
-                        <div v-else>
-                            <div v-for="post in filteredPostsByYear" :key="post.id" class="admin-post-item">
-                                <div style="display:flex; align-items:center; gap:1rem;">
-                                    <input type="checkbox" :value="post.id" v-model="selectedPosts">
-                                    <div class="admin-post-info" style="flex:1;">
-                                        <h3>{{ post.title }} <span v-if="post.isDraft" class="draft-indicator">DRAFT</span></h3>
-                                        <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }} <span v-if="post.categoryId">· {{ getCategoryName(post.categoryId) }}</span></div>
-                                    </div>
-                                </div>
-                                <div class="admin-post-actions">
-                                    <button class="btn btn-small" @click="editPost(post)">Edit</button>
-                                    <button class="btn btn-danger btn-small" @click="deletePost(post.id)">Delete</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Analytics Dashboard -->
-                    <div v-if="showAnalytics" style="margin-top:2rem; background:var(--card-bg); padding:2rem; border-radius:12px; border:1px solid var(--border-color);">
-                        <h3 style="color:var(--text-color); margin-bottom:1.5rem;">Analytics Dashboard</h3>
-                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; margin-bottom:2rem;">
-                            <div style="background:var(--primary-color); color:white; padding:1.5rem; border-radius:8px; text-align:center;">
-                                <div style="font-size:2rem; font-weight:bold;">{{ posts.length }}</div>
-                                <div>Total Posts</div>
-                            </div>
-                            <div style="background:var(--accent-color); color:white; padding:1.5rem; border-radius:8px; text-align:center;">
-                                <div style="font-size:2rem; font-weight:bold;">{{ publishedPosts.length }}</div>
-                                <div>Published</div>
-                            </div>
-                            <div style="background:#10b981; color:white; padding:1.5rem; border-radius:8px; text-align:center;">
-                                <div style="font-size:2rem; font-weight:bold;">{{ draftPosts.length }}</div>
-                                <div>Drafts</div>
-                            </div>
-                            <div style="background:#f59e0b; color:white; padding:1.5rem; border-radius:8px; text-align:center;">
-                                <div style="font-size:2rem; font-weight:bold;">{{ totalComments }}</div>
-                                <div>Comments</div>
-                            </div>
-                        </div>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem;">
-                            <div>
-                                <h4 style="margin-bottom:1rem; color:var(--text-color);">Popular Tags</h4>
-                                <div v-for="tag in popularTags" :key="tag.name" style="display:flex; justify-content:space-between; padding:0.5rem; background:var(--bg-color); border-radius:4px; margin-bottom:0.5rem;">
-                                    <span>{{ tag.name }}</span>
-                                    <span style="color:var(--text-muted);">{{ tag.count }}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <h4 style="margin-bottom:1rem; color:var(--text-color);">Recent Activity</h4>
-                                <div v-for="post in recentPosts" :key="post.id" style="padding:0.5rem; background:var(--bg-color); border-radius:4px; margin-bottom:0.5rem;">
-                                    <div style="font-weight:600;">{{ post.title }}</div>
-                                    <div style="font-size:0.8rem; color:var(--text-muted);">{{ formatDate(post.date) }}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Monthly Posts Modal -->
-                    <div v-if="showMonthModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; display:flex; align-items:center; justify-content:center;" @click="showMonthModal = false">
-                        <div style="background:var(--card-bg); border-radius:12px; padding:2rem; max-width:800px; width:90%; max-height:80%; overflow-y:auto;" @click.stop>
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-                                <h3 style="color:var(--text-color);">Posts by Month - {{ selectedYear }}</h3>
-                                <button @click="showMonthModal = false" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-color);">&times;</button>
-                            </div>
-                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:1rem;">
-                                <div v-for="month in monthsWithPosts" :key="month.name" style="background:var(--bg-color); border-radius:8px; padding:1rem; border:1px solid var(--border-color);">
-                                    <h4 style="color:var(--primary-color); margin-bottom:0.5rem;">{{ month.name }} ({{ month.posts.length }})</h4>
-                                    <div v-for="post in month.posts" :key="post.id" style="background:var(--card-bg); padding:0.5rem; border-radius:4px; margin-bottom:0.5rem; font-size:0.9rem;">
-                                        <div style="font-weight:600;">{{ post.title }} <span v-if="post.isDraft" class="draft-indicator">DRAFT</span></div>
-                                        <div style="font-size:0.8rem; color:var(--text-muted);">{{ formatDate(post.date) }}</div>
-                                        <div style="display:flex; gap:0.25rem; margin-top:0.25rem;">
-                                            <button class="btn btn-small" style="font-size:0.7rem; padding:0.25rem 0.5rem;" @click="editPost(post); showMonthModal = false">Edit</button>
-                                            <button class="btn btn-danger btn-small" style="font-size:0.7rem; padding:0.25rem 0.5rem;" @click="deletePost(post.id)">Delete</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
                     <!-- Settings Sections -->
-                    <div v-if="activeSettingsTab" style="margin-top:2rem; background:var(--card-bg); padding:2rem; border-radius:12px; border:1px solid var(--border-color);">
+                    <div v-if="activeSettingsTab" style="background:var(--card-bg); padding:2rem; border-radius:12px; border:1px solid var(--border-color); margin-bottom:2rem;">
                         <h3 style="color:var(--text-color); margin-bottom:1.5rem;">{{ getSettingsTitle() }}</h3>
                         
                         <!-- General Settings -->
@@ -1270,7 +1189,124 @@
                                 <button class="btn" style="background:#6b7280;" @click="cancelCategoryEdit">Cancel</button>
                             </div>
                         </div>
+                        
+                        <!-- Profile Photo Settings -->
+                        <div v-if="activeSettingsTab === 'profile'">
+                            <div class="form-group">
+                                <label>Profile Photo</label>
+                                <div v-if="profilePhoto" style="margin-bottom:1rem;">
+                                    <img :src="profilePhoto" alt="Current profile" style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:2px solid var(--border-color);">
+                                </div>
+                                <input type="file" ref="profileInput" @change="onSelectProfileFile" accept="image/*" style="margin-bottom:0.5rem;">
+                                <div style="display:flex; gap:0.5rem;">
+                                    <button class="btn btn-small" @click="uploadProfilePhoto" :disabled="!selectedProfileFile">Upload Photo</button>
+                                    <button class="btn btn-danger btn-small" @click="removeProfilePhoto" v-if="profilePhoto">Remove Photo</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- Posts List -->
+                    <div v-if="!showNewPostForm && !editingPost" class="admin-posts-list">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                            <h3 style="color: var(--text-color);">Your Posts ({{ filteredPostsByYear.length }})</h3>
+                            <div style="display:flex; gap:0.5rem; align-items:center;">
+                                <select v-model="selectedYear" style="padding:0.5rem; border-radius:4px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-color);">
+                                    <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
+                                </select>
+                                <button class="btn btn-small" @click="showMonthModal = true">Monthly View</button>
+                                <div v-if="selectedPosts.length > 0" style="display:flex; gap:0.5rem;">
+                                    <button class="btn btn-small" @click="bulkPublish">Publish Selected</button>
+                                    <button class="btn btn-small" @click="bulkDraft">Draft Selected</button>
+                                    <button class="btn btn-danger btn-small" @click="bulkDelete">Delete Selected</button>
+                                    <button class="btn btn-small" style="background:#6b7280;" @click="selectedPosts = []">Clear Selection</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div v-if="posts.length === 0" class="empty-state">
+                            <h3>No posts yet</h3>
+                            <p>Create your first post to get started!</p>
+                        </div>
+                        <div v-else>
+                            <div v-for="post in filteredPostsByYear" :key="post.id" class="admin-post-item">
+                                <div style="display:flex; align-items:center; gap:1rem;">
+                                    <input type="checkbox" :value="post.id" v-model="selectedPosts">
+                                    <div class="admin-post-info" style="flex:1;">
+                                        <h3>{{ post.title }} <span v-if="post.isDraft" class="draft-indicator">DRAFT</span></h3>
+                                        <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }} <span v-if="post.categoryId">· {{ getCategoryName(post.categoryId) }}</span></div>
+                                    </div>
+                                </div>
+                                <div class="admin-post-actions">
+                                    <button class="btn btn-small" @click="editPost(post)">Edit</button>
+                                    <button class="btn btn-danger btn-small" @click="deletePost(post.id)">Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Dashboard -->
+                    <div v-if="showAnalytics" style="margin-top:2rem; background:var(--card-bg); padding:2rem; border-radius:12px; border:1px solid var(--border-color);">
+                        <h3 style="color:var(--text-color); margin-bottom:1.5rem;">Analytics Dashboard</h3>
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; margin-bottom:2rem;">
+                            <div style="background:var(--primary-color); color:white; padding:1.5rem; border-radius:8px; text-align:center;">
+                                <div style="font-size:2rem; font-weight:bold;">{{ posts.length }}</div>
+                                <div>Total Posts</div>
+                            </div>
+                            <div style="background:var(--accent-color); color:white; padding:1.5rem; border-radius:8px; text-align:center;">
+                                <div style="font-size:2rem; font-weight:bold;">{{ publishedPosts.length }}</div>
+                                <div>Published</div>
+                            </div>
+                            <div style="background:#10b981; color:white; padding:1.5rem; border-radius:8px; text-align:center;">
+                                <div style="font-size:2rem; font-weight:bold;">{{ draftPosts.length }}</div>
+                                <div>Drafts</div>
+                            </div>
+                            <div style="background:#f59e0b; color:white; padding:1.5rem; border-radius:8px; text-align:center;">
+                                <div style="font-size:2rem; font-weight:bold;">{{ totalComments }}</div>
+                                <div>Comments</div>
+                            </div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem;">
+                            <div>
+                                <h4 style="margin-bottom:1rem; color:var(--text-color);">Popular Tags</h4>
+                                <div v-for="tag in popularTags" :key="tag.name" style="display:flex; justify-content:space-between; padding:0.5rem; background:var(--bg-color); border-radius:4px; margin-bottom:0.5rem;">
+                                    <span>{{ tag.name }}</span>
+                                    <span style="color:var(--text-muted);">{{ tag.count }}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 style="margin-bottom:1rem; color:var(--text-color);">Recent Activity</h4>
+                                <div v-for="post in recentPosts" :key="post.id" style="padding:0.5rem; background:var(--bg-color); border-radius:4px; margin-bottom:0.5rem;">
+                                    <div style="font-weight:600;">{{ post.title }}</div>
+                                    <div style="font-size:0.8rem; color:var(--text-muted);">{{ formatDate(post.date) }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Monthly Posts Modal -->
+                    <div v-if="showMonthModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; display:flex; align-items:center; justify-content:center;" @click="showMonthModal = false">
+                        <div style="background:var(--card-bg); border-radius:12px; padding:2rem; max-width:800px; width:90%; max-height:80%; overflow-y:auto;" @click.stop>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                                <h3 style="color:var(--text-color);">Posts by Month - {{ selectedYear }}</h3>
+                                <button @click="showMonthModal = false" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-color);">&times;</button>
+                            </div>
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:1rem;">
+                                <div v-for="month in monthsWithPosts" :key="month.name" style="background:var(--bg-color); border-radius:8px; padding:1rem; border:1px solid var(--border-color);">
+                                    <h4 style="color:var(--primary-color); margin-bottom:0.5rem;">{{ month.name }} ({{ month.posts.length }})</h4>
+                                    <div v-for="post in month.posts" :key="post.id" style="background:var(--card-bg); padding:0.5rem; border-radius:4px; margin-bottom:0.5rem; font-size:0.9rem;">
+                                        <div style="font-weight:600;">{{ post.title }} <span v-if="post.isDraft" class="draft-indicator">DRAFT</span></div>
+                                        <div style="font-size:0.8rem; color:var(--text-muted);">{{ formatDate(post.date) }}</div>
+                                        <div style="display:flex; gap:0.25rem; margin-top:0.25rem;">
+                                            <button class="btn btn-small" style="font-size:0.7rem; padding:0.25rem 0.5rem;" @click="editPost(post); showMonthModal = false">Edit</button>
+                                            <button class="btn btn-danger btn-small" style="font-size:0.7rem; padding:0.25rem 0.5rem;" @click="deletePost(post.id)">Delete</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+
                 </div>
             </div>
         </div>
@@ -1361,6 +1397,9 @@
                         twitter: localStorage.getItem('socialTwitter') || '',
                         whatsapp: localStorage.getItem('socialWhatsApp') || ''
                     },
+                    profilePhoto: localStorage.getItem('profilePhoto') || '',
+                    showProfileUpload: false,
+                    selectedProfileFile: null,
                     // Email settings
                     emailSettings: {
                         host: '',
@@ -1394,6 +1433,12 @@
                         }
                     });
                 }
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.settings-dropdown')) {
+                        this.showSettingsMenu = false;
+                    }
+                });
             },
             computed: {
                 postsFiltered() {
@@ -1793,6 +1838,7 @@
                     this.editingPost = null;
                     this.showAnalytics = false;
                     this.activeSettingsTab = null;
+                    this.showSettingsMenu = false;
                 },
                 getAdminTitle() {
                     if (this.editingPost) return 'Edit Post';
@@ -1807,9 +1853,39 @@
                         background: 'Background Settings',
                         social: 'Social Links',
                         email: 'Email Configuration',
-                        categories: 'Categories Management'
+                        categories: 'Categories Management',
+                        profile: 'Profile Photo Settings'
                     };
                     return titles[this.activeSettingsTab] || 'Settings';
+                },
+                onSelectProfileFile(e) {
+                    const f = e.target.files && e.target.files[0];
+                    this.selectedProfileFile = f || null;
+                },
+                async uploadProfilePhoto() {
+                    if (!this.selectedProfileFile) return alert('Select a file first');
+                    const form = new FormData();
+                    form.append('image', this.selectedProfileFile);
+                    try {
+                        const r = await fetch('/api/upload', { method: 'POST', body: form, credentials: 'include' });
+                        const j = await r.json();
+                        if (j && j.url) {
+                            this.profilePhoto = j.url;
+                            localStorage.setItem('profilePhoto', this.profilePhoto);
+                            this.selectedProfileFile = null;
+                            if (this.$refs.profileInput) this.$refs.profileInput.value = null;
+                            alert('Profile photo updated!');
+                        } else {
+                            alert('Upload failed');
+                        }
+                    } catch (e) {
+                        alert('Upload error');
+                    }
+                },
+                removeProfilePhoto() {
+                    this.profilePhoto = '';
+                    localStorage.removeItem('profilePhoto');
+                    alert('Profile photo removed!');
                 },
                 onSelectFile(e) {
                         const f = e.target.files && e.target.files[0];
