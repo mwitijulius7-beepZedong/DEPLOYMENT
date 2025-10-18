@@ -5,8 +5,14 @@ const { OAuth2Client } = require('google-auth-library');
 const session = require('express-session');
 const path = require('path');
 
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// File upload middleware
+const fileUpload = require('express-fileupload');
+app.use(fileUpload({ limits: { fileSize: 5 * 1024 * 1024 } })); // 5MB limit
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID; // must match client-side
 const ALLOWED_EMAIL = process.env.ALLOWED_EMAIL || ''; // exact email allowed (optional)
@@ -17,6 +23,12 @@ if (!CLIENT_ID) {
 }
 
 app.use(express.json());
+app.use(express.static(__dirname));
+app.use('/uploads', express.static(UPLOADS_DIR, {
+  maxAge: '1y',
+  etag: true,
+  lastModified: true
+}));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
@@ -30,6 +42,24 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const POSTS_FILE = path.join(__dirname, 'posts.json');
+const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
+
+// Ensure uploads directory exists
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+function loadCategories() {
+  try {
+    return JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveCategories(categories) {
+  fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
+}
 
 function loadUsers() {
   try {
@@ -213,6 +243,7 @@ app.post('/api/posts', requireAuth, (req, res) => {
     tags: Array.isArray(body.tags) ? body.tags : (body.tags || []).map ? body.tags : [],
     image: body.image || '',
     featured: !!body.featured,
+    isDraft: !!body.isDraft,
     categoryId: null
   };
 
@@ -288,6 +319,7 @@ app.put('/api/posts/:id', requireAuth, (req, res) => {
     tags: Array.isArray(body.tags) ? body.tags : posts[idx].tags,
     image: body.image || posts[idx].image,
     featured: !!body.featured,
+    isDraft: 'isDraft' in body ? !!body.isDraft : posts[idx].isDraft,
     categoryId: posts[idx].categoryId
   };
 
@@ -400,6 +432,72 @@ app.delete('/api/categories/:id', requireAuth, (req, res) => {
   savePosts(posts);
 
   return res.json({ success: true });
+});
+
+// POST /auth/google - verify Google ID token and create session
+app.post('/auth/google', async (req, res) => {
+  const { id_token } = req.body;
+  if (!id_token) return res.status(400).json({ error: 'missing id_token' });
+
+  try {
+    // Verify with Google's tokeninfo endpoint
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${id_token}`);
+    const payload = await response.json();
+
+    if (!response.ok || payload.error) {
+      return res.status(401).json({ error: 'invalid token' });
+    }
+
+    // Check client ID matches
+    if (payload.aud !== CLIENT_ID) {
+      return res.status(401).json({ error: 'invalid client' });
+    }
+
+    // Check email restrictions if configured
+    const email = payload.email;
+    if (ALLOWED_EMAIL && email !== ALLOWED_EMAIL) {
+      return res.status(403).json({ error: 'email not allowed' });
+    }
+    if (ALLOWED_DOMAIN && !email.endsWith('@' + ALLOWED_DOMAIN)) {
+      return res.status(403).json({ error: 'domain not allowed' });
+    }
+
+    // Create session
+    req.session.user = {
+      email: payload.email,
+      name: payload.name || 'Google User'
+    };
+
+    return res.json({ success: true, email: payload.email, name: payload.name });
+  } catch (e) {
+    console.error('Google auth error:', e);
+    return res.status(500).json({ error: 'verification failed' });
+  }
+});
+
+// Image optimization endpoint
+app.get('/api/image/:filename', (req, res) => {
+  const { filename } = req.params;
+  const { w, h, q = 80 } = req.query;
+  const imagePath = path.join(UPLOADS_DIR, filename);
+  
+  if (!fs.existsSync(imagePath)) {
+    return res.status(404).json({ error: 'Image not found' });
+  }
+  
+  // Set cache headers
+  res.set({
+    'Cache-Control': 'public, max-age=31536000',
+    'ETag': `"${fs.statSync(imagePath).mtime.getTime()}"`
+  });
+  
+  // For now, just serve the original image
+  // In production, you'd use sharp or similar for actual optimization
+  res.sendFile(imagePath);
+});
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => console.log(`Auth server listening on http://localhost:${PORT}`));

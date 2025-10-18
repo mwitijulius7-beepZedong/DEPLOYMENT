@@ -16,5 +16,11 @@
     "name": "Smoke Test",
     "slug": "smoke-test",
     "description": ""
+  },
+  {
+    "id": 1760785644966,
+    "name": "TEST CATEGORY",
+    "slug": "test-category",
+    "description": "TEST CATEGORY"
   }
 ]

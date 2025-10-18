@@ -1,13 +1,15 @@
 [
   {
     "id": 1760212244005,
-    "title": "Smoke test minimal",
-    "author": "Smoke",
-    "content": "Created by automated test",
+    "title": "TEST EDIT",
+    "author": "Mao Zedong",
+    "content": "test code",
     "date": "2025-10-11T19:50:44.005Z",
     "image": "",
     "featured": false,
-    "categoryId": null
+    "categoryId": 1760211464274,
+    "tags": [],
+    "isDraft": false
   },
   {
     "id": 1760206797856,
