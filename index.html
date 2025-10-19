@@ -3,8 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personal Blog & Admin</title>
+    <title>{{ pageTitle }}</title>
+    <meta name="description" :content="pageDescription">
+    <meta name="keywords" :content="pageKeywords">
+    <meta property="og:title" :content="pageTitle">
+    <meta property="og:description" :content="pageDescription">
+    <meta property="og:type" content="website">
+    <meta property="og:url" :content="currentUrl">
+    <meta property="og:image" :content="pageImage">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" :content="pageTitle">
+    <meta name="twitter:description" :content="pageDescription">
+    <meta name="twitter:image" :content="pageImage">
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Google Identity Services (replace CLIENT_ID below with your real client ID) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -14,23 +26,112 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: 'Georgia', 'Times New Roman', serif;
             line-height: 1.6;
-            color: #333;
-            background: #f5f5f5;
+            color: var(--text-color);
+            background: transparent;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        :root {
+            --bg-color: #ffffff;
+            --card-bg: #f8fafc;
+            --text-color: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --primary-color: #3b82f6;
+            --accent-color: #60a5fa;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --primary-color: #60a5fa;
+            --accent-color: #93c5fd;
+        }
+
+        .animated-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            margin: 0;
+            padding: 0;
+        }
+
+        .bg-image {
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        @keyframes slowMove {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(-2%, -1%) scale(1.02); }
+            50% { transform: translate(1%, -2%) scale(1.01); }
+            75% { transform: translate(-1%, 1%) scale(1.02); }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .content-overlay {
+            min-height: 100vh;
+            position: relative;
+            z-index: 1;
+            margin: 0;
+            padding: 0;
         }
 
         #app {
+            width: 100%;
             min-height: 100vh;
+            position: relative;
+            margin: 0;
+            padding: 0;
+        }
+        
+        #app .header {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 9999 !important;
+            width: 100% !important;
+            transform: none !important;
+            will-change: auto !important;
         }
 
         /* Header */
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            z-index: 1000;
+            background-color: #E87C59;
             color: white;
-            padding: 2rem 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 1.5rem 0;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.15);
         }
 
         .header-content {
@@ -47,9 +148,32 @@
             font-weight: bold;
         }
 
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
         .nav {
             display: flex;
-            gap: 2rem;
+            gap: 1rem;
+            align-items: center;
+            overflow: visible;
+        }
+
+        .theme-toggle {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 0.5rem;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: background 0.3s;
+        }
+
+        .theme-toggle:hover {
+            background: #D66A48;
         }
 
         .nav button {
@@ -61,10 +185,11 @@
             padding: 0.5rem 1rem;
             border-radius: 5px;
             transition: background 0.3s;
+            position: relative;
         }
 
         .nav button:hover {
-            background: rgba(255,255,255,0.2);
+            background: #D66A48;
         }
 
         .nav button.active {
@@ -74,8 +199,15 @@
         /* Container */
         .container {
             max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 2rem;
+            margin: 0 auto;
+            padding: 120px 2rem 2rem 2rem;
+            overflow: visible;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                padding-top: 160px;
+            }
         }
 
         /* Blog Posts */
@@ -87,33 +219,35 @@
         }
 
         .post-card {
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(139, 115, 85, 0.15);
             transition: transform 0.3s, box-shadow 0.3s;
             cursor: pointer;
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(5px);
         }
 
         .post-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 30px rgba(139, 115, 85, 0.25);
         }
 
         .post-title {
             font-size: 1.5rem;
             margin-bottom: 0.5rem;
-            color: #667eea;
+            color: var(--primary-color);
         }
 
         .post-meta {
-            color: #666;
+            color: var(--text-muted);
             font-size: 0.9rem;
             margin-bottom: 1rem;
         }
 
         .post-excerpt {
-            color: #555;
+            color: var(--text-color);
             line-height: 1.8;
         }
 
@@ -155,7 +289,7 @@
         }
 
         .back-button {
-            background: #667eea;
+            background: var(--primary-color);
             color: white;
             border: none;
             padding: 0.75rem 1.5rem;
@@ -167,29 +301,7 @@
         }
 
         .back-button:hover {
-            background: #5568d3;
-        }
-
-        /* Admin Panel */
-        .admin-panel {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .admin-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid #e5e7eb;
-        }
-
-        .admin-header h2 {
-            color: #667eea;
-            font-size: 2rem;
+            background: var(--accent-color);
         }
 
         .btn {
@@ -229,7 +341,7 @@
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 600;
-            color: #374151;
+            color: var(--text-color);
         }
 
         .form-group input,
@@ -246,7 +358,7 @@
         .form-group input:focus,
         .form-group textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--primary-color);
         }
 
         .form-group textarea {
@@ -260,42 +372,6 @@
             margin-top: 2rem;
         }
 
-        /* Posts List in Admin */
-        .admin-posts-list {
-            margin-top: 2rem;
-        }
-
-        .admin-post-item {
-            background: #f9fafb;
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .admin-post-info h3 {
-            color: #667eea;
-            margin-bottom: 0.5rem;
-        }
-
-        .admin-post-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: #9ca3af;
-        }
-
-        .empty-state h3 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-        }
-
         /* Login */
         .login-container {
             max-width: 400px;
@@ -307,7 +383,7 @@
         }
 
         .login-container h2 {
-            color: #667eea;
+            color: var(--primary-color);
             margin-bottom: 2rem;
             text-align: center;
         }
@@ -319,102 +395,65 @@
             border-radius: 8px;
             margin-bottom: 1rem;
         }
-        /* Hero and image styles */
-        .hero {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 1.5rem;
-            margin-top: 2rem;
-        }
-
-        .hero-card {
-            position: relative;
-            border-radius: 12px;
-            overflow: hidden;
-            min-height: 320px;
-            background-size: cover;
-            background-position: center;
-            color: white;
-            display: flex;
-            align-items: flex-end;
-            padding: 2rem;
-        }
-
-        .hero-overlay {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.6) 100%);
-        }
-
-        .hero-content { position: relative; z-index: 2; }
-
-        .post-image {
-            height: 200px;
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-            margin-bottom: 1rem;
-            background-size: cover;
-            background-position: center;
-        }
-
-        .post-image .overlay {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.25); display:flex; align-items:flex-end; padding:1rem; color:white;
-        }
 
         @media (max-width: 900px) {
-            .hero { grid-template-columns: 1fr; }
-            .post-image { height: 180px; }
             .posts-grid { grid-template-columns: 1fr; }
+            .header-content { flex-direction: column; gap: 1rem; text-align: center; }
+            .nav { justify-content: center; }
+            .container { padding: 0 1rem; }
+        }
+
+        @media (max-width: 600px) {
+            .posts-grid { grid-template-columns: 1fr; gap: 1rem; }
+            .post-card { padding: 1rem; }
         }
     </style>
 </head>
 <body>
+    <div class="animated-background">
+        <div class="bg-image" :style="{ backgroundImage: backgroundImage ? 'url(' + backgroundImage + ')' : '' }"></div>
+    </div>
+    <div class="content-overlay">
     <div id="app">
-        <div class="header">
+        <div class="header" style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; z-index: 9999 !important; width: 100% !important;">
             <div class="header-content">
-                <div class="logo">{{ blogTitle }}</div>
+                <div class="header-left">
+                    <div class="profile-photo" style="width:50px; height:50px; border-radius:50%; background-size:cover; background-position:center; border:2px solid rgba(255,255,255,0.3); cursor:pointer;" :style="{ backgroundImage: profilePhoto ? 'url(' + profilePhoto + ')' : '' }" @click="currentView === 'admin' && isLoggedIn ? showProfileUpload = true : null" :title="currentView === 'admin' && isLoggedIn ? 'Click to change photo' : ''">
+                        <div v-if="!profilePhoto" style="display:flex; align-items:center; justify-content:center; height:100%; color:rgba(255,255,255,0.7); font-size:1.2rem;">👤</div>
+                    </div>
+                    <div class="logo">{{ blogTitle }}</div>
+                </div>
                 <nav class="nav">
-                    <button @click="currentView = 'blog'" :class="{ active: currentView === 'blog' }">Blog</button>
-                    <button @click="currentView = 'admin'" :class="{ active: currentView === 'admin' }">Admin</button>
+                    <div v-if="currentView === 'admin' && isLoggedIn">
+                        <button @click="showSideMenu = !showSideMenu" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">☰ Menu</button>
+                        <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
+                            {{ isDarkMode ? '☀️' : '🌙' }}
+                        </button>
+                    </div>
+                    <div v-else>
+                        <button @click="handleBlogClick" :class="{ active: currentView === 'blog' }">Blog</button>
+                        <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
+                            {{ isDarkMode ? '☀️' : '🌙' }}
+                        </button>
+                    </div>
                 </nav>
             </div>
         </div>
 
-        <div class="container">
+        <div class="container" style="margin-top: 120px !important; padding-top: 2rem !important;">
             <!-- Blog View -->
             <div v-if="currentView === 'blog' && !selectedPost">
-                <h1 style="margin: 2rem 0; color: #374151;">Latest Posts</h1>
-                <!-- Hero: featured post + sidebar recent list -->
-                <div v-if="posts.length > 0" class="hero">
-                    <div v-if="featuredPost" class="hero-card" :style="{ backgroundImage: featuredPost.image ? 'url(' + featuredPost.image + ')' : '' }">
-                        <div class="hero-overlay"></div>
-                        <div class="hero-content">
-                            <h2 style="font-size:2rem; margin-bottom:0.5rem">{{ featuredPost.title }}</h2>
-                            <div style="opacity:0.95">{{ getExcerpt(featuredPost.content) }}</div>
-                            <div style="margin-top:0.75rem; font-size:0.9rem; opacity:0.95">{{ formatDate(featuredPost.date) }} · {{ featuredPost.author }}</div>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 style="margin-bottom:0.5rem; color:#374151">Recent</h3>
-                        <div v-for="p in posts.slice(0,6)" :key="p.id" style="background:white; border-radius:10px; padding:0.75rem; margin-bottom:0.75rem; box-shadow:0 1px 4px rgba(0,0,0,0.06); cursor:pointer;" @click="viewPost(p)">
-                            <div style="font-weight:600">{{ p.title }}</div>
-                            <div style="font-size:0.85rem; color:#6b7280">{{ formatDate(p.date) }} · {{ p.author }}</div>
-                        </div>
-                    </div>
-                </div>
-                <div v-else class="empty-state">
+                <h1 style="margin: 2rem 0; color: var(--text-color);">Latest Posts</h1>
+                
+                <div v-if="posts.length === 0" class="empty-state">
                     <h3>No posts yet</h3>
                     <p>Check back soon for new content!</p>
                 </div>
 
                 <!-- Posts Grid -->
                 <div class="posts-grid" v-if="posts.length > 0">
-                    <div v-for="post in postsFiltered" :key="post.id" class="post-card" @click="viewPost(post)">
-                        <div v-if="post.image" class="post-image" :style="{ backgroundImage: 'url(' + post.image + ')' }">
-                            <div class="overlay"><div style="font-weight:700">{{ post.title }}</div></div>
-                        </div>
-                        <h2 class="post-title" v-if="!post.image">{{ post.title }}</h2>
+                    <div v-for="post in posts" :key="post.id" class="post-card" @click="viewPost(post)">
+                        <h2 class="post-title">{{ post.title }}</h2>
                         <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }}</div>
                         <p class="post-excerpt">{{ getExcerpt(post.content) }}</p>
                         <div class="post-tags">
@@ -422,12 +461,22 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Chat & Admin Access (Bottom Right) -->
+                <div v-if="currentView === 'blog'" style="position:fixed; bottom:2rem; right:2rem; z-index:1000; display:flex; flex-direction:column; gap:1rem;">
+                    <button @click="currentView = 'admin'" style="background:var(--primary-color); color:white; border:none; padding:1rem; border-radius:50%; cursor:pointer; font-size:1.2rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="Admin Portal">
+                        🔒
+                    </button>
+                </div>
             </div>
 
             <!-- Single Post View -->
             <div v-if="currentView === 'blog' && selectedPost">
                 <button class="back-button" @click="goBackToList">← Back to Posts</button>
                 <div class="post-detail">
+                    <div v-if="selectedPost.image && selectedPost.image.trim()" style="margin-bottom: 2rem;">
+                        <img :src="selectedPost.image" :alt="selectedPost.title" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 12px;">
+                    </div>
                     <h1 class="post-title">{{ selectedPost.title }}</h1>
                     <div class="post-meta">{{ formatDate(selectedPost.date) }} · {{ selectedPost.author }}</div>
                     <div class="post-tags" style="margin: 1rem 0 1rem 0;">
@@ -446,61 +495,34 @@
 
             <!-- Admin View -->
             <div v-if="currentView === 'admin'">
-                <!-- Login or Setup -->
+                <!-- Login -->
                 <div v-if="!isLoggedIn" class="login-container">
-                    <template v-if="setupRequired">
-                        <h2>Initial Setup</h2>
-                        <div v-if="loginError" class="error-message">{{ loginError }}</div>
-                        <div class="form-group">
-                            <label>Admin username</label>
-                            <input v-model="setupForm.username" type="text" placeholder="admin">
-                        </div>
-                        <div class="form-group">
-                            <label>Admin password</label>
-                            <input v-model="setupForm.password" type="password" placeholder="password">
-                        </div>
-                        <div class="form-group">
-                            <label>Display name</label>
-                            <input v-model="setupForm.name" type="text" placeholder="Admin">
-                        </div>
-                        <div class="form-group">
-                            <label>Email (optional)</label>
-                            <input v-model="setupForm.email" type="email" placeholder="you@example.com">
-                        </div>
-                        <button class="btn" style="width: 100%;" @click="setup">Create Admin</button>
-                    </template>
-                    <template v-else>
-                        <h2>Admin Login</h2>
-                        <div v-if="loginError" class="error-message">{{ loginError }}</div>
-                        <div class="form-group">
-                            <label>Username</label>
-                            <input v-model="loginUsername" type="text" placeholder="admin" @keyup.enter="login">
-                        </div>
-                        <div class="form-group">
-                            <label>Password</label>
-                            <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
-                        </div>
-                        <button class="btn" style="width: 100%;" @click="login">Login</button>
-                        <p style="margin-top: 1rem; color: #666; font-size: 0.9rem; text-align: center;">Default: admin / password</p>
-                        <!-- Google Sign-In -->
-                        <div style="text-align: center; margin-top: 1.25rem;">
-                            <div id="gSignInButton"></div>
-                            <p style="margin-top:0.75rem; color:#666; font-size:0.9rem;">Or sign in with your Google account</p>
-                            <p style="margin-top:0.25rem; color:#9ca3af; font-size:0.8rem;">(Replace the placeholder client ID in the script with your Google Cloud OAuth 2.0 Client ID)</p>
-                        </div>
-                    </template>
+                    <h2>Admin Login</h2>
+                    <div v-if="loginError" class="error-message">{{ loginError }}</div>
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input v-model="loginUsername" type="text" placeholder="admin" @keyup.enter="login">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
+                    </div>
+                    <button class="btn" style="width: 100%;" @click="login">Login</button>
+                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem; text-align: center;">Default: admin / password</p>
+                    <!-- Google Sign-In -->
+                    <div style="text-align: center; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+                        <p style="margin-bottom:0.75rem; color:#666; font-size:0.9rem;">Or sign in with your Google account</p>
+                        <div id="gSignInButton"></div>
+                    </div>
                 </div>
 
                 <!-- Admin Panel -->
-                <div v-if="isLoggedIn" class="admin-panel">
-                    <div class="admin-header">
-                        <h2>{{ editingPost ? 'Edit Post' : 'Manage Posts' }}</h2>
+                <div v-if="isLoggedIn" style="background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #e5e7eb;">
+                        <h2 style="color: var(--primary-color); font-size: 2rem;">{{ editingPost ? 'Edit Post' : 'Manage Posts' }}</h2>
                         <div>
-                            <button v-if="!editingPost && !showNewPostForm" class="btn" @click="showNewPostForm = true">
-                                + New Post
-                            </button>
+                            <button v-if="!editingPost && !showNewPostForm" class="btn" @click="showNewPostForm = true">+ New Post</button>
                             <button class="btn" style="margin-left: 1rem;" @click="logout">Logout</button>
-                            <button class="btn" style="margin-left: 1rem; background:#6b7280;" @click="showAdminSettings = !showAdminSettings">Admin Settings</button>
                         </div>
                     </div>
 
@@ -519,93 +541,31 @@
                             <textarea v-model="postForm.content" placeholder="Write your post content here..."></textarea>
                         </div>
                         <div class="form-group">
-                            <label>Image URL (optional)</label>
-                            <input v-model="postForm.image" type="text" placeholder="https://...">
-                            <div v-if="postForm.image" style="margin-top:0.5rem;">
-                                <img :src="postForm.image" alt="preview" style="max-width:200px; border-radius:8px; display:block; box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-                            </div>
-                            <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center">
-                                <input type="file" ref="imageInput" @change="onSelectFile" accept="image/*">
-                                <button class="btn btn-small" @click.prevent="uploadImage" :disabled="!selectedFile">Upload</button>
-                                <span style="color:#6b7280; font-size:0.9rem; margin-left:0.5rem">or paste an external URL above</span>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" v-model="postForm.featured"> Featured (show in hero)</label>
-                        </div>
-                        <div class="form-group">
                             <label>Tags (comma-separated)</label>
                             <input v-model="postForm.tags" type="text" placeholder="technology, coding, vue">
                         </div>
-                        <div class="form-group">
-                            <label>Category</label>
-                            <select v-model="postForm.categoryId">
-                                <option :value="null">Uncategorized</option>
-                                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-                            </select>
-                        </div>
                         <div class="form-actions">
-                            <button class="btn" @click="savePost">
-                                {{ editingPost ? 'Update Post' : 'Publish Post' }}
-                            </button>
+                            <button class="btn" @click="savePost">{{ editingPost ? 'Update Post' : 'Publish Post' }}</button>
                             <button class="btn" style="background: #6b7280;" @click="cancelEdit">Cancel</button>
                         </div>
                     </div>
 
                     <!-- Posts List -->
-                    <div v-if="!showNewPostForm && !editingPost" class="admin-posts-list">
+                    <div v-if="!showNewPostForm && !editingPost" style="margin-top: 2rem;">
                         <h3 style="margin-bottom: 1rem; color: #374151;">Your Posts ({{ posts.length }})</h3>
                         <div v-if="posts.length === 0" class="empty-state">
                             <h3>No posts yet</h3>
                             <p>Create your first post to get started!</p>
                         </div>
                         <div v-else>
-                            <div v-for="post in posts" :key="post.id" class="admin-post-item">
-                                <div class="admin-post-info">
-                                    <h3>{{ post.title }}</h3>
-                                    <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }} <span v-if="post.categoryId">· {{ getCategoryName(post.categoryId) }}</span></div>
+                            <div v-for="post in posts" :key="post.id" style="background: #f9fafb; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <h3 style="color: var(--primary-color); margin-bottom: 0.5rem;">{{ post.title }}</h3>
+                                    <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }}</div>
                                 </div>
-                                <div class="admin-post-actions">
+                                <div style="display: flex; gap: 0.5rem;">
                                     <button class="btn btn-small" @click="editPost(post)">Edit</button>
                                     <button class="btn btn-danger btn-small" @click="deletePost(post.id)">Delete</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Categories Manager -->
-                    <div style="margin-top:2rem;">
-                        <h3 style="color:#374151; margin-bottom:0.5rem;">Categories</h3>
-                        <div style="display:flex; gap:1rem; align-items:flex-start;">
-                            <div style="flex:1;">
-                                <div v-for="cat in categories" :key="cat.id" style="background:#fff; padding:0.75rem; border-radius:8px; margin-bottom:0.5rem; display:flex; justify-content:space-between; align-items:center;">
-                                    <div>
-                                        <strong>{{ cat.name }}</strong>
-                                        <div style="font-size:0.85rem; color:#6b7280">{{ cat.description }}</div>
-                                    </div>
-                                    <div style="display:flex; gap:0.5rem;">
-                                        <button class="btn btn-small" @click="startEditCategory(cat)">Edit</button>
-                                        <button class="btn btn-danger btn-small" @click="deleteCategory(cat.id)">Delete</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="width:320px; background:#fff; padding:1rem; border-radius:8px;">
-                                <h4>{{ editingCategory ? 'Edit Category' : 'New Category' }}</h4>
-                                <div class="form-group">
-                                    <label>Name</label>
-                                    <input v-model="categoryForm.name" type="text">
-                                </div>
-                                <div class="form-group">
-                                    <label>Slug</label>
-                                    <input v-model="categoryForm.slug" type="text">
-                                </div>
-                                <div class="form-group">
-                                    <label>Description</label>
-                                    <input v-model="categoryForm.description" type="text">
-                                </div>
-                                <div style="display:flex; gap:0.5rem;">
-                                    <button class="btn" @click="saveCategory">{{ editingCategory ? 'Update' : 'Create' }}</button>
-                                    <button class="btn" style="background:#6b7280;" @click="cancelCategoryEdit">Cancel</button>
                                 </div>
                             </div>
                         </div>
@@ -613,6 +573,7 @@
                 </div>
             </div>
         </div>
+    </div>
     </div>
 
     <script>
@@ -644,83 +605,100 @@
                     loginUsername: '',
                     loginPassword: '',
                     loginError: '',
-                    // Setup flow: when no admin users exist on the server
-                    setupRequired: false,
-                    setupForm: { username: 'admin', password: 'password', name: 'Admin', email: '' },
                     showNewPostForm: false,
                     editingPost: null,
                     postForm: {
                         title: '',
                         author: '',
                         content: '',
-                        tags: '',
-                        image: '',
-                        featured: false
+                        tags: ''
                     },
                     nextId: 1,
-                    selectedFile: null
-                    ,categories: [],
-                    showAdminSettings: false,
-                    categoryForm: { name: '', slug: '', description: '' },
-                    editingCategory: null
+                    isDarkMode: false,
+                    backgroundImage: localStorage.getItem('blogBackground') || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=2070',
+                    profilePhoto: localStorage.getItem('profilePhoto') || '',
+                    showSideMenu: false,
+                    currentUrl: window.location.href
                 };
             },
             mounted() {
-                // Initialize Google Identity after mount
+                this.isDarkMode = localStorage.getItem('darkMode') === 'true';
+                this.applyTheme();
                 this.initGoogleIdentity();
-                // Check server session status and whether initial setup is required
                 this.checkAuthStatus();
-                this.checkSetupStatus();
-                // Load posts from server
-                this.fetchPosts();
-                this.fetchCategories();
-            },
-            computed: {
-                postsFiltered() {
-                    // Basic passthrough for now; place to add search/filter
-                    return this.posts;
-                },
-                featuredPost() {
-                    return this.posts.find(p => p.featured) || this.posts[0] || null;
+                this.loadData();
+                this.addSamplePosts();
+                
+                window.addEventListener('popstate', () => {
+                    const id = parseInt(new URLSearchParams(window.location.search).get('post'), 10);
+                    if (id && Array.isArray(this.posts)) {
+                        const p = this.posts.find(x => x.id === id);
+                        this.selectedPost = p || null;
+                    } else {
+                        this.selectedPost = null;
+                    }
+                });
+                
+                const initialId = parseInt(new URLSearchParams(window.location.search).get('post'), 10);
+                if (initialId && Array.isArray(this.posts)) {
+                    const p = this.posts.find(x => x.id === initialId);
+                    if (p) this.selectedPost = p;
                 }
             },
-        methods: {
-
-                    onSelectFile(e) {
-                        const f = e.target.files && e.target.files[0];
-                        this.selectedFile = f || null;
-                    },
-
-                    async uploadImage() {
-                        if (!this.selectedFile) return alert('Select a file first');
-                        const form = new FormData();
-                        form.append('image', this.selectedFile);
-                        try {
-                            const r = await fetch('/api/upload', { method: 'POST', body: form, credentials: 'include' });
-                            const j = await r.json();
-                            if (j && j.url) {
-                                this.postForm.image = j.url;
-                                // reset file input
-                                if (this.$refs && this.$refs.imageInput) this.$refs.imageInput.value = null;
-                                this.selectedFile = null;
-                                alert('Image uploaded and URL set');
-                            } else {
-                                alert('Upload failed');
-                            }
-                        } catch (e) {
-                            console.error(e);
-                            alert('Upload error');
-                        }
-                    },
+            computed: {
+                pageTitle() {
+                    if (this.selectedPost) {
+                        return `${this.selectedPost.title} - ${this.blogTitle}`;
+                    }
+                    return `${this.blogTitle} - Personal Blog`;
+                },
+                pageDescription() {
+                    if (this.selectedPost) {
+                        return this.getExcerpt(this.selectedPost.content);
+                    }
+                    return 'A personal blog sharing thoughts, tutorials, and insights on web development and technology.';
+                },
+                pageKeywords() {
+                    if (this.selectedPost && this.selectedPost.tags) {
+                        return this.selectedPost.tags.join(', ');
+                    }
+                    return 'blog, web development, programming, technology';
+                },
+                pageImage() {
+                    if (this.selectedPost && this.selectedPost.image) {
+                        return this.selectedPost.image;
+                    }
+                    return 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1200';
+                },
+                shareLinks() {
+                    const baseUrl = window.location.origin + window.location.pathname;
+                    const title = this.selectedPost ? this.selectedPost.title : this.blogTitle;
+                    const url = new URL(baseUrl);
+                    if (this.selectedPost) url.searchParams.set('post', String(this.selectedPost.id));
+                    const u = encodeURIComponent(url.toString());
+                    const t = encodeURIComponent(title);
+                    return {
+                        twitter: `https://twitter.com/intent/tweet?url=${u}&text=${t}`,
+                        facebook: `https://www.facebook.com/sharer/sharer.php?u=${u}`,
+                        linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${u}`
+                    };
+                }
+            },
+            methods: {
+                toggleTheme() {
+                    this.isDarkMode = !this.isDarkMode;
+                    localStorage.setItem('darkMode', this.isDarkMode);
+                    this.applyTheme();
+                },
+                applyTheme() {
+                    document.documentElement.setAttribute('data-theme', this.isDarkMode ? 'dark' : 'light');
+                },
                 initGoogleIdentity() {
-                    // Wait until the Google Identity script has loaded
                     if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-                        // Retry shortly if script hasn't loaded yet
                         setTimeout(() => this.initGoogleIdentity(), 200);
                         return;
                     }
 
-                    // Render the Google Sign-In button
                     window.google.accounts.id.initialize({
                         client_id: GOOGLE_CLIENT_ID,
                         callback: (response) => this.handleGoogleCredential(response)
@@ -728,107 +706,10 @@
 
                     window.google.accounts.id.renderButton(
                         document.getElementById('gSignInButton'),
-                        { theme: 'outline', size: 'large', width: '250' } // customization
+                        { theme: 'outline', size: 'large', width: '250' }
                     );
-
-                    // Optionally prompt the One Tap UX (commented out by default)
-                    // window.google.accounts.id.prompt();
                 },
-
-                async fetchCategories() {
-                    try {
-                        const r = await fetch('/api/categories', { credentials: 'include' });
-                        const j = await r.json();
-                        this.categories = j.categories || [];
-                    } catch (e) {
-                        console.error('failed to load categories', e);
-                        this.categories = [];
-                    }
-                },
-
-                startEditCategory(cat) {
-                    this.editingCategory = cat;
-                    this.categoryForm = { name: cat.name, slug: cat.slug, description: cat.description };
-                },
-
-                cancelCategoryEdit() {
-                    this.editingCategory = null;
-                    this.categoryForm = { name: '', slug: '', description: '' };
-                },
-
-                async saveCategory() {
-                    if (!this.categoryForm.name) return alert('Name required');
-                    try {
-                        if (this.editingCategory) {
-                            const r = await fetch('/api/categories/' + this.editingCategory.id, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.categoryForm) });
-                            const j = await r.json();
-                            if (r.status === 401) return alert('Not authenticated. Please login.');
-                            if (!j.success) return alert('Failed to update: ' + (j.error || JSON.stringify(j)));
-                            await this.fetchCategories();
-                            this.cancelCategoryEdit();
-                        } else {
-                            const r = await fetch('/api/categories', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.categoryForm) });
-                            const j = await r.json();
-                            if (r.status === 401) return alert('Not authenticated. Please login.');
-                            if (!j.success) return alert('Failed to create: ' + (j.error || JSON.stringify(j)));
-                            await this.fetchCategories();
-                            this.cancelCategoryEdit();
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        alert('Category save error');
-                    }
-                },
-
-                async updateAdmin() {
-                    // Only available to logged-in admins
-                    const payload = {
-                        username: this.setupForm.username,
-                        password: this.setupForm.password,
-                        name: this.setupForm.name,
-                        email: this.setupForm.email
-                    };
-                    try {
-                        const r = await fetch('/auth/setup', {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-                        const j = await r.json();
-                        if (r.status === 401) return alert('Not authorized');
-                        if (!j || !j.success) return alert('Failed: ' + (j && j.error));
-                        alert('Admin credentials updated');
-                        this.showAdminSettings = false;
-                    } catch (e) {
-                        console.error(e);
-                        alert('Update failed');
-                    }
-                },
-
-                async deleteCategory(id) {
-                    if (!confirm('Delete this category? Posts assigned to it will be uncategorized.')) return;
-                    try {
-                        const r = await fetch('/api/categories/' + id, { method: 'DELETE', credentials: 'include' });
-                        const j = await r.json();
-                        if (r.status === 401) return alert('Not authenticated. Please login.');
-                        if (j.success) {
-                            await this.fetchCategories();
-                            await this.fetchPosts();
-                        } else alert('Failed to delete: ' + (j.error || JSON.stringify(j)));
-                    } catch (e) {
-                        console.error(e);
-                        alert('Delete error');
-                    }
-                },
-
-                getCategoryName(id) {
-                    const c = this.categories.find(x => x.id === id);
-                    return c ? c.name : 'Uncategorized';
-                },
-
                 handleGoogleCredential(response) {
-                    // response.credential is a JWT ID token. Send it to server for verification.
                     const token = response && response.credential;
                     if (!token) {
                         this.loginError = 'Google sign-in failed';
@@ -858,7 +739,6 @@
                         this.loginError = 'Network error';
                     });
                 },
-
                 async checkAuthStatus() {
                     try {
                         const resp = await fetch('/auth/status', { credentials: 'include' });
@@ -872,45 +752,6 @@
                         this.isLoggedIn = false;
                     }
                 },
-
-                async checkSetupStatus() {
-                    try {
-                        const r = await fetch('/auth/setup-status');
-                        const j = await r.json();
-                        // j.setup === true means users exist; so setup not required
-                        this.setupRequired = !(j && j.setup);
-                        // If setup is not required, clear any setup form to avoid confusion
-                        if (!this.setupRequired) this.setupForm = { username: 'admin', password: 'password', name: 'Admin', email: '' };
-                    } catch (e) {
-                        // On error, assume setup is not required to avoid locking UI
-                        console.error('failed to check setup status', e);
-                        this.setupRequired = false;
-                    }
-                },
-
-                async setup() {
-                    if (!this.setupForm.username || !this.setupForm.password) return this.loginError = 'Username and password required';
-                    try {
-                        const r = await fetch('/auth/setup', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(this.setupForm)
-                        });
-                        const j = await r.json();
-                        if (r.status === 401) return this.loginError = 'Not authorized to create admin';
-                        if (!j || !j.success) return this.loginError = j && j.error ? j.error : 'Failed to create admin';
-                        // Created: attempt auto-login
-                        this.loginUsername = this.setupForm.username;
-                        this.loginPassword = this.setupForm.password;
-                        await this.login();
-                        this.setupRequired = false;
-                        this.loginError = '';
-                    } catch (e) {
-                        console.error(e);
-                        this.loginError = 'Setup failed';
-                    }
-                },
-
                 loadData() {
                     const saved = this.getData('blogPosts');
                     if (saved) {
@@ -921,21 +762,6 @@
                 },
                 saveData() {
                     this.setData('blogPosts', this.posts);
-                },
-                async fetchPosts() {
-                    try {
-                        const resp = await fetch('/api/posts', { credentials: 'include' });
-                        const data = await resp.json();
-                        if (data && Array.isArray(data.posts)) {
-                            this.posts = data.posts;
-                            this.nextId = Math.max(...this.posts.map(p => p.id), 0) + 1;
-                            return;
-                        }
-                    } catch (e) {
-                        // ignore and fallback to local samples
-                    }
-                    // Fallback when server unavailable
-                    this.addSamplePosts();
                 },
                 getData(key) {
                     try {
@@ -950,33 +776,32 @@
                 },
                 addSamplePosts() {
                     if (this.posts.length === 0) {
-                            this.posts = [
+                        this.posts = [
                             {
                                 id: this.nextId++,
                                 title: 'Getting Started with Vue.js',
                                 author: 'Admin',
-                                    content: 'Vue.js is an amazing framework for building user interfaces. In this post, we\'ll explore the basics of Vue.js and why it\'s become so popular among developers.\n\nVue is progressive, meaning you can adopt it incrementally. Start with a simple script tag, or build a full-featured single-page application. The choice is yours!\n\nKey features include:\n- Reactive data binding\n- Component-based architecture\n- Virtual DOM for efficient updates\n- Easy to learn and use\n\nWhether you\'re building a small widget or a large application, Vue.js provides the tools you need to succeed.',
+                                content: 'Vue.js is an amazing framework for building user interfaces. In this post, we\'ll explore the basics of Vue.js and why it\'s become so popular among developers.\n\nVue is progressive, meaning you can adopt it incrementally. Start with a simple script tag, or build a full-featured single-page application. The choice is yours!\n\nKey features include:\n- Reactive data binding\n- Component-based architecture\n- Virtual DOM for efficient updates\n- Easy to learn and use\n\nWhether you\'re building a small widget or a large application, Vue.js provides the tools you need to succeed.',
                                 date: new Date().toISOString(),
-                                    tags: ['vue', 'javascript', 'tutorial'],
-                                    image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1400&auto=format&fit=crop&crop=entropy',
-                                    featured: true
+                                tags: ['vue', 'javascript', 'tutorial'],
+                                image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1400&auto=format&fit=crop&crop=entropy',
+                                featured: true
                             },
                             {
                                 id: this.nextId++,
                                 title: 'The Power of Modern Web Development',
                                 author: 'Admin',
-                                    content: 'Modern web development has come a long way. With tools like Vue, React, and Angular, we can build incredible user experiences that were impossible just a few years ago.\n\nThe web platform continues to evolve, adding new APIs and capabilities regularly. From Progressive Web Apps to WebAssembly, the possibilities are endless.\n\nIn this blog, I\'ll be sharing my journey learning these technologies and building cool projects. Stay tuned for more content!',
+                                content: 'Modern web development has come a long way. With tools like Vue, React, and Angular, we can build incredible user experiences that were impossible just a few years ago.\n\nThe web platform continues to evolve, adding new APIs and capabilities regularly. From Progressive Web Apps to WebAssembly, the possibilities are endless.\n\nIn this blog, I\'ll be sharing my journey learning these technologies and building cool projects. Stay tuned for more content!',
                                 date: new Date(Date.now() - 86400000).toISOString(),
-                                    tags: ['web development', 'programming', 'technology'],
-                                    image: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?q=80&w=1400&auto=format&fit=crop&crop=entropy',
-                                    featured: false
+                                tags: ['web development', 'programming', 'technology'],
+                                image: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?q=80&w=1400&auto=format&fit=crop&crop=entropy',
+                                featured: false
                             }
                         ];
                         this.saveData();
                     }
                 },
                 login() {
-                    // Call server-side login to create a session cookie
                     fetch('/auth/login', {
                         method: 'POST',
                         credentials: 'include',
@@ -991,9 +816,6 @@
                             this.loginError = '';
                             this.loginUsername = '';
                             this.loginPassword = '';
-                            // refresh categories and posts
-                            this.fetchCategories();
-                            this.fetchPosts();
                         } else if (status === 401) {
                             this.loginError = (body && body.error) ? body.error : 'Invalid credentials';
                         } else {
@@ -1005,7 +827,6 @@
                     });
                 },
                 logout() {
-                    // Call server to destroy session and clear client state
                     fetch('/auth/logout', { method: 'POST', credentials: 'include' })
                         .then(() => {
                             this.isLoggedIn = false;
@@ -1014,7 +835,6 @@
                             this.editingPost = null;
                         })
                         .catch(() => {
-                            // Fallback: clear client state even if server call fails
                             this.isLoggedIn = false;
                             this.setData('isLoggedIn', false);
                             this.showNewPostForm = false;
@@ -1040,18 +860,15 @@
                         title: post.title,
                         author: post.author,
                         content: post.content,
-                        tags: post.tags.join(', '),
-                        image: post.image || '',
-                        featured: !!post.featured,
-                        categoryId: post.categoryId || null
+                        tags: post.tags.join(', ')
                     };
                 },
                 cancelEdit() {
                     this.showNewPostForm = false;
                     this.editingPost = null;
-                    this.postForm = { title: '', author: '', content: '', tags: '', image: '', featured: false };
+                    this.postForm = { title: '', author: '', content: '', tags: '' };
                 },
-                async savePost() {
+                savePost() {
                     if (!this.postForm.title || !this.postForm.content) {
                         alert('Please fill in title and content');
                         return;
@@ -1063,73 +880,32 @@
                         .filter(t => t);
 
                     if (this.editingPost) {
-                        // Update via API
-                        try {
-                            const resp = await fetch('/api/posts/' + this.editingPost.id, {
-                                method: 'PUT',
-                                credentials: 'include',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    title: this.postForm.title,
-                                    author: this.postForm.author || 'Anonymous',
-                                    content: this.postForm.content,
-                                    tags: tags,
-                                    image: this.postForm.image || '',
-                                    featured: !!this.postForm.featured,
-                                    categoryId: this.postForm.categoryId || null
-                                })
-                            });
-                            const data = await resp.json();
-                            if (data && data.success) {
-                                await this.fetchPosts();
-                            } else {
-                                alert('Failed to update post');
-                            }
-                        } catch (e) {
-                            alert('Network error');
-                        }
+                        const idx = this.posts.findIndex(p => p.id === this.editingPost.id);
+                        this.posts[idx] = {
+                            ...this.editingPost,
+                            title: this.postForm.title,
+                            author: this.postForm.author || 'Anonymous',
+                            content: this.postForm.content,
+                            tags: tags
+                        };
                     } else {
-                        // Create via API
-                        try {
-                            const resp = await fetch('/api/posts', {
-                                method: 'POST',
-                                credentials: 'include',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    title: this.postForm.title,
-                                    author: this.postForm.author || 'Anonymous',
-                                    content: this.postForm.content,
-                                    tags: tags,
-                                    image: this.postForm.image || '',
-                                    featured: !!this.postForm.featured,
-                                    categoryId: this.postForm.categoryId || null
-                                })
-                            });
-                            const data = await resp.json();
-                            if (data && data.success) {
-                                await this.fetchPosts();
-                            } else {
-                                alert('Failed to create post');
-                            }
-                        } catch (e) {
-                            alert('Network error');
-                        }
+                        this.posts.unshift({
+                            id: this.nextId++,
+                            title: this.postForm.title,
+                            author: this.postForm.author || 'Anonymous',
+                            content: this.postForm.content,
+                            date: new Date().toISOString(),
+                            tags: tags
+                        });
                     }
 
+                    this.saveData();
                     this.cancelEdit();
                 },
                 deletePost(id) {
-                    if (!confirm('Are you sure you want to delete this post?')) return;
-                    try {
-                        fetch('/api/posts/' + id, { method: 'DELETE' })
-                            .then(r => r.json())
-                            .then(d => {
-                                if (d && d.success) this.fetchPosts();
-                                else alert('Failed to delete');
-                            })
-                            .catch(() => alert('Network error'));
-                    } catch (e) {
-                        alert('Network error');
+                    if (confirm('Are you sure you want to delete this post?')) {
+                        this.posts = this.posts.filter(p => p.id !== id);
+                        this.saveData();
                     }
                 },
                 formatDate(dateString) {
@@ -1142,6 +918,13 @@
                 },
                 getExcerpt(content) {
                     return content.length > 150 ? content.substring(0, 150) + '...' : content;
+                },
+                handleBlogClick() {
+                    if (this.isLoggedIn) {
+                        window.open(window.location.origin + window.location.pathname, '_blank');
+                    } else {
+                        this.currentView = 'blog';
+                    }
                 },
                 async copyPermalink() {
                     const baseUrl = window.location.origin + window.location.pathname;
