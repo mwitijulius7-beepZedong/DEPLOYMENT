@@ -357,6 +357,49 @@ app.post('/api/upload', requireAuth, async (req, res) => {
   }
 });
 
+// Settings API
+const settingsPath = path.join(__dirname, 'settings.json');
+
+// Helper function to read settings
+function readSettings() {
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const data = fs.readFileSync(settingsPath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error reading settings:', error);
+  }
+  return { backgroundUrl: '' };
+}
+
+// Helper function to write settings
+function writeSettings(settings) {
+  try {
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  } catch (error) {
+    console.error('Error writing settings:', error);
+  }
+}
+
+// Get current background image
+app.get('/api/settings/background', (req, res) => {
+  const settings = readSettings();
+  return res.json({ backgroundUrl: settings.backgroundUrl || '' });
+});
+
+// Set background image
+app.post('/api/settings/background', requireAuth, (req, res) => {
+  const { backgroundUrl } = req.body;
+  if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
+  
+  const settings = readSettings();
+  settings.backgroundUrl = backgroundUrl;
+  writeSettings(settings);
+  
+  return res.json({ success: true, backgroundUrl });
+});
+
 // Analytics API
 app.post('/api/analytics/pageview', (req, res) => {
   try {
