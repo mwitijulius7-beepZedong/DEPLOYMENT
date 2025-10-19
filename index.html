@@ -1307,6 +1307,14 @@
                         });
                         
                         const result = await response.json();
+                        if (!response.ok) {
+                            if (response.status === 401) {
+                                alert('Please login first');
+                                return;
+                            }
+                            throw new Error('Upload failed');
+                        }
+                        
                         if (result.success) {
                             // Save to backend
                             await fetch('/api/settings/background', {
@@ -1437,7 +1445,9 @@
                 },
                 async fetchBackground() {
                     try {
-                        const response = await fetch('/api/settings/background');
+                        const response = await fetch('/api/settings/background', {
+                            credentials: 'include'
+                        });
                         const data = await response.json();
                         this.backgroundImage = data.backgroundUrl;
                         console.log('Background loaded:', this.backgroundImageUrl);
