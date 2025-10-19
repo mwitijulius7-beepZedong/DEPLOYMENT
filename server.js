@@ -37,12 +37,19 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-const cors = require('cors');
-
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? 'https://zedong254personal-blog-aq9djywsi.vercel.app' : 'http://localhost:3000',
-  credentials: true
-}));
+// CORS configuration
+app.use((req, res, next) => {
+  const origin = process.env.NODE_ENV === 'production' ? 'https://zedong254personal-blog-aq9djywsi.vercel.app' : 'http://localhost:3000';
+  res.header('Access-Control-Allow-Origin', origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 
 app.use(express.json());
 app.use(express.static(__dirname));
