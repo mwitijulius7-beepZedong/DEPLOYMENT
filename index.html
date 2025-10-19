@@ -15,7 +15,7 @@
     <meta name="twitter:title" :content="pageTitle">
     <meta name="twitter:description" :content="pageDescription">
     <meta name="twitter:image" :content="pageImage">
-    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Google Identity Services (replace CLIENT_ID below with your real client ID) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -425,7 +425,7 @@
                 </div>
                 <nav class="nav">
                     <div v-if="currentView === 'admin' && isLoggedIn">
-                        <button @click="showSideMenu = !showSideMenu" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">☰ Menu</button>
+                        <button @click.stop="toggleSideMenu" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">☰ Menu</button>
                         <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
                             {{ isDarkMode ? '☀️' : '🌙' }}
                         </button>
@@ -490,6 +490,17 @@
                         <button class="btn btn-small" style="background:#6b7280;" @click="copyPermalink">Copy link</button>
                     </div>
                     <div class="post-content">{{ selectedPost.content }}</div>
+                </div>
+            </div>
+
+            <!-- Side Menu -->
+            <div v-if="showSideMenu" style="position: fixed; top: 0; right: 0; width: 250px; height: 100vh; background: white; box-shadow: -2px 0 10px rgba(0,0,0,0.2); z-index: 10001; padding: 2rem;">
+                <button @click="toggleSideMenu" style="float: right; background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                <h3>Menu</h3>
+                <div style="margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem;">
+                    <button class="btn" @click="showNewPostForm = true; toggleSideMenu()">New Post</button>
+                    <button class="btn" @click="currentView = 'blog'; toggleSideMenu()">View Blog</button>
+                    <button class="btn btn-danger" @click="logout">Logout</button>
                 </div>
             </div>
 
@@ -618,10 +629,12 @@
                     backgroundImage: localStorage.getItem('blogBackground') || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=2070',
                     profilePhoto: localStorage.getItem('profilePhoto') || '',
                     showSideMenu: false,
+                    showSettingsMenu: false,
                     currentUrl: window.location.href
                 };
             },
             mounted() {
+                console.log('Vue app mounted successfully');
                 this.isDarkMode = localStorage.getItem('darkMode') === 'true';
                 this.applyTheme();
                 this.initGoogleIdentity();
@@ -686,9 +699,11 @@
             },
             methods: {
                 toggleTheme() {
+                    console.log('toggleTheme called');
                     this.isDarkMode = !this.isDarkMode;
                     localStorage.setItem('darkMode', this.isDarkMode);
                     this.applyTheme();
+                    console.log('Theme is now:', this.isDarkMode);
                 },
                 applyTheme() {
                     document.documentElement.setAttribute('data-theme', this.isDarkMode ? 'dark' : 'light');
@@ -941,39 +956,11 @@
                     } catch (e) {
                         prompt('Copy this link:', link);
                     }
-                }
-            },
-            computed: {
-                shareLinks() {
-                    const baseUrl = window.location.origin + window.location.pathname;
-                    const title = this.selectedPost ? this.selectedPost.title : this.blogTitle;
-                    const url = new URL(baseUrl);
-                    if (this.selectedPost) url.searchParams.set('post', String(this.selectedPost.id));
-                    const u = encodeURIComponent(url.toString());
-                    const t = encodeURIComponent(title);
-                    return {
-                        twitter: `https://twitter.com/intent/tweet?url=${u}&text=${t}`,
-                        facebook: `https://www.facebook.com/sharer/sharer.php?u=${u}`,
-                        linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${u}`
-                    };
-                }
-            },
-            mounted() {
-                // existing mounted content is above; add popstate and deep link handling
-                window.addEventListener('popstate', () => {
-                    const id = parseInt(new URLSearchParams(window.location.search).get('post'), 10);
-                    if (id && Array.isArray(this.posts)) {
-                        const p = this.posts.find(x => x.id === id);
-                        this.selectedPost = p || null;
-                    } else {
-                        this.selectedPost = null;
-                    }
-                });
-                // If a permalink is opened directly
-                const initialId = parseInt(new URLSearchParams(window.location.search).get('post'), 10);
-                if (initialId && Array.isArray(this.posts)) {
-                    const p = this.posts.find(x => x.id === initialId);
-                    if (p) this.selectedPost = p;
+                },
+                toggleSideMenu() {
+                    console.log('toggleSideMenu called');
+                    this.showSideMenu = !this.showSideMenu;
+                    console.log('Side menu is now:', this.showSideMenu);
                 }
             }
         }).mount('#app');
