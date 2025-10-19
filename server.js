@@ -51,6 +51,30 @@ app.use(fileUpload({
   useTempFiles: false,
   createParentPath: true
 }));
+// Static files and file uploads
+const fs = require('fs');
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+// Enable multipart file uploads
+app.use(fileUpload({
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit (validated again in handler)
+  useTempFiles: false,
+  createParentPath: true
+}));
+
+// Serve the uploads directory and public assets (index.html, reset.html, etc.)
+app.use('/uploads', express.static(UPLOADS_DIR));
+app.use(express.static(__dirname));
+
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
+const USERS_FILE = path.join(__dirname, 'users.json');
+const POSTS_FILE = path.join(__dirname, 'posts.json');
+const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
 
 function loadUsers() {
   try {
@@ -83,6 +107,11 @@ function loadCategories() {
     return [];
   }
 }
+
+function saveCategories(categories) {
+  fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
+}
+
 
 function saveCategories(categories) {
   fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
@@ -259,6 +288,48 @@ app.post('/api/posts', requireAuth, (req, res) => {
   return res.json({ success: true, post });
 });
 
+// POST /api/upload - upload image (admin only)
+app.post('/api/upload', requireAuth, async (req, res) => {
+  try {
+    if (!req.files || !req.files.image) return res.status(400).json({ error: 'no file uploaded' });
+    const image = req.files.image;
+    // Validate file size (<=5MB) and type
+    const MAX_BYTES = 5 * 1024 * 1024;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(image.mimetype)) {
+      return res.status(400).json({ error: 'invalid_file_type', allowed });
+    }
+    if (image.size > MAX_BYTES) {
+      return res.status(400).json({ error: 'file_too_large', maxBytes: MAX_BYTES });
+    }
+    // sanitize filename
+    const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
+    const filename = Date.now() + '_' + safe;
+    const dest = path.join(UPLOADS_DIR, filename);
+    try {
+      // Some versions of express-fileupload provide image.data as Buffer
+      if (image.data && Buffer.isBuffer(image.data)) {
+        fs.writeFileSync(dest, image.data);
+      } else if (typeof image.mv === 'function') {
+        // Promisify mv to ensure completion before responding
+        await new Promise((resolve, reject) => image.mv(dest, err => err ? reject(err) : resolve()));
+      } else {
+        return res.status(500).json({ error: 'no_write_method' });
+      }
+      const url = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
+      console.log(`Uploaded file saved to ${dest} by ${req.session && req.session.user ? req.session.user.email : 'unknown'}`);
+      return res.json({ success: true, url, filename, size: image.size });
+    } catch (e) {
+      console.error('upload error', e && e.stack ? e.stack : e);
+      return res.status(500).json({ error: 'upload_failed' });
+    }
+  } catch (err) {
+    console.error('upload handler error', err && err.stack ? err.stack : err);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// PUT /api/posts/:id - update (admin only)
 app.put('/api/posts/:id', requireAuth, (req, res) => {
   const id = parseInt(req.params.id, 10);
   const body = req.body;
@@ -302,6 +373,7 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
 });
 
 // Categories API
+// GET /api/categories - public
 app.get('/api/categories', (req, res) => {
   try {
     let categories = loadCategories();
