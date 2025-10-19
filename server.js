@@ -205,11 +205,18 @@ app.post('/auth/google', async (req, res) => {
     }
 
     const email = payload.email;
-    if (ALLOWED_EMAIL && email !== ALLOWED_EMAIL) {
-      return res.status(403).json({ error: 'email not allowed' });
-    }
-    if (ALLOWED_DOMAIN && !email.endsWith('@' + ALLOWED_DOMAIN)) {
-      return res.status(403).json({ error: 'domain not allowed' });
+    
+    // Check if user exists in users.json or if it's an allowed email/domain
+    const users = loadUsers();
+    const isExistingUser = Object.values(users).some(user => user.email === email);
+    
+    if (!isExistingUser) {
+      if (ALLOWED_EMAIL && email !== ALLOWED_EMAIL) {
+        return res.status(403).json({ error: 'email not allowed' });
+      }
+      if (ALLOWED_DOMAIN && !email.endsWith('@' + ALLOWED_DOMAIN)) {
+        return res.status(403).json({ error: 'domain not allowed' });
+      }
     }
 
     req.session.user = {
