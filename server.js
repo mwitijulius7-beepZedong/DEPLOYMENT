@@ -9,6 +9,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
+const { kv } = require('@vercel/kv');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -55,52 +56,52 @@ app.use(fileUpload({
   createParentPath: true
 }));
 
-function loadUsers() {
+async function loadUsers() {
   try {
-    return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    return await kv.get('users') || {};
   } catch (e) {
     return {};
   }
 }
 
-function saveUsers(users) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+async function saveUsers(users) {
+  await kv.set('users', users);
 }
 
-function loadPosts() {
+async function loadPosts() {
   try {
-    return JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
+    return await kv.get('posts') || [];
   } catch (e) {
     return [];
   }
 }
 
-function savePosts(posts) {
-  fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
+async function savePosts(posts) {
+  await kv.set('posts', posts);
 }
 
-function loadCategories() {
+async function loadCategories() {
   try {
-    return JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+    return await kv.get('categories') || [];
   } catch (e) {
     return [];
   }
 }
 
-function saveCategories(categories) {
-  fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
+async function saveCategories(categories) {
+  await kv.set('categories', categories);
 }
 
-function loadAnalytics() {
+async function loadAnalytics() {
   try {
-    return JSON.parse(fs.readFileSync(ANALYTICS_FILE, 'utf8')) || { pageViews: [], postViews: [], interactions: [] };
+    return await kv.get('analytics') || { pageViews: [], postViews: [], interactions: [] };
   } catch (e) {
     return { pageViews: [], postViews: [], interactions: [] };
   }
 }
 
-function saveAnalytics(analytics) {
-  fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(analytics, null, 2));
+async function saveAnalytics(analytics) {
+  await kv.set('analytics', analytics);
 }
 
 function requireAuth(req, res, next) {
