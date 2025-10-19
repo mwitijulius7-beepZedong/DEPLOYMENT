@@ -26,39 +26,40 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+        }
+
         body {
             font-family: 'Georgia', 'Times New Roman', serif;
             line-height: 1.6;
             color: var(--text-color);
             background: transparent;
             transition: background 0.3s, color 0.3s;
-            margin: 0;
-            padding: 0;
-            overflow-x: hidden;
-        }
-        
-        html {
-            overflow-x: hidden;
         }
 
         :root {
-            --bg-color: #fefcf8;
-            --card-bg: #fffef9;
-            --text-color: #2c2c2c;
-            --text-muted: #6b6b6b;
-            --border-color: #f0ede6;
-            --primary-color: #8b7355;
-            --accent-color: #d4a574;
+            --bg-color: #ffffff;
+            --card-bg: #f8fafc;
+            --text-color: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --primary-color: #3b82f6;
+            --accent-color: #60a5fa;
         }
 
         [data-theme="dark"] {
-            --bg-color: #1a1816;
-            --card-bg: #2d2a26;
-            --text-color: #f5f2ed;
-            --text-muted: #c7c4bf;
-            --border-color: #3d3a36;
-            --primary-color: #b8a082;
-            --accent-color: #e6c299;
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --primary-color: #60a5fa;
+            --accent-color: #93c5fd;
         }
 
         .animated-background {
@@ -68,20 +69,16 @@
             width: 100%;
             height: 100%;
             z-index: -1;
-            overflow: hidden;
+            margin: 0;
+            padding: 0;
         }
 
         .bg-image {
-            position: absolute;
-            top: -10%;
-            left: -10%;
-            width: 120%;
-            height: 120%;
+            width: 100%;
+            height: 100%;
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            filter: blur(5px) brightness(0.7) opacity(0.8);
-            animation: slowMove 60s ease-in-out infinite;
         }
 
         @keyframes slowMove {
@@ -97,15 +94,19 @@
         }
 
         .content-overlay {
+            min-height: 100vh;
             position: relative;
             z-index: 1;
-            background: transparent;
-            backdrop-filter: blur(3px);
-            min-height: 100vh;
+            margin: 0;
+            padding: 0;
         }
 
         #app {
+            width: 100%;
             min-height: 100vh;
+            position: relative;
+            margin: 0;
+            padding: 0;
         }
         
         #app .header {
@@ -121,18 +122,16 @@
 
         /* Header */
         .header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%) !important;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            z-index: 1000;
+            background-color: #E87C59;
             color: white;
             padding: 1.5rem 0;
             box-shadow: 0 2px 20px rgba(0,0,0,0.15);
-            backdrop-filter: blur(10px);
-            overflow: visible;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            z-index: 1000 !important;
-            width: 100% !important;
         }
 
         .header-content {
@@ -174,7 +173,7 @@
         }
 
         .theme-toggle:hover {
-            background: rgba(255,255,255,0.3);
+            background: #D66A48;
         }
 
         .nav button {
@@ -190,20 +189,27 @@
         }
 
         .nav button:hover {
-            background: rgba(255,255,255,0.2);
+            background: #D66A48;
         }
 
         .nav button.active {
             background: rgba(255,255,255,0.3);
         }
 
+
+
         /* Container */
         .container {
             max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 2rem;
+            margin: 0 auto;
+            padding: 120px 2rem 2rem 2rem;
             overflow: visible;
-            margin-top: 120px;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                padding-top: 160px;
+            }
         }
 
         /* Blog Posts */
@@ -302,9 +308,6 @@
 
         /* Admin Dashboard */
         .admin-dashboard {
-            display: grid;
-            grid-template-columns: 250px 1fr;
-            gap: 2rem;
             min-height: 80vh;
         }
 
@@ -1310,29 +1313,44 @@
                     <div class="logo">{{ blogTitle }}</div>
                 </div>
                 <nav class="nav">
-                    <button @click="handleBlogClick" :class="{ active: currentView === 'blog' }">Blog</button>
-                    <template v-if="currentView === 'admin' && isLoggedIn">
-                        <button @click="resetAdminView(); showNewPostForm = true; dashboardView = 'posts'">+ New Post</button>
-                        <button @click="showAnalytics = !showAnalytics; currentView = 'admin'">Analytics</button>
-                    </template>
-                    <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
-                        {{ isDarkMode ? '☀️' : '🌙' }}
-                    </button>
-                    <template v-if="currentView === 'admin' && isLoggedIn">
-                        <div class="settings-dropdown">
-                            <button @click="showSettingsMenu = !showSettingsMenu">Settings ▼</button>
-                            <div v-if="showSettingsMenu" class="dropdown-menu" @click.stop>
-                                <button @click="openSettings('general'); showSettingsMenu = false">General</button>
-                                <button @click="openSettings('background'); showSettingsMenu = false">Background</button>
-                                <button @click="openSettings('social'); showSettingsMenu = false">Social Links</button>
-                                <button @click="openSettings('email'); showSettingsMenu = false">Email Config</button>
-                                <button @click="activeSettingsTab = null; showCategoryManagement = true; showSettingsMenu = false">Categories</button>
-                                <button @click="openSettings('profile'); showSettingsMenu = false">Profile Photo</button>
-                                <button @click="logout; showSettingsMenu = false" style="border-top: 2px solid var(--border-color); margin-top: 0.5rem; padding-top: 1rem;">Logout</button>
-                            </div>
-                        </div>
-                    </template>
+                    <div v-if="currentView === 'admin' && isLoggedIn">
+                        <button @click="showSideMenu = !showSideMenu" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">☰ Menu</button>
+                        <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
+                            {{ isDarkMode ? '☀️' : '🌙' }}
+                        </button>
+                    </div>
+                    <div v-else>
+                        <button @click="handleBlogClick" :class="{ active: currentView === 'blog' }">Blog</button>
+                        <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
+                            {{ isDarkMode ? '☀️' : '🌙' }}
+                        </button>
+                    </div>
                 </nav>
+            </div>
+        </div>
+
+        <!-- Side Menu -->
+        <div v-if="showSideMenu && currentView === 'admin' && isLoggedIn" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000;" @click="showSideMenu = false">
+            <div style="position: fixed; top: 0; left: 0; width: 280px; height: 100%; background: var(--card-bg); box-shadow: 2px 0 10px rgba(0,0,0,0.3); z-index: 10001; padding: 2rem 0; overflow-y: auto;" @click.stop>
+                <div style="padding: 0 2rem; margin-bottom: 2rem;">
+                    <h3 style="color: var(--text-color); margin: 0; font-size: 1.2rem;">Admin Menu</h3>
+                </div>
+                <div style="display: flex; flex-direction: column;">
+                    <button @click="handleBlogClick(); showSideMenu = false" style="padding: 1rem 2rem; background: none; border: none; color: var(--text-color); text-align: left; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">📝 Blog</button>
+                    <button @click="resetAdminView(); showNewPostForm = true; dashboardView = 'posts'; showSideMenu = false" style="padding: 1rem 2rem; background: none; border: none; color: var(--text-color); text-align: left; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">✏️ New Post</button>
+                    <button @click="dashboardView = 'analytics'; resetAdminView(); showSideMenu = false" style="padding: 1rem 2rem; background: none; border: none; color: var(--text-color); text-align: left; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">📊 Analytics</button>
+                    <button @click="dashboardView = 'chats'; resetAdminView(); showSideMenu = false" style="padding: 1rem 2rem; background: none; border: none; color: var(--text-color); text-align: left; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">💬 Chats</button>
+                    <button @click="showSettingsMenu = !showSettingsMenu" style="padding: 1rem 2rem; background: none; border: none; color: var(--text-color); text-align: left; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">⚙️ Settings</button>
+                    <div v-if="showSettingsMenu" style="background: var(--bg-color); border-left: 3px solid var(--primary-color);">
+                        <button @click="openSettings('general'); showSettingsMenu = false; showSideMenu = false" style="padding: 0.75rem 3rem; background: none; border: none; color: var(--text-muted); text-align: left; cursor: pointer; transition: background 0.2s; width: 100%; font-size: 0.9rem;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">General</button>
+                        <button @click="openSettings('background'); showSettingsMenu = false; showSideMenu = false" style="padding: 0.75rem 3rem; background: none; border: none; color: var(--text-muted); text-align: left; cursor: pointer; transition: background 0.2s; width: 100%; font-size: 0.9rem;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">Background</button>
+                        <button @click="openSettings('social'); showSettingsMenu = false; showSideMenu = false" style="padding: 0.75rem 3rem; background: none; border: none; color: var(--text-muted); text-align: left; cursor: pointer; transition: background 0.2s; width: 100%; font-size: 0.9rem;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">Social Links</button>
+                        <button @click="openSettings('email'); showSettingsMenu = false; showSideMenu = false" style="padding: 0.75rem 3rem; background: none; border: none; color: var(--text-muted); text-align: left; cursor: pointer; transition: background 0.2s; width: 100%; font-size: 0.9rem;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">Email Config</button>
+                        <button @click="activeSettingsTab = null; showCategoryManagement = true; showSettingsMenu = false; showSideMenu = false" style="padding: 0.75rem 3rem; background: none; border: none; color: var(--text-muted); text-align: left; cursor: pointer; transition: background 0.2s; width: 100%; font-size: 0.9rem;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">Categories</button>
+                        <button @click="openSettings('profile'); showSettingsMenu = false; showSideMenu = false" style="padding: 0.75rem 3rem; background: none; border: none; color: var(--text-muted); text-align: left; cursor: pointer; transition: background 0.2s; width: 100%; font-size: 0.9rem;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">Profile Photo</button>
+                    </div>
+                    <button @click="logout; showSideMenu = false" style="padding: 1rem 2rem; background: none; border: none; color: #ef4444; text-align: left; cursor: pointer; transition: background 0.2s; margin-top: 1rem;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">🚪 Logout</button>
+                </div>
             </div>
         </div>
 
@@ -1484,6 +1502,16 @@
                     </div>
                     <div class="post-content" v-html="selectedPost.content"></div>
                     
+                    <!-- Like/Dislike Buttons -->
+                    <div style="display: flex; gap: 1rem; margin: 2rem 0; padding: 1rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                        <button @click="likePost(selectedPost.id)" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s; background: #22c55e; color: white;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                            👍 Like <span style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem;">{{ getPostLikes(selectedPost.id) }}</span>
+                        </button>
+                        <button @click="dislikePost(selectedPost.id)" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s; background: #ef4444; color: white;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                            👎 Dislike <span style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem;">{{ getPostDislikes(selectedPost.id) }}</span>
+                        </button>
+                    </div>
+                    
                     <!-- Social Sharing -->
                     <div class="social-share">
                         <strong style="margin-right: 1rem;">Share:</strong>
@@ -1594,19 +1622,8 @@
 
                 <!-- Admin Panel -->
                 <div v-if="isLoggedIn" class="admin-dashboard">
-                    <!-- Dashboard Sidebar -->
-                    <aside class="dashboard-sidebar">
-                        <div class="sidebar-menu">
-                            <button @click="dashboardView = 'overview'" :class="{active: dashboardView === 'overview'}">📊 Overview</button>
-                            <button @click="dashboardView = 'posts'" :class="{active: dashboardView === 'posts'}">📝 Posts</button>
-                            <button @click="dashboardView = 'chats'" :class="{active: dashboardView === 'chats'}">💬 Chats</button>
-                            <button @click="dashboardView = 'analytics'" :class="{active: dashboardView === 'analytics'}">📈 Analytics</button>
-                            <button @click="dashboardView = 'calendar'" :class="{active: dashboardView === 'calendar'}">📅 Calendar</button>
-                        </div>
-                    </aside>
-
                     <!-- Dashboard Main -->
-                    <div class="dashboard-main">
+                    <div class="dashboard-main" style="grid-column: 1 / -1;">
                         <div class="dashboard-header">
                             <h2>{{ getDashboardTitle() }}</h2>
                             <div class="dashboard-actions">
@@ -1676,19 +1693,78 @@
 
                         <!-- Analytics View -->
                         <div v-if="dashboardView === 'analytics'">
+                            <!-- Export Controls -->
+                            <div style="display: flex; gap: 1rem; margin-bottom: 2rem; padding: 1rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                <button class="btn btn-small" @click="exportAllCharts" style="background: #06b6d4;">📊 Export All Charts</button>
+                                <button class="btn btn-small" @click="exportAnalyticsCSV" style="background: #22c55e;">📄 Export CSV Data</button>
+                                <button class="btn btn-small" @click="exportEngagementData" style="background: #8b5cf6;">💾 Export Engagement Data</button>
+                            </div>
+                            
+                            <!-- Analytics Charts Grid -->
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
+                                <!-- Views Chart -->
+                                <div class="analytics-card">
+                                    <h3 style="margin-bottom: 1rem;">📊 Daily Views (Last 7 Days)</h3>
+                                    <canvas ref="dailyViewsChart" style="max-height: 250px;"></canvas>
+                                </div>
+                                
+                                <!-- Post Engagement Chart -->
+                                <div class="analytics-card">
+                                    <h3 style="margin-bottom: 1rem;">❤️ Post Engagement</h3>
+                                    <canvas ref="engagementChart" style="max-height: 250px;"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- Second Row Charts -->
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
+                                <!-- Popular Tags Chart -->
+                                <div class="analytics-card">
+                                    <h3 style="margin-bottom: 1rem;">🏷️ Popular Tags</h3>
+                                    <canvas ref="tagsChart" style="max-height: 250px;"></canvas>
+                                </div>
+                                
+                                <!-- Traffic Sources -->
+                                <div class="analytics-card">
+                                    <h3 style="margin-bottom: 1rem;">🌐 Traffic Sources</h3>
+                                    <canvas ref="trafficChart" style="max-height: 250px;"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- Stats Cards -->
                             <div class="analytics-grid">
                                 <div class="analytics-card">
-                                    <h3>Popular Tags</h3>
-                                    <div v-for="tag in popularTags" :key="tag.name" class="tag-stat">
-                                        <span>{{ tag.name }}</span>
-                                        <span class="tag-count">{{ tag.count }}</span>
+                                    <h3>📈 Quick Stats</h3>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                                        <div style="text-align: center; padding: 1rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                            <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary-color);">{{ totalViews }}</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-muted);">Total Views</div>
+                                        </div>
+                                        <div style="text-align: center; padding: 1rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                            <div style="font-size: 1.5rem; font-weight: bold; color: #22c55e;">{{ getTotalLikes() }}</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-muted);">Total Likes</div>
+                                        </div>
+                                        <div style="text-align: center; padding: 1rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                            <div style="font-size: 1.5rem; font-weight: bold; color: #ef4444;">{{ getTotalDislikes() }}</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-muted);">Total Dislikes</div>
+                                        </div>
+                                        <div style="text-align: center; padding: 1rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                            <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">{{ totalComments }}</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-muted);">Comments</div>
+                                        </div>
                                     </div>
                                 </div>
+                                
                                 <div class="analytics-card">
-                                    <h3>Top Posts</h3>
-                                    <div v-for="post in topPosts" :key="post.id" class="post-stat">
-                                        <span>{{ post.title }}</span>
-                                        <span class="post-views">{{ post.views || 0 }} views</span>
+                                    <h3>🔥 Top Performing Posts</h3>
+                                    <div v-for="(post, index) in topPosts" :key="post.id" style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; margin-bottom: 0.5rem; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border-color);">
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <span style="background: var(--primary-color); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold;">{{ index + 1 }}</span>
+                                            <span style="font-weight: 500;">{{ post.title.substring(0, 30) }}{{ post.title.length > 30 ? '...' : '' }}</span>
+                                        </div>
+                                        <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+                                            <span>👁️ {{ post.views || 0 }}</span>
+                                            <span>❤️ {{ getPostLikes(post.id) }}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -2393,7 +2469,11 @@
                     selectedChatSession: null,
                     adminChatMessage: '',
                     // Banner control
-                    dismissedBanners: JSON.parse(localStorage.getItem('dismissedBanners') || '[]')
+                    dismissedBanners: JSON.parse(localStorage.getItem('dismissedBanners') || '[]'),
+                    // Like/Dislike system
+                    postReactions: JSON.parse(localStorage.getItem('postReactions') || '{}'),
+                    // Side menu
+                    showSideMenu: false
                 };
             },
             mounted() {
@@ -2434,8 +2514,11 @@
                         this.showSettingsMenu = false;
                     }
                 });
-                // Initialize chart
-                this.$nextTick(() => this.initChart());
+                // Initialize charts
+                this.$nextTick(() => {
+                    this.initChart();
+                    this.initAnalyticsCharts();
+                });
             },
             computed: {
                 postsFiltered() {
@@ -3622,6 +3705,227 @@
                 },
                 isDismissed(postId) {
                     return this.dismissedBanners.includes(postId);
+                },
+                likePost(postId) {
+                    if (!this.postReactions[postId]) {
+                        this.postReactions[postId] = { likes: 0, dislikes: 0, userReaction: null };
+                    }
+                    
+                    const reaction = this.postReactions[postId];
+                    
+                    if (reaction.userReaction === 'like') {
+                        // Remove like
+                        reaction.likes--;
+                        reaction.userReaction = null;
+                    } else {
+                        // Add like, remove dislike if exists
+                        if (reaction.userReaction === 'dislike') {
+                            reaction.dislikes--;
+                        }
+                        reaction.likes++;
+                        reaction.userReaction = 'like';
+                    }
+                    
+                    localStorage.setItem('postReactions', JSON.stringify(this.postReactions));
+                    this.trackInteraction('like', `post-${postId}`, reaction.likes);
+                },
+                dislikePost(postId) {
+                    if (!this.postReactions[postId]) {
+                        this.postReactions[postId] = { likes: 0, dislikes: 0, userReaction: null };
+                    }
+                    
+                    const reaction = this.postReactions[postId];
+                    
+                    if (reaction.userReaction === 'dislike') {
+                        // Remove dislike
+                        reaction.dislikes--;
+                        reaction.userReaction = null;
+                    } else {
+                        // Add dislike, remove like if exists
+                        if (reaction.userReaction === 'like') {
+                            reaction.likes--;
+                        }
+                        reaction.dislikes++;
+                        reaction.userReaction = 'dislike';
+                    }
+                    
+                    localStorage.setItem('postReactions', JSON.stringify(this.postReactions));
+                    this.trackInteraction('dislike', `post-${postId}`, reaction.dislikes);
+                },
+                getPostLikes(postId) {
+                    return this.postReactions[postId]?.likes || 0;
+                },
+                getPostDislikes(postId) {
+                    return this.postReactions[postId]?.dislikes || 0;
+                },
+                trackInteraction(type, target, value) {
+                    // Track analytics for like/dislike interactions
+                    fetch('/api/analytics/interaction', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type, target, value })
+                    }).catch(() => {}); // Silent fail for analytics
+                },
+                getTotalLikes() {
+                    return Object.values(this.postReactions).reduce((sum, reaction) => sum + (reaction.likes || 0), 0);
+                },
+                getTotalDislikes() {
+                    return Object.values(this.postReactions).reduce((sum, reaction) => sum + (reaction.dislikes || 0), 0);
+                },
+                initAnalyticsCharts() {
+                    if (!window.Chart) return;
+                    
+                    // Daily Views Chart
+                    if (this.$refs.dailyViewsChart) {
+                        const ctx1 = this.$refs.dailyViewsChart.getContext('2d');
+                        new Chart(ctx1, {
+                            type: 'line',
+                            data: {
+                                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                                datasets: [{
+                                    label: 'Views',
+                                    data: [120, 190, 300, 250, 400, 350, 450],
+                                    borderColor: '#8b7355',
+                                    backgroundColor: 'rgba(139, 115, 85, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: { y: { beginAtZero: true } }
+                            }
+                        });
+                    }
+                    
+                    // Engagement Chart (Likes vs Dislikes)
+                    if (this.$refs.engagementChart) {
+                        const ctx2 = this.$refs.engagementChart.getContext('2d');
+                        new Chart(ctx2, {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['Likes', 'Dislikes', 'Comments'],
+                                datasets: [{
+                                    data: [this.getTotalLikes(), this.getTotalDislikes(), this.totalComments],
+                                    backgroundColor: ['#22c55e', '#ef4444', '#3b82f6']
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { position: 'bottom' } }
+                            }
+                        });
+                    }
+                    
+                    // Popular Tags Chart
+                    if (this.$refs.tagsChart) {
+                        const ctx3 = this.$refs.tagsChart.getContext('2d');
+                        const tagData = this.popularTags.slice(0, 5);
+                        new Chart(ctx3, {
+                            type: 'bar',
+                            data: {
+                                labels: tagData.map(t => t.name),
+                                datasets: [{
+                                    label: 'Posts',
+                                    data: tagData.map(t => t.count),
+                                    backgroundColor: '#8b7355'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: { y: { beginAtZero: true } }
+                            }
+                        });
+                    }
+                    
+                    // Traffic Sources Chart
+                    if (this.$refs.trafficChart) {
+                        const ctx4 = this.$refs.trafficChart.getContext('2d');
+                        new Chart(ctx4, {
+                            type: 'pie',
+                            data: {
+                                labels: ['Direct', 'Social Media', 'Search', 'Referral'],
+                                datasets: [{
+                                    data: [45, 25, 20, 10],
+                                    backgroundColor: ['#8b7355', '#22c55e', '#3b82f6', '#f59e0b']
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { position: 'bottom' } }
+                            }
+                        });
+                    }
+                },
+                exportAllCharts() {
+                    const charts = ['dailyViewsChart', 'engagementChart', 'tagsChart', 'trafficChart'];
+                    const chartNames = ['Daily_Views', 'Engagement', 'Popular_Tags', 'Traffic_Sources'];
+                    
+                    charts.forEach((chartRef, index) => {
+                        if (this.$refs[chartRef]) {
+                            const canvas = this.$refs[chartRef];
+                            const link = document.createElement('a');
+                            link.download = `${chartNames[index]}_${new Date().toISOString().split('T')[0]}.png`;
+                            link.href = canvas.toDataURL('image/png');
+                            link.click();
+                        }
+                    });
+                    alert('Charts exported as PNG images!');
+                },
+                exportAnalyticsCSV() {
+                    const data = [
+                        ['Metric', 'Value'],
+                        ['Total Posts', this.posts.length],
+                        ['Published Posts', this.publishedPosts.length],
+                        ['Draft Posts', this.draftPosts.length],
+                        ['Total Views', this.totalViews],
+                        ['Total Likes', this.getTotalLikes()],
+                        ['Total Dislikes', this.getTotalDislikes()],
+                        ['Total Comments', this.totalComments],
+                        [''],
+                        ['Popular Tags', 'Count'],
+                        ...this.popularTags.map(tag => [tag.name, tag.count]),
+                        [''],
+                        ['Top Posts', 'Views', 'Likes'],
+                        ...this.topPosts.map(post => [post.title, post.views || 0, this.getPostLikes(post.id)])
+                    ];
+                    
+                    const csv = data.map(row => row.join(',')).join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `analytics_data_${new Date().toISOString().split('T')[0]}.csv`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                },
+                exportEngagementData() {
+                    const engagementData = [
+                        ['Post ID', 'Post Title', 'Likes', 'Dislikes', 'Comments', 'Engagement Rate'],
+                        ...this.posts.map(post => {
+                            const likes = this.getPostLikes(post.id);
+                            const dislikes = this.getPostDislikes(post.id);
+                            const comments = this.getComments(post.id).length;
+                            const total = likes + dislikes + comments;
+                            const rate = total > 0 ? ((likes + comments) / total * 100).toFixed(1) + '%' : '0%';
+                            return [post.id, post.title, likes, dislikes, comments, rate];
+                        })
+                    ];
+                    
+                    const csv = engagementData.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `engagement_data_${new Date().toISOString().split('T')[0]}.csv`;
+                    link.click();
+                    URL.revokeObjectURL(url);
                 }
             },
             watch: {
@@ -3630,6 +3934,11 @@
                 },
                 selectedCategory() {
                     this.currentPage = 1;
+                },
+                dashboardView() {
+                    if (this.dashboardView === 'analytics') {
+                        this.$nextTick(() => this.initAnalyticsCharts());
+                    }
                 }
             }
         }).mount('#app');

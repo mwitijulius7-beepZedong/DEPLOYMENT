@@ -43,6 +43,7 @@ const bcrypt = require('bcryptjs');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const POSTS_FILE = path.join(__dirname, 'posts.json');
 const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
+const ANALYTICS_FILE = path.join(__dirname, 'analytics.json');
 
 // Ensure uploads directory exists
 if (!fs.existsSync(UPLOADS_DIR)) {
@@ -83,6 +84,18 @@ function loadPosts() {
 
 function savePosts(posts) {
   fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
+}
+
+function loadAnalytics() {
+  try {
+    return JSON.parse(fs.readFileSync(ANALYTICS_FILE, 'utf8')) || { pageViews: [], postViews: [], interactions: [] };
+  } catch (e) {
+    return { pageViews: [], postViews: [], interactions: [] };
+  }
+}
+
+function saveAnalytics(analytics) {
+  fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(analytics, null, 2));
 }
 
 
@@ -476,6 +489,157 @@ app.post('/auth/google', async (req, res) => {
   } catch (e) {
     console.error('Google auth error:', e);
     return res.status(500).json({ error: 'verification failed' });
+  }
+});
+
+// Analytics API
+// POST /api/analytics/pageview - track page view
+app.post('/api/analytics/pageview', (req, res) => {
+  try {
+    const { page, referrer, userAgent } = req.body;
+    const analytics = loadAnalytics();
+    
+    const pageView = {
+      id: Date.now(),
+      page: page || '/',
+      referrer: referrer || '',
+      userAgent: userAgent || req.get('User-Agent') || '',
+      ip: req.ip || req.connection.remoteAddress,
+      timestamp: new Date().toISOString()
+    };
+    
+    analytics.pageViews.push(pageView);
+    saveAnalytics(analytics);
+    
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Analytics pageview error:', e);
+    return res.status(500).json({ error: 'failed to track pageview' });
+  }
+});
+
+// POST /api/analytics/postview - track post view
+app.post('/api/analytics/postview', (req, res) => {
+  try {
+    const { postId, postTitle } = req.body;
+    if (!postId) return res.status(400).json({ error: 'missing postId' });
+    
+    const analytics = loadAnalytics();
+    
+    const postView = {
+      id: Date.now(),
+      postId: parseInt(postId, 10),
+      postTitle: postTitle || '',
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('User-Agent') || '',
+      timestamp: new Date().toISOString()
+    };
+    
+    analytics.postViews.push(postView);
+    saveAnalytics(analytics);
+    
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Analytics postview error:', e);
+    return res.status(500).json({ error: 'failed to track postview' });
+  }
+});
+
+// POST /api/analytics/interaction - track user interactions
+app.post('/api/analytics/interaction', (req, res) => {
+  try {
+    const { type, target, value } = req.body;
+    if (!type) return res.status(400).json({ error: 'missing type' });
+    
+    const analytics = loadAnalytics();
+    
+    const interaction = {
+      id: Date.now(),
+      type: type, // 'click', 'scroll', 'search', etc.
+      target: target || '',
+      value: value || '',
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('User-Agent') || '',
+      timestamp: new Date().toISOString()
+    };
+    
+    analytics.interactions.push(interaction);
+    saveAnalytics(analytics);
+    
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Analytics interaction error:', e);
+    return res.status(500).json({ error: 'failed to track interaction' });
+  }
+});
+
+// GET /api/analytics/stats - get analytics data (admin only)
+app.get('/api/analytics/stats', requireAuth, (req, res) => {
+  try {
+    const analytics = loadAnalytics();
+    const posts = loadPosts();
+    
+    // Calculate stats
+    const totalPageViews = analytics.pageViews.length;
+    const totalPostViews = analytics.postViews.length;
+    const totalInteractions = analytics.interactions.length;
+    
+    // Recent activity (last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recentPageViews = analytics.pageViews.filter(pv => new Date(pv.timestamp) > thirtyDaysAgo);
+    const recentPostViews = analytics.postViews.filter(pv => new Date(pv.timestamp) > thirtyDaysAgo);
+    
+    // Top posts by views
+    const postViewCounts = {};
+    analytics.postViews.forEach(pv => {
+      postViewCounts[pv.postId] = (postViewCounts[pv.postId] || 0) + 1;
+    });
+    
+    const topPosts = Object.entries(postViewCounts)
+      .map(([postId, views]) => {
+        const post = posts.find(p => p.id === parseInt(postId, 10));
+        return { postId: parseInt(postId, 10), title: post?.title || 'Unknown', views };
+      })
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 10);
+    
+    // Daily views for last 7 days
+    const dailyViews = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      const dateStr = date.toISOString().split('T')[0];
+      const dayViews = analytics.pageViews.filter(pv => pv.timestamp.startsWith(dateStr)).length;
+      dailyViews.push({ date: dateStr, views: dayViews });
+    }
+    
+    return res.json({
+      success: true,
+      stats: {
+        totalPageViews,
+        totalPostViews,
+        totalInteractions,
+        recentPageViews: recentPageViews.length,
+        recentPostViews: recentPostViews.length,
+        topPosts,
+        dailyViews
+      }
+    });
+  } catch (e) {
+    console.error('Analytics stats error:', e);
+    return res.status(500).json({ error: 'failed to get analytics' });
+  }
+});
+
+// GET /api/analytics/export - export analytics data (admin only)
+app.get('/api/analytics/export', requireAuth, (req, res) => {
+  try {
+    const analytics = loadAnalytics();
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="analytics-export.json"');
+    return res.json(analytics);
+  } catch (e) {
+    console.error('Analytics export error:', e);
+    return res.status(500).json({ error: 'failed to export analytics' });
   }
 });
 
