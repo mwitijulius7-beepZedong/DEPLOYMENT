@@ -843,6 +843,7 @@
                 },
                 viewPost(post) {
                     this.selectedPost = post;
+                    // Update URL for sharable permalinks
                     const url = new URL(window.location.href);
                     url.searchParams.set('post', String(post.id));
                     window.history.pushState({ postId: post.id }, '', url.toString());
@@ -940,6 +941,39 @@
                     } catch (e) {
                         prompt('Copy this link:', link);
                     }
+                }
+            },
+            computed: {
+                shareLinks() {
+                    const baseUrl = window.location.origin + window.location.pathname;
+                    const title = this.selectedPost ? this.selectedPost.title : this.blogTitle;
+                    const url = new URL(baseUrl);
+                    if (this.selectedPost) url.searchParams.set('post', String(this.selectedPost.id));
+                    const u = encodeURIComponent(url.toString());
+                    const t = encodeURIComponent(title);
+                    return {
+                        twitter: `https://twitter.com/intent/tweet?url=${u}&text=${t}`,
+                        facebook: `https://www.facebook.com/sharer/sharer.php?u=${u}`,
+                        linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${u}`
+                    };
+                }
+            },
+            mounted() {
+                // existing mounted content is above; add popstate and deep link handling
+                window.addEventListener('popstate', () => {
+                    const id = parseInt(new URLSearchParams(window.location.search).get('post'), 10);
+                    if (id && Array.isArray(this.posts)) {
+                        const p = this.posts.find(x => x.id === id);
+                        this.selectedPost = p || null;
+                    } else {
+                        this.selectedPost = null;
+                    }
+                });
+                // If a permalink is opened directly
+                const initialId = parseInt(new URLSearchParams(window.location.search).get('post'), 10);
+                if (initialId && Array.isArray(this.posts)) {
+                    const p = this.posts.find(x => x.id === initialId);
+                    if (p) this.selectedPost = p;
                 }
             }
         }).mount('#app');
