@@ -9,6 +9,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
+const { put } = require('@vercel/blob');
 // const { kv } = require('@vercel/kv'); // Only for Vercel deployment
 
 const app = express();
@@ -313,7 +314,7 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
   return res.json({ success: true });
 });
 
-// Categories API
+// Upload API with Vercel Blob
 app.post('/api/upload', requireAuth, async (req, res) => {
   try {
     if (!req.files || !req.files.image) return res.status(400).json({ error: 'no file uploaded' });
@@ -326,28 +327,77 @@ app.post('/api/upload', requireAuth, async (req, res) => {
     if (image.size > MAX_BYTES) {
       return res.status(400).json({ error: 'file_too_large', maxBytes: MAX_BYTES });
     }
+    
     const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
     const filename = Date.now() + '_' + safe;
-    const dest = path.join(UPLOADS_DIR, filename);
-    try {
+    
+    // Use Vercel Blob for production, local filesystem for development
+    if (process.env.VERCEL) {
+      const blob = await put(filename, image.data, {
+        access: 'public',
+        contentType: image.mimetype
+      });
+      console.log(`Uploaded to Vercel Blob: ${blob.url}`);
+      return res.json({ success: true, url: blob.url, filename, size: image.size });
+    } else {
+      // Local development fallback
+      const dest = path.join(UPLOADS_DIR, filename);
       if (image.data && Buffer.isBuffer(image.data)) {
         fs.writeFileSync(dest, image.data);
       } else if (typeof image.mv === 'function') {
         await new Promise((resolve, reject) => image.mv(dest, err => err ? reject(err) : resolve()));
-      } else {
-        return res.status(500).json({ error: 'no_write_method' });
       }
       const url = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
-      console.log(`Uploaded file saved to ${dest} by ${req.session && req.session.user ? req.session.user.email : 'unknown'}`);
+      console.log(`Uploaded locally: ${dest}`);
       return res.json({ success: true, url, filename, size: image.size });
-    } catch (e) {
-      console.error('upload error', e && e.stack ? e.stack : e);
-      return res.status(500).json({ error: 'upload_failed' });
     }
   } catch (err) {
-    console.error('upload handler error', err && err.stack ? err.stack : err);
-    return res.status(500).json({ error: 'internal' });
+    console.error('upload error:', err);
+    return res.status(500).json({ error: 'upload_failed' });
   }
+});
+
+// Settings API
+const settingsPath = path.join(__dirname, 'settings.json');
+
+// Helper function to read settings
+function readSettings() {
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const data = fs.readFileSync(settingsPath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error reading settings:', error);
+  }
+  return { backgroundUrl: '' };
+}
+
+// Helper function to write settings
+function writeSettings(settings) {
+  try {
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  } catch (error) {
+    console.error('Error writing settings:', error);
+  }
+}
+
+// Get current background image
+app.get('/api/settings/background', (req, res) => {
+  const settings = readSettings();
+  return res.json({ backgroundUrl: settings.backgroundUrl || '' });
+});
+
+// Set background image
+app.post('/api/settings/background', requireAuth, (req, res) => {
+  const { backgroundUrl } = req.body;
+  if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
+  
+  const settings = readSettings();
+  settings.backgroundUrl = backgroundUrl;
+  writeSettings(settings);
+  
+  return res.json({ success: true, backgroundUrl });
 });
 
 // Analytics API
