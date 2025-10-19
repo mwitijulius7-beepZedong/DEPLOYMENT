@@ -37,6 +37,13 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
+const cors = require('cors');
+
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' ? 'https://zedong254personal-blog-aq9djywsi.vercel.app' : 'http://localhost:3000',
+  credentials: true
+}));
+
 app.use(express.json());
 app.use(express.static(__dirname));
 app.use('/uploads', express.static(UPLOADS_DIR, {
@@ -48,7 +55,12 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false }
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    maxAge: 24 * 60 * 60 * 1000
+  }
 }));
 
 app.use(fileUpload({
