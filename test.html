@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+</head>
+<body>
+    <div id="app">
+        <button @click="toggleTheme">{{ isDarkMode ? '☀️' : '🌙' }}</button>
+        <button @click="toggleMenu">☰ Menu</button>
+        <p>Dark Mode: {{ isDarkMode }}</p>
+        <p>Menu Open: {{ showMenu }}</p>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+        createApp({
+            data() {
+                return {
+                    isDarkMode: false,
+                    showMenu: false
+                };
+            },
+            methods: {
+                toggleTheme() {
+                    this.isDarkMode = !this.isDarkMode;
+                    console.log('Theme toggled:', this.isDarkMode);
+                },
+                toggleMenu() {
+                    this.showMenu = !this.showMenu;
+                    console.log('Menu toggled:', this.showMenu);
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

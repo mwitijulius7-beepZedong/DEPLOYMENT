@@ -9,6 +9,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
+// const { kv } = require('@vercel/kv'); // Only for Vercel deployment
 
 const app = express();
 const PORT = process.env.PORT || 3000;
