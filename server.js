@@ -720,8 +720,11 @@ app.post('/api/settings/author', requireAuth, async (req, res) => {
 // Security settings API (admin entry key)
 app.get('/api/settings/security', async (req, res) => {
   try {
-    let hasEntryKey = false;
+    if (process.env.ADMIN_ENTRY_KEY) {
+      return res.json({ hasEntryKey: true, mode: 'env' });
+    }
     
+    let hasEntryKey = false;
     if (process.env.VERCEL && db) {
       const result = await db.collection('settings').findOne({ type: 'security' });
       hasEntryKey = !!(result?.adminEntryKeyHash);
@@ -730,51 +733,36 @@ app.get('/api/settings/security', async (req, res) => {
       hasEntryKey = !!(settings.security && settings.security.adminEntryKeyHash);
     }
     
-    return res.json({ hasEntryKey });
+    return res.json({ hasEntryKey, mode: hasEntryKey ? 'local' : 'none' });
   } catch (e) {
-    return res.json({ hasEntryKey: false });
+    return res.json({ hasEntryKey: false, mode: 'none' });
   }
 });
 
 app.post('/api/settings/security', requireAuth, async (req, res) => {
   try {
-    const { adminEntryKey } = req.body || {};
-    
-    if (process.env.VERCEL && db) {
-      // MongoDB storage for Vercel
-      let security = {};
-      if (adminEntryKey && String(adminEntryKey).length > 0) {
-        const plain = String(adminEntryKey);
-        const hash = await bcrypt.hash(plain, 10);
-        security = {
-          adminEntryKeyHash: hash,
-          adminEntryKeyEnc: encryptText(plain)
-        };
-      }
-      
-      await db.collection('settings').updateOne(
-        { type: 'security' },
-        { $set: { ...security, updatedAt: new Date() } },
-        { upsert: true }
-      );
-      
-      return res.json({ success: true, hasEntryKey: !!security.adminEntryKeyHash });
+    if (process.env.VERCEL || process.env.ADMIN_ENTRY_KEY) {
+      return res.status(501).json({ error: 'not_supported_on_serverless_or_env_managed' });
     }
     
-    // Local development - file storage
+    const { adminEntryKey } = req.body || {};
     const settings = readSettings();
     settings.security = settings.security || {};
-    if (adminEntryKey && String(adminEntryKey).length > 0) {
-      const plain = String(adminEntryKey);
-      const hash = await bcrypt.hash(plain, 10);
-      settings.security.adminEntryKeyHash = hash;
-      settings.security.adminEntryKeyEnc = encryptText(plain);
-    } else {
+    
+    if (!adminEntryKey || String(adminEntryKey).length === 0) {
       settings.security.adminEntryKeyHash = '';
       settings.security.adminEntryKeyEnc = '';
+      writeSettings(settings);
+      return res.json({ success: true, hasEntryKey: false });
     }
+    
+    const plain = String(adminEntryKey);
+    const hash = await bcrypt.hash(plain, 10);
+    settings.security.adminEntryKeyHash = hash;
+    settings.security.adminEntryKeyEnc = encryptText(plain);
     writeSettings(settings);
-    return res.json({ success: true, hasEntryKey: !!settings.security.adminEntryKeyHash });
+    
+    return res.json({ success: true, hasEntryKey: true });
   } catch (e) {
     console.error('Error saving security settings:', e);
     return res.status(500).json({ error: 'internal' });
@@ -783,42 +771,67 @@ app.post('/api/settings/security', requireAuth, async (req, res) => {
 
 app.post('/api/settings/verify-entry-key', async (req, res) => {
   try {
-    const { adminEntryKey } = req.body || {};
+    const provided = String(req.body?.adminEntryKey || '');
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const ua = req.headers['user-agent'];
+
+    // 1) If ADMIN_ENTRY_KEY is set, use it exclusively (works on Vercel)
+    if (process.env.ADMIN_ENTRY_KEY) {
+      const ok = provided && provided === process.env.ADMIN_ENTRY_KEY;
+      const logs = loadSecurityLogs();
+      const entry = {
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        keyHash: crypto.createHash('sha256').update(provided).digest('hex'),
+        ip: ip || '',
+        userAgent: ua || '',
+        result: ok ? 'success' : 'fail',
+        mode: 'env'
+      };
+      logs.push(entry);
+      saveSecurityLogs(logs);
+      
+      if (ok) return res.json({ success: true, mode: 'env' });
+      return res.status(403).json({ success: false, mode: 'env' });
+    }
+
+    // 2) Get stored hash from MongoDB or file
     let hash = '';
-    
     if (process.env.VERCEL && db) {
       const result = await db.collection('settings').findOne({ type: 'security' });
       hash = result?.adminEntryKeyHash || '';
     } else {
       const settings = readSettings();
-      hash = settings.security && settings.security.adminEntryKeyHash || '';
+      hash = settings.security?.adminEntryKeyHash || '';
     }
 
     const logs = loadSecurityLogs();
-    const attemptHash = crypto.createHash('sha256').update(String(adminEntryKey || '')).digest('hex');
     const entry = {
       id: Date.now(),
       timestamp: new Date().toISOString(),
-      keyHash: attemptHash,
-      ip: req.ip || req.connection?.remoteAddress || '',
-      userAgent: req.get('User-Agent') || '',
-      result: ''
+      keyHash: crypto.createHash('sha256').update(provided).digest('hex'),
+      ip: ip || '',
+      userAgent: ua || '',
+      result: '',
+      mode: 'local'
     };
 
+    // 3) If no local key set, allow by default
     if (!hash) {
       entry.result = 'allow_not_set';
       logs.push(entry);
       saveSecurityLogs(logs);
-      return res.json({ success: true, reason: 'not_set' });
+      return res.json({ success: true, mode: 'none' });
     }
 
-    const ok = await bcrypt.compare(String(adminEntryKey || ''), hash);
+    // 4) Verify against stored hash
+    const ok = await bcrypt.compare(provided, hash);
     entry.result = ok ? 'success' : 'fail';
     logs.push(entry);
     saveSecurityLogs(logs);
 
-    if (ok) return res.json({ success: true });
-    return res.status(401).json({ success: false, error: 'invalid_key' });
+    if (ok) return res.json({ success: true, mode: 'local' });
+    return res.status(403).json({ success: false, mode: 'local' });
   } catch (e) {
     console.error('verify-entry-key error:', e);
     return res.status(500).json({ error: 'internal' });
@@ -849,6 +862,13 @@ app.post('/api/settings/security/logs', requireAuth, async (req, res) => {
 // View current admin entry key (requires admin creds). Returns plaintext if stored, else empty
 app.post('/api/settings/security/key-view', requireAuth, async (req, res) => {
   try {
+    if (process.env.ADMIN_ENTRY_KEY) {
+      return res.status(403).json({
+        error: 'env_managed',
+        message: 'Admin entry key is managed by environment; viewing disabled.'
+      });
+    }
+    
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
     const users = await loadUsers();
