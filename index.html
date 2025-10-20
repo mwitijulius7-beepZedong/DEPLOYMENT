@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ pageTitle }}</title>
+    <title>zedong254ke Blog</title>
     <meta name="description" :content="pageDescription">
     <meta name="keywords" :content="pageKeywords">
     <meta property="og:title" :content="pageTitle">
@@ -959,6 +959,24 @@
                                 bgEl.style.setProperty('background-image', `url(${newUrl})`, 'important');
                             }
                         });
+                    }
+                },
+                currentView(newView) {
+                    // Update page title based on current view
+                    if (newView === 'admin') {
+                        document.title = 'zedong254ke - Admin Panel';
+                    } else if (this.selectedPost) {
+                        document.title = `${this.selectedPost.title} - zedong254ke Blog`;
+                    } else {
+                        document.title = 'zedong254ke Blog';
+                    }
+                },
+                selectedPost(newPost) {
+                    // Update title when viewing a specific post
+                    if (newPost) {
+                        document.title = `${newPost.title} - zedong254ke Blog`;
+                    } else {
+                        document.title = 'zedong254ke Blog';
                     }
                 }
             },
