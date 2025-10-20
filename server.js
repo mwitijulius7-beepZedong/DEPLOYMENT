@@ -245,25 +245,25 @@ function requireAuth(req, res, next) {
   // Check session first
   if (req.session && req.session.user) return next();
   
-  // For Vercel, check Authorization header as fallback
-  if (process.env.VERCEL) {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      try {
-        // Simple token validation - in production, use JWT or similar
-        const decoded = Buffer.from(token, 'base64').toString('utf8');
-        const [email, timestamp] = decoded.split('|');
-        const tokenAge = Date.now() - parseInt(timestamp);
-        
-        // Token valid for 24 hours
-        if (tokenAge < 24 * 60 * 60 * 1000 && email) {
-          req.user = { email, name: 'Admin' };
-          return next();
-        }
-      } catch (e) {
-        console.error('Token validation error:', e);
+  // Check Authorization header as fallback
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    try {
+      // Simple token validation - in production, use JWT or similar
+      const decoded = Buffer.from(token, 'base64').toString('utf8');
+      const [email, timestamp] = decoded.split('|');
+      const tokenAge = Date.now() - parseInt(timestamp);
+      
+      console.log('Token validation:', { email, tokenAge, valid: tokenAge < 24 * 60 * 60 * 1000 });
+      
+      // Token valid for 24 hours
+      if (tokenAge < 24 * 60 * 60 * 1000 && email) {
+        req.user = { email, name: 'Admin' };
+        return next();
       }
+    } catch (e) {
+      console.error('Token validation error:', e);
     }
   }
   
