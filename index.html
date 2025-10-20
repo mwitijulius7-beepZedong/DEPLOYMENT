@@ -1678,32 +1678,20 @@
                 },
                 async saveSecuritySettings() {
                     try {
-                        // For production, include admin credentials
                         const payload = { adminEntryKey: this.securityForm.adminEntryKey };
-                        
-                        // Add admin credentials for Vercel
-                        if (window.location.hostname.includes('vercel.app')) {
-                            const username = prompt('Enter admin username:');
-                            const password = prompt('Enter admin password:');
-                            if (!username || !password) {
-                                alert('Admin credentials required');
-                                return;
-                            }
-                            payload.username = username;
-                            payload.password = password;
-                        }
+                        const headers = this.getAuthHeaders();
                         
                         const resp = await fetch('/api/settings/security', {
                             method: 'POST',
                             credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers,
                             body: JSON.stringify(payload)
                         });
                         const data = await resp.json();
                         if (resp.ok && data.success) {
                             this.securityHasEntryKey = !!data.hasEntryKey;
                             this.securityForm.adminEntryKey = '';
-                            alert(data.message || 'Security settings saved');
+                            alert('Security settings saved');
                         } else {
                             alert('Failed to save security settings: ' + (data.error || 'Unknown error'));
                         }
@@ -1713,10 +1701,12 @@
                 },
                 async loadSecurityLogs() {
                     try {
+                        const headers = this.getAuthHeaders();
+                        
                         const resp = await fetch('/api/settings/security/logs', {
                             method: 'POST',
                             credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers,
                             body: JSON.stringify({
                                 username: this.securityLogsAuth.username,
                                 password: this.securityLogsAuth.password
@@ -1739,10 +1729,12 @@
                 },
                 async viewSecurityKey() {
                     try {
+                        const headers = this.getAuthHeaders();
+                        
                         const resp = await fetch('/api/settings/security/key-view', {
                             method: 'POST',
                             credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers,
                             body: JSON.stringify({
                                 username: this.securityKeyAuth.username,
                                 password: this.securityKeyAuth.password
