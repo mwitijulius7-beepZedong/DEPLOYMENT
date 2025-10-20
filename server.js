@@ -166,17 +166,32 @@ async function savePosts(posts) {
   }
 }
 
-function loadCategories() {
+async function loadCategories() {
   try {
+    if (db) {
+      const categories = await db.collection('categories').find({}).toArray();
+      return categories.map(c => ({ ...c, id: c._id || c.id }));
+    }
     return JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
   } catch (e) {
     return [];
   }
 }
 
-function saveCategories(categories) {
-  if (process.env.VERCEL) return; // skip writes on Vercel
-  fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
+async function saveCategories(categories) {
+  try {
+    if (db) {
+      await db.collection('categories').deleteMany({});
+      if (categories.length > 0) {
+        await db.collection('categories').insertMany(categories.map(c => ({ ...c, _id: c.id })));
+      }
+      return;
+    }
+    if (process.env.VERCEL) return;
+    fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
+  } catch (e) {
+    console.error('Save categories error:', e);
+  }
 }
 
 function loadAnalytics() {
@@ -904,16 +919,16 @@ app.post('/api/settings/security/key-view', requireAuth, async (req, res) => {
 });
 
 // Categories API
-app.get('/api/categories', (req, res) => {
-  const categories = loadCategories();
+app.get('/api/categories', async (req, res) => {
+  const categories = await loadCategories();
   return res.json({ categories });
 });
 
-app.post('/api/categories', requireAuth, (req, res) => {
+app.post('/api/categories', requireAuth, async (req, res) => {
   const { name, description } = req.body;
   if (!name) return res.status(400).json({ error: 'missing name' });
   
-  const categories = loadCategories();
+  const categories = await loadCategories();
   const id = Date.now();
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   
@@ -925,16 +940,16 @@ app.post('/api/categories', requireAuth, (req, res) => {
   };
   
   categories.push(category);
-  saveCategories(categories);
+  await saveCategories(categories);
   return res.json({ success: true, category });
 });
 
-app.put('/api/categories/:id', requireAuth, (req, res) => {
+app.put('/api/categories/:id', requireAuth, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const { name, description } = req.body;
   if (!name) return res.status(400).json({ error: 'missing name' });
   
-  const categories = loadCategories();
+  const categories = await loadCategories();
   const idx = categories.findIndex(c => c.id === id);
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   
@@ -947,18 +962,18 @@ app.put('/api/categories/:id', requireAuth, (req, res) => {
     description: description ? description.trim() : ''
   };
   
-  saveCategories(categories);
+  await saveCategories(categories);
   return res.json({ success: true, category: categories[idx] });
 });
 
-app.delete('/api/categories/:id', requireAuth, (req, res) => {
+app.delete('/api/categories/:id', requireAuth, async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  let categories = loadCategories();
+  let categories = await loadCategories();
   const idx = categories.findIndex(c => c.id === id);
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   
   categories.splice(idx, 1);
-  saveCategories(categories);
+  await saveCategories(categories);
   return res.json({ success: true });
 });
 
