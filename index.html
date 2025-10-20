@@ -1671,7 +1671,10 @@
                 },
                 async loadSecurityStatus() {
                     try {
-                        const s = await fetch('/api/settings/security', { credentials: 'include' });
+                        const s = await fetch('/api/settings/security', { 
+                            credentials: 'include',
+                            headers: this.getAuthHeaders()
+                        });
                         const sj = await s.json();
                         this.securityHasEntryKey = !!sj.hasEntryKey;
                     } catch (e) { this.securityHasEntryKey = false; }
@@ -1892,15 +1895,10 @@
                         
                         if (result.success) {
                             // Save to backend
-                            const bgHeaders = { 'Content-Type': 'application/json' };
-                            if (token) {
-                                bgHeaders['Authorization'] = `Bearer ${token}`;
-                            }
-                            
                             await fetch('/api/settings/background', {
                                 method: 'POST',
                                 credentials: 'include',
-                                headers: bgHeaders,
+                                headers: this.getAuthHeaders(),
                                 body: JSON.stringify({ backgroundUrl: result.url })
                             });
 
@@ -1935,7 +1933,9 @@
                 },
                 async loadCategories() {
                     try {
-                        const response = await fetch('/api/categories');
+                        const response = await fetch('/api/categories', {
+                            headers: this.getAuthHeaders()
+                        });
                         const data = await response.json();
                         this.categories = data.categories || [];
                     } catch (error) {
