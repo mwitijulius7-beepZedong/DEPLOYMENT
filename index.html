@@ -501,11 +501,15 @@
                         <span v-for="tag in selectedPost.tags" :key="tag" class="tag">{{ tag }}</span>
                     </div>
                     <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:1.5rem;">
-                        <span style="color:#6b7280;">Share:</span>
-                        <a :href="shareLinks.twitter" target="_blank" rel="noopener" class="btn btn-small" style="background:#1DA1F2;">Twitter</a>
-                        <a :href="shareLinks.facebook" target="_blank" rel="noopener" class="btn btn-small" style="background:#1877F2;">Facebook</a>
-                        <a :href="shareLinks.linkedin" target="_blank" rel="noopener" class="btn btn-small" style="background:#0A66C2;">LinkedIn</a>
+                        <span style="color:white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">Share:</span>
+                        <a :href="shareLinks.twitter" target="_blank" rel="noopener" class="btn btn-small" style="background:#1DA1F2; text-decoration:none;">Twitter</a>
+                        <a :href="shareLinks.facebook" target="_blank" rel="noopener" class="btn btn-small" style="background:#1877F2; text-decoration:none;">Facebook</a>
+                        <a :href="shareLinks.linkedin" target="_blank" rel="noopener" class="btn btn-small" style="background:#0A66C2; text-decoration:none;">LinkedIn</a>
                         <button class="btn btn-small" style="background:#6b7280;" @click="copyPermalink">Copy link</button>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:1.5rem;">
+                        <button class="btn btn-small" style="background:#22c55e;" @click="likePost(selectedPost.id)">👍 Like ({{ selectedPost.likes || 0 }})</button>
+                        <button class="btn btn-small" style="background:#ef4444;" @click="dislikePost(selectedPost.id)">👎 Dislike ({{ selectedPost.dislikes || 0 }})</button>
                     </div>
                     <div class="post-content">{{ selectedPost.content }}</div>
                 </div>
@@ -1218,6 +1222,7 @@
 
                     this.saveData();
                     this.cancelEdit();
+                    alert('Saved!');
                 },
                 deletePost(id) {
                     if (confirm('Are you sure you want to delete this post?')) {
@@ -1367,6 +1372,7 @@
                             localStorage.setItem('blogBackground', result.url);
                             this.pendingBackgroundFile = null;
                             this.pendingBackgroundImage = null;
+                            alert('Saved!');
                         } else {
                             alert('Upload failed: ' + (result.error || 'Unknown error'));
                         }
@@ -1420,6 +1426,7 @@
                         if (result.success) {
                             await this.loadCategories();
                             this.cancelCategoryEdit();
+                            alert('Saved!');
                         } else {
                             alert('Failed to save category: ' + (result.error || 'Unknown error'));
                         }
@@ -1464,7 +1471,7 @@
                     localStorage.setItem('socialFacebook', this.socialMedia.facebook);
                     localStorage.setItem('socialLinkedin', this.socialMedia.linkedin);
                     localStorage.setItem('socialInstagram', this.socialMedia.instagram);
-                    alert('Social media settings saved!');
+                    alert('Saved!');
                 },
                 async loadAnalytics() {
                     try {
@@ -1491,6 +1498,20 @@
                         console.log('Background loaded:', this.backgroundImageUrl);
                     } catch (error) {
                         console.error('Failed to load background:', error);
+                    }
+                },
+                likePost(postId) {
+                    const post = this.posts.find(p => p.id === postId);
+                    if (post) {
+                        post.likes = (post.likes || 0) + 1;
+                        this.saveData();
+                    }
+                },
+                dislikePost(postId) {
+                    const post = this.posts.find(p => p.id === postId);
+                    if (post) {
+                        post.dislikes = (post.dislikes || 0) + 1;
+                        this.saveData();
                     }
                 },
                 renderAnalyticsChart() {
