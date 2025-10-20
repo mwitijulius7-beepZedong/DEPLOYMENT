@@ -590,7 +590,7 @@
                             </div>
                         </div>
                     </div>
-                    <button @click="handleAdminAccessClick" style="background:var(--primary-color); color:white; border:none; padding:1rem; border-radius:50%; cursor:pointer; font-size:1.2rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="Admin Portal">
+                    <button id="admin-access-btn" @click="handleAdminAccessClick" style="background:var(--primary-color); color:white; border:none; padding:1rem; border-radius:50%; cursor:pointer; font-size:1.2rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="Admin Portal">
                         🔒
                     </button>
                 </div>
@@ -788,17 +788,23 @@
                     </div>
 
                     <!-- Security Settings -->
-                    <div v-if="activeSettingsTab === 'security' && !isServerless">
+                    <div v-if="activeSettingsTab === 'security' && !isServerless" id="security-settings-container">
+                        <div id="env-managed-banner" v-if="securityMode === 'env'" style="margin: 8px 0; padding: 10px 12px; border: 1px solid rgba(148,163,184,0.35); border-radius: 10px; background: rgba(99,102,241,0.06); font-size: 14px;">
+                            Admin entry key is managed by the server environment. Update it in your host settings (ADMIN_ENTRY_KEY). Viewing is disabled.
+                        </div>
+                        <div v-else style="margin: 8px 0; padding: 10px 12px; border: 1px solid rgba(148,163,184,0.35); border-radius: 10px; background: rgba(99,102,241,0.06); font-size: 14px;">
+                            Admin entry key is stored locally for development. You can set/clear it here.
+                        </div>
                         <div class="form-group">
                             <label>Admin Entry Key</label>
-                            <input v-model="securityForm.adminEntryKey" type="password" placeholder="Enter new entry key (leave blank to remove)">
+                            <input id="admin-entry-key-input" v-model="securityForm.adminEntryKey" type="password" placeholder="Enter new entry key (leave blank to remove)" :disabled="securityMode === 'env'">
                             <small style="display:block; margin-top:.5rem; color:#6b7280;">
                                 {{ securityHasEntryKey ? 'An entry key is currently set. Enter a new key to update, or click Remove to disable.' : 'No entry key set. Set one to require a key before accessing the admin portal.' }}
                             </small>
                         </div>
                         <div style="display:flex; gap:.5rem; margin-bottom:1rem;">
-                            <button class="btn btn-small" @click="saveSecuritySettings">Save Key</button>
-                            <button class="btn btn-small btn-danger" @click="securityForm.adminEntryKey=''; saveSecuritySettings()">Remove Key</button>
+                            <button id="admin-entry-key-save" class="btn btn-small" @click="saveSecuritySettings" :disabled="securityMode === 'env'">Save Key</button>
+                            <button id="admin-entry-key-clear" class="btn btn-small btn-danger" @click="securityForm.adminEntryKey=''; saveSecuritySettings()" :disabled="securityMode === 'env'">Remove Key</button>
                         </div>
                         <div style="margin: 1rem 0; padding: 1rem; border:1px solid var(--border-color); border-radius:8px; background: var(--card-bg);">
                             <h4 style="margin-bottom:.75rem;">Current Admin Entry Key</h4>
@@ -1104,6 +1110,7 @@
                     pendingBackgroundImage: null,
                     googleReady: false,
                     securityHasEntryKey: false,
+                    securityMode: 'none',
                     securityForm: { adminEntryKey: '' },
                     securityLogsAuthorized: false,
                     securityLogsAuth: { username: '', password: '' },
@@ -1631,8 +1638,8 @@
                 },
                 async handleAdminAccessClick() {
                     try {
-                        // Skip entry key on serverless platforms
-                        if (this.isServerless || !this.securityHasEntryKey) {
+                        await this.loadSecurityStatus();
+                        if (!this.securityHasEntryKey) {
                             this.currentView = 'admin';
                             this.$nextTick(() => this.renderGoogleButton());
                             return;
@@ -1641,7 +1648,8 @@
                         this.entryKeyError = '';
                         this.showEntryKeyPopup = true;
                     } catch (e) {
-                        this.currentView = 'blog';
+                        this.currentView = 'admin';
+                        this.$nextTick(() => this.renderGoogleButton());
                     }
                 },
                 async submitEntryKey() {
@@ -1677,7 +1685,11 @@
                         });
                         const sj = await s.json();
                         this.securityHasEntryKey = !!sj.hasEntryKey;
-                    } catch (e) { this.securityHasEntryKey = false; }
+                        this.securityMode = sj.mode || 'none';
+                    } catch (e) { 
+                        this.securityHasEntryKey = false;
+                        this.securityMode = 'none';
+                    }
                 },
                 async saveSecuritySettings() {
                     try {
