@@ -86,6 +86,7 @@ function loadUsers() {
 }
 
 function saveUsers(users) {
+  if (process.env.VERCEL) return; // skip writes on Vercel
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
 }
 
@@ -98,6 +99,7 @@ function loadPosts() {
 }
 
 function savePosts(posts) {
+  if (process.env.VERCEL) return; // skip writes on Vercel
   fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
 }
 
@@ -110,6 +112,7 @@ function loadCategories() {
 }
 
 function saveCategories(categories) {
+  if (process.env.VERCEL) return; // skip writes on Vercel
   fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
 }
 
@@ -122,6 +125,7 @@ function loadAnalytics() {
 }
 
 function saveAnalytics(analytics) {
+  if (process.env.VERCEL) return; // skip writes on Vercel
   fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(analytics, null, 2));
 }
 
@@ -134,6 +138,7 @@ function loadSecurityLogs() {
 }
 
 function saveSecurityLogs(logs) {
+  if (process.env.VERCEL) return; // skip writes on Vercel
   fs.writeFileSync(SECURITY_LOGS_FILE, JSON.stringify(logs, null, 2));
 }
 
@@ -178,10 +183,10 @@ function requireAuth(req, res, next) {
 }
 
 const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
-  ? nodemailer.createTransporter({
+  ? nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT || 587,
-      secure: process.env.SMTP_SECURE === 'true',
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: String(process.env.SMTP_SECURE).toLowerCase() === 'true',
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
@@ -308,6 +313,7 @@ app.get('/api/posts', (req, res) => {
 });
 
 app.post('/api/posts', requireAuth, (req, res) => {
+  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
   const body = req.body;
   if (!body || !body.title || !body.content) return res.status(400).json({ error: 'missing title or content' });
 
@@ -341,6 +347,7 @@ app.post('/api/posts', requireAuth, (req, res) => {
 
 // PUT /api/posts/:id - update (admin only)
 app.put('/api/posts/:id', requireAuth, (req, res) => {
+  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
   const id = parseInt(req.params.id, 10);
   const body = req.body;
   const posts = loadPosts();
@@ -373,6 +380,7 @@ app.put('/api/posts/:id', requireAuth, (req, res) => {
 });
 
 app.delete('/api/posts/:id', requireAuth, (req, res) => {
+  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
   const id = parseInt(req.params.id, 10);
   let posts = loadPosts();
   const idx = posts.findIndex(p => p.id === id);
@@ -385,6 +393,10 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
 // Upload API with Vercel Blob
 app.post('/api/upload', requireAuth, async (req, res) => {
   try {
+    // Note: Upload in production requires BLOB_READ_WRITE_TOKEN; otherwise return 501
+    if (process.env.VERCEL && !process.env.BLOB_READ_WRITE_TOKEN) {
+      return res.status(501).json({ error: 'blob_storage_not_configured' });
+    }
     if (!req.files || !req.files.image) return res.status(400).json({ error: 'no file uploaded' });
     const image = req.files.image;
     const MAX_BYTES = 5 * 1024 * 1024;
@@ -461,6 +473,7 @@ function readSettings() {
 // Helper function to write settings
 function writeSettings(settings) {
   try {
+    if (process.env.VERCEL) return; // skip writes on Vercel
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
   } catch (error) {
     console.error('Error writing settings:', error);
@@ -475,6 +488,7 @@ app.get('/api/settings/background', (req, res) => {
 
 // Set background image
 app.post('/api/settings/background', requireAuth, (req, res) => {
+  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
   const { backgroundUrl } = req.body;
   if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
   
@@ -498,6 +512,7 @@ app.get('/api/settings/backgrounds', (req, res) => {
 
 app.post('/api/settings/backgrounds', requireAuth, (req, res) => {
   try {
+    if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
     const { backgrounds } = req.body || {};
     if (!Array.isArray(backgrounds)) return res.status(400).json({ error: 'backgrounds_must_be_array' });
     const urls = backgrounds.map(u => String(u)).filter(u => u.length > 0);
@@ -555,6 +570,7 @@ app.get('/api/settings/security', (req, res) => {
 
 app.post('/api/settings/security', requireAuth, async (req, res) => {
   try {
+    if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
     const { adminEntryKey } = req.body || {};
     const settings = readSettings();
     settings.security = settings.security || {};
@@ -657,6 +673,7 @@ app.post('/api/settings/security/key-view', requireAuth, async (req, res) => {
 // Analytics API
 app.post('/api/analytics/pageview', (req, res) => {
   try {
+    if (process.env.VERCEL) return res.json({ success: true });
     const { page, referrer, userAgent } = req.body;
     const analytics = loadAnalytics();
     
@@ -681,6 +698,7 @@ app.post('/api/analytics/pageview', (req, res) => {
 
 app.post('/api/analytics/interaction', (req, res) => {
   try {
+    if (process.env.VERCEL) return res.json({ success: true });
     const { type, target, value } = req.body;
     if (!type) return res.status(400).json({ error: 'missing type' });
     
