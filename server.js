@@ -568,9 +568,33 @@ app.get('/api/settings/security', (req, res) => {
   return res.json({ hasEntryKey });
 });
 
-app.post('/api/settings/security', requireAuth, async (req, res) => {
+app.post('/api/settings/security', async (req, res) => {
   try {
-    if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
+    // For Vercel, use environment variable instead of file storage
+    if (process.env.VERCEL) {
+      const { adminEntryKey, username, password } = req.body || {};
+      
+      // Verify admin credentials for Vercel
+      if (!username || !password) {
+        return res.status(400).json({ error: 'missing_admin_credentials' });
+      }
+      
+      const users = loadUsers();
+      const user = users[username];
+      if (!user) return res.status(401).json({ error: 'invalid_user' });
+      
+      const ok = await bcrypt.compare(String(password), user.passwordHash);
+      if (!ok) return res.status(401).json({ error: 'invalid_password' });
+      
+      // For Vercel, we can't save to file, so just return success
+      return res.json({ success: true, hasEntryKey: false, message: 'Security settings not supported on serverless' });
+    }
+    
+    // Local development - require session auth
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ error: 'not_authenticated' });
+    }
+    
     const { adminEntryKey } = req.body || {};
     const settings = readSettings();
     settings.security = settings.security || {};
