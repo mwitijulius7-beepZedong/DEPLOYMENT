@@ -708,7 +708,7 @@
                     <div style="display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid #e5e7eb;">
                         <button @click="activeSettingsTab = 'general'" :class="activeSettingsTab === 'general' ? 'btn' : 'btn'" :style="activeSettingsTab === 'general' ? '' : 'background: #6b7280'">General</button>
                         <button @click="activeSettingsTab = 'author'" :class="activeSettingsTab === 'author' ? 'btn' : 'btn'" :style="activeSettingsTab === 'author' ? '' : 'background: #6b7280'">Author</button>
-                        <button @click="activeSettingsTab = 'security'" :class="activeSettingsTab === 'security' ? 'btn' : 'btn'" :style="activeSettingsTab === 'security' ? '' : 'background: #6b7280'">Security</button>
+                        <button v-if="!isServerless" @click="activeSettingsTab = 'security'" :class="activeSettingsTab === 'security' ? 'btn' : 'btn'" :style="activeSettingsTab === 'security' ? '' : 'background: #6b7280'">Security</button>
                         <button @click="activeSettingsTab = 'social'" :class="activeSettingsTab === 'social' ? 'btn' : 'btn'" :style="activeSettingsTab === 'social' ? '' : 'background: #6b7280'">Social Media</button>
                     </div>
                     
@@ -788,7 +788,7 @@
                     </div>
 
                     <!-- Security Settings -->
-                    <div v-if="activeSettingsTab === 'security'">
+                    <div v-if="activeSettingsTab === 'security' && !isServerless">
                         <div class="form-group">
                             <label>Admin Entry Key</label>
                             <input v-model="securityForm.adminEntryKey" type="password" placeholder="Enter new entry key (leave blank to remove)">
@@ -815,6 +815,14 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    
+                    <!-- Serverless Notice -->
+                    <div v-if="activeSettingsTab === 'security' && isServerless" style="padding: 2rem; text-align: center; background: #fef3c7; border-radius: 8px; border: 1px solid #f59e0b;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🚫</div>
+                        <h3 style="color: #92400e; margin-bottom: 1rem;">Security Settings Not Available</h3>
+                        <p style="color: #92400e; margin-bottom: 1rem;">Security settings are not supported on serverless platforms like Vercel due to file system limitations.</p>
+                        <p style="color: #92400e; font-size: 0.9rem;">For security features, please deploy to a traditional server environment.</p>
                     </div>
 
                     <!-- Social Media Settings -->
@@ -1247,6 +1255,11 @@
                         interactions: (this.analytics.interactions || []).filter(i => inRange(i.timestamp)),
                         postViews: (this.analytics.postViews || []).filter(p => inRange(p.timestamp))
                     };
+                },
+                isServerless() {
+                    return window.location.hostname.includes('vercel.app') || 
+                           window.location.hostname.includes('netlify.app') || 
+                           window.location.hostname.includes('herokuapp.com');
                 }
             },
             watch: {
@@ -1595,7 +1608,8 @@
                 },
                 async handleAdminAccessClick() {
                     try {
-                        if (!this.securityHasEntryKey) {
+                        // Skip entry key on serverless platforms
+                        if (this.isServerless || !this.securityHasEntryKey) {
                             this.currentView = 'admin';
                             this.$nextTick(() => this.renderGoogleButton());
                             return;
