@@ -23,6 +23,7 @@ const USERS_FILE = path.join(__dirname, 'users.json');
 const POSTS_FILE = path.join(__dirname, 'posts.json');
 const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
 const ANALYTICS_FILE = path.join(__dirname, 'analytics.json');
+const SECURITY_LOGS_FILE = path.join(__dirname, 'security_logs.json');
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const ALLOWED_EMAIL = process.env.ALLOWED_EMAIL || '';
@@ -122,6 +123,52 @@ function loadAnalytics() {
 
 function saveAnalytics(analytics) {
   fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(analytics, null, 2));
+}
+
+function loadSecurityLogs() {
+  try {
+    return JSON.parse(fs.readFileSync(SECURITY_LOGS_FILE, 'utf8')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveSecurityLogs(logs) {
+  fs.writeFileSync(SECURITY_LOGS_FILE, JSON.stringify(logs, null, 2));
+}
+
+// Simple AES-256-GCM encryption/decryption using SESSION_SECRET as key material
+function getEncKey() {
+  const secret = process.env.SESSION_SECRET || 'dev-secret';
+  return crypto.createHash('sha256').update(secret).digest(); // 32 bytes
+}
+function encryptText(plain) {
+  try {
+    const key = getEncKey();
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const enc = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return Buffer.concat([iv, tag, enc]).toString('base64');
+  } catch (e) {
+    return '';
+  }
+}
+function decryptText(encStr) {
+  try {
+    if (!encStr) return '';
+    const buf = Buffer.from(encStr, 'base64');
+    const iv = buf.subarray(0, 12);
+    const tag = buf.subarray(12, 28);
+    const data = buf.subarray(28);
+    const key = getEncKey();
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(tag);
+    const dec = Buffer.concat([decipher.update(data), decipher.final()]);
+    return dec.toString('utf8');
+  } catch (e) {
+    return '';
+  }
 }
 
 function requireAuth(req, res, next) {
@@ -394,7 +441,21 @@ function readSettings() {
   } catch (error) {
     console.error('Error reading settings:', error);
   }
-  return { backgroundUrl: '' };
+  return {
+    backgroundUrl: '',
+    backgrounds: [],
+    author: {
+      name: '',
+      email: '',
+      phone: '',
+      whatsapp: '',
+      social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' }
+    },
+    security: {
+      adminEntryKeyHash: '',
+      adminEntryKeyEnc: ''
+    }
+  };
 }
 
 // Helper function to write settings
@@ -419,9 +480,178 @@ app.post('/api/settings/background', requireAuth, (req, res) => {
   
   const settings = readSettings();
   settings.backgroundUrl = backgroundUrl;
+  // Keep backgrounds in sync if only a single URL is provided
+  if (!Array.isArray(settings.backgrounds) || settings.backgrounds.length === 0) {
+    settings.backgrounds = [backgroundUrl];
+  }
   writeSettings(settings);
   
   return res.json({ success: true, backgroundUrl });
+});
+
+// Multiple backgrounds API
+app.get('/api/settings/backgrounds', (req, res) => {
+  const settings = readSettings();
+  const arr = Array.isArray(settings.backgrounds) ? settings.backgrounds : (settings.backgroundUrl ? [settings.backgroundUrl] : []);
+  return res.json({ backgrounds: arr });
+});
+
+app.post('/api/settings/backgrounds', requireAuth, (req, res) => {
+  try {
+    const { backgrounds } = req.body || {};
+    if (!Array.isArray(backgrounds)) return res.status(400).json({ error: 'backgrounds_must_be_array' });
+    const urls = backgrounds.map(u => String(u)).filter(u => u.length > 0);
+    const settings = readSettings();
+    settings.backgrounds = urls;
+    // Keep legacy single backgroundUrl aligned to first
+    settings.backgroundUrl = urls[0] || '';
+    writeSettings(settings);
+    return res.json({ success: true, backgrounds: urls });
+  } catch (e) {
+    console.error('save backgrounds error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Author settings API
+app.get('/api/settings/author', (req, res) => {
+  const settings = readSettings();
+  const author = settings.author || { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+  return res.json({ author });
+});
+
+app.post('/api/settings/author', requireAuth, (req, res) => {
+  try {
+    const payload = req.body && req.body.author ? req.body.author : req.body;
+    if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
+    const settings = readSettings();
+    settings.author = {
+      name: String(payload.name || ''),
+      email: String(payload.email || ''),
+      phone: String(payload.phone || ''),
+      whatsapp: String(payload.whatsapp || ''),
+      social: {
+        twitter: String(payload.social?.twitter || ''),
+        facebook: String(payload.social?.facebook || ''),
+        linkedin: String(payload.social?.linkedin || ''),
+        instagram: String(payload.social?.instagram || ''),
+        website: String(payload.social?.website || '')
+      }
+    };
+    writeSettings(settings);
+    return res.json({ success: true, author: settings.author });
+  } catch (e) {
+    console.error('Error saving author settings:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Security settings API (admin entry key)
+app.get('/api/settings/security', (req, res) => {
+  const settings = readSettings();
+  const hasEntryKey = !!(settings.security && settings.security.adminEntryKeyHash);
+  return res.json({ hasEntryKey });
+});
+
+app.post('/api/settings/security', requireAuth, async (req, res) => {
+  try {
+    const { adminEntryKey } = req.body || {};
+    const settings = readSettings();
+    settings.security = settings.security || {};
+    if (adminEntryKey && String(adminEntryKey).length > 0) {
+      const plain = String(adminEntryKey);
+      const hash = await bcrypt.hash(plain, 10);
+      settings.security.adminEntryKeyHash = hash;
+      settings.security.adminEntryKeyEnc = encryptText(plain);
+    } else {
+      settings.security.adminEntryKeyHash = '';
+      settings.security.adminEntryKeyEnc = '';
+    }
+    writeSettings(settings);
+    return res.json({ success: true, hasEntryKey: !!settings.security.adminEntryKeyHash });
+  } catch (e) {
+    console.error('Error saving security settings:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+app.post('/api/settings/verify-entry-key', async (req, res) => {
+  try {
+    const { adminEntryKey } = req.body || {};
+    const settings = readSettings();
+    const hash = settings.security && settings.security.adminEntryKeyHash || '';
+
+    const logs = loadSecurityLogs();
+    const attemptHash = crypto.createHash('sha256').update(String(adminEntryKey || '')).digest('hex');
+    const entry = {
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      keyHash: attemptHash,
+      ip: req.ip || req.connection?.remoteAddress || '',
+      userAgent: req.get('User-Agent') || '',
+      result: ''
+    };
+
+    if (!hash) {
+      entry.result = 'allow_not_set';
+      logs.push(entry);
+      saveSecurityLogs(logs);
+      return res.json({ success: true, reason: 'not_set' });
+    }
+
+    const ok = await bcrypt.compare(String(adminEntryKey || ''), hash);
+    entry.result = ok ? 'success' : 'fail';
+    logs.push(entry);
+    saveSecurityLogs(logs);
+
+    if (ok) return res.json({ success: true });
+    return res.status(401).json({ success: false, error: 'invalid_key' });
+  } catch (e) {
+    console.error('verify-entry-key error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// View security logs after verifying admin credentials
+app.post('/api/settings/security/logs', requireAuth, async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
+    const users = loadUsers();
+    const user = users[username];
+    if (!user) return res.status(401).json({ error: 'invalid user' });
+    const ok = await bcrypt.compare(String(password), user.passwordHash);
+    if (!ok) return res.status(401).json({ error: 'invalid password' });
+
+    const logs = loadSecurityLogs();
+    // Return most recent first
+    const ordered = logs.slice().sort((a,b)=>b.id-a.id).slice(0, 2000);
+    return res.json({ success: true, logs: ordered });
+  } catch (e) {
+    console.error('security logs error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// View current admin entry key (requires admin creds). Returns plaintext if stored, else empty
+app.post('/api/settings/security/key-view', requireAuth, async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
+    const users = loadUsers();
+    const user = users[username];
+    if (!user) return res.status(401).json({ error: 'invalid user' });
+    const ok = await bcrypt.compare(String(password), user.passwordHash);
+    if (!ok) return res.status(401).json({ error: 'invalid password' });
+
+    const settings = readSettings();
+    const enc = settings.security?.adminEntryKeyEnc || '';
+    const key = decryptText(enc);
+    return res.json({ success: true, key: key || '' });
+  } catch (e) {
+    console.error('security key view error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
 });
 
 // Analytics API
@@ -473,6 +703,87 @@ app.post('/api/analytics/interaction', (req, res) => {
   } catch (e) {
     console.error('Analytics interaction error:', e);
     return res.status(500).json({ error: 'failed to track interaction' });
+  }
+});
+
+// Get analytics data (protected)
+app.get('/api/analytics', requireAuth, (req, res) => {
+  const analytics = loadAnalytics();
+  return res.json(analytics);
+});
+
+// Export analytics data with optional date filters
+// Query params: dataset=pageViews|interactions|all (default=all), format=json|csv (default=json), from=ISO, to=ISO
+app.get('/api/analytics/export', requireAuth, (req, res) => {
+  try {
+    const { dataset = 'all', format = 'json', from, to } = req.query;
+    const all = loadAnalytics();
+
+    const parseDate = (v, endOfDay) => {
+      if (!v) return null;
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return null;
+      if (endOfDay) d.setHours(23, 59, 59, 999);
+      else d.setHours(0, 0, 0, 0);
+      return d;
+    };
+    const start = parseDate(from, false);
+    const end = parseDate(to, true);
+
+    const inRange = (ts) => {
+      const t = new Date(ts).getTime();
+      if (isNaN(t)) return false;
+      if (start && t < start.getTime()) return false;
+      if (end && t > end.getTime()) return false;
+      return true;
+    };
+
+    const filtered = {
+      pageViews: (all.pageViews || []).filter(p => inRange(p.timestamp)),
+      interactions: (all.interactions || []).filter(i => inRange(i.timestamp)),
+      postViews: (all.postViews || []).filter(p => inRange(p.timestamp))
+    };
+
+    if (format === 'json') {
+      const data = dataset === 'all' ? filtered : { [dataset]: filtered[dataset] };
+      const filename = dataset === 'all' ? 'analytics.json' : `${dataset}.json`;
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(JSON.stringify(data, null, 2));
+    }
+
+    // CSV export supports single dataset at a time
+    if (format === 'csv') {
+      if (!['pageViews', 'interactions'].includes(dataset)) {
+        return res.status(400).json({ error: 'csv_export_requires_dataset_pageViews_or_interactions' });
+      }
+      const rows = filtered[dataset] || [];
+      const toCsv = (arr) => {
+        if (!arr.length) return '';
+        const headers = Array.from(
+          arr.reduce((set, obj) => { Object.keys(obj).forEach(k => set.add(k)); return set; }, new Set())
+        );
+        const escape = (v) => {
+          if (v == null) return '';
+          const s = String(v).replace(/"/g, '""');
+          return `"${s}"`;
+        };
+        const lines = [headers.join(',')];
+        for (const obj of arr) {
+          lines.push(headers.map(h => escape(obj[h])).join(','));
+        }
+        return lines.join('\n');
+      };
+      const csv = toCsv(rows);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${dataset}.csv"`);
+      return res.send(csv);
+    }
+
+    return res.status(400).json({ error: 'unsupported_format' });
+  } catch (e) {
+    console.error('analytics export error:', e);
+    return res.status(500).json({ error: 'internal' });
   }
 });
 

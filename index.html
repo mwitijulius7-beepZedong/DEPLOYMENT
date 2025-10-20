@@ -15,6 +15,15 @@
     <meta name="twitter:title" :content="pageTitle">
     <meta name="twitter:description" :content="pageDescription">
     <meta name="twitter:image" :content="pageImage">
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('theme');
+          var dark = (saved === 'dark') || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        } catch (e) {}
+      })();
+    </script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Google Identity Services (replace CLIENT_ID below with your real client ID) -->
@@ -42,29 +51,41 @@
         body {
             font-family: 'Georgia', 'Times New Roman', serif;
             line-height: 1.6;
-            color: white;
+            color: var(--text-color);
             background: transparent !important;
             transition: background 0.3s, color 0.3s;
         }
 
         :root {
             --bg-color: transparent;
-            --card-bg: transparent;
-            --text-color: white;
-            --text-muted: #94a3b8;
-            --border-color: rgba(226, 232, 240, 0.3);
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --text-color: #1f2937; /* slate-800 */
+            --text-muted: #64748b; /* slate-500 */
+            --border-color: rgba(0, 0, 0, 0.1);
             --primary-color: #3b82f6;
             --accent-color: #60a5fa;
-        }
+            /* Panel (admin content) clarity */
+            --panel-bg: rgba(255, 255, 255, 0.98);
+            --panel-border-color: rgba(0, 0, 0, 0.08);
+            --header-divider: #e5e7eb;
+            --heading-color: #0f172a;
+            --label-bg: rgba(255, 255, 255, 0.95);
+            }
 
         [data-theme="dark"] {
             --bg-color: transparent;
-            --card-bg: transparent;
-            --text-color: white;
-            --text-muted: #94a3b8;
-            --border-color: rgba(51, 65, 85, 0.3);
+            --card-bg: rgba(17, 24, 39, 0.55); /* slate-900 with blur */
+            --text-color: #f1f5f9; /* slate-100 */
+            --text-muted: #94a3b8; /* slate-400 */
+            --border-color: rgba(255, 255, 255, 0.15);
             --primary-color: #60a5fa;
             --accent-color: #93c5fd;
+            /* Panel (admin content) clarity */
+            --panel-bg: rgba(17, 24, 39, 0.9);
+            --panel-border-color: rgba(255, 255, 255, 0.12);
+            --header-divider: rgba(255, 255, 255, 0.12);
+            --heading-color: #f8fafc;
+            --label-bg: rgba(17, 24, 39, 0.9);
         }
 
         .animated-background {
@@ -73,12 +94,13 @@
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: -999;
+            z-index: 0;
             margin: 0;
             padding: 0;
         }
 
         .bg-image {
+            position: relative;
             width: 100%;
             height: 100%;
             background-size: cover;
@@ -87,6 +109,23 @@
             animation: slowMove 20s ease-in-out infinite;
             background-attachment: fixed;
             background-color: transparent;
+            filter: blur(6px) saturate(85%) brightness(0.9);
+            transition: filter 0.3s ease;
+            will-change: transform, filter;
+        }
+        .bg-image::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.22);
+            transition: background 0.3s ease;
+            pointer-events: none;
+        }
+        [data-theme="dark"] .bg-image::after {
+            background: rgba(0, 0, 0, 0.45);
+        }
+        [data-theme="dark"] .bg-image {
+            filter: blur(7px) saturate(85%) brightness(0.7);
         }
 
         @keyframes slowMove {
@@ -230,7 +269,7 @@
         }
 
         .post-card {
-            background: transparent;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 1.5rem;
             box-shadow: 0 4px 20px rgba(139, 115, 85, 0.15);
@@ -248,8 +287,8 @@
         .post-title {
             font-size: 1.5rem;
             margin-bottom: 0.5rem;
-            color: white;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            color: var(--text-color);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.25);
         }
 
         .post-meta {
@@ -280,7 +319,7 @@
 
         /* Single Post View */
         .post-detail {
-            background: transparent;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 3rem;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -297,8 +336,8 @@
         .post-content {
             font-size: 1.1rem;
             line-height: 1.8;
-            color: white;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            color: var(--text-color);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.25);
             white-space: pre-wrap;
         }
 
@@ -390,7 +429,7 @@
         .login-container {
             max-width: 400px;
             margin: 4rem auto;
-            background: transparent;
+            background: var(--card-bg);
             padding: 3rem;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -402,6 +441,10 @@
             margin-bottom: 2rem;
             text-align: center;
         }
+        .auth-divider { display: flex; align-items: center; gap: .75rem; color: var(--text-muted); font-size: .9rem; margin: 1rem 0; }
+        .auth-divider::before, .auth-divider::after { content: ''; height: 1px; flex: 1; background: var(--panel-border-color, #e5e7eb); }
+        .btn-primary { width: 100%; background: linear-gradient(90deg, #ef4444, #dc2626); }
+        .btn-primary:hover { background: linear-gradient(90deg, #f05252, #e11d48); }
 
         .error-message {
             background: #fee2e2;
@@ -422,11 +465,65 @@
             .posts-grid { grid-template-columns: 1fr; gap: 1rem; }
             .post-card { padding: 1rem; }
         }
+    /* Sidebar */
+        .sidebar { position: fixed; top: 1rem; right: 1rem; left: auto; width: 260px; height: auto; max-height: calc(100vh - 2rem); transform: translateX(120%); transition: transform .3s ease; z-index: 10001; background: var(--card-bg); backdrop-filter: blur(10px); box-shadow: -2px 0 10px rgba(0,0,0,0.2); padding: 1rem; border-radius: 12px; overflow: auto; }
+
+    /* Admin Panel readability improvements */
+        .admin-panel { background: var(--panel-bg); border: 1px solid var(--panel-border-color); border-radius: 16px; padding: 1.25rem 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.25); backdrop-filter: none; }
+
+    /* Entry key popup */
+        .entry-key-popup { position: fixed; right: 2rem; bottom: 5.6rem; width: 260px; background: var(--panel-bg); border: 1px solid var(--panel-border-color); border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); z-index: 10001; padding: .75rem; }
+        .entry-key-popup::after { content: ''; position: absolute; bottom: -8px; right: 18px; border-width: 8px 8px 0 8px; border-style: solid; border-color: var(--panel-border-color) transparent transparent transparent; }
+        .entry-key-header { font-weight: 700; margin-bottom: .5rem; color: var(--heading-color); font-size: .95rem; text-transform: capitalize; }
+        .entry-key-body input { width: 100%; padding: .5rem; border: 1px solid var(--panel-border-color); border-radius: 6px; background: #ffffff; color: #111827; }
+        [data-theme="dark"] .entry-key-body input { background: #0b1220; color: var(--text-color); }
+        .entry-key-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .5rem; }
+        .entry-key-error { color: #ef4444; font-size: .85rem; margin-top: .25rem; }
+        .admin-panel .form-group label { display:inline-block; color: var(--heading-color); font-weight: 700; letter-spacing: .2px; text-shadow: none; background: var(--label-bg); border: 1px solid var(--panel-border-color); border-radius: 8px; padding: 0.25rem 0.6rem; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+        .admin-panel .admin-form .form-group input,
+        .admin-panel .admin-form .form-group select,
+        .admin-panel .admin-form .form-group textarea { background: #ffffff; border: 1px solid var(--panel-border-color); color: #111827; }
+        [data-theme="dark"] .admin-panel .admin-form .form-group input,
+        [data-theme="dark"] .admin-panel .admin-form .form-group select,
+        [data-theme="dark"] .admin-panel .admin-form .form-group textarea { background: #0b1220; border: 1px solid var(--panel-border-color); color: var(--text-color); }
+        .admin-panel .actions { background: var(--panel-bg); border-top: 1px solid var(--panel-border-color); }
+        .sidebar.open { transform: translateX(0); }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .sidebar-title { font-weight: 700; color: #374151; }
+        .sidebar-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #111827; }
+        .sidebar-nav { display: flex; flex-direction: column; gap: .75rem; }
+        .sidebar-item { text-align: left; background: #E87C59; color: white; border: none; padding: .75rem 1rem; border-radius: 8px; cursor: pointer; }
+        .sidebar-item:hover { background: #D66A48; }
+        .sidebar-item.compact { display: inline-flex; align-self: flex-start; padding: .5rem .9rem; font-size: 0.95rem; }
+        .sidebar-item.danger { background: #ef4444; }
+        .sidebar-item.danger:hover { background: #dc2626; }
+        .sidebar-section { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: .5rem; }
+        .dropdown-toggle { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); color: var(--text-color); }
+        .dropdown-content { overflow: hidden; transition: max-height .25s ease; display: flex; flex-direction: column; gap: .5rem; margin-top: .5rem; }
+        .sidebar-subitem { background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 6px; padding: .6rem .9rem; text-align: left; cursor: pointer; }
+        .sidebar-subitem:hover { background: #f3f4f6; }
+        .chevron { transition: transform .2s ease; }
+        .chevron.open { transform: rotate(180deg); }
+        .sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 10000; }
+
+    /* Compact Admin Form */
+        .admin-form { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; align-items: start; }
+        .admin-form .full { grid-column: 1 / -1; }
+        .admin-form .form-group label { margin-bottom: .35rem; color: var(--text-color); }
+        .admin-form .form-group input,
+        .admin-form .form-group select,
+        .admin-form .form-group textarea { padding: .5rem; font-size: .95rem; }
+        .admin-form .content-editor textarea { min-height: 140px; max-height: 30vh; overflow: auto; }
+        .admin-form .image-preview { display: flex; gap: .5rem; align-items: center; }
+        .admin-form .image-preview img { width: 100%; max-width: 220px; max-height: 140px; object-fit: cover; border-radius: 8px; display: block; }
+        .admin-form .actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: .5rem; position: sticky; bottom: 0; background: var(--card-bg); padding-top: .5rem; border-top: 1px solid var(--border-color); }
+        @media (max-width: 900px) { .admin-form { grid-template-columns: 1fr; } }
+
     </style>
 </head>
 <body>
     <div class="animated-background">
-        <div class="bg-image" :style="backgroundStyle"></div>
+        <div class="bg-image" :style="backgroundStyle" ref="bgEl"></div>
     </div>
     <div class="content-overlay">
     <div id="app">
@@ -482,7 +579,18 @@
                 
                 <!-- Chat & Admin Access (Bottom Right) -->
                 <div v-if="currentView === 'blog'" style="position:fixed; bottom:2rem; right:2rem; z-index:1000; display:flex; flex-direction:column; gap:1rem;">
-                    <button @click="currentView = 'admin'" style="background:var(--primary-color); color:white; border:none; padding:1rem; border-radius:50%; cursor:pointer; font-size:1.2rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="Admin Portal">
+                    <div v-if="showEntryKeyPopup" class="entry-key-popup">
+                        <div class="entry-key-header">zedong subscription key</div>
+                        <div class="entry-key-body">
+                            <input v-model="entryKeyInput" type="password" placeholder="Enter key" @keyup.enter="submitEntryKey">
+                            <div v-if="entryKeyError" class="entry-key-error">{{ entryKeyError }}</div>
+                            <div class="entry-key-actions">
+                                <button class="btn btn-small" @click="submitEntryKey">Submit</button>
+                                <button class="btn btn-small" style="background:#6b7280;" @click="cancelEntryKey">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button @click="handleAdminAccessClick" style="background:var(--primary-color); color:white; border:none; padding:1rem; border-radius:50%; cursor:pointer; font-size:1.2rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="Admin Portal">
                         🔒
                     </button>
                 </div>
@@ -515,18 +623,33 @@
                 </div>
             </div>
 
-            <!-- Side Menu -->
-            <div v-if="showSideMenu" style="position: fixed; top: 0; right: 0; width: 250px; height: 100vh; background: rgba(255, 255, 255, 0.95); box-shadow: -2px 0 10px rgba(0,0,0,0.2); z-index: 10001; padding: 2rem; backdrop-filter: blur(10px);">
-                <button @click="toggleSideMenu" style="float: right; background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
-                <h3>Menu</h3>
-                <div style="margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem;">
-                    <button class="btn" @click="showNewPostForm = true; toggleSideMenu()">New Post</button>
-                    <button class="btn" @click="showCategoryManagement = true; toggleSideMenu()">Categories</button>
-                    <button class="btn" @click="showSettings = true; toggleSideMenu()">Settings</button>
-                    <button class="btn" @click="showAnalytics = true; toggleSideMenu()">Analytics</button>
-                    <button class="btn" @click="currentView = 'blog'; toggleSideMenu()">View Blog</button>
-                    <button class="btn btn-danger" @click="logout">Logout</button>
+            <!-- Sidebar + Backdrop -->
+            <div v-if="showSidebar" class="sidebar-backdrop" @click="toggleSideMenu"></div>
+            <div class="sidebar" :class="{ open: showSidebar }" v-if="isLoggedIn">
+                <div class="sidebar-header">
+                    <div class="sidebar-title">Admin</div>
+                    <button class="sidebar-close" @click="toggleSideMenu">&times;</button>
                 </div>
+                <nav class="sidebar-nav">
+                    <button class="sidebar-item compact" @click="showNewPostForm = true; showSidebar = false">+ New Post</button>
+
+                    <div class="sidebar-section">
+                        <button class="sidebar-item dropdown-toggle" @click="sidebarManageOpen = !sidebarManageOpen">
+                            Manage
+                            <span class="chevron" :class="{ open: sidebarManageOpen }">▾</span>
+                        </button>
+                        <div class="dropdown-content" :style="{ maxHeight: sidebarManageOpen ? '220px' : '0px' }">
+                            <button class="sidebar-subitem" @click="showCategoryManagement = true; showSidebar = false">Categories</button>
+                            <button class="sidebar-subitem" @click="showSettings = true; showSidebar = false">Settings</button>
+                            <button class="sidebar-subitem" @click="showAnalytics = true; showSidebar = false">Analytics</button>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <button class="sidebar-item" @click="currentView = 'blog'; showSidebar = false">View Blog</button>
+                        <button class="sidebar-item danger" @click="logout">Logout</button>
+                    </div>
+                </nav>
             </div>
 
 
@@ -584,6 +707,8 @@
                     <!-- Settings Tabs -->
                     <div style="display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid #e5e7eb;">
                         <button @click="activeSettingsTab = 'general'" :class="activeSettingsTab === 'general' ? 'btn' : 'btn'" :style="activeSettingsTab === 'general' ? '' : 'background: #6b7280'">General</button>
+                        <button @click="activeSettingsTab = 'author'" :class="activeSettingsTab === 'author' ? 'btn' : 'btn'" :style="activeSettingsTab === 'author' ? '' : 'background: #6b7280'">Author</button>
+                        <button @click="activeSettingsTab = 'security'" :class="activeSettingsTab === 'security' ? 'btn' : 'btn'" :style="activeSettingsTab === 'security' ? '' : 'background: #6b7280'">Security</button>
                         <button @click="activeSettingsTab = 'social'" :class="activeSettingsTab === 'social' ? 'btn' : 'btn'" :style="activeSettingsTab === 'social' ? '' : 'background: #6b7280'">Social Media</button>
                     </div>
                     
@@ -621,6 +746,77 @@
                         </div>
                     </div>
                     
+                    <!-- Author Settings -->
+                    <div v-if="activeSettingsTab === 'author'">
+                        <div class="form-group">
+                            <label>Author Name</label>
+                            <input v-model="authorSettings.name" type="text" placeholder="Your name">
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input v-model="authorSettings.email" type="email" placeholder="you@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Phone</label>
+                            <input v-model="authorSettings.phone" type="tel" placeholder="+1234567890">
+                        </div>
+                        <div class="form-group">
+                            <label>WhatsApp</label>
+                            <input v-model="authorSettings.whatsapp" type="text" placeholder="WhatsApp link or number">
+                        </div>
+                        <div class="form-group">
+                            <label>Website</label>
+                            <input v-model="authorSettings.social.website" type="url" placeholder="https://your-website.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Twitter</label>
+                            <input v-model="authorSettings.social.twitter" type="url" placeholder="https://twitter.com/username">
+                        </div>
+                        <div class="form-group">
+                            <label>Facebook</label>
+                            <input v-model="authorSettings.social.facebook" type="url" placeholder="https://facebook.com/username">
+                        </div>
+                        <div class="form-group">
+                            <label>LinkedIn</label>
+                            <input v-model="authorSettings.social.linkedin" type="url" placeholder="https://linkedin.com/in/username">
+                        </div>
+                        <div class="form-group">
+                            <label>Instagram</label>
+                            <input v-model="authorSettings.social.instagram" type="url" placeholder="https://instagram.com/username">
+                        </div>
+                        <button class="btn" @click="saveAuthorSettings">Save Author</button>
+                    </div>
+
+                    <!-- Security Settings -->
+                    <div v-if="activeSettingsTab === 'security'">
+                        <div class="form-group">
+                            <label>Admin Entry Key</label>
+                            <input v-model="securityForm.adminEntryKey" type="password" placeholder="Enter new entry key (leave blank to remove)">
+                            <small style="display:block; margin-top:.5rem; color:#6b7280;">
+                                {{ securityHasEntryKey ? 'An entry key is currently set. Enter a new key to update, or click Remove to disable.' : 'No entry key set. Set one to require a key before accessing the admin portal.' }}
+                            </small>
+                        </div>
+                        <div style="display:flex; gap:.5rem; margin-bottom:1rem;">
+                            <button class="btn btn-small" @click="saveSecuritySettings">Save Key</button>
+                            <button class="btn btn-small btn-danger" @click="securityForm.adminEntryKey=''; saveSecuritySettings()">Remove Key</button>
+                        </div>
+                        <div style="margin: 1rem 0; padding: 1rem; border:1px solid var(--border-color); border-radius:8px; background: var(--card-bg);">
+                            <h4 style="margin-bottom:.75rem;">Current Admin Entry Key</h4>
+                            <div v-if="!securityKeyAuthorized" style="display:flex; gap:.5rem; align-items:center;">
+                                <input v-model="securityKeyAuth.username" type="text" placeholder="Admin username" style="flex:1; padding:.5rem; border:1px solid #e5e7eb; border-radius:6px;">
+                                <input v-model="securityKeyAuth.password" type="password" placeholder="Admin password" style="flex:1; padding:.5rem; border:1px solid #e5e7eb; border-radius:6px;">
+                                <button class="btn btn-small" @click="viewSecurityKey">View Key</button>
+                            </div>
+                            <div v-else>
+                                <div style="display:flex; align-items:center; gap:.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">
+                                    <span style="padding:.35rem .6rem; background:#e5e7eb; border-radius:6px; color:#111827;" v-if="securityKeyValue">{{ securityKeyValue }}</span>
+                                    <span style="color:#9ca3af; font-style:italic;" v-else>No key set</span>
+                                    <button class="btn btn-small" @click="copySecurityKey" v-if="securityKeyValue">Copy</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Social Media Settings -->
                     <div v-if="activeSettingsTab === 'social'">
                         <div class="form-group">
@@ -652,39 +848,66 @@
             <div v-if="showAnalytics" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10002; display: flex; align-items: center; justify-content: center;">
                 <div style="background: rgba(255, 255, 255, 0.95); padding: 2rem; border-radius: 12px; max-width: 900px; width: 95%; backdrop-filter: blur(10px); max-height: 85vh; overflow-y: auto;">
                     <h3 style="margin-bottom: 1rem;">Analytics Dashboard</h3>
+                    <div style="display:flex; flex-wrap: wrap; gap:.75rem; align-items: flex-end; margin-bottom: 1rem;">
+                        <div class="form-group" style="margin:0;">
+                            <label>From</label>
+                            <input type="date" v-model="analyticsFilter.from" style="padding:.5rem; font-size:.95rem; min-width: 180px;">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>To</label>
+                            <input type="date" v-model="analyticsFilter.to" style="padding:.5rem; font-size:.95rem; min-width: 180px;">
+                        </div>
+                        <div style="display:flex; gap:.5rem; margin-left:auto;">
+                            <button class="btn btn-small" @click="applyAnalyticsFilter">Apply Filter</button>
+                            <button class="btn btn-small" style="background:#6b7280;" @click="clearAnalyticsFilter">Clear</button>
+                            <button class="btn btn-small" style="background:#0ea5e9;" @click="downloadExport('all','json')">Download All (JSON)</button>
+                            <button class="btn btn-small" style="background:#22c55e;" @click="downloadExport('pageViews','csv')">PageViews CSV</button>
+                            <button class="btn btn-small" style="background:#a78bfa;" @click="downloadExport('interactions','csv')">Interactions CSV</button>
+                        </div>
+                    </div>
                     
                     <!-- Analytics Summary -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
                         <div style="background: #f0f9ff; padding: 1rem; border-radius: 8px; text-align: center;">
-                            <h4 style="color: #0369a1;">Total Page Views</h4>
-                            <div style="font-size: 2rem; font-weight: bold; color: #0369a1;">{{ analytics.pageViews.length }}</div>
+                        <h4 style="color: #0369a1;">Total Page Views</h4>
+                        <div style="font-size: 2rem; font-weight: bold; color: #0369a1;">{{ filteredAnalytics.pageViews.length }}</div>
                         </div>
                         <div style="background: #f0fdf4; padding: 1rem; border-radius: 8px; text-align: center;">
                             <h4 style="color: #16a34a;">Total Posts</h4>
                             <div style="font-size: 2rem; font-weight: bold; color: #16a34a;">{{ posts.length }}</div>
                         </div>
                         <div style="background: #fef3c7; padding: 1rem; border-radius: 8px; text-align: center;">
-                            <h4 style="color: #d97706;">Interactions</h4>
-                            <div style="font-size: 2rem; font-weight: bold; color: #d97706;">{{ analytics.interactions.length }}</div>
+                        <h4 style="color: #d97706;">Interactions</h4>
+                        <div style="font-size: 2rem; font-weight: bold; color: #d97706;">{{ filteredAnalytics.interactions.length }}</div>
                         </div>
                     </div>
                     
                     <!-- Charts -->
                     <div style="margin-bottom: 2rem;">
-                        <h4>Page Views Over Time</h4>
+                        <div style="display:flex; justify-content: space-between; align-items:center;">
+                            <h4>Page Views Over Time</h4>
+                            <button class="btn btn-small" @click="downloadChart('pageViews')">Download PNG</button>
+                        </div>
                         <canvas id="pageViewsChart" width="400" height="200"></canvas>
+                    </div>
+                    <div style="margin-bottom: 2rem;">
+                        <div style="display:flex; justify-content: space-between; align-items:center;">
+                            <h4>Interactions by Type</h4>
+                            <button class="btn btn-small" @click="downloadChart('interactions')">Download PNG</button>
+                        </div>
+                        <canvas id="interactionsChart" width="400" height="200"></canvas>
                     </div>
                     
                     <!-- Recent Activity -->
                     <div style="margin-bottom: 1rem;">
                         <h4>Recent Page Views</h4>
                         <div style="max-height: 200px; overflow-y: auto; background: #f9fafb; padding: 1rem; border-radius: 8px;">
-                            <div v-if="analytics.pageViews.length === 0" style="color: #6b7280; font-style: italic;">No page views recorded yet</div>
+                            <div v-if="filteredAnalytics.pageViews.length === 0" style="color: #6b7280; font-style: italic;">No page views recorded yet</div>
                             <div v-else>
-                                <div v-for="view in analytics.pageViews.slice(-10).reverse()" :key="view.id" style="padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb; font-size: 0.9rem;">
-                                    <strong>{{ view.page }}</strong> - {{ formatDate(view.timestamp) }}
-                                    <div style="color: #6b7280;">{{ view.userAgent.substring(0, 50) }}...</div>
-                                </div>
+                            <div v-for="view in filteredAnalytics.pageViews.slice(-10).reverse()" :key="view.id" style="padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb; font-size: 0.9rem;">
+                            <strong>{{ view.page }}</strong> - {{ formatDate(view.timestamp) }}
+                            <div style="color: #6b7280;">{{ view.userAgent.substring(0, 50) }}...</div>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -700,28 +923,24 @@
             <div v-if="currentView === 'admin'">
                 <!-- Login -->
                 <div v-if="!isLoggedIn" class="login-container">
-                    <h2>Admin Login</h2>
+                    <h2 style="margin-bottom: 1rem;">Admin Login</h2>
                     <div v-if="loginError" class="error-message">{{ loginError }}</div>
-                    <div class="form-group">
-                        <label>Username</label>
-                        <input v-model="loginUsername" type="text" placeholder="admin" @keyup.enter="login">
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <input v-model="loginUsername" type="text" placeholder="Email or username" autocomplete="username" autofocus @keyup.enter="login">
                     </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <input v-model="loginPassword" type="password" placeholder="Password" autocomplete="current-password" @keyup.enter="login">
                     </div>
-                    <button class="btn" style="width: 100%;" @click="login">Login</button>
-                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem; text-align: center;">Default: admin / password</p>
-                    <!-- Google Sign-In -->
-                    <div style="text-align: center; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
-                        <p style="margin-bottom:0.75rem; color:#666; font-size:0.9rem;">Or sign in with your Google account</p>
-                        <div id="gSignInButton"></div>
+                    <button class="btn btn-primary" @click="login">Sign in</button>
+                    <div class="auth-divider"><span>or</span></div>
+                    <div style="text-align: center;">
+                        <div id="gSignInButton" style="display: inline-block;"></div>
                     </div>
                 </div>
 
                 <!-- Admin Panel -->
-                <div v-if="isLoggedIn" style="background: transparent; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); backdrop-filter: blur(10px);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #e5e7eb;">
+                <div v-if="isLoggedIn" class="admin-panel">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--header-divider);">
                         <h2 style="color: var(--primary-color); font-size: 2rem;">{{ editingPost ? 'Edit Post' : 'Manage Posts' }}</h2>
                         <div>
                             <button v-if="!editingPost && !showNewPostForm" class="btn" @click="showNewPostForm = true">+ New Post</button>
@@ -730,41 +949,48 @@
                     </div>
 
                     <!-- New/Edit Post Form -->
-                    <div v-if="showNewPostForm || editingPost">
-                        <div class="form-group">
+                    <div v-if="showNewPostForm || editingPost" class="admin-form">
+                        <div class="form-group full">
                             <label>Title</label>
                             <input v-model="postForm.title" type="text" placeholder="Enter post title">
                         </div>
                         <div class="form-group">
                             <label>Author</label>
-                            <input v-model="postForm.author" type="text" placeholder="Your name">
-                        </div>
-                        <div class="form-group">
-                            <label>Content</label>
-                            <textarea v-model="postForm.content" placeholder="Write your post content here..."></textarea>
+                            <div style="padding: .5rem .75rem; border: 2px solid #e5e7eb; border-radius: 8px; background: var(--card-bg); color: var(--text-color);">
+                                {{ authorSettings.name || 'Anonymous' }}
+                                <div style="font-size:.85rem; color: var(--text-muted);" v-if="authorSettings.email || authorSettings.phone">
+                                    <span v-if="authorSettings.email">{{ authorSettings.email }}</span>
+                                    <span v-if="authorSettings.email && authorSettings.phone"> · </span>
+                                    <span v-if="authorSettings.phone">{{ authorSettings.phone }}</span>
+                                </div>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Category</label>
-                            <select v-model="postForm.categoryId" style="width: 100%; padding: 0.75rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem;">
+                            <select v-model="postForm.categoryId" style="width: 100%; padding: 0.5rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.95rem;">
                                 <option value="">No Category</option>
                                 <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Tags (comma-separated)</label>
+                            <label>Tags</label>
                             <input v-model="postForm.tags" type="text" placeholder="technology, coding, vue">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group image-uploader">
                             <label>Featured Image</label>
-                            <input type="file" @change="handleImageUpload" accept="image/*" style="margin-bottom: 0.5rem;">
-                            <div v-if="postForm.image" style="margin-top: 0.5rem;">
-                                <img :src="postForm.image" style="max-width: 200px; max-height: 150px; object-fit: cover; border-radius: 8px;">
-                                <button type="button" @click="postForm.image = ''" style="display: block; margin-top: 0.5rem; background: #ef4444; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer;">Remove Image</button>
+                            <input type="file" @change="handleImageUpload" accept="image/*" style="margin-bottom: 0.25rem;">
+                            <div v-if="postForm.image" class="image-preview">
+                                <img :src="postForm.image" alt="Preview">
+                                <button type="button" @click="postForm.image = ''" class="btn btn-small" style="background:#ef4444;">Remove</button>
                             </div>
                         </div>
-                        <div class="form-actions">
-                            <button class="btn" @click="savePost">{{ editingPost ? 'Update Post' : 'Publish Post' }}</button>
-                            <button class="btn" style="background: #6b7280;" @click="cancelEdit">Cancel</button>
+                        <div class="form-group full content-editor">
+                            <label>Content</label>
+                            <textarea v-model="postForm.content" placeholder="Write your post content here..."></textarea>
+                        </div>
+                        <div class="form-actions actions">
+                            <button class="btn btn-small" @click="savePost">{{ editingPost ? 'Update Post' : 'Publish Post' }}</button>
+                            <button class="btn btn-small" style="background: #6b7280;" @click="cancelEdit">Cancel</button>
                         </div>
                     </div>
 
@@ -838,6 +1064,8 @@
                     backgroundImage: '',
                     profilePhoto: localStorage.getItem('profilePhoto') || '',
                     showSideMenu: false,
+                    showSidebar: false,
+                    sidebarManageOpen: false,
                     showSettingsMenu: false,
                     showProfileUpload: false,
                     showCategoryManagement: false,
@@ -850,24 +1078,63 @@
                         linkedin: localStorage.getItem('socialLinkedin') || '',
                         instagram: localStorage.getItem('socialInstagram') || ''
                     },
+                    authorSettings: {
+                        name: '',
+                        email: '',
+                        phone: '',
+                        whatsapp: '',
+                        social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' }
+                    },
                     analytics: { pageViews: [], postViews: [], interactions: [] },
+                    charts: { pageViews: null, interactions: null },
+                    analyticsFilter: { from: '', to: '' },
                     categories: [],
                     categoryForm: { name: '', description: '' },
                     editingCategory: null,
                     currentUrl: window.location.href,
                     pendingBackgroundFile: null,
-                    pendingBackgroundImage: null
+                    pendingBackgroundImage: null,
+                    googleReady: false,
+                    securityHasEntryKey: false,
+                    securityForm: { adminEntryKey: '' },
+                    securityLogsAuthorized: false,
+                    securityLogsAuth: { username: '', password: '' },
+                    securityLogs: [],
+                    securityKeyAuthorized: false,
+                    securityKeyAuth: { username: '', password: '' },
+                    securityKeyValue: '',
+                    showEntryKeyPopup: false,
+                    entryKeyInput: '',
+                    entryKeyError: ''
                 };
             },
             mounted() {
                 console.log('Vue app mounted successfully');
-                this.isDarkMode = localStorage.getItem('darkMode') === 'true';
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme === 'dark' || savedTheme === 'light') {
+                    this.isDarkMode = (savedTheme === 'dark');
+                } else {
+                    this.isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    try {
+                        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+                        const handler = (e) => {
+                            if (!localStorage.getItem('theme')) {
+                                this.isDarkMode = e.matches;
+                                this.applyTheme();
+                            }
+                        };
+                        if (mq.addEventListener) mq.addEventListener('change', handler);
+                        else if (mq.addListener) mq.addListener(handler);
+                    } catch (e) {}
+                }
                 this.applyTheme();
                 this.initGoogleIdentity();
                 this.checkAuthStatus();
                 this.loadData();
                 this.loadCategories();
                 this.loadAnalytics();
+                this.fetchAuthorSettings();
+                this.loadSecurityStatus();
                 this.addSamplePosts();
                 
                 if (!this.backgroundImage) {
@@ -938,18 +1205,47 @@
                 },
                 backgroundImageUrl() {
                     const stored = localStorage.getItem('blogBackground');
+                    const version = localStorage.getItem('blogBackgroundVersion') || '';
                     const url = stored || this.backgroundImage;
                     console.log('Background URL:', url);
                     if (!url) return '';
-                    if (url.startsWith('http')) return url;
+                    if (url.startsWith('http')) {
+                        if (version) {
+                            try {
+                                const u = new URL(url);
+                                u.searchParams.set('v', version);
+                                return u.toString();
+                            } catch (e) {
+                                return url + (url.includes('?') ? '&' : '?') + 'v=' + version;
+                            }
+                        }
+                        return url;
+                    }
                     const fullUrl = `http://localhost:3000${url.startsWith('/') ? url : '/' + url}`;
                     console.log('Full URL:', fullUrl);
-                    return fullUrl;
+                    return version ? `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}v=${version}` : fullUrl;
                 },
                 backgroundStyle() {
                     if (!this.backgroundImageUrl) return {};
                     return {
                         backgroundImage: `url('${this.backgroundImageUrl}')`
+                    };
+                },
+                filteredAnalytics() {
+                    const from = this.analyticsFilter.from ? new Date(this.analyticsFilter.from) : null;
+                    const to = this.analyticsFilter.to ? new Date(this.analyticsFilter.to) : null;
+                    if (to) to.setHours(23,59,59,999);
+                    const inRange = (ts) => {
+                        const t = new Date(ts).getTime();
+                        if (isNaN(t)) return false;
+                        if (from && t < from.getTime()) return false;
+                        if (to && t > to.getTime()) return false;
+                        return true;
+                    };
+                    return {
+                        pageViews: (this.analytics.pageViews || []).filter(p => inRange(p.timestamp)),
+                        interactions: (this.analytics.interactions || []).filter(i => inRange(i.timestamp)),
+                        postViews: (this.analytics.postViews || []).filter(p => inRange(p.timestamp))
                     };
                 }
             },
@@ -974,6 +1270,9 @@
                     } else {
                         document.title = 'zedong254ke Blog';
                     }
+                    if (newView === 'admin' && !this.isLoggedIn) {
+                        this.$nextTick(() => this.renderGoogleButton());
+                    }
                 },
                 selectedPost(newPost) {
                     // Update title when viewing a specific post
@@ -982,22 +1281,35 @@
                     } else {
                         document.title = 'zedong254ke Blog';
                     }
+                },
+                isLoggedIn(val) {
+                    if (!val && this.currentView === 'admin') {
+                        this.$nextTick(() => this.renderGoogleButton());
+                    }
                 }
             },
             methods: {
                 toggleTheme() {
                     this.isDarkMode = !this.isDarkMode;
-                    localStorage.setItem('darkMode', String(this.isDarkMode));
+                    localStorage.setItem('theme', this.isDarkMode ? 'dark' : 'light');
+                    // Cleanup legacy key if present
+                    localStorage.removeItem('darkMode');
                     this.applyTheme();
                 },
                 applyTheme() {
-                    if (this.isDarkMode) {
-                        document.documentElement.setAttribute('data-theme', 'dark');
-                        document.body.classList.add('dark-mode');
-                    } else {
-                        document.documentElement.setAttribute('data-theme', 'light');
-                        document.body.classList.remove('dark-mode');
-                    }
+                    const theme = this.isDarkMode ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', theme);
+                    document.body.classList.toggle('dark-mode', this.isDarkMode);
+                    // Update meta theme-color for better browser UI integration
+                    try {
+                        let meta = document.querySelector('meta[name="theme-color"]');
+                        if (!meta) {
+                            meta = document.createElement('meta');
+                            meta.setAttribute('name', 'theme-color');
+                            document.head.appendChild(meta);
+                        }
+                        meta.setAttribute('content', this.isDarkMode ? '#0b1220' : '#ffffff');
+                    } catch (e) {}
                 },
                 initGoogleIdentity() {
                     if (!window.google || !window.google.accounts || !window.google.accounts.id) {
@@ -1010,14 +1322,10 @@
                             client_id: GOOGLE_CLIENT_ID,
                             callback: (response) => this.handleGoogleCredential(response)
                         });
-
-                        const buttonElement = document.getElementById('gSignInButton');
-                        if (buttonElement) {
-                            window.google.accounts.id.renderButton(
-                                buttonElement,
-                                { theme: 'outline', size: 'large', width: '250' }
-                            );
-                        }
+                        this.googleReady = true;
+                        this.$nextTick(() => this.renderGoogleButton());
+                        // Optionally enable One Tap prompt:
+                        // window.google.accounts.id.prompt();
                     } catch (error) {
                         console.error('Google Identity initialization failed:', error);
                     }
@@ -1052,6 +1360,21 @@
                         console.error(err);
                         this.loginError = 'Network error';
                     });
+                },
+                renderGoogleButton() {
+                    try {
+                        if (!this.googleReady || !window.google || !window.google.accounts || !window.google.accounts.id) return;
+                        const buttonElement = document.getElementById('gSignInButton');
+                        if (!buttonElement) return;
+                        // Clear any previous content to avoid duplicate buttons
+                        buttonElement.innerHTML = '';
+                        window.google.accounts.id.renderButton(
+                            buttonElement,
+                            { theme: 'outline', size: 'large', width: '250' }
+                        );
+                    } catch (e) {
+                        console.error('renderGoogleButton error:', e);
+                    }
                 },
                 async checkAuthStatus() {
                     try {
@@ -1212,27 +1535,29 @@
                         .filter(t => t);
 
                     if (this.editingPost) {
-                        const idx = this.posts.findIndex(p => p.id === this.editingPost.id);
-                        this.posts[idx] = {
-                            ...this.editingPost,
-                            title: this.postForm.title,
-                            author: this.postForm.author || 'Anonymous',
-                            content: this.postForm.content,
-                            tags: tags,
-                            image: this.postForm.image,
-                            categoryId: this.postForm.categoryId || null
-                        };
+                    const idx = this.posts.findIndex(p => p.id === this.editingPost.id);
+                    this.posts[idx] = {
+                    ...this.editingPost,
+                    title: this.postForm.title,
+                    author: this.authorSettings.name || 'Anonymous',
+                    authorDetails: JSON.parse(JSON.stringify(this.authorSettings)),
+                    content: this.postForm.content,
+                    tags: tags,
+                    image: this.postForm.image,
+                    categoryId: this.postForm.categoryId || null
+                    };
                     } else {
-                        this.posts.unshift({
-                            id: this.nextId++,
-                            title: this.postForm.title,
-                            author: this.postForm.author || 'Anonymous',
-                            content: this.postForm.content,
-                            date: new Date().toISOString(),
-                            tags: tags,
-                            image: this.postForm.image,
-                            categoryId: this.postForm.categoryId || null
-                        });
+                    this.posts.unshift({
+                    id: this.nextId++,
+                    title: this.postForm.title,
+                    author: this.authorSettings.name || 'Anonymous',
+                    authorDetails: JSON.parse(JSON.stringify(this.authorSettings)),
+                    content: this.postForm.content,
+                    date: new Date().toISOString(),
+                    tags: tags,
+                    image: this.postForm.image,
+                    categoryId: this.postForm.categoryId || null
+                    });
                     }
 
                     this.saveData();
@@ -1268,6 +1593,133 @@
                         this.currentView = 'blog';
                     }
                 },
+                async handleAdminAccessClick() {
+                    try {
+                        if (!this.securityHasEntryKey) {
+                            this.currentView = 'admin';
+                            this.$nextTick(() => this.renderGoogleButton());
+                            return;
+                        }
+                        this.entryKeyInput = '';
+                        this.entryKeyError = '';
+                        this.showEntryKeyPopup = true;
+                    } catch (e) {
+                        this.currentView = 'blog';
+                    }
+                },
+                async submitEntryKey() {
+                    try {
+                        const resp = await fetch('/api/settings/verify-entry-key', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ adminEntryKey: this.entryKeyInput })
+                        });
+                        this.showEntryKeyPopup = false;
+                        if (resp.ok) {
+                            this.currentView = 'admin';
+                            this.$nextTick(() => this.renderGoogleButton());
+                        } else {
+                            this.entryKeyError = 'Invalid key';
+                            this.currentView = 'blog';
+                            setTimeout(() => { this.entryKeyError = ''; }, 2000);
+                        }
+                    } catch (e) {
+                        this.showEntryKeyPopup = false;
+                        this.currentView = 'blog';
+                    }
+                },
+                cancelEntryKey() {
+                    this.showEntryKeyPopup = false;
+                    this.currentView = 'blog';
+                },
+                async loadSecurityStatus() {
+                    try {
+                        const s = await fetch('/api/settings/security', { credentials: 'include' });
+                        const sj = await s.json();
+                        this.securityHasEntryKey = !!sj.hasEntryKey;
+                    } catch (e) { this.securityHasEntryKey = false; }
+                },
+                async saveSecuritySettings() {
+                    try {
+                        const resp = await fetch('/api/settings/security', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ adminEntryKey: this.securityForm.adminEntryKey })
+                        });
+                        const data = await resp.json();
+                        if (resp.ok && data.success) {
+                            this.securityHasEntryKey = !!data.hasEntryKey;
+                            this.securityForm.adminEntryKey = '';
+                            alert('Security settings saved');
+                        } else {
+                            alert('Failed to save security settings');
+                        }
+                    } catch (e) {
+                        alert('Network error');
+                    }
+                },
+                async loadSecurityLogs() {
+                    try {
+                        const resp = await fetch('/api/settings/security/logs', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                username: this.securityLogsAuth.username,
+                                password: this.securityLogsAuth.password
+                            })
+                        });
+                        const data = await resp.json();
+                        if (resp.ok && data.success) {
+                            this.securityLogsAuthorized = true;
+                            this.securityLogs = Array.isArray(data.logs) ? data.logs : [];
+                        } else {
+                            this.securityLogsAuthorized = false;
+                            this.securityLogs = [];
+                            alert(data.error || 'Invalid credentials');
+                        }
+                    } catch (e) {
+                        this.securityLogsAuthorized = false;
+                        this.securityLogs = [];
+                        alert('Network error');
+                    }
+                },
+                async viewSecurityKey() {
+                    try {
+                        const resp = await fetch('/api/settings/security/key-view', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                username: this.securityKeyAuth.username,
+                                password: this.securityKeyAuth.password
+                            })
+                        });
+                        const data = await resp.json();
+                        if (resp.ok && data.success) {
+                            this.securityKeyAuthorized = true;
+                            this.securityKeyValue = data.key || '';
+                        } else {
+                            this.securityKeyAuthorized = false;
+                            this.securityKeyValue = '';
+                            alert(data.error || 'Invalid credentials');
+                        }
+                    } catch (e) {
+                        this.securityKeyAuthorized = false;
+                        this.securityKeyValue = '';
+                        alert('Network error');
+                    }
+                },
+                async copySecurityKey() {
+                    try {
+                        if (!this.securityKeyValue) return;
+                        await navigator.clipboard.writeText(this.securityKeyValue);
+                        alert('Key copied to clipboard');
+                    } catch (e) {
+                        alert('Failed to copy');
+                    }
+                },
                 async copyPermalink() {
                     const baseUrl = window.location.origin + window.location.pathname;
                     const url = new URL(baseUrl);
@@ -1285,9 +1737,9 @@
                     }
                 },
                 toggleSideMenu() {
-                    console.log('toggleSideMenu called');
-                    this.showSideMenu = !this.showSideMenu;
-                    console.log('Side menu is now:', this.showSideMenu);
+                    const next = !this.showSidebar;
+                    this.showSidebar = next;
+                    this.showSideMenu = next; // keep legacy flag in sync
                 },
                 async handleImageUpload(event) {
                     const file = event.target.files[0];
@@ -1381,13 +1833,15 @@
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ backgroundUrl: result.url })
                             });
-                            
-                            // Just update the data property - Vue will handle the rest
-                            this.backgroundImage = result.url;
+
+                            // Persist to local storage and version to survive reload and bust cache
+                            const bgVersion = String(Date.now());
                             localStorage.setItem('blogBackground', result.url);
-                            this.pendingBackgroundFile = null;
-                            this.pendingBackgroundImage = null;
-                            alert('Saved!');
+                            localStorage.setItem('blogBackgroundVersion', bgVersion);
+
+                            // Force reload with cache-busting query param
+                            const sep = window.location.search ? '&' : '?';
+                            window.location.replace(window.location.pathname + window.location.search + sep + 'v=' + bgVersion);
                         } else {
                             alert('Upload failed: ' + (result.error || 'Unknown error'));
                         }
@@ -1401,9 +1855,10 @@
                     this.pendingBackgroundImage = null;
                 },
                 setBackground(url) {
-                    const bgEl = this.$refs.bgEl;
+                    const bgEl = (this.$refs && this.$refs.bgEl) ? this.$refs.bgEl : document.querySelector('.bg-image');
                     if (bgEl && url) {
-                        bgEl.style.setProperty('background-image', `url(${url})`, 'important');
+                        const u = String(url);
+                        bgEl.style.setProperty('background-image', `url('${u}')`, 'important');
                         bgEl.style.setProperty('background-size', 'cover', 'important');
                         bgEl.style.setProperty('background-position', 'center', 'important');
                     }
@@ -1488,12 +1943,38 @@
                     localStorage.setItem('socialInstagram', this.socialMedia.instagram);
                     alert('Saved!');
                 },
+                async fetchAuthorSettings() {
+                    try {
+                        const resp = await fetch('/api/settings/author', { credentials: 'include' });
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            this.authorSettings = Object.assign({ name:'',email:'',phone:'',whatsapp:'',social:{twitter:'',facebook:'',linkedin:'',instagram:'',website:''}}, data.author || {});
+                        }
+                    } catch (e) { console.error('Failed to load author settings', e); }
+                },
+                async saveAuthorSettings() {
+                    try {
+                        const resp = await fetch('/api/settings/author', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ author: this.authorSettings })
+                        });
+                        const data = await resp.json();
+                        if (resp.ok && data.success) {
+                            alert('Author settings saved');
+                        } else {
+                            alert('Failed to save author settings');
+                        }
+                    } catch (e) { console.error('Save author settings error', e); alert('Network error'); }
+                },
                 async loadAnalytics() {
                     try {
                         const response = await fetch('/api/analytics', { credentials: 'include' });
                         if (response.ok) {
                             const data = await response.json();
                             this.analytics = data;
+                            this.$nextTick(() => this.renderCharts());
                         }
                     } catch (error) {
                         console.error('Failed to load analytics:', error);
@@ -1501,7 +1982,115 @@
                 },
                 async refreshAnalytics() {
                     await this.loadAnalytics();
-                    this.renderAnalyticsChart();
+                },
+                applyAnalyticsFilter() {
+                    this.renderCharts();
+                },
+                clearAnalyticsFilter() {
+                    this.analyticsFilter = { from: '', to: '' };
+                    this.renderCharts();
+                },
+                renderCharts() {
+                    const pv = this.filteredAnalytics.pageViews;
+                    const inter = this.filteredAnalytics.interactions;
+
+                    // Destroy existing charts
+                    try { this.charts.pageViews && this.charts.pageViews.destroy(); } catch(e){}
+                    try { this.charts.interactions && this.charts.interactions.destroy(); } catch(e){}
+
+                    // Page Views by Day
+                    const pvAgg = this.aggregatePageViewsByDay(pv);
+                    const ctx1 = document.getElementById('pageViewsChart');
+                    if (ctx1) {
+                        this.charts.pageViews = new Chart(ctx1, {
+                            type: 'line',
+                            data: {
+                                labels: pvAgg.labels,
+                                datasets: [{
+                                    label: 'Page Views',
+                                    data: pvAgg.counts,
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                                    tension: 0.25,
+                                    fill: true,
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: { legend: { display: false } },
+                                scales: {
+                                    x: { title: { display: true, text: 'Date' } },
+                                    y: { title: { display: true, text: 'Views' }, beginAtZero: true, precision: 0 }
+                                }
+                            }
+                        });
+                    }
+
+                    // Interactions by Type
+                    const interAgg = this.aggregateInteractionsByType(inter);
+                    const ctx2 = document.getElementById('interactionsChart');
+                    if (ctx2) {
+                        this.charts.interactions = new Chart(ctx2, {
+                            type: 'bar',
+                            data: {
+                                labels: interAgg.labels,
+                                datasets: [{
+                                    label: 'Interactions',
+                                    data: interAgg.counts,
+                                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16']
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: { legend: { display: false } },
+                                scales: {
+                                    x: { title: { display: true, text: 'Type' } },
+                                    y: { title: { display: true, text: 'Count' }, beginAtZero: true, precision: 0 }
+                                }
+                            }
+                        });
+                    }
+                },
+                aggregatePageViewsByDay(list) {
+                    const map = {};
+                    for (const v of list) {
+                        const d = new Date(v.timestamp || v).toISOString().slice(0,10);
+                        map[d] = (map[d] || 0) + 1;
+                    }
+                    const labels = Object.keys(map).sort();
+                    return { labels, counts: labels.map(l => map[l]) };
+                },
+                aggregateInteractionsByType(list) {
+                    const map = {};
+                    for (const i of list) {
+                        const t = i.type || 'other';
+                        map[t] = (map[t] || 0) + 1;
+                    }
+                    const labels = Object.keys(map).sort();
+                    return { labels, counts: labels.map(l => map[l]) };
+                },
+                downloadChart(which) {
+                    const id = which === 'interactions' ? 'interactionsChart' : 'pageViewsChart';
+                    const canvas = document.getElementById(id);
+                    if (!canvas) return;
+                    const link = document.createElement('a');
+                    const from = this.analyticsFilter.from || 'all';
+                    const to = this.analyticsFilter.to || 'all';
+                    link.download = `${which}-chart_${from}_to_${to}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                },
+                buildExportUrl(dataset, format) {
+                    const params = new URLSearchParams();
+                    if (dataset) params.set('dataset', dataset);
+                    if (format) params.set('format', format);
+                    if (this.analyticsFilter.from) params.set('from', this.analyticsFilter.from);
+                    if (this.analyticsFilter.to) params.set('to', this.analyticsFilter.to);
+                    return `/api/analytics/export?${params.toString()}`;
+                },
+                downloadExport(dataset, format) {
+                    const url = this.buildExportUrl(dataset, format);
+                    window.open(url, '_blank');
                 },
                 async fetchBackground() {
                     try {
@@ -1511,8 +2100,12 @@
                         const data = await response.json();
                         this.backgroundImage = data.backgroundUrl;
                         console.log('Background loaded:', this.backgroundImageUrl);
+                        // Ensure application even if the computed value didn't change (no watcher fire)
+                        this.$nextTick(() => this.setBackground(this.backgroundImageUrl));
                     } catch (error) {
                         console.error('Failed to load background:', error);
+                        // Attempt to apply any stored background anyway
+                        this.$nextTick(() => this.setBackground(this.backgroundImageUrl));
                     }
                 },
                 likePost(postId) {

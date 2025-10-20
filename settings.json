@@ -1,3 +1,7 @@
 {
-  "backgroundUrl": "http://localhost:3000/uploads/1760944822301_730462-download-free-mao-zedong-wallpaper-1920x1080-meizu.jpg"
+  "backgroundUrl": "http://localhost:3000/uploads/1760955634211__DSC1067.jpg",
+  "security": {
+    "adminEntryKeyHash": "",
+    "adminEntryKeyEnc": ""
+  }
 }
