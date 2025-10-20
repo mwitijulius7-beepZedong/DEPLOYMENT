@@ -62,8 +62,15 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 
 // CORS configuration
 app.use((req, res, next) => {
-  const origin = process.env.NODE_ENV === 'production' ? 'https://zedong254personal-blog-aq9djywsi.vercel.app' : 'http://localhost:3000';
-  res.header('Access-Control-Allow-Origin', origin);
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://zedong254personal-blog-aq9djywsi.vercel.app',
+    'https://peronal-blog-hh0dt912e-juliusmwiti-solutechcos-projects.vercel.app'
+  ];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  }
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -90,7 +97,8 @@ app.use(session({
     httpOnly: true,
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000
-  }
+  },
+  name: 'sessionId'
 }));
 
 app.use(fileUpload({
@@ -233,7 +241,32 @@ function decryptText(encStr) {
 
 function requireAuth(req, res, next) {
   console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
+  
+  // Check session first
   if (req.session && req.session.user) return next();
+  
+  // For Vercel, check Authorization header as fallback
+  if (process.env.VERCEL) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      try {
+        // Simple token validation - in production, use JWT or similar
+        const decoded = Buffer.from(token, 'base64').toString('utf8');
+        const [email, timestamp] = decoded.split('|');
+        const tokenAge = Date.now() - parseInt(timestamp);
+        
+        // Token valid for 24 hours
+        if (tokenAge < 24 * 60 * 60 * 1000 && email) {
+          req.user = { email, name: 'Admin' };
+          return next();
+        }
+      } catch (e) {
+        console.error('Token validation error:', e);
+      }
+    }
+  }
+  
   return res.status(401).json({ error: 'Please login first' });
 }
 
@@ -337,7 +370,7 @@ app.post('/auth/google', async (req, res) => {
     const email = payload.email;
     
     // Check if user exists in users.json or if it's an allowed email/domain
-    const users = loadUsers();
+    const users = await loadUsers();
     const isExistingUser = Object.values(users).some(user => user.email === email);
     
     if (!isExistingUser) {
@@ -354,7 +387,19 @@ app.post('/auth/google', async (req, res) => {
       name: payload.name || 'Google User'
     };
 
-    return res.json({ success: true, email: payload.email, name: payload.name });
+    // For Vercel, also return a simple token
+    let authToken = '';
+    if (process.env.VERCEL) {
+      const tokenData = `${payload.email}|${Date.now()}`;
+      authToken = Buffer.from(tokenData).toString('base64');
+    }
+
+    return res.json({ 
+      success: true, 
+      email: payload.email, 
+      name: payload.name,
+      token: authToken
+    });
   } catch (e) {
     console.error('Google auth error:', e);
     return res.status(500).json({ error: 'verification failed' });
@@ -597,14 +642,57 @@ app.post('/api/settings/backgrounds', requireAuth, (req, res) => {
 });
 
 // Author settings API
-app.get('/api/settings/author', (req, res) => {
-  const settings = readSettings();
-  const author = settings.author || { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
-  return res.json({ author });
+app.get('/api/settings/author', async (req, res) => {
+  try {
+    // For Vercel, use MongoDB if available
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'author' });
+      const author = result?.author || { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+      return res.json({ author });
+    }
+    
+    // Local development
+    const settings = readSettings();
+    const author = settings.author || { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+    return res.json({ author });
+  } catch (e) {
+    console.error('Error reading author settings:', e);
+    const author = { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+    return res.json({ author });
+  }
 });
 
-app.post('/api/settings/author', requireAuth, (req, res) => {
+app.post('/api/settings/author', requireAuth, async (req, res) => {
   try {
+    // For Vercel, use MongoDB if available
+    if (process.env.VERCEL && db) {
+      const payload = req.body && req.body.author ? req.body.author : req.body;
+      if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
+      
+      const author = {
+        name: String(payload.name || ''),
+        email: String(payload.email || ''),
+        phone: String(payload.phone || ''),
+        whatsapp: String(payload.whatsapp || ''),
+        social: {
+          twitter: String(payload.social?.twitter || ''),
+          facebook: String(payload.social?.facebook || ''),
+          linkedin: String(payload.social?.linkedin || ''),
+          instagram: String(payload.social?.instagram || ''),
+          website: String(payload.social?.website || '')
+        }
+      };
+      
+      await db.collection('settings').updateOne(
+        { type: 'author' },
+        { $set: { author, updatedAt: new Date() } },
+        { upsert: true }
+      );
+      
+      return res.json({ success: true, author });
+    }
+    
+    // Local development
     const payload = req.body && req.body.author ? req.body.author : req.body;
     if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
     const settings = readSettings();

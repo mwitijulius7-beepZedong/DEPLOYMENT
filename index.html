@@ -1302,6 +1302,16 @@
                 }
             },
             methods: {
+                // Helper function for authenticated requests
+                getAuthHeaders() {
+                    const headers = { 'Content-Type': 'application/json' };
+                    const token = localStorage.getItem('authToken');
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+                    return headers;
+                },
+                
                 toggleTheme() {
                     this.isDarkMode = !this.isDarkMode;
                     localStorage.setItem('theme', this.isDarkMode ? 'dark' : 'light');
@@ -1361,6 +1371,12 @@
                         if (data && data.success) {
                             this.isLoggedIn = true;
                             this.setData('isLoggedIn', true);
+                            
+                            // Store auth token for Vercel
+                            if (data.token) {
+                                localStorage.setItem('authToken', data.token);
+                            }
+                            
                             this.currentView = 'admin';
                             this.loginError = '';
                             this.loginUsername = '';
@@ -1494,6 +1510,7 @@
                             this.isLoggedIn = false;
                             this.setData('isLoggedIn', false);
                             localStorage.removeItem('isLoggedIn');
+                            localStorage.removeItem('authToken');
                             this.currentView = 'blog';
                             this.showNewPostForm = false;
                             this.editingPost = null;
@@ -1502,6 +1519,7 @@
                             this.isLoggedIn = false;
                             this.setData('isLoggedIn', false);
                             localStorage.removeItem('isLoggedIn');
+                            localStorage.removeItem('authToken');
                             this.currentView = 'blog';
                             this.showNewPostForm = false;
                             this.editingPost = null;
@@ -1778,9 +1796,16 @@
                     formData.append('image', file);
                     
                     try {
+                        const headers = {};
+                        const token = localStorage.getItem('authToken');
+                        if (token) {
+                            headers['Authorization'] = `Bearer ${token}`;
+                        }
+                        
                         const response = await fetch('/api/upload', {
                             method: 'POST',
                             credentials: 'include',
+                            headers,
                             body: formData
                         });
                         
@@ -1803,9 +1828,16 @@
                     formData.append('image', file);
                     
                     try {
+                        const headers = {};
+                        const token = localStorage.getItem('authToken');
+                        if (token) {
+                            headers['Authorization'] = `Bearer ${token}`;
+                        }
+                        
                         const response = await fetch('/api/upload', {
                             method: 'POST',
                             credentials: 'include',
+                            headers,
                             body: formData
                         });
                         
@@ -1839,9 +1871,16 @@
                     formData.append('image', this.pendingBackgroundFile);
                     
                     try {
+                        const headers = {};
+                        const token = localStorage.getItem('authToken');
+                        if (token) {
+                            headers['Authorization'] = `Bearer ${token}`;
+                        }
+                        
                         const response = await fetch('/api/upload', {
                             method: 'POST',
                             credentials: 'include',
+                            headers,
                             body: formData
                         });
                         
@@ -1856,10 +1895,15 @@
                         
                         if (result.success) {
                             // Save to backend
+                            const bgHeaders = { 'Content-Type': 'application/json' };
+                            if (token) {
+                                bgHeaders['Authorization'] = `Bearer ${token}`;
+                            }
+                            
                             await fetch('/api/settings/background', {
                                 method: 'POST',
                                 credentials: 'include',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: bgHeaders,
                                 body: JSON.stringify({ backgroundUrl: result.url })
                             });
 
@@ -1974,7 +2018,16 @@
                 },
                 async fetchAuthorSettings() {
                     try {
-                        const resp = await fetch('/api/settings/author', { credentials: 'include' });
+                        const headers = {};
+                        const token = localStorage.getItem('authToken');
+                        if (token) {
+                            headers['Authorization'] = `Bearer ${token}`;
+                        }
+                        
+                        const resp = await fetch('/api/settings/author', { 
+                            credentials: 'include',
+                            headers
+                        });
                         if (resp.ok) {
                             const data = await resp.json();
                             this.authorSettings = Object.assign({ name:'',email:'',phone:'',whatsapp:'',social:{twitter:'',facebook:'',linkedin:'',instagram:'',website:''}}, data.author || {});
@@ -1983,17 +2036,25 @@
                 },
                 async saveAuthorSettings() {
                     try {
+                        const headers = { 'Content-Type': 'application/json' };
+                        
+                        // Add auth token for Vercel
+                        const token = localStorage.getItem('authToken');
+                        if (token) {
+                            headers['Authorization'] = `Bearer ${token}`;
+                        }
+                        
                         const resp = await fetch('/api/settings/author', {
                             method: 'POST',
                             credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers,
                             body: JSON.stringify({ author: this.authorSettings })
                         });
                         const data = await resp.json();
                         if (resp.ok && data.success) {
                             alert('Author settings saved');
                         } else {
-                            alert('Failed to save author settings');
+                            alert('Failed to save author settings: ' + (data.error || 'Unknown error'));
                         }
                     } catch (e) { console.error('Save author settings error', e); alert('Network error'); }
                 },
