@@ -670,7 +670,7 @@
                             <input v-model="categoryForm.description" type="text" placeholder="Optional description">
                         </div>
                         <div style="display: flex; gap: 1rem;">
-                            <button class="btn btn-small" @click.prevent="saveCategory">{{ editingCategory ? 'Update' : 'Add' }} Category</button>
+                            <button class="btn btn-small" @click="console.log('Button clicked!'); saveCategory()">{{ editingCategory ? 'Update' : 'Add' }} Category</button>
                             <button v-if="editingCategory" class="btn btn-small" style="background: #6b7280;" @click="cancelCategoryEdit">Cancel</button>
                         </div>
                     </div>
