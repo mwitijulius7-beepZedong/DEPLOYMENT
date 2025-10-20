@@ -37,12 +37,19 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-const cors = require('cors');
-
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? 'https://zedong254personal-blog-aq9djywsi.vercel.app' : 'http://localhost:3000',
-  credentials: true
-}));
+// CORS configuration
+app.use((req, res, next) => {
+  const origin = process.env.NODE_ENV === 'production' ? 'https://zedong254personal-blog-aq9djywsi.vercel.app' : 'http://localhost:3000';
+  res.header('Access-Control-Allow-Origin', origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 
 app.use(express.json());
 app.use(express.static(__dirname));
@@ -343,8 +350,11 @@ app.post('/api/upload', requireAuth, async (req, res) => {
     const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
     const filename = Date.now() + '_' + safe;
     
-    // Use Vercel Blob for production, local filesystem for development
-    if (process.env.VERCEL) {
+    // Always use Vercel Blob for production
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        return res.status(500).json({ error: 'blob_storage_not_configured' });
+      }
       const blob = await put(filename, image.data, {
         access: 'public',
         contentType: image.mimetype
@@ -365,7 +375,7 @@ app.post('/api/upload', requireAuth, async (req, res) => {
     }
   } catch (err) {
     console.error('upload error:', err);
-    return res.status(500).json({ error: 'upload_failed' });
+    return res.status(500).json({ error: 'upload_failed', details: err.message });
   }
 });
 
