@@ -718,40 +718,50 @@ app.post('/api/settings/author', requireAuth, async (req, res) => {
 });
 
 // Security settings API (admin entry key)
-app.get('/api/settings/security', (req, res) => {
-  const settings = readSettings();
-  const hasEntryKey = !!(settings.security && settings.security.adminEntryKeyHash);
-  return res.json({ hasEntryKey });
+app.get('/api/settings/security', async (req, res) => {
+  try {
+    let hasEntryKey = false;
+    
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'security' });
+      hasEntryKey = !!(result?.adminEntryKeyHash);
+    } else {
+      const settings = readSettings();
+      hasEntryKey = !!(settings.security && settings.security.adminEntryKeyHash);
+    }
+    
+    return res.json({ hasEntryKey });
+  } catch (e) {
+    return res.json({ hasEntryKey: false });
+  }
 });
 
-app.post('/api/settings/security', async (req, res) => {
+app.post('/api/settings/security', requireAuth, async (req, res) => {
   try {
-    // For Vercel, use environment variable instead of file storage
-    if (process.env.VERCEL) {
-      const { adminEntryKey, username, password } = req.body || {};
-      
-      // Verify admin credentials for Vercel
-      if (!username || !password) {
-        return res.status(400).json({ error: 'missing_admin_credentials' });
+    const { adminEntryKey } = req.body || {};
+    
+    if (process.env.VERCEL && db) {
+      // MongoDB storage for Vercel
+      let security = {};
+      if (adminEntryKey && String(adminEntryKey).length > 0) {
+        const plain = String(adminEntryKey);
+        const hash = await bcrypt.hash(plain, 10);
+        security = {
+          adminEntryKeyHash: hash,
+          adminEntryKeyEnc: encryptText(plain)
+        };
       }
       
-      const users = loadUsers();
-      const user = users[username];
-      if (!user) return res.status(401).json({ error: 'invalid_user' });
+      await db.collection('settings').updateOne(
+        { type: 'security' },
+        { $set: { ...security, updatedAt: new Date() } },
+        { upsert: true }
+      );
       
-      const ok = await bcrypt.compare(String(password), user.passwordHash);
-      if (!ok) return res.status(401).json({ error: 'invalid_password' });
-      
-      // For Vercel, we can't save to file, so just return success
-      return res.json({ success: true, hasEntryKey: false, message: 'Security settings not supported on serverless' });
+      return res.json({ success: true, hasEntryKey: !!security.adminEntryKeyHash });
     }
     
-    // Local development - require session auth
-    if (!req.session || !req.session.user) {
-      return res.status(401).json({ error: 'not_authenticated' });
-    }
-    
-    const { adminEntryKey } = req.body || {};
+    // Local development - file storage
     const settings = readSettings();
     settings.security = settings.security || {};
     if (adminEntryKey && String(adminEntryKey).length > 0) {
@@ -774,8 +784,15 @@ app.post('/api/settings/security', async (req, res) => {
 app.post('/api/settings/verify-entry-key', async (req, res) => {
   try {
     const { adminEntryKey } = req.body || {};
-    const settings = readSettings();
-    const hash = settings.security && settings.security.adminEntryKeyHash || '';
+    let hash = '';
+    
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'security' });
+      hash = result?.adminEntryKeyHash || '';
+    } else {
+      const settings = readSettings();
+      hash = settings.security && settings.security.adminEntryKeyHash || '';
+    }
 
     const logs = loadSecurityLogs();
     const attemptHash = crypto.createHash('sha256').update(String(adminEntryKey || '')).digest('hex');
@@ -834,14 +851,21 @@ app.post('/api/settings/security/key-view', requireAuth, async (req, res) => {
   try {
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
-    const users = loadUsers();
+    const users = await loadUsers();
     const user = users[username];
     if (!user) return res.status(401).json({ error: 'invalid user' });
     const ok = await bcrypt.compare(String(password), user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'invalid password' });
 
-    const settings = readSettings();
-    const enc = settings.security?.adminEntryKeyEnc || '';
+    let enc = '';
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'security' });
+      enc = result?.adminEntryKeyEnc || '';
+    } else {
+      const settings = readSettings();
+      enc = settings.security?.adminEntryKeyEnc || '';
+    }
+    
     const key = decryptText(enc);
     return res.json({ success: true, key: key || '' });
   } catch (e) {
