@@ -9,6 +9,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
+const { put } = require('@vercel/blob');
 // const { kv } = require('@vercel/kv'); // Only for Vercel deployment
 
 const app = express();
@@ -22,6 +23,7 @@ const USERS_FILE = path.join(__dirname, 'users.json');
 const POSTS_FILE = path.join(__dirname, 'posts.json');
 const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
 const ANALYTICS_FILE = path.join(__dirname, 'analytics.json');
+const SECURITY_LOGS_FILE = path.join(__dirname, 'security_logs.json');
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const ALLOWED_EMAIL = process.env.ALLOWED_EMAIL || '';
@@ -36,6 +38,20 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
+// CORS configuration
+app.use((req, res, next) => {
+  const origin = process.env.NODE_ENV === 'production' ? 'https://zedong254personal-blog-aq9djywsi.vercel.app' : 'http://localhost:3000';
+  res.header('Access-Control-Allow-Origin', origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
 app.use(express.json());
 app.use(express.static(__dirname));
 app.use('/uploads', express.static(UPLOADS_DIR, {
@@ -47,7 +63,12 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false }
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    maxAge: 24 * 60 * 60 * 1000
+  }
 }));
 
 app.use(fileUpload({
@@ -65,6 +86,7 @@ function loadUsers() {
 }
 
 function saveUsers(users) {
+  if (process.env.VERCEL) return; // skip writes on Vercel
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
 }
 
@@ -77,6 +99,7 @@ function loadPosts() {
 }
 
 function savePosts(posts) {
+  if (process.env.VERCEL) return; // skip writes on Vercel
   fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
 }
 
@@ -89,6 +112,7 @@ function loadCategories() {
 }
 
 function saveCategories(categories) {
+  if (process.env.VERCEL) return; // skip writes on Vercel
   fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
 }
 
@@ -101,19 +125,68 @@ function loadAnalytics() {
 }
 
 function saveAnalytics(analytics) {
+  if (process.env.VERCEL) return; // skip writes on Vercel
   fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(analytics, null, 2));
 }
 
+function loadSecurityLogs() {
+  try {
+    return JSON.parse(fs.readFileSync(SECURITY_LOGS_FILE, 'utf8')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveSecurityLogs(logs) {
+  if (process.env.VERCEL) return; // skip writes on Vercel
+  fs.writeFileSync(SECURITY_LOGS_FILE, JSON.stringify(logs, null, 2));
+}
+
+// Simple AES-256-GCM encryption/decryption using SESSION_SECRET as key material
+function getEncKey() {
+  const secret = process.env.SESSION_SECRET || 'dev-secret';
+  return crypto.createHash('sha256').update(secret).digest(); // 32 bytes
+}
+function encryptText(plain) {
+  try {
+    const key = getEncKey();
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const enc = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return Buffer.concat([iv, tag, enc]).toString('base64');
+  } catch (e) {
+    return '';
+  }
+}
+function decryptText(encStr) {
+  try {
+    if (!encStr) return '';
+    const buf = Buffer.from(encStr, 'base64');
+    const iv = buf.subarray(0, 12);
+    const tag = buf.subarray(12, 28);
+    const data = buf.subarray(28);
+    const key = getEncKey();
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(tag);
+    const dec = Buffer.concat([decipher.update(data), decipher.final()]);
+    return dec.toString('utf8');
+  } catch (e) {
+    return '';
+  }
+}
+
 function requireAuth(req, res, next) {
+  console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
   if (req.session && req.session.user) return next();
-  return res.status(401).json({ error: 'not authenticated' });
+  return res.status(401).json({ error: 'Please login first' });
 }
 
 const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
-  ? nodemailer.createTransporter({
+  ? nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT || 587,
-      secure: process.env.SMTP_SECURE === 'true',
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: String(process.env.SMTP_SECURE).toLowerCase() === 'true',
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
@@ -175,6 +248,7 @@ app.post('/auth/setup', async (req, res) => {
 });
 
 app.get('/auth/status', (req, res) => {
+  console.log('Auth status - Session exists:', !!req.session, 'User exists:', !!req.session?.user);
   if (req.session && req.session.user) {
     return res.json({ loggedIn: true, user: req.session.user });
   }
@@ -239,6 +313,7 @@ app.get('/api/posts', (req, res) => {
 });
 
 app.post('/api/posts', requireAuth, (req, res) => {
+  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
   const body = req.body;
   if (!body || !body.title || !body.content) return res.status(400).json({ error: 'missing title or content' });
 
@@ -272,6 +347,7 @@ app.post('/api/posts', requireAuth, (req, res) => {
 
 // PUT /api/posts/:id - update (admin only)
 app.put('/api/posts/:id', requireAuth, (req, res) => {
+  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
   const id = parseInt(req.params.id, 10);
   const body = req.body;
   const posts = loadPosts();
@@ -304,6 +380,7 @@ app.put('/api/posts/:id', requireAuth, (req, res) => {
 });
 
 app.delete('/api/posts/:id', requireAuth, (req, res) => {
+  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
   const id = parseInt(req.params.id, 10);
   let posts = loadPosts();
   const idx = posts.findIndex(p => p.id === id);
@@ -313,9 +390,13 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
   return res.json({ success: true });
 });
 
-// Categories API
+// Upload API with Vercel Blob
 app.post('/api/upload', requireAuth, async (req, res) => {
   try {
+    // Note: Upload in production requires BLOB_READ_WRITE_TOKEN; otherwise return 501
+    if (process.env.VERCEL && !process.env.BLOB_READ_WRITE_TOKEN) {
+      return res.status(501).json({ error: 'blob_storage_not_configured' });
+    }
     if (!req.files || !req.files.image) return res.status(400).json({ error: 'no file uploaded' });
     const image = req.files.image;
     const MAX_BYTES = 5 * 1024 * 1024;
@@ -326,26 +407,265 @@ app.post('/api/upload', requireAuth, async (req, res) => {
     if (image.size > MAX_BYTES) {
       return res.status(400).json({ error: 'file_too_large', maxBytes: MAX_BYTES });
     }
+    
     const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
     const filename = Date.now() + '_' + safe;
-    const dest = path.join(UPLOADS_DIR, filename);
-    try {
+    
+    // Always use Vercel Blob for production
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        return res.status(500).json({ error: 'blob_storage_not_configured' });
+      }
+      const blob = await put(filename, image.data, {
+        access: 'public',
+        contentType: image.mimetype
+      });
+      console.log(`Uploaded to Vercel Blob: ${blob.url}`);
+      return res.json({ success: true, url: blob.url, filename, size: image.size });
+    } else {
+      // Local development fallback
+      const dest = path.join(UPLOADS_DIR, filename);
       if (image.data && Buffer.isBuffer(image.data)) {
         fs.writeFileSync(dest, image.data);
       } else if (typeof image.mv === 'function') {
         await new Promise((resolve, reject) => image.mv(dest, err => err ? reject(err) : resolve()));
-      } else {
-        return res.status(500).json({ error: 'no_write_method' });
       }
       const url = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
-      console.log(`Uploaded file saved to ${dest} by ${req.session && req.session.user ? req.session.user.email : 'unknown'}`);
+      console.log(`Uploaded locally: ${dest}`);
       return res.json({ success: true, url, filename, size: image.size });
-    } catch (e) {
-      console.error('upload error', e && e.stack ? e.stack : e);
-      return res.status(500).json({ error: 'upload_failed' });
     }
   } catch (err) {
-    console.error('upload handler error', err && err.stack ? err.stack : err);
+    console.error('upload error:', err);
+    return res.status(500).json({ error: 'upload_failed', details: err.message });
+  }
+});
+
+// Settings API
+const settingsPath = path.join(__dirname, 'settings.json');
+
+// Helper function to read settings
+function readSettings() {
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const data = fs.readFileSync(settingsPath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error reading settings:', error);
+  }
+  return {
+    backgroundUrl: '',
+    backgrounds: [],
+    author: {
+      name: '',
+      email: '',
+      phone: '',
+      whatsapp: '',
+      social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' }
+    },
+    security: {
+      adminEntryKeyHash: '',
+      adminEntryKeyEnc: ''
+    }
+  };
+}
+
+// Helper function to write settings
+function writeSettings(settings) {
+  try {
+    if (process.env.VERCEL) return; // skip writes on Vercel
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  } catch (error) {
+    console.error('Error writing settings:', error);
+  }
+}
+
+// Get current background image
+app.get('/api/settings/background', (req, res) => {
+  const settings = readSettings();
+  return res.json({ backgroundUrl: settings.backgroundUrl || '' });
+});
+
+// Set background image
+app.post('/api/settings/background', requireAuth, (req, res) => {
+  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
+  const { backgroundUrl } = req.body;
+  if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
+  
+  const settings = readSettings();
+  settings.backgroundUrl = backgroundUrl;
+  // Keep backgrounds in sync if only a single URL is provided
+  if (!Array.isArray(settings.backgrounds) || settings.backgrounds.length === 0) {
+    settings.backgrounds = [backgroundUrl];
+  }
+  writeSettings(settings);
+  
+  return res.json({ success: true, backgroundUrl });
+});
+
+// Multiple backgrounds API
+app.get('/api/settings/backgrounds', (req, res) => {
+  const settings = readSettings();
+  const arr = Array.isArray(settings.backgrounds) ? settings.backgrounds : (settings.backgroundUrl ? [settings.backgroundUrl] : []);
+  return res.json({ backgrounds: arr });
+});
+
+app.post('/api/settings/backgrounds', requireAuth, (req, res) => {
+  try {
+    if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
+    const { backgrounds } = req.body || {};
+    if (!Array.isArray(backgrounds)) return res.status(400).json({ error: 'backgrounds_must_be_array' });
+    const urls = backgrounds.map(u => String(u)).filter(u => u.length > 0);
+    const settings = readSettings();
+    settings.backgrounds = urls;
+    // Keep legacy single backgroundUrl aligned to first
+    settings.backgroundUrl = urls[0] || '';
+    writeSettings(settings);
+    return res.json({ success: true, backgrounds: urls });
+  } catch (e) {
+    console.error('save backgrounds error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Author settings API
+app.get('/api/settings/author', (req, res) => {
+  const settings = readSettings();
+  const author = settings.author || { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+  return res.json({ author });
+});
+
+app.post('/api/settings/author', requireAuth, (req, res) => {
+  try {
+    const payload = req.body && req.body.author ? req.body.author : req.body;
+    if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
+    const settings = readSettings();
+    settings.author = {
+      name: String(payload.name || ''),
+      email: String(payload.email || ''),
+      phone: String(payload.phone || ''),
+      whatsapp: String(payload.whatsapp || ''),
+      social: {
+        twitter: String(payload.social?.twitter || ''),
+        facebook: String(payload.social?.facebook || ''),
+        linkedin: String(payload.social?.linkedin || ''),
+        instagram: String(payload.social?.instagram || ''),
+        website: String(payload.social?.website || '')
+      }
+    };
+    writeSettings(settings);
+    return res.json({ success: true, author: settings.author });
+  } catch (e) {
+    console.error('Error saving author settings:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Security settings API (admin entry key)
+app.get('/api/settings/security', (req, res) => {
+  const settings = readSettings();
+  const hasEntryKey = !!(settings.security && settings.security.adminEntryKeyHash);
+  return res.json({ hasEntryKey });
+});
+
+app.post('/api/settings/security', requireAuth, async (req, res) => {
+  try {
+    if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
+    const { adminEntryKey } = req.body || {};
+    const settings = readSettings();
+    settings.security = settings.security || {};
+    if (adminEntryKey && String(adminEntryKey).length > 0) {
+      const plain = String(adminEntryKey);
+      const hash = await bcrypt.hash(plain, 10);
+      settings.security.adminEntryKeyHash = hash;
+      settings.security.adminEntryKeyEnc = encryptText(plain);
+    } else {
+      settings.security.adminEntryKeyHash = '';
+      settings.security.adminEntryKeyEnc = '';
+    }
+    writeSettings(settings);
+    return res.json({ success: true, hasEntryKey: !!settings.security.adminEntryKeyHash });
+  } catch (e) {
+    console.error('Error saving security settings:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+app.post('/api/settings/verify-entry-key', async (req, res) => {
+  try {
+    const { adminEntryKey } = req.body || {};
+    const settings = readSettings();
+    const hash = settings.security && settings.security.adminEntryKeyHash || '';
+
+    const logs = loadSecurityLogs();
+    const attemptHash = crypto.createHash('sha256').update(String(adminEntryKey || '')).digest('hex');
+    const entry = {
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      keyHash: attemptHash,
+      ip: req.ip || req.connection?.remoteAddress || '',
+      userAgent: req.get('User-Agent') || '',
+      result: ''
+    };
+
+    if (!hash) {
+      entry.result = 'allow_not_set';
+      logs.push(entry);
+      saveSecurityLogs(logs);
+      return res.json({ success: true, reason: 'not_set' });
+    }
+
+    const ok = await bcrypt.compare(String(adminEntryKey || ''), hash);
+    entry.result = ok ? 'success' : 'fail';
+    logs.push(entry);
+    saveSecurityLogs(logs);
+
+    if (ok) return res.json({ success: true });
+    return res.status(401).json({ success: false, error: 'invalid_key' });
+  } catch (e) {
+    console.error('verify-entry-key error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// View security logs after verifying admin credentials
+app.post('/api/settings/security/logs', requireAuth, async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
+    const users = loadUsers();
+    const user = users[username];
+    if (!user) return res.status(401).json({ error: 'invalid user' });
+    const ok = await bcrypt.compare(String(password), user.passwordHash);
+    if (!ok) return res.status(401).json({ error: 'invalid password' });
+
+    const logs = loadSecurityLogs();
+    // Return most recent first
+    const ordered = logs.slice().sort((a,b)=>b.id-a.id).slice(0, 2000);
+    return res.json({ success: true, logs: ordered });
+  } catch (e) {
+    console.error('security logs error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// View current admin entry key (requires admin creds). Returns plaintext if stored, else empty
+app.post('/api/settings/security/key-view', requireAuth, async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
+    const users = loadUsers();
+    const user = users[username];
+    if (!user) return res.status(401).json({ error: 'invalid user' });
+    const ok = await bcrypt.compare(String(password), user.passwordHash);
+    if (!ok) return res.status(401).json({ error: 'invalid password' });
+
+    const settings = readSettings();
+    const enc = settings.security?.adminEntryKeyEnc || '';
+    const key = decryptText(enc);
+    return res.json({ success: true, key: key || '' });
+  } catch (e) {
+    console.error('security key view error:', e);
     return res.status(500).json({ error: 'internal' });
   }
 });
@@ -353,6 +673,7 @@ app.post('/api/upload', requireAuth, async (req, res) => {
 // Analytics API
 app.post('/api/analytics/pageview', (req, res) => {
   try {
+    if (process.env.VERCEL) return res.json({ success: true });
     const { page, referrer, userAgent } = req.body;
     const analytics = loadAnalytics();
     
@@ -377,6 +698,7 @@ app.post('/api/analytics/pageview', (req, res) => {
 
 app.post('/api/analytics/interaction', (req, res) => {
   try {
+    if (process.env.VERCEL) return res.json({ success: true });
     const { type, target, value } = req.body;
     if (!type) return res.status(400).json({ error: 'missing type' });
     
@@ -399,6 +721,87 @@ app.post('/api/analytics/interaction', (req, res) => {
   } catch (e) {
     console.error('Analytics interaction error:', e);
     return res.status(500).json({ error: 'failed to track interaction' });
+  }
+});
+
+// Get analytics data (protected)
+app.get('/api/analytics', requireAuth, (req, res) => {
+  const analytics = loadAnalytics();
+  return res.json(analytics);
+});
+
+// Export analytics data with optional date filters
+// Query params: dataset=pageViews|interactions|all (default=all), format=json|csv (default=json), from=ISO, to=ISO
+app.get('/api/analytics/export', requireAuth, (req, res) => {
+  try {
+    const { dataset = 'all', format = 'json', from, to } = req.query;
+    const all = loadAnalytics();
+
+    const parseDate = (v, endOfDay) => {
+      if (!v) return null;
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return null;
+      if (endOfDay) d.setHours(23, 59, 59, 999);
+      else d.setHours(0, 0, 0, 0);
+      return d;
+    };
+    const start = parseDate(from, false);
+    const end = parseDate(to, true);
+
+    const inRange = (ts) => {
+      const t = new Date(ts).getTime();
+      if (isNaN(t)) return false;
+      if (start && t < start.getTime()) return false;
+      if (end && t > end.getTime()) return false;
+      return true;
+    };
+
+    const filtered = {
+      pageViews: (all.pageViews || []).filter(p => inRange(p.timestamp)),
+      interactions: (all.interactions || []).filter(i => inRange(i.timestamp)),
+      postViews: (all.postViews || []).filter(p => inRange(p.timestamp))
+    };
+
+    if (format === 'json') {
+      const data = dataset === 'all' ? filtered : { [dataset]: filtered[dataset] };
+      const filename = dataset === 'all' ? 'analytics.json' : `${dataset}.json`;
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(JSON.stringify(data, null, 2));
+    }
+
+    // CSV export supports single dataset at a time
+    if (format === 'csv') {
+      if (!['pageViews', 'interactions'].includes(dataset)) {
+        return res.status(400).json({ error: 'csv_export_requires_dataset_pageViews_or_interactions' });
+      }
+      const rows = filtered[dataset] || [];
+      const toCsv = (arr) => {
+        if (!arr.length) return '';
+        const headers = Array.from(
+          arr.reduce((set, obj) => { Object.keys(obj).forEach(k => set.add(k)); return set; }, new Set())
+        );
+        const escape = (v) => {
+          if (v == null) return '';
+          const s = String(v).replace(/"/g, '""');
+          return `"${s}"`;
+        };
+        const lines = [headers.join(',')];
+        for (const obj of arr) {
+          lines.push(headers.map(h => escape(obj[h])).join(','));
+        }
+        return lines.join('\n');
+      };
+      const csv = toCsv(rows);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${dataset}.csv"`);
+      return res.send(csv);
+    }
+
+    return res.status(400).json({ error: 'unsupported_format' });
+  } catch (e) {
+    console.error('analytics export error:', e);
+    return res.status(500).json({ error: 'internal' });
   }
 });
 
