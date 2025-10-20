@@ -894,6 +894,65 @@ app.post('/api/settings/security/key-view', requireAuth, async (req, res) => {
   }
 });
 
+// Categories API
+app.get('/api/categories', (req, res) => {
+  const categories = loadCategories();
+  return res.json({ categories });
+});
+
+app.post('/api/categories', requireAuth, (req, res) => {
+  const { name, description } = req.body;
+  if (!name) return res.status(400).json({ error: 'missing name' });
+  
+  const categories = loadCategories();
+  const id = Date.now();
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  
+  const category = {
+    id,
+    name: name.trim(),
+    slug,
+    description: description ? description.trim() : ''
+  };
+  
+  categories.push(category);
+  saveCategories(categories);
+  return res.json({ success: true, category });
+});
+
+app.put('/api/categories/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { name, description } = req.body;
+  if (!name) return res.status(400).json({ error: 'missing name' });
+  
+  const categories = loadCategories();
+  const idx = categories.findIndex(c => c.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  
+  categories[idx] = {
+    ...categories[idx],
+    name: name.trim(),
+    slug,
+    description: description ? description.trim() : ''
+  };
+  
+  saveCategories(categories);
+  return res.json({ success: true, category: categories[idx] });
+});
+
+app.delete('/api/categories/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  let categories = loadCategories();
+  const idx = categories.findIndex(c => c.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  
+  categories.splice(idx, 1);
+  saveCategories(categories);
+  return res.json({ success: true });
+});
+
 // Analytics API
 app.post('/api/analytics/pageview', (req, res) => {
   try {
