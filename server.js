@@ -194,30 +194,62 @@ async function saveCategories(categories) {
   }
 }
 
-function loadAnalytics() {
+async function loadAnalytics() {
   try {
+    if (db) {
+      const result = await db.collection('analytics').findOne({ type: 'data' });
+      return result?.data || { pageViews: [], postViews: [], interactions: [] };
+    }
     return JSON.parse(fs.readFileSync(ANALYTICS_FILE, 'utf8')) || { pageViews: [], postViews: [], interactions: [] };
   } catch (e) {
     return { pageViews: [], postViews: [], interactions: [] };
   }
 }
 
-function saveAnalytics(analytics) {
-  if (process.env.VERCEL) return; // skip writes on Vercel
-  fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(analytics, null, 2));
+async function saveAnalytics(analytics) {
+  try {
+    if (db) {
+      await db.collection('analytics').updateOne(
+        { type: 'data' },
+        { $set: { data: analytics, updatedAt: new Date() } },
+        { upsert: true }
+      );
+      return;
+    }
+    if (process.env.VERCEL) return;
+    fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(analytics, null, 2));
+  } catch (e) {
+    console.error('Save analytics error:', e);
+  }
 }
 
-function loadSecurityLogs() {
+async function loadSecurityLogs() {
   try {
+    if (db) {
+      const result = await db.collection('security').findOne({ type: 'logs' });
+      return result?.logs || [];
+    }
     return JSON.parse(fs.readFileSync(SECURITY_LOGS_FILE, 'utf8')) || [];
   } catch (e) {
     return [];
   }
 }
 
-function saveSecurityLogs(logs) {
-  if (process.env.VERCEL) return; // skip writes on Vercel
-  fs.writeFileSync(SECURITY_LOGS_FILE, JSON.stringify(logs, null, 2));
+async function saveSecurityLogs(logs) {
+  try {
+    if (db) {
+      await db.collection('security').updateOne(
+        { type: 'logs' },
+        { $set: { logs, updatedAt: new Date() } },
+        { upsert: true }
+      );
+      return;
+    }
+    if (process.env.VERCEL) return;
+    fs.writeFileSync(SECURITY_LOGS_FILE, JSON.stringify(logs, null, 2));
+  } catch (e) {
+    console.error('Save security logs error:', e);
+  }
 }
 
 // Simple AES-256-GCM encryption/decryption using SESSION_SECRET as key material
@@ -327,9 +359,9 @@ app.post('/auth/login', async (req, res) => {
   return res.json({ success: true, email: user.email, name: user.name });
 });
 
-app.get('/auth/setup-status', (req, res) => {
+app.get('/auth/setup-status', async (req, res) => {
   try {
-    const users = loadUsers();
+    const users = await loadUsers();
     const hasAny = Object.keys(users || {}).length > 0;
     return res.json({ setup: hasAny });
   } catch (e) {
@@ -341,7 +373,7 @@ app.post('/auth/setup', async (req, res) => {
   const { username, password, name, email } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'missing username or password' });
 
-  const users = loadUsers();
+  const users = await loadUsers();
   const hasAny = Object.keys(users || {}).length > 0;
 
   if (hasAny && !(req.session && req.session.user)) {
@@ -351,7 +383,7 @@ app.post('/auth/setup', async (req, res) => {
   try {
     const hash = await bcrypt.hash(password, 10);
     users[username] = { name: name || 'Admin', email: email || '', passwordHash: hash };
-    saveUsers(users);
+    await saveUsers(users);
     return res.json({ success: true, user: { username, name: users[username].name, email: users[username].email } });
   } catch (e) {
     console.error('setup error', e);
@@ -469,11 +501,10 @@ app.post('/api/posts', requireAuth, async (req, res) => {
 });
 
 // PUT /api/posts/:id - update (admin only)
-app.put('/api/posts/:id', requireAuth, (req, res) => {
-  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
+app.put('/api/posts/:id', requireAuth, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const body = req.body;
-  const posts = loadPosts();
+  const posts = await loadPosts();
   const idx = posts.findIndex(p => p.id === id);
   if (idx === -1) return res.status(404).json({ error: 'not found' });
 
@@ -498,18 +529,17 @@ app.put('/api/posts/:id', requireAuth, (req, res) => {
   }
 
   posts[idx] = updated;
-  savePosts(posts);
+  await savePosts(posts);
   return res.json({ success: true, post: updated });
 });
 
-app.delete('/api/posts/:id', requireAuth, (req, res) => {
-  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
+app.delete('/api/posts/:id', requireAuth, async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  let posts = loadPosts();
+  let posts = await loadPosts();
   const idx = posts.findIndex(p => p.id === id);
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   posts.splice(idx, 1);
-  savePosts(posts);
+  await savePosts(posts);
   return res.json({ success: true });
 });
 
@@ -802,7 +832,7 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
     // 1) If ADMIN_ENTRY_KEY is set, use it exclusively (works on Vercel)
     if (process.env.ADMIN_ENTRY_KEY) {
       const ok = provided && provided === process.env.ADMIN_ENTRY_KEY;
-      const logs = loadSecurityLogs();
+      const logs = await loadSecurityLogs();
       const entry = {
         id: Date.now(),
         timestamp: new Date().toISOString(),
@@ -813,7 +843,7 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
         mode: 'env'
       };
       logs.push(entry);
-      saveSecurityLogs(logs);
+      await saveSecurityLogs(logs);
       
       if (ok) return res.json({ success: true, mode: 'env' });
       return res.status(403).json({ success: false, mode: 'env' });
@@ -829,7 +859,7 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
       hash = settings.security?.adminEntryKeyHash || '';
     }
 
-    const logs = loadSecurityLogs();
+    const logs = await loadSecurityLogs();
     const entry = {
       id: Date.now(),
       timestamp: new Date().toISOString(),
@@ -844,7 +874,7 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
     if (!hash) {
       entry.result = 'allow_not_set';
       logs.push(entry);
-      saveSecurityLogs(logs);
+      await saveSecurityLogs(logs);
       return res.json({ success: true, mode: 'none' });
     }
 
@@ -852,7 +882,7 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
     const ok = await bcrypt.compare(provided, hash);
     entry.result = ok ? 'success' : 'fail';
     logs.push(entry);
-    saveSecurityLogs(logs);
+    await saveSecurityLogs(logs);
 
     if (ok) return res.json({ success: true, mode: 'local' });
     return res.status(403).json({ success: false, mode: 'local' });
@@ -867,13 +897,13 @@ app.post('/api/settings/security/logs', requireAuth, async (req, res) => {
   try {
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
-    const users = loadUsers();
+    const users = await loadUsers();
     const user = users[username];
     if (!user) return res.status(401).json({ error: 'invalid user' });
     const ok = await bcrypt.compare(String(password), user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'invalid password' });
 
-    const logs = loadSecurityLogs();
+    const logs = await loadSecurityLogs();
     // Return most recent first
     const ordered = logs.slice().sort((a,b)=>b.id-a.id).slice(0, 2000);
     return res.json({ success: true, logs: ordered });
@@ -978,11 +1008,10 @@ app.delete('/api/categories/:id', requireAuth, async (req, res) => {
 });
 
 // Analytics API
-app.post('/api/analytics/pageview', (req, res) => {
+app.post('/api/analytics/pageview', async (req, res) => {
   try {
-    if (process.env.VERCEL) return res.json({ success: true });
     const { page, referrer, userAgent } = req.body;
-    const analytics = loadAnalytics();
+    const analytics = await loadAnalytics();
     
     const pageView = {
       id: Date.now(),
@@ -994,7 +1023,7 @@ app.post('/api/analytics/pageview', (req, res) => {
     };
     
     analytics.pageViews.push(pageView);
-    saveAnalytics(analytics);
+    await saveAnalytics(analytics);
     
     return res.json({ success: true });
   } catch (e) {
@@ -1003,13 +1032,12 @@ app.post('/api/analytics/pageview', (req, res) => {
   }
 });
 
-app.post('/api/analytics/interaction', (req, res) => {
+app.post('/api/analytics/interaction', async (req, res) => {
   try {
-    if (process.env.VERCEL) return res.json({ success: true });
     const { type, target, value } = req.body;
     if (!type) return res.status(400).json({ error: 'missing type' });
     
-    const analytics = loadAnalytics();
+    const analytics = await loadAnalytics();
     
     const interaction = {
       id: Date.now(),
@@ -1022,7 +1050,7 @@ app.post('/api/analytics/interaction', (req, res) => {
     };
     
     analytics.interactions.push(interaction);
-    saveAnalytics(analytics);
+    await saveAnalytics(analytics);
     
     return res.json({ success: true });
   } catch (e) {
@@ -1032,17 +1060,17 @@ app.post('/api/analytics/interaction', (req, res) => {
 });
 
 // Get analytics data (protected)
-app.get('/api/analytics', requireAuth, (req, res) => {
-  const analytics = loadAnalytics();
+app.get('/api/analytics', requireAuth, async (req, res) => {
+  const analytics = await loadAnalytics();
   return res.json(analytics);
 });
 
 // Export analytics data with optional date filters
 // Query params: dataset=pageViews|interactions|all (default=all), format=json|csv (default=json), from=ISO, to=ISO
-app.get('/api/analytics/export', requireAuth, (req, res) => {
+app.get('/api/analytics/export', requireAuth, async (req, res) => {
   try {
     const { dataset = 'all', format = 'json', from, to } = req.query;
-    const all = loadAnalytics();
+    const all = await loadAnalytics();
 
     const parseDate = (v, endOfDay) => {
       if (!v) return null;
