@@ -350,8 +350,11 @@ app.post('/api/upload', requireAuth, async (req, res) => {
     const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
     const filename = Date.now() + '_' + safe;
     
-    // Use Vercel Blob for production, local filesystem for development
-    if (process.env.VERCEL) {
+    // Always use Vercel Blob for production
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        return res.status(500).json({ error: 'blob_storage_not_configured' });
+      }
       const blob = await put(filename, image.data, {
         access: 'public',
         contentType: image.mimetype
@@ -372,7 +375,7 @@ app.post('/api/upload', requireAuth, async (req, res) => {
     }
   } catch (err) {
     console.error('upload error:', err);
-    return res.status(500).json({ error: 'upload_failed' });
+    return res.status(500).json({ error: 'upload_failed', details: err.message });
   }
 });
 
