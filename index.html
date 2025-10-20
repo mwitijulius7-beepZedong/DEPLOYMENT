@@ -1955,7 +1955,7 @@
                         const response = await fetch(url, {
                             method,
                             credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: this.getAuthHeaders(),
                             body: JSON.stringify({
                                 name: this.categoryForm.name.trim(),
                                 description: this.categoryForm.description.trim()
@@ -1992,7 +1992,8 @@
                     try {
                         const response = await fetch(`/api/categories/${id}`, {
                             method: 'DELETE',
-                            credentials: 'include'
+                            credentials: 'include',
+                            headers: this.getAuthHeaders()
                         });
                         
                         const result = await response.json();
@@ -2057,7 +2058,10 @@
                 },
                 async loadAnalytics() {
                     try {
-                        const response = await fetch('/api/analytics', { credentials: 'include' });
+                        const response = await fetch('/api/analytics', { 
+                            credentials: 'include',
+                            headers: this.getAuthHeaders()
+                        });
                         if (response.ok) {
                             const data = await response.json();
                             this.analytics = data;
@@ -2182,7 +2186,8 @@
                 async fetchBackground() {
                     try {
                         const response = await fetch('/api/settings/background', {
-                            credentials: 'include'
+                            credentials: 'include',
+                            headers: this.getAuthHeaders()
                         });
                         const data = await response.json();
                         this.backgroundImage = data.backgroundUrl;
