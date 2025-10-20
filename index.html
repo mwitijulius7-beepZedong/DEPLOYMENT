@@ -1945,11 +1945,15 @@
                 },
                 async loadCategories() {
                     try {
+                        console.log('Loading categories...');
                         const response = await fetch('/api/categories', {
                             headers: this.getAuthHeaders()
                         });
+                        console.log('Categories API response status:', response.status);
                         const data = await response.json();
+                        console.log('Categories API response data:', data);
                         this.categories = data.categories || [];
+                        console.log('Categories set to:', this.categories);
                     } catch (error) {
                         console.error('Failed to load categories:', error);
                     }
@@ -1985,7 +1989,9 @@
                         console.log('API response data:', result);
                         
                         if (result.success) {
+                            console.log('Category saved successfully, reloading categories...');
                             await this.loadCategories();
+                            console.log('Categories after reload:', this.categories);
                             this.cancelCategoryEdit();
                             alert('Saved!');
                         } else {
