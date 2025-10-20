@@ -125,8 +125,9 @@ function saveAnalytics(analytics) {
 }
 
 function requireAuth(req, res, next) {
+  console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
   if (req.session && req.session.user) return next();
-  return res.status(401).json({ error: 'not authenticated' });
+  return res.status(401).json({ error: 'Please login first' });
 }
 
 const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
@@ -195,6 +196,7 @@ app.post('/auth/setup', async (req, res) => {
 });
 
 app.get('/auth/status', (req, res) => {
+  console.log('Auth status - Session exists:', !!req.session, 'User exists:', !!req.session?.user);
   if (req.session && req.session.user) {
     return res.json({ loggedIn: true, user: req.session.user });
   }
