@@ -873,6 +873,11 @@
                 this.setBackground(this.backgroundImageUrl);
                 this.fetchBackground();
                 
+                // Restore admin view if user was logged in
+                if (this.isLoggedIn) {
+                    this.currentView = 'admin';
+                }
+                
                 window.addEventListener('popstate', () => {
                     const id = parseInt(new URLSearchParams(window.location.search).get('post'), 10);
                     if (id && Array.isArray(this.posts)) {
@@ -968,19 +973,26 @@
                 },
                 initGoogleIdentity() {
                     if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-                        setTimeout(() => this.initGoogleIdentity(), 200);
+                        setTimeout(() => this.initGoogleIdentity(), 500);
                         return;
                     }
 
-                    window.google.accounts.id.initialize({
-                        client_id: GOOGLE_CLIENT_ID,
-                        callback: (response) => this.handleGoogleCredential(response)
-                    });
+                    try {
+                        window.google.accounts.id.initialize({
+                            client_id: GOOGLE_CLIENT_ID,
+                            callback: (response) => this.handleGoogleCredential(response)
+                        });
 
-                    window.google.accounts.id.renderButton(
-                        document.getElementById('gSignInButton'),
-                        { theme: 'outline', size: 'large', width: '250' }
-                    );
+                        const buttonElement = document.getElementById('gSignInButton');
+                        if (buttonElement) {
+                            window.google.accounts.id.renderButton(
+                                buttonElement,
+                                { theme: 'outline', size: 'large', width: '250' }
+                            );
+                        }
+                    } catch (error) {
+                        console.error('Google Identity initialization failed:', error);
+                    }
                 },
                 handleGoogleCredential(response) {
                     const token = response && response.credential;
@@ -1000,6 +1012,7 @@
                         if (data && data.success) {
                             this.isLoggedIn = true;
                             this.setData('isLoggedIn', true);
+                            this.currentView = 'admin';
                             this.loginError = '';
                             this.loginUsername = '';
                             this.loginPassword = '';
@@ -1018,11 +1031,18 @@
                         const data = await resp.json();
                         if (data.loggedIn) {
                             this.isLoggedIn = true;
+                            this.setData('isLoggedIn', true);
+                            // Stay in admin view if already logged in
+                            if (this.currentView !== 'blog') {
+                                this.currentView = 'admin';
+                            }
                         } else {
                             this.isLoggedIn = false;
+                            this.setData('isLoggedIn', false);
                         }
                     } catch (e) {
                         this.isLoggedIn = false;
+                        this.setData('isLoggedIn', false);
                     }
                 },
                 loadData() {
