@@ -1641,19 +1641,34 @@
                 },
                 async saveSecuritySettings() {
                     try {
+                        // For production, include admin credentials
+                        const payload = { adminEntryKey: this.securityForm.adminEntryKey };
+                        
+                        // Add admin credentials for Vercel
+                        if (window.location.hostname.includes('vercel.app')) {
+                            const username = prompt('Enter admin username:');
+                            const password = prompt('Enter admin password:');
+                            if (!username || !password) {
+                                alert('Admin credentials required');
+                                return;
+                            }
+                            payload.username = username;
+                            payload.password = password;
+                        }
+                        
                         const resp = await fetch('/api/settings/security', {
                             method: 'POST',
                             credentials: 'include',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ adminEntryKey: this.securityForm.adminEntryKey })
+                            body: JSON.stringify(payload)
                         });
                         const data = await resp.json();
                         if (resp.ok && data.success) {
                             this.securityHasEntryKey = !!data.hasEntryKey;
                             this.securityForm.adminEntryKey = '';
-                            alert('Security settings saved');
+                            alert(data.message || 'Security settings saved');
                         } else {
-                            alert('Failed to save security settings');
+                            alert('Failed to save security settings: ' + (data.error || 'Unknown error'));
                         }
                     } catch (e) {
                         alert('Network error');
