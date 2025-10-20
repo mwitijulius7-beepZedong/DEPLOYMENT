@@ -10,10 +10,32 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const { put } = require('@vercel/blob');
+const { MongoClient } = require('mongodb');
+const cloudinary = require('cloudinary').v2;
 // const { kv } = require('@vercel/kv'); // Only for Vercel deployment
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// MongoDB connection
+let db;
+if (process.env.MONGODB_URI) {
+  MongoClient.connect(process.env.MONGODB_URI)
+    .then(client => {
+      console.log('Connected to MongoDB');
+      db = client.db('blog');
+    })
+    .catch(error => console.error('MongoDB connection error:', error));
+}
+
+// Cloudinary configuration
+if (process.env.CLOUDINARY_CLOUD_NAME) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+}
 
 // Vercel serverless function export
 module.exports = app;
@@ -77,30 +99,63 @@ app.use(fileUpload({
   createParentPath: true
 }));
 
-function loadUsers() {
+async function loadUsers() {
   try {
+    if (db) {
+      const users = await db.collection('users').find({}).toArray();
+      const result = {};
+      users.forEach(u => result[u.username] = u);
+      return result;
+    }
     return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
   } catch (e) {
     return {};
   }
 }
 
-function saveUsers(users) {
-  if (process.env.VERCEL) return; // skip writes on Vercel
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+async function saveUsers(users) {
+  try {
+    if (db) {
+      await db.collection('users').deleteMany({});
+      const userArray = Object.entries(users).map(([username, data]) => ({ username, ...data }));
+      if (userArray.length > 0) {
+        await db.collection('users').insertMany(userArray);
+      }
+      return;
+    }
+    if (process.env.VERCEL) return;
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+  } catch (e) {
+    console.error('Save users error:', e);
+  }
 }
 
-function loadPosts() {
+async function loadPosts() {
   try {
+    if (db) {
+      const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
+      return posts.map(p => ({ ...p, id: p._id || p.id }));
+    }
     return JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
   } catch (e) {
     return [];
   }
 }
 
-function savePosts(posts) {
-  if (process.env.VERCEL) return; // skip writes on Vercel
-  fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
+async function savePosts(posts) {
+  try {
+    if (db) {
+      await db.collection('posts').deleteMany({});
+      if (posts.length > 0) {
+        await db.collection('posts').insertMany(posts.map(p => ({ ...p, _id: p.id })));
+      }
+      return;
+    }
+    if (process.env.VERCEL) return;
+    fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
+  } catch (e) {
+    console.error('Save posts error:', e);
+  }
 }
 
 function loadCategories() {
@@ -199,7 +254,7 @@ app.post('/auth/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
 
-  const users = loadUsers();
+  const users = await loadUsers();
   const user = users[username];
   if (!user) return res.status(401).json({ error: 'invalid credentials' });
 
@@ -307,17 +362,16 @@ app.post('/auth/google', async (req, res) => {
 });
 
 // Posts API
-app.get('/api/posts', (req, res) => {
-  const posts = loadPosts();
+app.get('/api/posts', async (req, res) => {
+  const posts = await loadPosts();
   return res.json({ posts });
 });
 
-app.post('/api/posts', requireAuth, (req, res) => {
-  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
+app.post('/api/posts', requireAuth, async (req, res) => {
   const body = req.body;
   if (!body || !body.title || !body.content) return res.status(400).json({ error: 'missing title or content' });
 
-  const posts = loadPosts();
+  const posts = await loadPosts();
   const id = Date.now();
   const post = {
     id,
@@ -341,7 +395,7 @@ app.post('/api/posts', requireAuth, (req, res) => {
   }
 
   posts.unshift(post);
-  savePosts(posts);
+  await savePosts(posts);
   return res.json({ success: true, post });
 });
 
@@ -390,13 +444,9 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
   return res.json({ success: true });
 });
 
-// Upload API with Vercel Blob
+// Upload API with Cloudinary
 app.post('/api/upload', requireAuth, async (req, res) => {
   try {
-    // Note: Upload in production requires BLOB_READ_WRITE_TOKEN; otherwise return 501
-    if (process.env.VERCEL && !process.env.BLOB_READ_WRITE_TOKEN) {
-      return res.status(501).json({ error: 'blob_storage_not_configured' });
-    }
     if (!req.files || !req.files.image) return res.status(400).json({ error: 'no file uploaded' });
     const image = req.files.image;
     const MAX_BYTES = 5 * 1024 * 1024;
@@ -408,32 +458,50 @@ app.post('/api/upload', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'file_too_large', maxBytes: MAX_BYTES });
     }
     
-    const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
-    const filename = Date.now() + '_' + safe;
+    // Use Cloudinary if configured
+    if (process.env.CLOUDINARY_CLOUD_NAME) {
+      const result = await new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          {
+            resource_type: 'image',
+            folder: 'blog',
+            public_id: `${Date.now()}_${path.parse(image.name).name}`,
+            transformation: [{ quality: 'auto', fetch_format: 'auto' }]
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        ).end(image.data);
+      });
+      console.log(`Uploaded to Cloudinary: ${result.secure_url}`);
+      return res.json({ success: true, url: result.secure_url, filename: result.public_id, size: image.size });
+    }
     
-    // Always use Vercel Blob for production
-    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-      if (!process.env.BLOB_READ_WRITE_TOKEN) {
-        return res.status(500).json({ error: 'blob_storage_not_configured' });
-      }
+    // Fallback to Vercel Blob
+    if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
+      const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
+      const filename = Date.now() + '_' + safe;
       const blob = await put(filename, image.data, {
         access: 'public',
         contentType: image.mimetype
       });
       console.log(`Uploaded to Vercel Blob: ${blob.url}`);
       return res.json({ success: true, url: blob.url, filename, size: image.size });
-    } else {
-      // Local development fallback
-      const dest = path.join(UPLOADS_DIR, filename);
-      if (image.data && Buffer.isBuffer(image.data)) {
-        fs.writeFileSync(dest, image.data);
-      } else if (typeof image.mv === 'function') {
-        await new Promise((resolve, reject) => image.mv(dest, err => err ? reject(err) : resolve()));
-      }
-      const url = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
-      console.log(`Uploaded locally: ${dest}`);
-      return res.json({ success: true, url, filename, size: image.size });
     }
+    
+    // Local development fallback
+    const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
+    const filename = Date.now() + '_' + safe;
+    const dest = path.join(UPLOADS_DIR, filename);
+    if (image.data && Buffer.isBuffer(image.data)) {
+      fs.writeFileSync(dest, image.data);
+    } else if (typeof image.mv === 'function') {
+      await new Promise((resolve, reject) => image.mv(dest, err => err ? reject(err) : resolve()));
+    }
+    const url = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
+    console.log(`Uploaded locally: ${dest}`);
+    return res.json({ success: true, url, filename, size: image.size });
   } catch (err) {
     console.error('upload error:', err);
     return res.status(500).json({ error: 'upload_failed', details: err.message });
@@ -568,9 +636,33 @@ app.get('/api/settings/security', (req, res) => {
   return res.json({ hasEntryKey });
 });
 
-app.post('/api/settings/security', requireAuth, async (req, res) => {
+app.post('/api/settings/security', async (req, res) => {
   try {
-    if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
+    // For Vercel, use environment variable instead of file storage
+    if (process.env.VERCEL) {
+      const { adminEntryKey, username, password } = req.body || {};
+      
+      // Verify admin credentials for Vercel
+      if (!username || !password) {
+        return res.status(400).json({ error: 'missing_admin_credentials' });
+      }
+      
+      const users = loadUsers();
+      const user = users[username];
+      if (!user) return res.status(401).json({ error: 'invalid_user' });
+      
+      const ok = await bcrypt.compare(String(password), user.passwordHash);
+      if (!ok) return res.status(401).json({ error: 'invalid_password' });
+      
+      // For Vercel, we can't save to file, so just return success
+      return res.json({ success: true, hasEntryKey: false, message: 'Security settings not supported on serverless' });
+    }
+    
+    // Local development - require session auth
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ error: 'not_authenticated' });
+    }
+    
     const { adminEntryKey } = req.body || {};
     const settings = readSettings();
     settings.security = settings.security || {};
