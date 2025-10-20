@@ -670,7 +670,7 @@
                             <input v-model="categoryForm.description" type="text" placeholder="Optional description">
                         </div>
                         <div style="display: flex; gap: 1rem;">
-                            <button class="btn btn-small" @click="saveCategory">{{ editingCategory ? 'Update' : 'Add' }} Category</button>
+                            <button class="btn btn-small" @click.prevent="saveCategory">{{ editingCategory ? 'Update' : 'Add' }} Category</button>
                             <button v-if="editingCategory" class="btn btn-small" style="background: #6b7280;" @click="cancelCategoryEdit">Cancel</button>
                         </div>
                     </div>
@@ -1955,6 +1955,9 @@
                     }
                 },
                 async saveCategory() {
+                    console.log('saveCategory function called');
+                    console.log('Category form data:', this.categoryForm);
+                    
                     if (!this.categoryForm.name.trim()) {
                         alert('Category name is required');
                         return;
@@ -1963,6 +1966,8 @@
                     try {
                         const method = this.editingCategory ? 'PUT' : 'POST';
                         const url = this.editingCategory ? `/api/categories/${this.editingCategory.id}` : '/api/categories';
+                        
+                        console.log('Making API request:', method, url);
                         
                         const response = await fetch(url, {
                             method,
@@ -1974,7 +1979,11 @@
                             })
                         });
                         
+                        console.log('API response status:', response.status);
+                        
                         const result = await response.json();
+                        console.log('API response data:', result);
+                        
                         if (result.success) {
                             await this.loadCategories();
                             this.cancelCategoryEdit();
