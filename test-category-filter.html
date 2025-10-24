@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test CategoryFilter Component</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div id="test-app"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const CategoryFilter = ({ onCategoryChange, activeCategory }) => {
+          const categories = [
+            { id: 'all', name: 'All' },
+            { id: 'commercial', name: 'Commercial' },
+            { id: 'design', name: 'Design' },
+            { id: 'nature', name: 'Nature' },
+            { id: 'people', name: 'People' },
+            { id: 'photography', name: 'Photography' },
+            { id: 'tech', name: 'Tech' },
+            { id: 'travel', name: 'Travel' },
+            { id: 'uncategorized', name: 'Uncategorized' }
+          ];
+
+          const [localActiveCategory, setLocalActiveCategory] = useState(activeCategory || 'all');
+
+          useEffect(() => {
+            setLocalActiveCategory(activeCategory || 'all');
+          }, [activeCategory]);
+
+          const handleCategoryClick = (categoryId) => {
+            const newCategory = localActiveCategory === categoryId ? 'all' : categoryId;
+            setLocalActiveCategory(newCategory);
+            onCategoryChange(newCategory);
+          };
+
+          return (
+            <div className="flex flex-wrap gap-2 mb-6">
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => handleCategoryClick(category.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+                    localActiveCategory === category.id
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          );
+        };
+
+        const TestApp = () => {
+          const [activeCategory, setActiveCategory] = useState('all');
+          const [callbackLog, setCallbackLog] = useState([]);
+
+          const handleCategoryChange = (categoryId) => {
+            setActiveCategory(categoryId);
+            setCallbackLog(prev => [...prev, `Category changed to: ${categoryId} (${new Date().toLocaleTimeString()})`]);
+          };
+
+          return (
+            <div className="max-w-4xl mx-auto">
+              <h1 className="text-2xl font-bold mb-6">CategoryFilter Component Test</h1>
+
+              <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                <h2 className="text-lg font-semibold mb-4">Component:</h2>
+                <CategoryFilter
+                  onCategoryChange={handleCategoryChange}
+                  activeCategory={activeCategory}
+                />
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                <h2 className="text-lg font-semibold mb-4">Current Active Category:</h2>
+                <p className="text-blue-600 font-medium">{activeCategory}</p>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-lg font-semibold mb-4">Callback Log:</h2>
+                <div className="max-h-40 overflow-y-auto">
+                  {callbackLog.length === 0 ? (
+                    <p className="text-gray-500">No callbacks yet</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {callbackLog.map((log, index) => (
+                        <li key={index} className="text-sm text-gray-600">{log}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <button
+                  onClick={() => setCallbackLog([])}
+                  className="mt-4 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                >
+                  Clear Log
+                </button>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-md mt-6">
+                <h2 className="text-lg font-semibold mb-4">Test Instructions:</h2>
+                <ul className="list-disc list-inside space-y-2 text-sm text-gray-700">
+                  <li>Click on different category buttons to see active state changes</li>
+                  <li>Verify pill-style rounded buttons with proper spacing</li>
+                  <li>Check that clicking the active category switches back to "All"</li>
+                  <li>Observe callback log to ensure onCategoryChange is called correctly</li>
+                  <li>Test responsive layout by resizing the browser window</li>
+                </ul>
+              </div>
+            </div>
+          );
+        };
+
+        ReactDOM.render(<TestApp />, document.getElementById('test-app'));
+    </script>
+</body>
+</html>
