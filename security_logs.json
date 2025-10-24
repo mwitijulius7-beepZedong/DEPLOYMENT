@@ -22,5 +22,32 @@
     "ip": "::1",
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
     "result": "success"
+  },
+  {
+    "id": 1761339323235,
+    "timestamp": "2025-10-24T20:55:23.235Z",
+    "keyHash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+    "ip": "::1",
+    "userAgent": "curl/8.14.1",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761339331433,
+    "timestamp": "2025-10-24T20:55:31.434Z",
+    "keyHash": "c211eb3e3af023e34075828c3a97feb6dd23e6fdf4153b5ca1cee700fb56e509",
+    "ip": "::1",
+    "userAgent": "curl/8.14.1",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761340306333,
+    "timestamp": "2025-10-24T21:11:46.333Z",
+    "keyHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "result": "success",
+    "mode": "local"
   }
 ]
