@@ -455,16 +455,24 @@
                 <!-- Login -->
                 <div v-if="!isLoggedIn" class="login-container">
                     <h2>Admin Login</h2>
-                    <div v-if="loginError" class="error-message">{{ loginError }}</div>
-                    <div class="form-group">
-                        <label>Username</label>
-                        <input v-model="loginUsername" type="text" placeholder="admin" @keyup.enter="login">
+                    <div v-if="entryKeyError" class="error-message">{{ entryKeyError }}</div>
+                    <div v-if="!entryKeyVerified" class="form-group">
+                        <label>Entry Key</label>
+                        <input v-model="entryKey" type="password" placeholder="Enter entry key" @keyup.enter="verifyEntryKey">
+                        <button class="btn" style="width: 100%; margin-top: 0.5rem;" @click="verifyEntryKey">Verify Key</button>
                     </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
+                    <div v-if="entryKeyVerified">
+                        <div v-if="loginError" class="error-message">{{ loginError }}</div>
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input v-model="loginUsername" type="text" placeholder="admin" @keyup.enter="login">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
+                        </div>
+                        <button class="btn" style="width: 100%;" @click="login">Login</button>
                     </div>
-                    <button class="btn" style="width: 100%;" @click="login">Login</button>
                     <p style="text-align:center; margin-top:0.75rem;"><a href="#" @click.prevent="showReset = true">Forgot password?</a></p>
                     <div v-if="showReset" style="margin-top:1rem; background:#f9fafb; padding:1rem; border-radius:8px;">
                         <div class="form-group">
@@ -511,6 +519,13 @@
                         <div class="form-group">
                             <label>Content</label>
                             <textarea v-model="postForm.content" placeholder="Write your post content here..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Category</label>
+                            <select v-model="postForm.categoryId" class="filter-select">
+                                <option value="">No Category</option>
+                                <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label>Tags (comma-separated)</label>
@@ -580,6 +595,9 @@
                     selectedTag: '',
                     selectedArchive: '',
                     isLoggedIn: false,
+                    entryKey: '',
+                    entryKeyVerified: false,
+                    entryKeyError: '',
                     loginUsername: '',
                     loginPassword: '',
                     loginError: '',
@@ -592,6 +610,7 @@
                         title: '',
                         author: '',
                         content: '',
+                        categoryId: '',
                         tags: ''
                     }
                 };
@@ -620,7 +639,7 @@
 
                     // Category filter
                     if (this.selectedCategory) {
-                        filtered = filtered.filter(post => post.category === this.selectedCategory);
+                        filtered = filtered.filter(post => post.categoryId === this.selectedCategory);
                     }
 
                     // Tag filter
@@ -764,6 +783,20 @@
                 setData(key, value) {
                     this[key] = value;
                 },
+                verifyEntryKey() {
+                    if (!this.entryKey) {
+                        this.entryKeyError = 'Please enter the entry key';
+                        return;
+                    }
+                    // For demo purposes, use a hardcoded key. In production, this should be server-verified.
+                    if (this.entryKey === 'admin123') {
+                        this.entryKeyVerified = true;
+                        this.entryKeyError = '';
+                        this.entryKey = '';
+                    } else {
+                        this.entryKeyError = 'Invalid entry key';
+                    }
+                },
                 login() {
                     // Try server-side login first
                     fetch('/auth/login', {
@@ -827,13 +860,14 @@
                         title: post.title,
                         author: post.author,
                         content: post.content,
+                        categoryId: post.categoryId || '',
                         tags: post.tags.join(', ')
                     };
                 },
                 cancelEdit() {
                     this.showNewPostForm = false;
                     this.editingPost = null;
-                    this.postForm = { title: '', author: '', content: '', tags: '' };
+                    this.postForm = { title: '', author: '', content: '', categoryId: '', tags: '' };
                 },
                 async savePost() {
                     if (!this.postForm.title || !this.postForm.content) {
@@ -850,6 +884,7 @@
                         title: this.postForm.title,
                         author: this.postForm.author || 'Anonymous',
                         content: this.postForm.content,
+                        categoryId: this.postForm.categoryId,
                         tags: tags
                     };
 
