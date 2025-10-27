@@ -29,7 +29,7 @@ if (process.env.MONGODB_URI) {
 }
 
 // Cloudinary configuration
-if (process.env.CLOUDINARY_CLOUD_NAME) {
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -563,8 +563,8 @@ app.post('/api/upload', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'file_too_large', maxBytes: MAX_BYTES });
     }
     
-    // Use Cloudinary if configured
-    if (process.env.CLOUDINARY_CLOUD_NAME) {
+    // Use Cloudinary if configured and not the default 'cloudinary' value
+    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
       const result = await new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream(
           {
