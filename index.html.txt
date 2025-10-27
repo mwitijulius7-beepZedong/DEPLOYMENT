@@ -78,6 +78,38 @@
             margin: 2rem 0;
         }
 
+        /* Category Filter */
+        .category-filter {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .category-filter button {
+            padding: 0.5rem 1rem;
+            border: 2px solid #e5e7eb;
+            background: white;
+            color: #374151;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .category-filter button:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+        }
+
+        .category-filter button.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
+        }
+
         .search-input {
             width: 100%;
             max-width: 400px;
@@ -402,12 +434,20 @@
                     <input v-model="searchQuery" type="text" class="search-input" placeholder="Search posts by title, content, or tags...">
                 </div>
 
+                <!-- Category Filter -->
+                <div class="category-filter">
+                    <button
+                        v-for="category in allCategories"
+                        :key="category.id"
+                        @click="toggleCategory(category.id)"
+                        :class="{ active: selectedCategory === category.id || (selectedCategory === '' && category.id === 'all') }"
+                    >
+                        {{ category.name }}
+                    </button>
+                </div>
+
                 <!-- Filter Section -->
                 <div class="filter-section">
-                    <select v-model="selectedCategory" class="filter-select">
-                        <option value="">All Categories</option>
-                        <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
-                    </select>
                     <select v-model="selectedTag" class="filter-select">
                         <option value="">All Tags</option>
                         <option v-for="tag in allTags" :key="tag" :value="tag">{{ tag }}</option>
@@ -676,6 +716,12 @@
                     });
                     return Array.from(archiveMap.entries()).map(([key, label]) => ({ key, label })).sort((a, b) => b.key.localeCompare(a.key));
                 },
+                allCategories() {
+                    return [
+                        { id: 'all', name: 'All' },
+                        ...this.categories
+                    ];
+                },
                 hasFilters() {
                     return this.searchQuery || this.selectedCategory || this.selectedTag || this.selectedArchive;
                 }
@@ -773,6 +819,13 @@
                     this.selectedCategory = '';
                     this.selectedTag = '';
                     this.selectedArchive = '';
+                },
+                toggleCategory(categoryId) {
+                    if (categoryId === 'all') {
+                        this.selectedCategory = '';
+                    } else {
+                        this.selectedCategory = categoryId;
+                    }
                 },
                 getReadingTime(content) {
                     const wordsPerMinute = 200;
