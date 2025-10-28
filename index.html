@@ -481,119 +481,8 @@
             <button class="filter-tag">Technology</button>
         </div>
 
-        <div class="blog-grid">
-            <!-- Card 1 -->
-            <article class="blog-card" tabindex="0">
-                <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=500&fit=crop" alt="Vineyard landscape with wine glass" class="card-image">
-                <div class="card-content">
-                    <h2 class="card-title">The Power of Modern Web Development</h2>
-                    <div class="card-meta">
-                        <span>October 27, 2025 · Admin</span>
-                        <span class="reading-time">📖 5 min read</span>
-                    </div>
-                    <p class="card-excerpt">Modern web development has come a long way. With tools like Vue, React, and Angular, we can build incredible user experiences that were impossible just a few years ago.</p>
-                    <div class="card-tags">
-                        <span class="tag">web development</span>
-                        <span class="tag">programming</span>
-                        <span class="tag">technology</span>
-                    </div>
-                    <a href="#" class="read-more">Read more →</a>
-                </div>
-            </article>
-
-            <!-- Card 2 -->
-            <article class="blog-card" tabindex="0">
-                <img src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=500&fit=crop" alt="Team working together on laptops" class="card-image">
-                <div class="card-content">
-                    <h2 class="card-title">Getting Started with Vue.js</h2>
-                    <div class="card-meta">
-                        <span>October 27, 2025 · Admin</span>
-                        <span class="reading-time">📖 8 min read</span>
-                    </div>
-                    <p class="card-excerpt">Vue.js is an amazing framework for building user interfaces. In this post, we'll explore the basics of Vue.js and why it's become so popular among developers.</p>
-                    <div class="card-tags">
-                        <span class="tag">vue</span>
-                        <span class="tag">javascript</span>
-                        <span class="tag">tutorial</span>
-                    </div>
-                    <a href="#" class="read-more">Read more →</a>
-                </div>
-            </article>
-
-            <!-- Card 3 -->
-            <article class="blog-card" tabindex="0">
-                <img src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&h=500&fit=crop" alt="Code on laptop screen" class="card-image">
-                <div class="card-content">
-                    <h2 class="card-title">Smoke Test Post</h2>
-                    <div class="card-meta">
-                        <span>October 27, 2025 · Mwithiulius7</span>
-                        <span class="reading-time">📖 2 min read</span>
-                    </div>
-                    <p class="card-excerpt">Post created by non-interactive smoke-test script to verify the blog system is working correctly.</p>
-                    <div class="card-tags">
-                        <span class="tag">testing</span>
-                        <span class="tag">automation</span>
-                    </div>
-                    <a href="#" class="read-more">Read more →</a>
-                </div>
-            </article>
-
-            <!-- Card 4 -->
-            <article class="blog-card" tabindex="0">
-                <img src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&h=500&fit=crop" alt="Coffee and laptop" class="card-image">
-                <div class="card-content">
-                    <h2 class="card-title">Advanced JavaScript Patterns</h2>
-                    <div class="card-meta">
-                        <span>October 26, 2025 · Admin</span>
-                        <span class="reading-time">📖 12 min read</span>
-                    </div>
-                    <p class="card-excerpt">Dive deep into advanced JavaScript patterns that will make your code more maintainable, scalable, and elegant. Learn about closures, modules, and more.</p>
-                    <div class="card-tags">
-                        <span class="tag">javascript</span>
-                        <span class="tag">advanced</span>
-                        <span class="tag">programming</span>
-                    </div>
-                    <a href="#" class="read-more">Read more →</a>
-                </div>
-            </article>
-
-            <!-- Card 5 -->
-            <article class="blog-card" tabindex="0">
-                <img src="https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&h=500&fit=crop" alt="Programming setup" class="card-image">
-                <div class="card-content">
-                    <h2 class="card-title">Building Responsive Layouts</h2>
-                    <div class="card-meta">
-                        <span>October 25, 2025 · Admin</span>
-                        <span class="reading-time">📖 6 min read</span>
-                    </div>
-                    <p class="card-excerpt">Creating responsive layouts is essential in modern web development. Learn the best practices and techniques for building websites that look great on any device.</p>
-                    <div class="card-tags">
-                        <span class="tag">css</span>
-                        <span class="tag">responsive</span>
-                        <span class="tag">web development</span>
-                    </div>
-                    <a href="#" class="read-more">Read more →</a>
-                </div>
-            </article>
-
-            <!-- Card 6 -->
-            <article class="blog-card" tabindex="0">
-                <img src="https://images.unsplash.com/photo-1551650975-87deedd944c3?w=800&h=500&fit=crop" alt="Tech devices" class="card-image">
-                <div class="card-content">
-                    <h2 class="card-title">The Future of Web Technologies</h2>
-                    <div class="card-meta">
-                        <span>October 24, 2025 · Admin</span>
-                        <span class="reading-time">📖 10 min read</span>
-                    </div>
-                    <p class="card-excerpt">Exploring emerging web technologies and what they mean for developers. From WebAssembly to Progressive Web Apps, the future is exciting.</p>
-                    <div class="card-tags">
-                        <span class="tag">technology</span>
-                        <span class="tag">future</span>
-                        <span class="tag">web development</span>
-                    </div>
-                    <a href="#" class="read-more">Read more →</a>
-                </div>
-            </article>
+        <div class="blog-grid" id="blog-grid">
+            <!-- Posts will be loaded dynamically here -->
         </div>
     </main>
 
@@ -615,9 +504,112 @@
     </div>
 
     <script>
+        let allPosts = [];
+        let currentFilter = 'all';
+
+        // Load posts from server
+        async function loadPosts() {
+            try {
+                const response = await fetch('/api/posts');
+                const data = await response.json();
+                allPosts = data.posts || [];
+                renderPosts();
+            } catch (error) {
+                console.error('Failed to load posts:', error);
+                // Show empty state
+                document.getElementById('blog-grid').innerHTML = '<div class="empty-state"><h3>No posts found</h3><p>Check back later for new content.</p></div>';
+            }
+        }
+
+        // Render posts based on current filter
+        function renderPosts() {
+            const grid = document.getElementById('blog-grid');
+            const filteredPosts = currentFilter === 'all'
+                ? allPosts
+                : allPosts.filter(post =>
+                    post.tags && post.tags.some(tag =>
+                        tag.toLowerCase().includes(currentFilter.toLowerCase())
+                    )
+                );
+
+            if (filteredPosts.length === 0) {
+                grid.innerHTML = '<div class="empty-state"><h3>No posts found</h3><p>Try adjusting your filter or check back later.</p></div>';
+                return;
+            }
+
+            grid.innerHTML = filteredPosts.map(post => createPostCard(post)).join('');
+            attachCardEventListeners();
+        }
+
+        // Create HTML for a single post card
+        function createPostCard(post) {
+            const date = new Date(post.date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            const tags = post.tags && post.tags.length > 0
+                ? post.tags.map(tag => `<span class="tag">${tag}</span>`).join('')
+                : '';
+
+            const imageUrl = post.image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=500&fit=crop';
+
+            // Calculate reading time (rough estimate: 200 words per minute)
+            const wordCount = post.content ? post.content.split(/\s+/).length : 0;
+            const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+
+            return `
+                <article class="blog-card" tabindex="0" data-post-id="${post.id}">
+                    <img src="${imageUrl}" alt="${post.title}" class="card-image">
+                    <div class="card-content">
+                        <h2 class="card-title">${post.title}</h2>
+                        <div class="card-meta">
+                            <span>${date} · ${post.author || 'Admin'}</span>
+                            <span class="reading-time">📖 ${readingTime} min read</span>
+                        </div>
+                        <p class="card-excerpt">${post.content ? post.content.substring(0, 150) + '...' : ''}</p>
+                        <div class="card-tags">
+                            ${tags}
+                        </div>
+                        <a href="#" class="read-more">Read more →</a>
+                    </div>
+                </article>
+            `;
+        }
+
+        // Attach event listeners to dynamically created cards
+        function attachCardEventListeners() {
+            const blogCards = document.querySelectorAll('.blog-card');
+
+            blogCards.forEach(card => {
+                // Make entire card clickable
+                card.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('tag')) {
+                        const link = card.querySelector('.read-more');
+                        if (link) {
+                            // For now, just prevent default - could link to full post view
+                            e.preventDefault();
+                            console.log('Read more clicked for post:', card.dataset.postId);
+                        }
+                    }
+                });
+
+                // Keyboard support
+                card.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        const link = card.querySelector('.read-more');
+                        if (link) {
+                            e.preventDefault();
+                            console.log('Read more clicked for post:', card.dataset.postId);
+                        }
+                    }
+                });
+            });
+        }
+
         // Filter functionality
         const filterTags = document.querySelectorAll('.filter-tag');
-        const blogCards = document.querySelectorAll('.blog-card');
 
         filterTags.forEach(tag => {
             tag.addEventListener('click', () => {
@@ -626,46 +618,8 @@
                 // Add active class to clicked tag
                 tag.classList.add('active');
 
-                const filterText = tag.textContent.toLowerCase();
-
-                // Filter cards
-                blogCards.forEach(card => {
-                    if (filterText === 'all') {
-                        card.style.display = 'flex';
-                    } else {
-                        const cardTags = Array.from(card.querySelectorAll('.tag')).map(t => 
-                            t.textContent.toLowerCase()
-                        );
-                        
-                        if (cardTags.some(t => t.includes(filterText))) {
-                            card.style.display = 'flex';
-                        } else {
-                            card.style.display = 'none';
-                        }
-                    }
-                });
-            });
-        });
-
-        // Make entire card clickable
-        blogCards.forEach(card => {
-            card.addEventListener('click', (e) => {
-                if (!e.target.classList.contains('tag')) {
-                    const link = card.querySelector('.read-more');
-                    if (link) {
-                        window.location.href = link.href;
-                    }
-                }
-            });
-
-            // Keyboard support
-            card.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    const link = card.querySelector('.read-more');
-                    if (link) {
-                        window.location.href = link.href;
-                    }
-                }
+                currentFilter = tag.textContent.toLowerCase();
+                renderPosts();
             });
         });
 
@@ -792,6 +746,9 @@
                 openAdminModal();
             }
         });
+
+        // Load posts when page loads
+        document.addEventListener('DOMContentLoaded', loadPosts);
     </script>
 </body>
 </html>
