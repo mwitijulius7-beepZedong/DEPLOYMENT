@@ -244,11 +244,35 @@
             color: var(--text-dark);
         }
 
+        /* Hero Section */
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #F6B8A9 100%);
+            color: white;
+            padding: 80px 24px;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .hero-content h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .hero-content p {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
         /* Main Content */
         main {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 40px 24px;
+            padding: 0 24px 40px;
         }
 
         /* Filter Bar */
@@ -471,6 +495,13 @@
     </header>
 
     <main>
+        <section class="hero-section">
+            <div class="hero-content">
+                <h1>Welcome to zedong254ke's Blog</h1>
+                <p>Discover insights, tutorials, and thoughts on web development, programming, and technology.</p>
+            </div>
+        </section>
+
         <div class="filter-bar">
             <span>Filter by:</span>
             <button class="filter-tag active">All</button>
