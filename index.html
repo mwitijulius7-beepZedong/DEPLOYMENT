@@ -76,6 +76,7 @@
             display: flex;
             align-items: center;
             gap: 32px;
+            flex-wrap: wrap;
         }
 
         nav a {
@@ -90,6 +91,46 @@
         nav a:hover, nav a:focus-visible {
             background: rgba(255,255,255,0.2);
             outline: none;
+        }
+
+        .admin-btn {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: var(--transition);
+            margin-left: 16px;
+        }
+
+        .admin-btn:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        .subscription-input {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 12px;
+            transition: var(--transition);
+            margin-left: 16px;
+            width: 180px;
+        }
+
+        .subscription-input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .subscription-input:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.2);
         }
 
         .search-btn {
@@ -422,7 +463,9 @@
                 <a href="#"><span>Home</span>🏠</a>
                 <a href="#"><span>Blog</span>📝</a>
                 <a href="#"><span>About</span>ℹ️</a>
+                <input type="email" class="subscription-input" placeholder="Subscribe to newsletter" id="subscriptionEmail">
                 <button class="search-btn">🔍 Search</button>
+                <button class="admin-btn" onclick="window.location.href='/admin.html'">Admin</button>
             </nav>
         </div>
     </header>
@@ -630,6 +673,51 @@
         document.querySelector('.search-btn').addEventListener('click', () => {
             alert('Search functionality - Connect to your search implementation');
         });
+
+        // Newsletter subscription
+        const subscriptionInput = document.getElementById('subscriptionEmail');
+        subscriptionInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                subscribeToNewsletter();
+            }
+        });
+
+        async function subscribeToNewsletter() {
+            const email = subscriptionInput.value.trim();
+            if (!email) {
+                alert('Please enter your email address');
+                return;
+            }
+
+            // Basic email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                alert('Please enter a valid email address');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/subscribe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Thank you for subscribing!');
+                    subscriptionInput.value = '';
+                } else {
+                    alert(result.error || 'Subscription failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Subscription error:', error);
+                alert('An error occurred. Please try again.');
+            }
+        }
 
         // Admin Modal Functions
         function openAdminModal() {

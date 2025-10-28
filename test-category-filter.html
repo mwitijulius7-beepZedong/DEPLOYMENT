@@ -15,17 +15,11 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        const CategoryFilter = ({ onCategoryChange, activeCategory }) => {
-          const categories = [
-            { id: 'all', name: 'All' },
-            { id: 'commercial', name: 'Commercial' },
-            { id: 'design', name: 'Design' },
-            { id: 'nature', name: 'Nature' },
-            { id: 'people', name: 'People' },
-            { id: 'photography', name: 'Photography' },
-            { id: 'tech', name: 'Tech' },
-            { id: 'travel', name: 'Travel' },
-            { id: 'uncategorized', name: 'Uncategorized' }
+        const CategoryFilter = ({ onCategoryChange, activeCategory, categories = [] }) => {
+          // Add "All" category and merge with dynamic categories
+          const allCategories = [
+            { id: 'all', name: 'All', slug: 'all', description: 'All posts' },
+            ...categories
           ];
 
           const [localActiveCategory, setLocalActiveCategory] = useState(activeCategory || 'all');
@@ -42,7 +36,7 @@
 
           return (
             <div className="flex flex-wrap gap-2 mb-6">
-              {categories.map((category) => (
+              {allCategories.map((category) => (
                 <button
                   key={category.id}
                   onClick={() => handleCategoryClick(category.id)}
@@ -63,6 +57,13 @@
           const [activeCategory, setActiveCategory] = useState('all');
           const [callbackLog, setCallbackLog] = useState([]);
 
+          // Sample categories from the admin portal
+          const sampleCategories = [
+            { id: 1760818634884, name: 'Technologies', slug: 'technologies', description: 'tECH' },
+            { id: 1760820176744, name: 'Social media', slug: 'social-media', description: '' },
+            { id: 1760820932921, name: '2025', slug: '2025', description: '2025' }
+          ];
+
           const handleCategoryChange = (categoryId) => {
             setActiveCategory(categoryId);
             setCallbackLog(prev => [...prev, `Category changed to: ${categoryId} (${new Date().toLocaleTimeString()})`]);
@@ -73,10 +74,11 @@
               <h1 className="text-2xl font-bold mb-6">CategoryFilter Component Test</h1>
 
               <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-                <h2 className="text-lg font-semibold mb-4">Component:</h2>
+                <h2 className="text-lg font-semibold mb-4">Component with Dynamic Categories:</h2>
                 <CategoryFilter
                   onCategoryChange={handleCategoryChange}
                   activeCategory={activeCategory}
+                  categories={sampleCategories}
                 />
               </div>
 

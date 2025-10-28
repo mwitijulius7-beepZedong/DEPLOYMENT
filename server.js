@@ -1086,6 +1086,27 @@ app.get('/api/analytics', requireAuth, async (req, res) => {
   return res.json(analytics);
 });
 
+// Newsletter subscription API
+app.post('/api/subscribe', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email required' });
+    }
+
+    // Store subscription (in production, you'd want to use a proper database)
+    // For now, we'll just log it and return success
+    console.log('New newsletter subscription:', email);
+
+    // You could store this in a file or database
+    // For this demo, we'll just return success
+    return res.json({ success: true, message: 'Subscribed successfully' });
+  } catch (e) {
+    console.error('Subscription error:', e);
+    return res.status(500).json({ error: 'Failed to subscribe' });
+  }
+});
+
 // Export analytics data with optional date filters
 // Query params: dataset=pageViews|interactions|all (default=all), format=json|csv (default=json), from=ISO, to=ISO
 app.get('/api/analytics/export', requireAuth, async (req, res) => {
