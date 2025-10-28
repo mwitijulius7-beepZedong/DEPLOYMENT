@@ -1186,6 +1186,14 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+app.get('/admin.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+app.get('/login.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'login.html'));
+});
+
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => console.log(`Auth server listening on http://localhost:${PORT}`));
 }
