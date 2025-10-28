@@ -29,7 +29,7 @@ if (process.env.MONGODB_URI) {
 }
 
 // Cloudinary configuration
-if (process.env.CLOUDINARY_CLOUD_NAME) {
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -563,8 +563,8 @@ app.post('/api/upload', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'file_too_large', maxBytes: MAX_BYTES });
     }
     
-    // Use Cloudinary if configured
-    if (process.env.CLOUDINARY_CLOUD_NAME) {
+    // Use Cloudinary if configured and not the default 'cloudinary' value
+    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
       const result = await new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream(
           {
@@ -1084,6 +1084,27 @@ app.post('/api/analytics/interaction', async (req, res) => {
 app.get('/api/analytics', requireAuth, async (req, res) => {
   const analytics = await loadAnalytics();
   return res.json(analytics);
+});
+
+// Newsletter subscription API
+app.post('/api/subscribe', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email required' });
+    }
+
+    // Store subscription (in production, you'd want to use a proper database)
+    // For now, we'll just log it and return success
+    console.log('New newsletter subscription:', email);
+
+    // You could store this in a file or database
+    // For this demo, we'll just return success
+    return res.json({ success: true, message: 'Subscribed successfully' });
+  } catch (e) {
+    console.error('Subscription error:', e);
+    return res.status(500).json({ error: 'Failed to subscribe' });
+  }
 });
 
 // Export analytics data with optional date filters

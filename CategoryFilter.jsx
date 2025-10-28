@@ -1,16 +1,10 @@
 import React, { useState, useEffect } from 'react';
 
-const CategoryFilter = ({ onCategoryChange, activeCategory }) => {
-  const categories = [
-    { id: 'all', name: 'All' },
-    { id: 'commercial', name: 'Commercial' },
-    { id: 'design', name: 'Design' },
-    { id: 'nature', name: 'Nature' },
-    { id: 'people', name: 'People' },
-    { id: 'photography', name: 'Photography' },
-    { id: 'tech', name: 'Tech' },
-    { id: 'travel', name: 'Travel' },
-    { id: 'uncategorized', name: 'Uncategorized' }
+const CategoryFilter = ({ onCategoryChange, activeCategory, categories = [] }) => {
+  // Add "All" category and merge with dynamic categories
+  const allCategories = [
+    { id: 'all', name: 'All', slug: 'all', description: 'All posts' },
+    ...categories
   ];
 
   const [localActiveCategory, setLocalActiveCategory] = useState(activeCategory || 'all');
@@ -27,7 +21,7 @@ const CategoryFilter = ({ onCategoryChange, activeCategory }) => {
 
   return (
     <div className="flex flex-wrap gap-2 mb-6">
-      {categories.map((category) => (
+      {allCategories.map((category) => (
         <button
           key={category.id}
           onClick={() => handleCategoryClick(category.id)}
