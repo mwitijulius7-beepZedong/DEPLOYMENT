@@ -465,7 +465,7 @@
                 <a href="#"><span>About</span>ℹ️</a>
                 <input type="email" class="subscription-input" placeholder="Subscribe to newsletter" id="subscriptionEmail">
                 <button class="search-btn">🔍 Search</button>
-                <button class="admin-btn" onclick="window.location.href='/admin.html'">Admin</button>
+                <button class="admin-btn" onclick="openAdminModal()">🔒 Admin</button>
             </nav>
         </div>
     </header>
@@ -712,8 +712,8 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    // Redirect to admin panel or show success
-                    window.location.href = '/admin.html'; // Adjust path as needed
+                    // Redirect to login page after successful key verification
+                    window.location.href = '/login.html';
                 } else {
                     showError('Invalid admin key. Please try again.');
                 }
