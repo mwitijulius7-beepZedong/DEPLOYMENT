@@ -15,3 +15,7 @@ Make the frontend sync with the server API instead of localStorage.
 - [x] Update likePost() and dislikePost() to use server API
 - [x] Update addSamplePosts() to use server API
 - [x] Test the fix by creating a new post and reloading the page
+- [x] Replace hardcoded blog cards in index.html with dynamic loading from /api/posts
+- [x] Add JavaScript to fetch posts on page load and render them
+- [x] Preserve existing filtering functionality with dynamic posts
+- [x] Test post loading from server and verify filtering works
