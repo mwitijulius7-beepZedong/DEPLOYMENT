@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - Blog</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --primary-color: #F4A191;
@@ -209,6 +210,56 @@
             background: #3a7a7a;
         }
 
+        .customize-section {
+            margin-top: 24px;
+        }
+
+        .customize-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+        }
+
+        .customize-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .customize-options label {
+            font-weight: 500;
+            color: var(--text-dark);
+        }
+
+        .customize-options input,
+        .customize-options textarea,
+        .customize-options select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .customize-options textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Chart Styles */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 16px;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .header-content {
@@ -235,6 +286,18 @@
             .actions-grid {
                 grid-template-columns: 1fr;
             }
+
+            .customize-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
+                height: 250px;
+            }
         }
     </style>
 </head>
@@ -249,6 +312,7 @@
                 <a href="#dashboard" class="nav-link active">Dashboard</a>
                 <a href="#posts" class="nav-link">Posts</a>
                 <a href="#settings" class="nav-link">Settings</a>
+                <a href="#analytics" class="nav-link">Analytics</a>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </nav>
         </div>
@@ -279,22 +343,227 @@
             <div class="action-card">
                 <h3>📝 Manage Posts</h3>
                 <p>Create, edit, and delete blog posts. Organize your content and keep your readers engaged.</p>
-                <button class="action-btn" onclick="window.location.href='#posts'">Go to Posts</button>
+                <button class="action-btn" onclick="showPostsSection()">Go to Posts</button>
             </div>
             <div class="action-card">
                 <h3>⚙️ Settings</h3>
                 <p>Configure your blog settings, author information, and security preferences.</p>
-                <button class="action-btn secondary" onclick="window.location.href='#settings'">Go to Settings</button>
+                <button class="action-btn secondary" onclick="showSettingsSection()">Go to Settings</button>
             </div>
             <div class="action-card">
                 <h3>📊 Analytics</h3>
                 <p>View detailed analytics about your blog's performance and reader engagement.</p>
-                <button class="action-btn" onclick="window.location.href='#analytics'">View Analytics</button>
+                <button class="action-btn" onclick="showAnalyticsSection()">View Analytics</button>
             </div>
             <div class="action-card">
                 <h3>🎨 Customize</h3>
                 <p>Customize your blog's appearance with different backgrounds and themes.</p>
-                <button class="action-btn secondary" onclick="window.location.href='#customize'">Customize Blog</button>
+                <button class="action-btn secondary" onclick="showCustomizeSection()">Customize Blog</button>
+            </div>
+        </div>
+
+        <!-- Posts Section -->
+        <div id="posts-section" class="customize-section" style="display: none;">
+            <div class="welcome-section">
+                <h1>📝 Manage Posts</h1>
+                <p>Create, edit, and delete blog posts. Organize your content and keep your readers engaged.</p>
+            </div>
+
+            <div class="customize-grid">
+                <div class="action-card">
+                    <h3>📋 All Posts</h3>
+                    <p>View and manage all your blog posts.</p>
+                    <div id="posts-list" style="margin-top: 16px;">
+                        <!-- Posts will be loaded here -->
+                    </div>
+                    <button class="action-btn" onclick="loadPostsList()">Refresh Posts</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>➕ Create New Post</h3>
+                    <p>Add a new blog post to your collection.</p>
+                    <button class="action-btn" onclick="createNewPost()">Create Post</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>📊 Post Statistics</h3>
+                    <p>View statistics about your posts.</p>
+                    <div class="stat-number" id="total-posts">0</div>
+                    <div class="stat-label">Total Posts</div>
+                    <button class="action-btn secondary" onclick="viewPostStats()">View Stats</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Section -->
+        <div id="analytics-section" class="customize-section" style="display: none;">
+            <div class="welcome-section">
+                <h1>📊 Analytics Dashboard</h1>
+                <p>View detailed analytics about your blog's performance and reader engagement.</p>
+            </div>
+
+            <div class="customize-grid">
+                <div class="action-card">
+                    <h3>📈 Page Views</h3>
+                    <p>Track visitor traffic and page view statistics.</p>
+                    <div class="stat-number" id="analytics-page-views">0</div>
+                    <div class="stat-label">Total Views</div>
+                    <div class="chart-container">
+                        <canvas id="pageViewsChart"></canvas>
+                    </div>
+                    <button class="action-btn" onclick="refreshAnalytics()">Refresh Data</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>👥 User Engagement</h3>
+                    <p>Monitor reader interaction and engagement metrics.</p>
+                    <div class="stat-number" id="analytics-engagement">0%</div>
+                    <div class="stat-label">Engagement Rate</div>
+                    <div class="chart-container">
+                        <canvas id="engagementChart"></canvas>
+                    </div>
+                    <button class="action-btn secondary" onclick="viewEngagementDetails()">View Details</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>📊 Popular Content</h3>
+                    <p>See which posts are performing best.</p>
+                    <div class="chart-container">
+                        <canvas id="popularPostsChart"></canvas>
+                    </div>
+                    <button class="action-btn" onclick="exportAnalytics()">Export Report</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>📅 Time Analytics</h3>
+                    <p>Analyze traffic patterns over time.</p>
+                    <div class="customize-options">
+                        <label>Time Period:</label>
+                        <select id="analytics-period">
+                            <option value="7d">Last 7 days</option>
+                            <option value="30d">Last 30 days</option>
+                            <option value="90d">Last 90 days</option>
+                        </select>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="timeAnalyticsChart"></canvas>
+                    </div>
+                    <button class="action-btn secondary" onclick="loadTimeAnalytics()">Load Analytics</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Section -->
+        <div id="settings-section" class="customize-section" style="display: none;">
+            <div class="welcome-section">
+                <h1>⚙️ Blog Settings</h1>
+                <p>Configure your blog settings, author information, and security preferences.</p>
+            </div>
+
+            <div class="customize-grid">
+                <div class="action-card">
+                    <h3>👤 Author Information</h3>
+                    <p>Update your personal information and bio.</p>
+                    <div class="customize-options">
+                        <label for="author-name">Author Name:</label>
+                        <input type="text" id="author-name" value="zedong254ke" placeholder="Enter author name">
+                        <label for="author-email">Email:</label>
+                        <input type="email" id="author-email" placeholder="Enter email address">
+                        <label for="author-bio">Bio:</label>
+                        <textarea id="author-bio" rows="3" placeholder="Enter author bio">Passionate developer and blogger sharing insights on technology and programming.</textarea>
+                    </div>
+                    <button class="action-btn" onclick="saveAuthorInfo()">Save Author Info</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>🔒 Security Settings</h3>
+                    <p>Manage security preferences and access controls.</p>
+                    <div class="customize-options">
+                        <label for="admin-entry-key">Admin Entry Key:</label>
+                        <input type="password" id="admin-entry-key" placeholder="Enter new admin entry key">
+                        <label for="session-timeout">Session Timeout (minutes):</label>
+                        <input type="number" id="session-timeout" value="30" min="5" max="480">
+                    </div>
+                    <button class="action-btn secondary" onclick="saveSecuritySettings()">Save Security</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>📧 Notification Settings</h3>
+                    <p>Configure email notifications and alerts.</p>
+                    <div class="customize-options">
+                        <label><input type="checkbox" id="email-notifications" checked> Email Notifications</label>
+                        <label><input type="checkbox" id="comment-notifications"> Comment Notifications</label>
+                        <label><input type="checkbox" id="system-alerts" checked> System Alerts</label>
+                    </div>
+                    <button class="action-btn" onclick="saveNotificationSettings()">Save Notifications</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>🗂️ Content Management</h3>
+                    <p>Manage content settings and publishing options.</p>
+                    <div class="customize-options">
+                        <label for="posts-per-page">Posts Per Page:</label>
+                        <input type="number" id="posts-per-page" value="10" min="5" max="50">
+                        <label><input type="checkbox" id="auto-publish" checked> Auto-publish new posts</label>
+                        <label><input type="checkbox" id="enable-comments"> Enable comments</label>
+                    </div>
+                    <button class="action-btn secondary" onclick="saveContentSettings()">Save Content Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customize Section -->
+        <div id="customize-section" class="customize-section" style="display: none;">
+            <div class="welcome-section">
+                <h1>🎨 Customize Your Blog</h1>
+                <p>Personalize your blog's appearance and theme settings.</p>
+            </div>
+
+            <div class="customize-grid">
+                <div class="action-card">
+                    <h3>🎨 Theme Settings</h3>
+                    <p>Change colors, fonts, and overall theme of your blog.</p>
+                    <div class="customize-options">
+                        <label for="primary-color">Primary Color:</label>
+                        <input type="color" id="primary-color" value="#F4A191">
+                        <label for="accent-color">Accent Color:</label>
+                        <input type="color" id="accent-color" value="#4A9B9B">
+                    </div>
+                    <button class="action-btn" onclick="saveThemeSettings()">Save Theme</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>📝 Blog Information</h3>
+                    <p>Update your blog title, description, and author information.</p>
+                    <div class="customize-options">
+                        <label for="blog-title">Blog Title:</label>
+                        <input type="text" id="blog-title" value="zedong254ke" placeholder="Enter blog title">
+                        <label for="blog-description">Description:</label>
+                        <textarea id="blog-description" rows="3" placeholder="Enter blog description">Discover insights, tutorials, and thoughts on web development, programming, and technology.</textarea>
+                    </div>
+                    <button class="action-btn secondary" onclick="saveBlogInfo()">Save Information</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>🖼️ Background Options</h3>
+                    <p>Choose background patterns or upload custom backgrounds.</p>
+                    <div class="customize-options">
+                        <label>Background Style:</label>
+                        <select id="background-style">
+                            <option value="gradient">Gradient</option>
+                            <option value="solid">Solid Color</option>
+                            <option value="pattern">Pattern</option>
+                        </select>
+                    </div>
+                    <button class="action-btn" onclick="saveBackgroundSettings()">Save Background</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>🔄 Preview Changes</h3>
+                    <p>See how your changes look before applying them.</p>
+                    <button class="action-btn secondary" onclick="previewChanges()">Preview</button>
+                    <button class="action-btn" onclick="applyChanges()">Apply All Changes</button>
+                </div>
             </div>
         </div>
     </div>
@@ -353,8 +622,435 @@
             }
         }
 
+        // Show customize section
+        function showCustomizeSection() {
+            const customizeSection = document.getElementById('customize-section');
+            if (customizeSection.style.display === 'block') {
+                customizeSection.style.display = 'none';
+            } else {
+                customizeSection.style.display = 'block';
+                customizeSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Save theme settings
+        async function saveThemeSettings() {
+            const primaryColor = document.getElementById('primary-color').value;
+            const accentColor = document.getElementById('accent-color').value;
+
+            try {
+                const response = await fetch('/api/settings/theme', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ primaryColor, accentColor })
+                });
+
+                if (response.ok) {
+                    alert('Theme settings saved successfully!');
+                } else {
+                    alert('Failed to save theme settings.');
+                }
+            } catch (error) {
+                console.error('Error saving theme settings:', error);
+                alert('Error saving theme settings.');
+            }
+        }
+
+        // Save blog information
+        async function saveBlogInfo() {
+            const blogTitle = document.getElementById('blog-title').value;
+            const blogDescription = document.getElementById('blog-description').value;
+
+            try {
+                const response = await fetch('/api/settings/blog-info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ blogTitle, blogDescription })
+                });
+
+                if (response.ok) {
+                    alert('Blog information saved successfully!');
+                } else {
+                    alert('Failed to save blog information.');
+                }
+            } catch (error) {
+                console.error('Error saving blog information:', error);
+                alert('Error saving blog information.');
+            }
+        }
+
+        // Save background settings
+        async function saveBackgroundSettings() {
+            const backgroundStyle = document.getElementById('background-style').value;
+
+            try {
+                const response = await fetch('/api/settings/background', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ backgroundStyle })
+                });
+
+                if (response.ok) {
+                    alert('Background settings saved successfully!');
+                } else {
+                    alert('Failed to save background settings.');
+                }
+            } catch (error) {
+                console.error('Error saving background settings:', error);
+                alert('Error saving background settings.');
+            }
+        }
+
+        // Preview changes
+        function previewChanges() {
+            const primaryColor = document.getElementById('primary-color').value;
+            const accentColor = document.getElementById('accent-color').value;
+
+            // Temporarily apply colors for preview
+            document.documentElement.style.setProperty('--primary-color', primaryColor);
+            document.documentElement.style.setProperty('--accent-color', accentColor);
+
+            alert('Preview applied! Click "Apply All Changes" to save permanently.');
+        }
+
+        // Apply all changes
+        async function applyChanges() {
+            // Save all settings
+            await saveThemeSettings();
+            await saveBlogInfo();
+            await saveBackgroundSettings();
+
+            alert('All changes applied successfully!');
+        }
+
+        // Analytics functions
+        async function refreshAnalytics() {
+            try {
+                const analyticsResponse = await fetch('/api/analytics');
+                const analyticsData = await analyticsResponse.json();
+
+                document.getElementById('analytics-page-views').textContent = analyticsData.pageViews?.length || 0;
+                document.getElementById('analytics-engagement').textContent = analyticsData.engagementRate || '0%';
+
+                alert('Analytics data refreshed successfully!');
+            } catch (error) {
+                console.error('Failed to refresh analytics:', error);
+                alert('Failed to refresh analytics data.');
+            }
+        }
+
+        async function viewEngagementDetails() {
+            try {
+                const response = await fetch('/api/analytics/engagement');
+                const data = await response.json();
+
+                alert(`Engagement Details:\n- Total Interactions: ${data.totalInteractions || 0}\n- Average Time: ${data.averageTime || 0}s\n- Bounce Rate: ${data.bounceRate || 0}%`);
+            } catch (error) {
+                console.error('Failed to load engagement details:', error);
+                alert('Failed to load engagement details.');
+            }
+        }
+
+        async function exportAnalytics() {
+            try {
+                const response = await fetch('/api/analytics/export');
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'analytics-report.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    alert('Failed to export analytics report.');
+                }
+            } catch (error) {
+                console.error('Failed to export analytics:', error);
+                alert('Failed to export analytics report.');
+            }
+        }
+
+        async function loadTimeAnalytics() {
+            const period = document.getElementById('analytics-period').value;
+            try {
+                const response = await fetch(`/api/analytics/time?period=${period}`);
+                const data = await response.json();
+
+                alert(`Time Analytics for ${period}:\n- Total Views: ${data.totalViews || 0}\n- Peak Hours: ${data.peakHours || 'N/A'}\n- Growth Rate: ${data.growthRate || 0}%`);
+            } catch (error) {
+                console.error('Failed to load time analytics:', error);
+                alert('Failed to load time analytics.');
+            }
+        }
+
+        // Show analytics section
+        function showAnalyticsSection() {
+            const analyticsSection = document.getElementById('analytics-section');
+            if (analyticsSection.style.display === 'block') {
+                analyticsSection.style.display = 'none';
+            } else {
+                analyticsSection.style.display = 'block';
+                analyticsSection.scrollIntoView({ behavior: 'smooth' });
+                // Load initial analytics data
+                refreshAnalytics();
+                // Initialize charts
+                initializeCharts();
+            }
+        }
+
+        // Show posts section
+        function showPostsSection() {
+            const postsSection = document.getElementById('posts-section');
+            if (postsSection.style.display === 'block') {
+                postsSection.style.display = 'none';
+            } else {
+                postsSection.style.display = 'block';
+                postsSection.scrollIntoView({ behavior: 'smooth' });
+                // Load posts data
+                loadPostsList();
+            }
+        }
+
+        // Load posts list
+        async function loadPostsList() {
+            try {
+                const response = await fetch('/api/posts');
+                const data = await response.json();
+                const postsList = document.getElementById('posts-list');
+                const totalPosts = document.getElementById('total-posts');
+
+                if (data.posts && data.posts.length > 0) {
+                    postsList.innerHTML = data.posts.map(post => `
+                        <div class="post-item" style="padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; background: #f9f9f9;">
+                            <h4 style="margin: 0 0 8px 0; font-size: 16px;">${post.title}</h4>
+                            <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">${post.content ? post.content.substring(0, 100) + '...' : 'No content'}</p>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="action-btn" style="padding: 6px 12px; font-size: 12px;" onclick="editPost('${post.id}')">Edit</button>
+                                <button class="action-btn secondary" style="padding: 6px 12px; font-size: 12px;" onclick="deletePost('${post.id}')">Delete</button>
+                            </div>
+                        </div>
+                    `).join('');
+                    totalPosts.textContent = data.posts.length;
+                } else {
+                    postsList.innerHTML = '<p>No posts found.</p>';
+                    totalPosts.textContent = '0';
+                }
+            } catch (error) {
+                console.error('Failed to load posts:', error);
+                document.getElementById('posts-list').innerHTML = '<p>Error loading posts.</p>';
+            }
+        }
+
+        // Create new post
+        function createNewPost() {
+            alert('Create new post functionality - This would open a form to create a new post');
+        }
+
+        // Edit post
+        function editPost(postId) {
+            alert(`Edit post functionality - This would open a form to edit post with ID: ${postId}`);
+        }
+
+        // Delete post
+        async function deletePost(postId) {
+            if (confirm('Are you sure you want to delete this post?')) {
+                try {
+                    const response = await fetch(`/api/posts/${postId}`, {
+                        method: 'DELETE',
+                        credentials: 'include'
+                    });
+
+                    if (response.ok) {
+                        alert('Post deleted successfully!');
+                        loadPostsList(); // Refresh the list
+                    } else {
+                        alert('Failed to delete post.');
+                    }
+                } catch (error) {
+                    console.error('Error deleting post:', error);
+                    alert('Error deleting post.');
+                }
+            }
+        }
+
+        // View post stats
+        function viewPostStats() {
+            alert('View post statistics functionality - This would show detailed statistics about posts');
+        }
+
+        // Show settings section
+        function showSettingsSection() {
+            const settingsSection = document.getElementById('settings-section');
+            if (settingsSection.style.display === 'block') {
+                settingsSection.style.display = 'none';
+            } else {
+                settingsSection.style.display = 'block';
+                settingsSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Chart initialization functions
+        function initializeCharts() {
+            // Page Views Chart
+            const pageViewsCtx = document.getElementById('pageViewsChart').getContext('2d');
+            new Chart(pageViewsCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Page Views',
+                        data: [12, 19, 3, 5, 2, 3, 9],
+                        borderColor: 'rgb(244, 161, 145)',
+                        backgroundColor: 'rgba(244, 161, 145, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Engagement Chart
+            const engagementCtx = document.getElementById('engagementChart').getContext('2d');
+            new Chart(engagementCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Engaged', 'Not Engaged'],
+                    datasets: [{
+                        data: [65, 35],
+                        backgroundColor: [
+                            'rgb(244, 161, 145)',
+                            'rgb(116, 155, 155)'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Popular Posts Chart
+            const popularPostsCtx = document.getElementById('popularPostsChart').getContext('2d');
+            new Chart(popularPostsCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Post 1', 'Post 2', 'Post 3', 'Post 4', 'Post 5'],
+                    datasets: [{
+                        label: 'Views',
+                        data: [120, 95, 80, 65, 45],
+                        backgroundColor: 'rgb(244, 161, 145)',
+                        borderRadius: 4,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Time Analytics Chart
+            const timeAnalyticsCtx = document.getElementById('timeAnalyticsChart').getContext('2d');
+            new Chart(timeAnalyticsCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [{
+                        label: 'Views',
+                        data: [45, 59, 80, 81],
+                        borderColor: 'rgb(116, 155, 155)',
+                        backgroundColor: 'rgba(116, 155, 155, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         // Initialize
         checkAuth();
+
+        // Initialize charts when analytics section is shown
+        document.addEventListener('DOMContentLoaded', function() {
+            // Charts will be initialized when analytics data is loaded
+        });
     </script>
 </body>
 </html>
