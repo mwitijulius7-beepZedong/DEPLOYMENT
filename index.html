@@ -789,10 +789,80 @@
             });
         });
 
-        // Search button (placeholder)
+        // Search functionality
+        let searchQuery = '';
+
         document.querySelector('.search-btn').addEventListener('click', () => {
-            alert('Search functionality - Connect to your search implementation');
+            const query = prompt('Enter search terms:');
+            if (query !== null && query.trim() !== '') {
+                performSearch(query.trim());
+            }
         });
+
+        function performSearch(query) {
+            searchQuery = query.toLowerCase();
+
+            // Filter posts based on search query
+            const filteredPosts = allPosts.filter(post => {
+                const titleMatch = post.title && post.title.toLowerCase().includes(searchQuery);
+                const contentMatch = post.content && post.content.toLowerCase().includes(searchQuery);
+                const tagsMatch = post.tags && post.tags.some(tag => tag.toLowerCase().includes(searchQuery));
+                const authorMatch = post.author && post.author.toLowerCase().includes(searchQuery);
+
+                return titleMatch || contentMatch || tagsMatch || authorMatch;
+            });
+
+            // Update current filter to 'search' and render filtered posts
+            currentFilter = 'search';
+            renderSearchResults(filteredPosts, query);
+
+            // Scroll to results
+            document.getElementById('blog-grid').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function renderSearchResults(filteredPosts, query) {
+            const grid = document.getElementById('blog-grid');
+
+            if (filteredPosts.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No posts found for "${query}"</h3>
+                        <p>Try different search terms or check your spelling.</p>
+                        <button class="filter-tag active" onclick="clearSearch()">Clear Search</button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Add search results header
+            const resultsHeader = `
+                <div style="margin-bottom: 24px; text-align: center;">
+                    <h2 style="color: var(--text-dark); margin-bottom: 8px;">Search Results for "${query}"</h2>
+                    <p style="color: var(--text-medium); margin-bottom: 16px;">Found ${filteredPosts.length} post${filteredPosts.length !== 1 ? 's' : ''}</p>
+                    <button class="filter-tag active" onclick="clearSearch()">Clear Search</button>
+                </div>
+            `;
+
+            grid.innerHTML = resultsHeader + filteredPosts.map(post => createPostCard(post)).join('');
+            attachCardEventListeners();
+        }
+
+        function clearSearch() {
+            searchQuery = '';
+            currentFilter = 'all';
+
+            // Reset filter tags
+            const filterTags = document.querySelectorAll('.filter-tag');
+            filterTags.forEach(tag => {
+                if (tag.textContent.toLowerCase() === 'all') {
+                    tag.classList.add('active');
+                } else {
+                    tag.classList.remove('active');
+                }
+            });
+
+            renderPosts();
+        }
 
         // Newsletter subscription
         const subscriptionInput = document.getElementById('subscriptionEmail');
