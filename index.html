@@ -916,10 +916,14 @@
         // Admin authentication check
         async function checkAdminAuth() {
             try {
-                const response = await fetch('/api/auth/check', {
+                const response = await fetch('/auth/status', {
                     credentials: 'include'
                 });
-                return response.ok;
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.loggedIn === true;
+                }
+                return false;
             } catch (error) {
                 console.log('Auth check failed:', error);
                 return false;
