@@ -1,12 +1,15 @@
-# TODO: Fix "Read More" Functionality
+# TODO: Enable Viewing Admin Entry Key
 
-## Tasks
-- [x] Create `post.html` page for full post view with responsive design
-- [x] Update `server.js` to add GET `/api/posts/:id` endpoint
-- [x] Update `server.js` to add route for serving `post.html`
-- [x] Update `index.html` to change "Read more" links to navigate to `post.html?id=<post_id>`
+## Current Task: Add View/Clear Functionality for Admin Entry Key
 
-## Followup Steps
-- [ ] Test navigation from blog grid to full post page
-- [ ] Test full post content display
-- [ ] Ensure consistent styling with blog theme
+### Steps to Complete:
+- [ ] Add "View Current Key" button to Security Settings section in admin.html
+- [ ] Add "Clear Key" button to Security Settings section in admin.html
+- [ ] Implement `viewCurrentKey()` JavaScript function to prompt for password and fetch key
+- [ ] Implement `clearKey()` JavaScript function to clear the key input and save
+- [ ] Test the functionality in the admin panel
+
+### Notes:
+- Server endpoint `/api/settings/security/key-view` requires POST with username and password
+- View function should display key in alert after successful authentication
+- Clear function should reset input to empty and save settings
