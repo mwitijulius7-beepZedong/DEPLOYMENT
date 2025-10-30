@@ -639,12 +639,8 @@
 
         <div class="filter-bar">
             <span>Filter by:</span>
-            <button class="filter-tag active">All</button>
-            <button class="filter-tag">Web Development</button>
-            <button class="filter-tag">JavaScript</button>
-            <button class="filter-tag">Vue.js</button>
-            <button class="filter-tag">Programming</button>
-            <button class="filter-tag">Technology</button>
+            <button class="filter-tag active" data-category="all">All</button>
+            <!-- Categories will be loaded dynamically here -->
         </div>
 
         <div class="blog-grid" id="blog-grid">
@@ -687,25 +683,7 @@
             }
         }
 
-        // Render posts based on current filter
-        function renderPosts() {
-            const grid = document.getElementById('blog-grid');
-            const filteredPosts = currentFilter === 'all'
-                ? allPosts
-                : allPosts.filter(post =>
-                    post.tags && post.tags.some(tag =>
-                        tag.toLowerCase().includes(currentFilter.toLowerCase())
-                    )
-                );
 
-            if (filteredPosts.length === 0) {
-                grid.innerHTML = '<div class="empty-state"><h3>No posts found</h3><p>Try adjusting your filter or check back later.</p></div>';
-                return;
-            }
-
-            grid.innerHTML = filteredPosts.map(post => createPostCard(post)).join('');
-            attachCardEventListeners();
-        }
 
         // Create HTML for a single post card
         function createPostCard(post) {
@@ -752,11 +730,9 @@
                 // Make entire card clickable
                 card.addEventListener('click', (e) => {
                     if (!e.target.classList.contains('tag')) {
-                        const link = card.querySelector('.read-more');
-                        if (link) {
-                            // For now, just prevent default - could link to full post view
-                            e.preventDefault();
-                            console.log('Read more clicked for post:', card.dataset.postId);
+                        const postId = card.dataset.postId;
+                        if (postId) {
+                            window.location.href = `/post.html?id=${postId}`;
                         }
                     }
                 });
@@ -764,10 +740,9 @@
                 // Keyboard support
                 card.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
-                        const link = card.querySelector('.read-more');
-                        if (link) {
-                            e.preventDefault();
-                            console.log('Read more clicked for post:', card.dataset.postId);
+                        const postId = card.dataset.postId;
+                        if (postId) {
+                            window.location.href = `/post.html?id=${postId}`;
                         }
                     }
                 });
@@ -789,10 +764,80 @@
             });
         });
 
-        // Search button (placeholder)
+        // Search functionality
+        let searchQuery = '';
+
         document.querySelector('.search-btn').addEventListener('click', () => {
-            alert('Search functionality - Connect to your search implementation');
+            const query = prompt('Enter search terms:');
+            if (query !== null && query.trim() !== '') {
+                performSearch(query.trim());
+            }
         });
+
+        function performSearch(query) {
+            searchQuery = query.toLowerCase();
+
+            // Filter posts based on search query
+            const filteredPosts = allPosts.filter(post => {
+                const titleMatch = post.title && post.title.toLowerCase().includes(searchQuery);
+                const contentMatch = post.content && post.content.toLowerCase().includes(searchQuery);
+                const tagsMatch = post.tags && post.tags.some(tag => tag.toLowerCase().includes(searchQuery));
+                const authorMatch = post.author && post.author.toLowerCase().includes(searchQuery);
+
+                return titleMatch || contentMatch || tagsMatch || authorMatch;
+            });
+
+            // Update current filter to 'search' and render filtered posts
+            currentFilter = 'search';
+            renderSearchResults(filteredPosts, query);
+
+            // Scroll to results
+            document.getElementById('blog-grid').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function renderSearchResults(filteredPosts, query) {
+            const grid = document.getElementById('blog-grid');
+
+            if (filteredPosts.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No posts found for "${query}"</h3>
+                        <p>Try different search terms or check your spelling.</p>
+                        <button class="filter-tag active" onclick="clearSearch()">Clear Search</button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Add search results header
+            const resultsHeader = `
+                <div style="margin-bottom: 24px; text-align: center;">
+                    <h2 style="color: var(--text-dark); margin-bottom: 8px;">Search Results for "${query}"</h2>
+                    <p style="color: var(--text-medium); margin-bottom: 16px;">Found ${filteredPosts.length} post${filteredPosts.length !== 1 ? 's' : ''}</p>
+                    <button class="filter-tag active" onclick="clearSearch()">Clear Search</button>
+                </div>
+            `;
+
+            grid.innerHTML = resultsHeader + filteredPosts.map(post => createPostCard(post)).join('');
+            attachCardEventListeners();
+        }
+
+        function clearSearch() {
+            searchQuery = '';
+            currentFilter = 'all';
+
+            // Reset filter tags
+            const filterTags = document.querySelectorAll('.filter-tag');
+            filterTags.forEach(tag => {
+                if (tag.textContent.toLowerCase() === 'all') {
+                    tag.classList.add('active');
+                } else {
+                    tag.classList.remove('active');
+                }
+            });
+
+            renderPosts();
+        }
 
         // Newsletter subscription
         const subscriptionInput = document.getElementById('subscriptionEmail');
@@ -958,9 +1003,102 @@
             window.location.href = '/admin.html#customize';
         }
 
+        // Load categories from server
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/categories');
+                const data = await response.json();
+                const categories = data.categories || [];
+                renderCategoryFilters(categories);
+            } catch (error) {
+                console.error('Failed to load categories:', error);
+            }
+        }
+
+        // Render category filter buttons
+        function renderCategoryFilters(categories) {
+            const filterBar = document.querySelector('.filter-bar');
+            const allButton = filterBar.querySelector('[data-category="all"]');
+
+            // Clear existing category buttons (except "All")
+            const existingCategoryButtons = filterBar.querySelectorAll('.filter-tag:not([data-category="all"])');
+            existingCategoryButtons.forEach(btn => btn.remove());
+
+            // Add category buttons
+            categories.forEach(category => {
+                const button = document.createElement('button');
+                button.className = 'filter-tag';
+                button.textContent = category.name;
+                button.dataset.category = category.id.toString();
+                button.addEventListener('click', () => handleCategoryFilter(category.id.toString()));
+                filterBar.appendChild(button);
+            });
+
+            // Re-attach event listeners for all filter tags
+            attachFilterEventListeners();
+        }
+
+        // Handle category filter click
+        function handleCategoryFilter(categoryId) {
+            // Remove active class from all tags
+            const filterTags = document.querySelectorAll('.filter-tag');
+            filterTags.forEach(tag => tag.classList.remove('active'));
+
+            // Add active class to clicked tag
+            const clickedTag = document.querySelector(`[data-category="${categoryId}"]`);
+            if (clickedTag) {
+                clickedTag.classList.add('active');
+            }
+
+            currentFilter = categoryId;
+            renderPosts();
+        }
+
+        // Attach event listeners to filter tags
+        function attachFilterEventListeners() {
+            const filterTags = document.querySelectorAll('.filter-tag');
+
+            filterTags.forEach(tag => {
+                tag.addEventListener('click', () => {
+                    // Remove active class from all tags
+                    filterTags.forEach(t => t.classList.remove('active'));
+                    // Add active class to clicked tag
+                    tag.classList.add('active');
+
+                    currentFilter = tag.dataset.category || tag.textContent.toLowerCase();
+                    renderPosts();
+                });
+            });
+        }
+
+        // Update renderPosts to handle category filtering
+        function renderPosts() {
+            const grid = document.getElementById('blog-grid');
+            let filteredPosts = allPosts;
+
+            if (currentFilter === 'all') {
+                filteredPosts = allPosts;
+            } else if (currentFilter === 'search') {
+                // Search filtering is handled separately
+                return;
+            } else {
+                // Filter by category ID
+                filteredPosts = allPosts.filter(post => post.categoryId == currentFilter);
+            }
+
+            if (filteredPosts.length === 0) {
+                grid.innerHTML = '<div class="empty-state"><h3>No posts found</h3><p>Try adjusting your filter or check back later.</p></div>';
+                return;
+            }
+
+            grid.innerHTML = filteredPosts.map(post => createPostCard(post)).join('');
+            attachCardEventListeners();
+        }
+
         // Load posts when page loads
         document.addEventListener('DOMContentLoaded', function() {
             loadPosts();
+            loadCategories();
             showAdminWelcome(); // Check and show admin section
         });
     </script>
