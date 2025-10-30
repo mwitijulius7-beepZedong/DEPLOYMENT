@@ -1,10 +1,12 @@
-# TODO: Add Welcoming Header Section for Admin Users
+# TODO: Fix "Read More" Functionality
 
-## Tasks:
-- [x] Add HTML structure for welcoming header section between header and hero
-- [x] Add CSS styles for the welcoming section (gradient background, responsive design)
-- [x] Add JavaScript authentication check to show/hide section for admin users
-- [x] Add navigation buttons for Dashboard, Settings, Analytics, Customize Blog
-- [x] Test the section displays correctly on different screen sizes
-- [x] Verify authentication check works properly
-- [x] Test navigation links work correctly
+## Tasks
+- [x] Create `post.html` page for full post view with responsive design
+- [x] Update `server.js` to add GET `/api/posts/:id` endpoint
+- [x] Update `server.js` to add route for serving `post.html`
+- [x] Update `index.html` to change "Read more" links to navigate to `post.html?id=<post_id>`
+
+## Followup Steps
+- [ ] Test navigation from blog grid to full post page
+- [ ] Test full post content display
+- [ ] Ensure consistent styling with blog theme

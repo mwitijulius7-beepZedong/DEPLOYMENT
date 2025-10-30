@@ -730,11 +730,9 @@
                 // Make entire card clickable
                 card.addEventListener('click', (e) => {
                     if (!e.target.classList.contains('tag')) {
-                        const link = card.querySelector('.read-more');
-                        if (link) {
-                            // For now, just prevent default - could link to full post view
-                            e.preventDefault();
-                            console.log('Read more clicked for post:', card.dataset.postId);
+                        const postId = card.dataset.postId;
+                        if (postId) {
+                            window.location.href = `/post.html?id=${postId}`;
                         }
                     }
                 });
@@ -742,10 +740,9 @@
                 // Keyboard support
                 card.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
-                        const link = card.querySelector('.read-more');
-                        if (link) {
-                            e.preventDefault();
-                            console.log('Read more clicked for post:', card.dataset.postId);
+                        const postId = card.dataset.postId;
+                        if (postId) {
+                            window.location.href = `/post.html?id=${postId}`;
                         }
                     }
                 });

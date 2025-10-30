@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post - zedong254ke Blog</title>
+    <style>
+        :root {
+            --primary-color: #F4A191;
+            --accent-color: #4A9B9B;
+            --bg-color: #F8F9FA;
+            --card-bg: #FFFFFF;
+            --text-dark: #2C3E50;
+            --text-medium: #6C757D;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.15);
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        /* Header Styles */
+        header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #F6B8A9 100%);
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 80px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .logo img {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        nav {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+
+        nav a:hover, nav a:focus-visible {
+            background: rgba(255,255,255,0.2);
+            outline: none;
+        }
+
+        .back-btn {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: var(--transition);
+            margin-left: 16px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        /* Main Content */
+        main {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        .post-container {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .post-header {
+            padding: 32px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .post-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--text-dark);
+            line-height: 1.2;
+        }
+
+        .post-meta {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            font-size: 14px;
+            color: var(--text-medium);
+            margin-bottom: 16px;
+        }
+
+        .post-image {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+        }
+
+        .post-content {
+            padding: 32px;
+            font-size: 18px;
+            line-height: 1.8;
+            color: var(--text-dark);
+        }
+
+        .post-content h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin: 32px 0 16px 0;
+            color: var(--text-dark);
+        }
+
+        .post-content h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 24px 0 12px 0;
+            color: var(--text-dark);
+        }
+
+        .post-content p {
+            margin-bottom: 20px;
+        }
+
+        .post-content ul, .post-content ol {
+            margin-bottom: 20px;
+            padding-left: 24px;
+        }
+
+        .post-content li {
+            margin-bottom: 8px;
+        }
+
+        .post-content blockquote {
+            border-left: 4px solid var(--primary-color);
+            padding-left: 20px;
+            margin: 24px 0;
+            font-style: italic;
+            color: var(--text-medium);
+        }
+
+        .post-content code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+
+        .post-content pre {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+
+        .post-content pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .post-tags {
+            padding: 0 32px 32px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .tags-list {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            padding: 6px 16px;
+            border-radius: 20px;
+            background: #FFF5F3;
+            border: 1px solid var(--primary-color);
+            color: var(--text-dark);
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .tag:hover {
+            background: #FFE8E3;
+        }
+
+        /* Loading & Error States */
+        .loading {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--text-medium);
+        }
+
+        .error {
+            text-align: center;
+            padding: 80px 20px;
+            color: #dc2626;
+        }
+
+        .error h2 {
+            color: #dc2626;
+            margin-bottom: 16px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header-container {
+                padding: 0 16px;
+            }
+
+            .logo h1 {
+                font-size: 20px;
+            }
+
+            nav {
+                gap: 16px;
+            }
+
+            nav a span {
+                display: none;
+            }
+
+            main {
+                padding: 24px 16px;
+            }
+
+            .post-header {
+                padding: 24px;
+            }
+
+            .post-title {
+                font-size: 2rem;
+            }
+
+            .post-content {
+                padding: 24px;
+                font-size: 16px;
+            }
+
+            .post-image {
+                height: 250px;
+            }
+        }
+
+        /* Smooth scroll */
+        html {
+            scroll-behavior: smooth;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <a href="/" class="logo">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile picture">
+                <h1>zedong254ke</h1>
+            </a>
+            <nav>
+                <a href="/"><span>Home</span>🏠</a>
+                <a href="/"><span>Blog</span>📝</a>
+                <a href="/"><span>About</span>ℹ️</a>
+                <button class="back-btn" onclick="goBack()">← Back to Blog</button>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div id="post-container" class="post-container">
+            <!-- Post content will be loaded here -->
+        </div>
+    </main>
+
+    <script>
+        // Get post ID from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const postId = urlParams.get('id');
+
+        if (!postId) {
+            showError('No post ID provided');
+        } else {
+            loadPost(postId);
+        }
+
+        async function loadPost(id) {
+            try {
+                const response = await fetch(`/api/posts/${id}`);
+                if (!response.ok) {
+                    throw new Error(`Post not found (${response.status})`);
+                }
+                const data = await response.json();
+                renderPost(data.post);
+            } catch (error) {
+                console.error('Failed to load post:', error);
+                showError('Failed to load post. It may have been deleted or the link is invalid.');
+            }
+        }
+
+        function renderPost(post) {
+            const container = document.getElementById('post-container');
+
+            const date = new Date(post.date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            // Calculate reading time (rough estimate: 200 words per minute)
+            const wordCount = post.content ? post.content.split(/\s+/).length : 0;
+            const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+
+            const tags = post.tags && post.tags.length > 0
+                ? post.tags.map(tag => `<a href="/?search=${encodeURIComponent(tag)}" class="tag">${tag}</a>`).join('')
+                : '';
+
+            const imageHtml = post.image
+                ? `<img src="${post.image}" alt="${post.title}" class="post-image">`
+                : '';
+
+            container.innerHTML = `
+                <div class="post-header">
+                    <h1 class="post-title">${post.title}</h1>
+                    <div class="post-meta">
+                        <span>${date} · ${post.author || 'Admin'}</span>
+                        <span>📖 ${readingTime} min read</span>
+                    </div>
+                </div>
+                ${imageHtml}
+                <div class="post-content">
+                    ${post.content || '<p>No content available.</p>'}
+                </div>
+                ${tags ? `<div class="post-tags"><div class="tags-list">${tags}</div></div>` : ''}
+            `;
+        }
+
+        function showError(message) {
+            const container = document.getElementById('post-container');
+            container.innerHTML = `
+                <div class="error">
+                    <h2>Post Not Found</h2>
+                    <p>${message}</p>
+                    <button class="back-btn" onclick="goBack()" style="margin-top: 20px;">← Back to Blog</button>
+                </div>
+            `;
+        }
+
+        function goBack() {
+            window.location.href = '/';
+        }
+
+        // Show loading state initially
+        document.getElementById('post-container').innerHTML = `
+            <div class="loading">
+                <h2>Loading post...</h2>
+            </div>
+        `;
+    </script>
+</body>
+</html>

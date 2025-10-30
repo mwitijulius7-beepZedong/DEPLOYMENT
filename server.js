@@ -474,6 +474,14 @@ app.get('/api/posts', async (req, res) => {
   return res.json({ posts });
 });
 
+app.get('/api/posts/:id', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const posts = await loadPosts();
+  const post = posts.find(p => p.id === id);
+  if (!post) return res.status(404).json({ error: 'Post not found' });
+  return res.json({ post });
+});
+
 app.post('/api/posts', requireAuth, async (req, res) => {
   const body = req.body;
   if (!body || !body.title || !body.content) return res.status(400).json({ error: 'missing title or content' });
@@ -1192,6 +1200,10 @@ app.get('/admin.html', (req, res) => {
 
 app.get('/login.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'login.html'));
+});
+
+app.get('/post.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'post.html'));
 });
 
 if (process.env.NODE_ENV !== 'production') {
