@@ -709,6 +709,64 @@ app.post('/api/settings/backgrounds', requireAuth, (req, res) => {
   }
 });
 
+// Theme settings API
+app.get('/api/settings/theme', async (req, res) => {
+  try {
+    // For Vercel, use MongoDB if available
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'theme' });
+      const theme = result?.theme || { primaryColor: '#F4A191', accentColor: '#4A9B9B' };
+      return res.json({ theme });
+    }
+
+    // Local development
+    const settings = readSettings();
+    const theme = settings.theme || { primaryColor: '#F4A191', accentColor: '#4A9B9B' };
+    return res.json({ theme });
+  } catch (e) {
+    console.error('Error reading theme settings:', e);
+    const theme = { primaryColor: '#F4A191', accentColor: '#4A9B9B' };
+    return res.json({ theme });
+  }
+});
+
+app.post('/api/settings/theme', requireAuth, async (req, res) => {
+  try {
+    // For Vercel, use MongoDB if available
+    if (process.env.VERCEL && db) {
+      const payload = req.body && req.body.theme ? req.body.theme : req.body;
+      if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
+
+      const theme = {
+        primaryColor: String(payload.primaryColor || '#F4A191'),
+        accentColor: String(payload.accentColor || '#4A9B9B')
+      };
+
+      await db.collection('settings').updateOne(
+        { type: 'theme' },
+        { $set: { theme, updatedAt: new Date() } },
+        { upsert: true }
+      );
+
+      return res.json({ success: true, theme });
+    }
+
+    // Local development
+    const payload = req.body && req.body.theme ? req.body.theme : req.body;
+    if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
+    const settings = readSettings();
+    settings.theme = {
+      primaryColor: String(payload.primaryColor || '#F4A191'),
+      accentColor: String(payload.accentColor || '#4A9B9B')
+    };
+    writeSettings(settings);
+    return res.json({ success: true, theme: settings.theme });
+  } catch (e) {
+    console.error('Error saving theme settings:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
 // Author settings API
 app.get('/api/settings/author', async (req, res) => {
   try {
@@ -718,7 +776,7 @@ app.get('/api/settings/author', async (req, res) => {
       const author = result?.author || { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
       return res.json({ author });
     }
-    
+
     // Local development
     const settings = readSettings();
     const author = settings.author || { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
@@ -730,13 +788,71 @@ app.get('/api/settings/author', async (req, res) => {
   }
 });
 
+// Blog info settings API
+app.get('/api/settings/blog-info', async (req, res) => {
+  try {
+    // For Vercel, use MongoDB if available
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'blog-info' });
+      const blogInfo = result?.blogInfo || { title: 'zedong254ke', description: 'Discover insights, tutorials, and thoughts on web development, programming, and technology.' };
+      return res.json({ blogInfo });
+    }
+
+    // Local development
+    const settings = readSettings();
+    const blogInfo = settings.blogInfo || { title: 'zedong254ke', description: 'Discover insights, tutorials, and thoughts on web development, programming, and technology.' };
+    return res.json({ blogInfo });
+  } catch (e) {
+    console.error('Error reading blog info settings:', e);
+    const blogInfo = { title: 'zedong254ke', description: 'Discover insights, tutorials, and thoughts on web development, programming, and technology.' };
+    return res.json({ blogInfo });
+  }
+});
+
+app.post('/api/settings/blog-info', requireAuth, async (req, res) => {
+  try {
+    // For Vercel, use MongoDB if available
+    if (process.env.VERCEL && db) {
+      const payload = req.body && req.body.blogInfo ? req.body.blogInfo : req.body;
+      if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
+
+      const blogInfo = {
+        title: String(payload.title || 'zedong254ke'),
+        description: String(payload.description || 'Discover insights, tutorials, and thoughts on web development, programming, and technology.')
+      };
+
+      await db.collection('settings').updateOne(
+        { type: 'blog-info' },
+        { $set: { blogInfo, updatedAt: new Date() } },
+        { upsert: true }
+      );
+
+      return res.json({ success: true, blogInfo });
+    }
+
+    // Local development
+    const payload = req.body && req.body.blogInfo ? req.body.blogInfo : req.body;
+    if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
+    const settings = readSettings();
+    settings.blogInfo = {
+      title: String(payload.title || 'zedong254ke'),
+      description: String(payload.description || 'Discover insights, tutorials, and thoughts on web development, programming, and technology.')
+    };
+    writeSettings(settings);
+    return res.json({ success: true, blogInfo: settings.blogInfo });
+  } catch (e) {
+    console.error('Error saving blog info settings:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
 app.post('/api/settings/author', requireAuth, async (req, res) => {
   try {
     // For Vercel, use MongoDB if available
     if (process.env.VERCEL && db) {
       const payload = req.body && req.body.author ? req.body.author : req.body;
       if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
-      
+
       const author = {
         name: String(payload.name || ''),
         email: String(payload.email || ''),
@@ -750,16 +866,16 @@ app.post('/api/settings/author', requireAuth, async (req, res) => {
           website: String(payload.social?.website || '')
         }
       };
-      
+
       await db.collection('settings').updateOne(
         { type: 'author' },
         { $set: { author, updatedAt: new Date() } },
         { upsert: true }
       );
-      
+
       return res.json({ success: true, author });
     }
-    
+
     // Local development
     const payload = req.body && req.body.author ? req.body.author : req.body;
     if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
@@ -1204,6 +1320,10 @@ app.get('/login.html', (req, res) => {
 
 app.get('/post.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'post.html'));
+});
+
+app.get('/about.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'about.html'));
 });
 
 if (process.env.NODE_ENV !== 'production') {
