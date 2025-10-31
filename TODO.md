@@ -7,7 +7,8 @@
 - [x] Add "Clear Key" button to Security Settings section in admin.html
 - [x] Implement `viewCurrentKey()` JavaScript function to prompt for password and fetch key
 - [x] Implement `clearKey()` JavaScript function to clear the key input and save
-- [ ] Test the functionality in the admin panel
+- [x] Test the functionality in the admin panel
+- [x] Add "Forgot Password?" functionality to login page
 
 ### Notes:
 - Server endpoint `/api/settings/security/key-view` requires POST with username and password

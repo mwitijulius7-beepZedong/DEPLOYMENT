@@ -67,6 +67,22 @@
             gap: 20px;
         }
 
+        .forgot-password {
+            text-align: center;
+            margin-top: 16px;
+        }
+
+        .forgot-password a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .forgot-password a:hover {
+            text-decoration: underline;
+        }
+
         .form-group {
             display: flex;
             flex-direction: column;
@@ -229,6 +245,10 @@
             Sign in with Google
         </button>
 
+        <div class="forgot-password">
+            <a href="#" id="forgotPasswordLink">Forgot Password?</a>
+        </div>
+
         <div class="back-link">
             <a href="/">← Back to Blog</a>
         </div>
@@ -297,6 +317,40 @@
             // For Google login, you would typically redirect to Google's OAuth URL
             // For now, we'll show a placeholder
             showError('Google login not yet implemented. Please use username/password.');
+        });
+
+        // Handle forgot password
+        document.getElementById('forgotPasswordLink').addEventListener('click', async (e) => {
+            e.preventDefault();
+            hideError();
+
+            const email = prompt('Enter your email address to reset your password:');
+            if (!email || !email.includes('@')) {
+                showError('Please enter a valid email address');
+                return;
+            }
+
+            try {
+                const response = await fetch('/auth/forgot-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email }),
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('Password reset email sent! Check your inbox for instructions.');
+                } else {
+                    showError(data.error || 'Failed to send reset email');
+                }
+            } catch (error) {
+                console.error('Forgot password error:', error);
+                showError('An error occurred. Please try again.');
+            }
         });
 
         // Focus on username field

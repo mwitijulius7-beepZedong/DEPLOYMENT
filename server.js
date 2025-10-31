@@ -422,6 +422,79 @@ app.post('/auth/logout', (req, res) => {
   });
 });
 
+app.post('/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'email required' });
+
+  const users = await loadUsers();
+  const user = Object.values(users).find(u => u.email === email);
+  if (!user) return res.status(404).json({ error: 'user not found' });
+
+  // Generate reset token
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+  // Store reset token (in production, use Redis or database)
+  // For now, we'll store it in memory - this is not production-ready
+  if (!global.resetTokens) global.resetTokens = {};
+  global.resetTokens[resetTokenHash] = {
+    email: user.email,
+    expires: Date.now() + 60 * 60 * 1000 // 1 hour
+  };
+
+  // Send reset email
+  const resetUrl = `${req.protocol}://${req.get('host')}/reset.html?token=${resetToken}`;
+
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_USER,
+      to: user.email,
+      subject: 'Password Reset Request',
+      html: `
+        <h2>Password Reset Request</h2>
+        <p>You requested a password reset for your blog admin account.</p>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetUrl}" style="background: #F4A191; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+      `
+    });
+
+    return res.json({ success: true, message: 'reset email sent' });
+  } catch (error) {
+    console.error('Email send error:', error);
+    return res.status(500).json({ error: 'failed to send email' });
+  }
+});
+
+app.post('/auth/reset', async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'missing token or password' });
+
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const resetData = global.resetTokens?.[tokenHash];
+
+  if (!resetData || resetData.expires < Date.now()) {
+    return res.status(400).json({ error: 'invalid or expired token' });
+  }
+
+  const users = await loadUsers();
+  const user = Object.values(users).find(u => u.email === resetData.email);
+  if (!user) return res.status(404).json({ error: 'user not found' });
+
+  // Update password
+  const hashedPassword = await bcrypt.hash(password, 10);
+  user.passwordHash = hashedPassword;
+
+  // Save updated users
+  await fs.promises.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
+
+  // Remove used token
+  delete global.resetTokens[tokenHash];
+
+  return res.json({ success: true });
+});
+
 app.post('/auth/google', async (req, res) => {
   const { id_token } = req.body;
   if (!id_token) return res.status(400).json({ error: 'missing id_token' });
