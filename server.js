@@ -93,9 +93,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // Allow HTTP for production environments without HTTPS
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    sameSite: 'lax', // Use 'lax' for better compatibility across environments
     maxAge: 24 * 60 * 60 * 1000
   },
   name: 'sessionId'
@@ -296,17 +296,17 @@ function decryptText(encStr) {
 
 function requireAuth(req, res, next) {
   console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
-  
+
   // Check session first
   if (req.session && req.session.user) return next();
-  
+
   // For Vercel, be very permissive with auth
   if (process.env.VERCEL) {
     // Always allow on Vercel for now
     req.user = { email: 'admin@example.com', name: 'Admin' };
     return next();
   }
-  
+
   // Check Authorization header as fallback
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -316,9 +316,9 @@ function requireAuth(req, res, next) {
       const decoded = Buffer.from(token, 'base64').toString('utf8');
       const [email, timestamp] = decoded.split('|');
       const tokenAge = Date.now() - parseInt(timestamp);
-      
+
       console.log('Token validation:', { email, tokenAge, valid: tokenAge < 24 * 60 * 60 * 1000 });
-      
+
       // Token valid for 24 hours
       if (tokenAge < 24 * 60 * 60 * 1000 && email) {
         req.user = { email, name: 'Admin' };
@@ -328,7 +328,7 @@ function requireAuth(req, res, next) {
       console.error('Token validation error:', e);
     }
   }
-  
+
   return res.status(401).json({ error: 'not authenticated' });
 }
 
@@ -355,6 +355,7 @@ app.post('/auth/login', async (req, res) => {
 
   if (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD) {
     req.session.user = { email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com', name: user.name || 'Admin' };
+    console.log('Login successful for admin (dev password), session set:', req.session.user);
     return res.json({ success: true, email: req.session.user.email, name: req.session.user.name });
   }
 
@@ -362,6 +363,7 @@ app.post('/auth/login', async (req, res) => {
   if (!ok) return res.status(401).json({ error: 'invalid credentials' });
 
   req.session.user = { email: user.email, name: user.name };
+  console.log('Login successful, session set:', req.session.user);
   return res.json({ success: true, email: user.email, name: user.name });
 });
 
@@ -398,17 +400,24 @@ app.post('/auth/setup', async (req, res) => {
 });
 
 app.get('/auth/status', (req, res) => {
-  console.log('Auth status - Session exists:', !!req.session, 'User exists:', !!req.session?.user);
+  console.log('Auth status check - Session exists:', !!req.session, 'User exists:', !!req.session?.user, 'Session ID:', req.sessionID);
   if (req.session && req.session.user) {
+    console.log('User authenticated:', req.session.user);
     return res.json({ loggedIn: true, user: req.session.user });
   }
+  console.log('User not authenticated');
   return res.json({ loggedIn: false });
 });
 
 app.post('/auth/logout', (req, res) => {
+  console.log('Logout requested - Session before destroy:', !!req.session, 'User:', !!req.session?.user);
   req.session.destroy(err => {
-    if (err) return res.status(500).json({ error: 'failed to logout' });
-    res.clearCookie('connect.sid');
+    if (err) {
+      console.error('Session destroy error:', err);
+      return res.status(500).json({ error: 'failed to logout' });
+    }
+    console.log('Session destroyed successfully');
+    res.clearCookie('sessionId'); // Clear the correct cookie name
     return res.json({ success: true });
   });
 });
