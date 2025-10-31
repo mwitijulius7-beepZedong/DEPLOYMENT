@@ -593,7 +593,7 @@
             <nav>
                 <a href="#"><span>Home</span>🏠</a>
                 <a href="#"><span>Blog</span>📝</a>
-                <a href="#"><span>About</span>ℹ️</a>
+                <a href="/about.html"><span>About</span>ℹ️</a>
                 <input type="email" class="subscription-input" placeholder="Subscribe to newsletter" id="subscriptionEmail">
                 <button class="search-btn">🔍 Search</button>
                 <button class="admin-btn" onclick="openAdminModal()">🔒 Admin</button>
@@ -716,7 +716,7 @@
                         <div class="card-tags">
                             ${tags}
                         </div>
-                        <a href="#" class="read-more">Read more →</a>
+                        <a href="/post.html?id=${post.id}" class="read-more">Read more →</a>
                     </div>
                 </article>
             `;
