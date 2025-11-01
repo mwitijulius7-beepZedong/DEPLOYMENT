@@ -193,5 +193,185 @@
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
     "result": "allow_not_set",
     "mode": "local"
+  },
+  {
+    "id": 1761982568507,
+    "timestamp": "2025-11-01T07:36:08.507Z",
+    "keyHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761982574328,
+    "timestamp": "2025-11-01T07:36:14.328Z",
+    "keyHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761982575336,
+    "timestamp": "2025-11-01T07:36:15.336Z",
+    "keyHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761982583333,
+    "timestamp": "2025-11-01T07:36:23.333Z",
+    "keyHash": "9b935dd30f0a2b1396bf2be7edc5c94b42f0cc5117fc2d1d72cea2fb6cf0a4a5",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761982584520,
+    "timestamp": "2025-11-01T07:36:24.520Z",
+    "keyHash": "9b935dd30f0a2b1396bf2be7edc5c94b42f0cc5117fc2d1d72cea2fb6cf0a4a5",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761982593668,
+    "timestamp": "2025-11-01T07:36:33.668Z",
+    "keyHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761982600005,
+    "timestamp": "2025-11-01T07:36:40.005Z",
+    "keyHash": "9b935dd30f0a2b1396bf2be7edc5c94b42f0cc5117fc2d1d72cea2fb6cf0a4a5",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761982600895,
+    "timestamp": "2025-11-01T07:36:40.895Z",
+    "keyHash": "9b935dd30f0a2b1396bf2be7edc5c94b42f0cc5117fc2d1d72cea2fb6cf0a4a5",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761983069854,
+    "timestamp": "2025-11-01T07:44:29.854Z",
+    "keyHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761989972943,
+    "timestamp": "2025-11-01T09:39:32.943Z",
+    "keyHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "ip": "::1",
+    "userAgent": "curl/8.16.0",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761989979530,
+    "timestamp": "2025-11-01T09:39:39.530Z",
+    "keyHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+    "ip": "::1",
+    "userAgent": "curl/8.16.0",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761989999653,
+    "timestamp": "2025-11-01T09:39:59.653Z",
+    "keyHash": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+    "ip": "::1",
+    "userAgent": "curl/8.16.0",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761990004034,
+    "timestamp": "2025-11-01T09:40:04.034Z",
+    "keyHash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+    "ip": "::1",
+    "userAgent": "curl/8.16.0",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761990009295,
+    "timestamp": "2025-11-01T09:40:09.295Z",
+    "keyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ip": "::1",
+    "userAgent": "curl/8.16.0",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761990013574,
+    "timestamp": "2025-11-01T09:40:13.574Z",
+    "keyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ip": "::1",
+    "userAgent": "curl/8.16.0",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761990022086,
+    "timestamp": "2025-11-01T09:40:22.086Z",
+    "keyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ip": "::1",
+    "userAgent": "curl/8.16.0",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761990027926,
+    "timestamp": "2025-11-01T09:40:27.926Z",
+    "keyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ip": "::1",
+    "userAgent": "curl/8.16.0",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761990035330,
+    "timestamp": "2025-11-01T09:40:35.330Z",
+    "keyHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ip": "::1",
+    "userAgent": "curl/8.16.0",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761992412192,
+    "timestamp": "2025-11-01T10:20:12.192Z",
+    "keyHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "ip": "::1",
+    "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1761992433261,
+    "timestamp": "2025-11-01T10:20:33.261Z",
+    "keyHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "ip": "::1",
+    "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+    "result": "fail",
+    "mode": "local"
   }
 ]
