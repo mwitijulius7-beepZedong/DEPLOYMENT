@@ -1,5 +1,16 @@
 [
   {
+    "id": 1761982678571,
+    "title": "Smoke test post",
+    "author": "Mwitijulius7",
+    "content": "Post created by non-interactive smoke-test script",
+    "date": "2025-11-01T07:37:58.571Z",
+    "image": "http://localhost:3000/uploads/1761982678444_smoke-test.png",
+    "featured": false,
+    "isDraft": false,
+    "categoryId": null
+  },
+  {
     "id": 1761596042274,
     "title": "The Power of Modern Web Development",
     "author": "Admin",

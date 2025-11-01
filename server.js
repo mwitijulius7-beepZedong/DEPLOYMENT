@@ -297,15 +297,15 @@ function decryptText(encStr) {
 function requireAuth(req, res, next) {
   console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
 
-  // Check session first
-  if (req.session && req.session.user) return next();
-
   // For Vercel, be very permissive with auth
   if (process.env.VERCEL) {
     // Always allow on Vercel for now
     req.user = { email: 'admin@example.com', name: 'Admin' };
     return next();
   }
+
+  // Check session first
+  if (req.session && req.session.user) return next();
 
   // Check Authorization header as fallback
   const authHeader = req.headers.authorization;
@@ -1386,6 +1386,12 @@ app.get('/api/analytics/export', requireAuth, async (req, res) => {
     console.error('analytics export error:', e);
     return res.status(500).json({ error: 'internal' });
   }
+});
+
+// Welcome API endpoint
+app.get('/api/welcome', (req, res) => {
+  console.log(`Request received: ${req.method} ${req.path}`);
+  return res.json({ message: 'Welcome to the API!' });
 });
 
 app.get('/', (req, res) => {

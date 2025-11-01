@@ -1,7 +1,32 @@
 {
-  "backgroundUrl": "http://localhost:3000/uploads/1760955634211__DSC1067.jpg",
+  "backgroundUrl": "https://example.com/bg1.jpg",
   "security": {
-    "adminEntryKeyHash": "$2a$10$/bKreqxKZATiY.J41Wm0ReY9RfYMD9vdhykc/tmYfRhMHsfZswaii",
-    "adminEntryKeyEnc": "U2FsdGVkX1+9fHmwufDuAg1pP.7VOc6xgWmaor5L2JEVqaoISDFpUG3Z6"
+    "adminEntryKeyHash": "$2a$10$T/wf2WVBEzPxxCDM0cn9e.40W/Bly1WHjdJHHyPzq2JHe/I/sPT6W",
+    "adminEntryKeyEnc": "BW7ujsPK19xhT4DE0LzrIW3UOiYfPULD46Ft3aIRyV3wLn8Npw=="
+  },
+  "backgrounds": [
+    "https://example.com/bg1.jpg",
+    "https://example.com/bg2.jpg"
+  ],
+  "theme": {
+    "primaryColor": "#FF0000",
+    "accentColor": "#00FF00"
+  },
+  "author": {
+    "name": "Test Author",
+    "email": "test@example.com",
+    "phone": "123-456-7890",
+    "whatsapp": "098-765-4321",
+    "social": {
+      "twitter": "testtwitter",
+      "facebook": "testfb",
+      "linkedin": "testlinkedin",
+      "instagram": "testinsta",
+      "website": "https://test.com"
+    }
+  },
+  "blogInfo": {
+    "title": "Test Blog",
+    "description": "A test blog description"
   }
 }
