@@ -1,7 +1,7 @@
 {
   "backgroundUrl": "http://localhost:3000/uploads/1760955634211__DSC1067.jpg",
   "security": {
-    "adminEntryKeyHash": "",
-    "adminEntryKeyEnc": ""
+    "adminEntryKeyHash": "$2a$10$/bKreqxKZATiY.J41Wm0ReY9RfYMD9vdhykc/tmYfRhMHsfZswaii",
+    "adminEntryKeyEnc": "U2FsdGVkX1+9fHmwufDuAg1pP.7VOc6xgWmaor5L2JEVqaoISDFpUG3Z6"
   }
 }
