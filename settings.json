@@ -1,8 +1,8 @@
 {
   "backgroundUrl": "https://example.com/bg1.jpg",
   "security": {
-    "adminEntryKeyHash": "$2a$10$T/wf2WVBEzPxxCDM0cn9e.40W/Bly1WHjdJHHyPzq2JHe/I/sPT6W",
-    "adminEntryKeyEnc": "BW7ujsPK19xhT4DE0LzrIW3UOiYfPULD46Ft3aIRyV3wLn8Npw=="
+    "adminEntryKeyHash": "$2a$10$E.KQ29Ki27pGYeIR2lZoeeQLmEKbqPBQ6wqcc69HxXGIaq2/1PxHK",
+    "adminEntryKeyEnc": "24aOI65y5tf9SQjTpcnLR4PHcmk+UfD1osD+SQRsyLMmoMhcAf+KuQ=="
   },
   "backgrounds": [
     "https://example.com/bg1.jpg",
