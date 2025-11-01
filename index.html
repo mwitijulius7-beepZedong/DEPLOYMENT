@@ -149,6 +149,28 @@
             transform: translateY(-2px);
         }
 
+        .admin-key-input {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 12px;
+            transition: var(--transition);
+            margin-left: 16px;
+            width: 120px;
+        }
+
+        .admin-key-input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .admin-key-input:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.2);
+        }
+
         /* Modal Styles */
         .modal {
             display: none;
