@@ -111,7 +111,7 @@ async function testSettingsAPIs() {
   }, true);
 
   // Test security settings
-  await makeRequest('POST', '/api/settings/security', { adminEntryKey: 'newkey123' }, true);
+  await makeRequest('POST', '/api/settings/security', { adminEntryKey: 'Mwitijulius7' }, true);
 
   // Test security logs (requires additional credentials)
   console.log('\n=== Testing Security Logs (Requires Credentials) ===');
