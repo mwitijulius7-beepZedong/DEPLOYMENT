@@ -342,7 +342,16 @@ const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
         pass: process.env.SMTP_PASS
       }
     })
-  : { sendMail: async (opts) => { console.log('Mock email:', opts); } };
+  : {
+      sendMail: async (opts) => {
+        console.log('Mock email (production fallback):', opts);
+        // In production, this should not happen - SMTP should be configured
+        if (process.env.VERCEL) {
+          console.error('SMTP not configured in production! Forgot password emails will not be sent.');
+        }
+        return { messageId: 'mock-' + Date.now() };
+      }
+    };
 
 // Auth routes
 app.post('/auth/login', async (req, res) => {
@@ -447,7 +456,7 @@ app.post('/auth/forgot-password', async (req, res) => {
 
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_USER,
+      from: process.env.SMTP_USER || 'noreply@yourdomain.com', // Fallback from address
       to: user.email,
       subject: 'Password Reset Request',
       html: `
