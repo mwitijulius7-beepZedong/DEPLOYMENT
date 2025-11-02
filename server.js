@@ -332,12 +332,22 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ error: 'not authenticated' });
 }
 
-const transporter = {
-  sendMail: async (opts) => {
-    console.log('Mock email:', opts);
-    return { messageId: 'mock-' + Date.now() };
-  }
-};
+const transporter = process.env.SENDGRID_API_KEY
+  ? nodemailer.createTransport({
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      secure: false,
+      auth: {
+        user: 'apikey',
+        pass: process.env.SENDGRID_API_KEY
+      }
+    })
+  : {
+      sendMail: async (opts) => {
+        console.log('Mock email:', opts);
+        return { messageId: 'mock-' + Date.now() };
+      }
+    };
 
 // Auth routes
 app.post('/auth/login', async (req, res) => {
