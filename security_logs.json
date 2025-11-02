@@ -382,5 +382,41 @@
     "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
     "result": "fail",
     "mode": "local"
+  },
+  {
+    "id": 1762059602970,
+    "timestamp": "2025-11-02T05:00:02.970Z",
+    "keyHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "ip": "::1",
+    "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+    "result": "allow_not_set",
+    "mode": "local"
+  },
+  {
+    "id": 1762066368097,
+    "timestamp": "2025-11-02T06:52:48.097Z",
+    "keyHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1762066376097,
+    "timestamp": "2025-11-02T06:52:56.097Z",
+    "keyHash": "9b935dd30f0a2b1396bf2be7edc5c94b42f0cc5117fc2d1d72cea2fb6cf0a4a5",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "result": "success",
+    "mode": "local"
+  },
+  {
+    "id": 1762068744424,
+    "timestamp": "2025-11-02T07:32:24.424Z",
+    "keyHash": "98483c6eb40b6c31a448c22a66ded3b5e5e8d5119cac8327b655c8b5c4836489",
+    "ip": "::1",
+    "userAgent": "curl/8.16.0",
+    "result": "fail",
+    "mode": "local"
   }
 ]
