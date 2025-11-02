@@ -4,7 +4,13 @@ const bcrypt = require('bcryptjs');
 async function testProductionLogin() {
   const uri = 'mongodb+srv://mwitijulius7_db_user:YjfuPIROdVNXgfxe@maozedong254.7x6uxql.mongodb.net/';
 
-  const client = new MongoClient(uri);
+  // Try disabling TLS entirely (not recommended for production)
+  const client = new MongoClient(uri, {
+    tls: false,
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+  });
 
   try {
     await client.connect();
