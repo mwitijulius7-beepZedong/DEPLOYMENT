@@ -549,28 +549,25 @@
                 <div class="action-card">
                     <h3>📂 Category Management</h3>
                     <p>Manage blog categories for organizing posts.</p>
-                    <button class="action-btn" onclick="toggleCategoriesList()">Show Categories</button>
-                    <div id="categories-list-container" style="display: none; margin-top: 16px;">
-                        <div class="customize-options">
-                            <label for="category-name">Category Name:</label>
-                            <input type="text" id="category-name" placeholder="Enter category name">
-                            <label for="category-description">Description:</label>
-                            <textarea id="category-description" rows="2" placeholder="Enter category description"></textarea>
-                        </div>
-                        <div style="display: flex; gap: 8px; margin-top: 16px;">
-                            <button class="action-btn secondary" onclick="addCategory()">Add Category</button>
-                            <button class="action-btn" onclick="loadCategories()">Refresh Categories</button>
-                        </div>
-                        <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
-                            <label style="display: flex; align-items: center; gap: 4px;">
-                                <input type="checkbox" id="select-all-categories" onchange="toggleSelectAllCategories()">
-                                <span style="font-size: 14px;">Select All</span>
-                            </label>
-                            <button class="action-btn" id="delete-selected-categories" style="display: none; background: #dc3545;" onclick="deleteSelectedCategories()">Delete Selected (<span id="selected-categories-count">0</span>)</button>
-                        </div>
-                        <div id="categories-list">
-                            <!-- Categories will be loaded here -->
-                        </div>
+                    <div class="customize-options">
+                        <label for="category-name">Category Name:</label>
+                        <input type="text" id="category-name" placeholder="Enter category name">
+                        <label for="category-description">Description:</label>
+                        <textarea id="category-description" rows="2" placeholder="Enter category description"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 16px;">
+                        <button class="action-btn secondary" onclick="addCategory()">Add Category</button>
+                        <button class="action-btn" onclick="loadCategories()">Refresh Categories</button>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
+                        <label style="display: flex; align-items: center; gap: 4px;">
+                            <input type="checkbox" id="select-all-categories" onchange="toggleSelectAllCategories()">
+                            <span style="font-size: 14px;">Select All</span>
+                        </label>
+                        <button class="action-btn" id="delete-selected-categories" style="display: none; background: #dc3545;" onclick="deleteSelectedCategories()">Delete Selected (<span id="selected-categories-count">0</span>)</button>
+                    </div>
+                    <div id="categories-list" style="margin-top: 16px;">
+                        <!-- Categories will be loaded here -->
                     </div>
                 </div>
             </div>
@@ -1143,17 +1140,6 @@
             } else {
                 settingsSection.style.display = 'block';
                 settingsSection.scrollIntoView({ behavior: 'smooth' });
-            }
-        }
-
-        // Toggle categories list visibility
-        function toggleCategoriesList() {
-            const categoriesListContainer = document.getElementById('categories-list-container');
-            if (categoriesListContainer.style.display === 'none') {
-                categoriesListContainer.style.display = 'block';
-                loadCategories(); // Load categories when showing
-            } else {
-                categoriesListContainer.style.display = 'none';
             }
         }
 

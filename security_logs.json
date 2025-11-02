@@ -409,5 +409,14 @@
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
     "result": "success",
     "mode": "local"
+  },
+  {
+    "id": 1762068744424,
+    "timestamp": "2025-11-02T07:32:24.424Z",
+    "keyHash": "98483c6eb40b6c31a448c22a66ded3b5e5e8d5119cac8327b655c8b5c4836489",
+    "ip": "::1",
+    "userAgent": "curl/8.16.0",
+    "result": "fail",
+    "mode": "local"
   }
 ]

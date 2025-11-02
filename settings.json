@@ -1,28 +1,30 @@
 {
-  "backgroundUrl": "https://example.com/bg1.jpg",
+  "backgroundUrl": "https://example.com/new-bg1.jpg",
   "security": {
     "adminEntryKeyHash": "$2a$10$Q8FOlfCAUHTGMQNLsBnA0.K1Zn0kSFaAZ2lKlGTxli4uVKqlnppVS",
     "adminEntryKeyEnc": "L5WXrrDPGjCn2hUf6b7tBb7RwUrWlud8Y5G3MgbQbL7/f3RrH95Wyg=="
   },
   "backgrounds": [
-    "https://example.com/bg1.jpg",
-    "https://example.com/bg2.jpg"
+    "https://example.com/new-bg1.jpg",
+    "https://example.com/new-bg2.jpg",
+    "https://example.com/new-bg3.jpg"
   ],
   "theme": {
-    "primaryColor": "#FF0000",
-    "accentColor": "#00FF00"
+    "primaryColor": "#0000FF",
+    "accentColor": "#FFFF00"
   },
   "author": {
-    "name": "Test Author",
-    "email": "test@example.com",
-    "phone": "123-456-7890",
-    "whatsapp": "098-765-4321",
+    "name": "zedong254ke",
+    "email": "",
+    "bio": "Mao ZEDONG",
+    "phone": "",
+    "whatsapp": "",
     "social": {
-      "twitter": "testtwitter",
-      "facebook": "testfb",
-      "linkedin": "testlinkedin",
-      "instagram": "testinsta",
-      "website": "https://test.com"
+      "twitter": "",
+      "facebook": "",
+      "linkedin": "",
+      "instagram": "",
+      "website": ""
     }
   },
   "blogInfo": {
