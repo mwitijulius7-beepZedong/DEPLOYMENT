@@ -332,23 +332,19 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ error: 'not authenticated' });
 }
 
-const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
+const transporter = process.env.SENDGRID_API_KEY
   ? nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: String(process.env.SMTP_SECURE).toLowerCase() === 'true',
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      secure: false,
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
+        user: 'apikey',
+        pass: process.env.SENDGRID_API_KEY
       }
     })
   : {
       sendMail: async (opts) => {
-        console.log('Mock email (production fallback):', opts);
-        // In production, this should not happen - SMTP should be configured
-        if (process.env.VERCEL) {
-          console.error('SMTP not configured in production! Forgot password emails will not be sent.');
-        }
+        console.log('Mock email:', opts);
         return { messageId: 'mock-' + Date.now() };
       }
     };
@@ -456,7 +452,7 @@ app.post('/auth/forgot-password', async (req, res) => {
 
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_USER || 'noreply@yourdomain.com', // Fallback from address
+      from: process.env.SMTP_USER, // Use authenticated SMTP user as from address
       to: user.email,
       subject: 'Password Reset Request',
       html: `
@@ -947,6 +943,7 @@ app.post('/api/settings/author', requireAuth, async (req, res) => {
       const author = {
         name: String(payload.name || ''),
         email: String(payload.email || ''),
+        bio: String(payload.bio || ''),
         phone: String(payload.phone || ''),
         whatsapp: String(payload.whatsapp || ''),
         social: {
@@ -974,6 +971,7 @@ app.post('/api/settings/author', requireAuth, async (req, res) => {
     settings.author = {
       name: String(payload.name || ''),
       email: String(payload.email || ''),
+      bio: String(payload.bio || ''),
       phone: String(payload.phone || ''),
       whatsapp: String(payload.whatsapp || ''),
       social: {
@@ -1401,6 +1399,12 @@ app.get('/api/analytics/export', requireAuth, async (req, res) => {
 app.get('/api/welcome', (req, res) => {
   console.log(`Request received: ${req.method} ${req.path}`);
   return res.json({ message: 'Welcome to the API!' });
+});
+
+// Birthday API endpoint
+app.get('/api/birthday', (req, res) => {
+  console.log(`Request received: ${req.method} ${req.path}`);
+  return res.json({ message: 'Happy Birthday! Wishing you a fantastic year ahead!' });
 });
 
 app.get('/', (req, res) => {
