@@ -65,6 +65,7 @@
             border-radius: 50%;
             border: 3px solid white;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            object-fit: cover;
         }
 
         .logo h1 {
@@ -609,7 +610,7 @@
     <header>
         <div class="header-container">
             <a href="#" class="logo">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile picture">
+                <img id="profilePicture" src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile picture">
                 <h1>zedong254ke</h1>
             </a>
             <nav>
@@ -1117,11 +1118,28 @@
             attachCardEventListeners();
         }
 
+        // Load author settings and update profile picture
+        async function loadAuthorSettings() {
+            try {
+                const response = await fetch('/api/settings/author');
+                const data = await response.json();
+                if (data.success && data.settings.profilePicture) {
+                    const profileImg = document.getElementById('profilePicture');
+                    if (profileImg) {
+                        profileImg.src = data.settings.profilePicture;
+                    }
+                }
+            } catch (error) {
+                console.log('Failed to load author settings:', error);
+            }
+        }
+
         // Load posts when page loads
         document.addEventListener('DOMContentLoaded', function() {
             loadPosts();
             loadCategories();
             showAdminWelcome(); // Check and show admin section
+            loadAuthorSettings(); // Load and display profile picture
         });
     </script>
 </body>
