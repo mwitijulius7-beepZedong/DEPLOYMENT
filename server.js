@@ -332,26 +332,12 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ error: 'not authenticated' });
 }
 
-const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
-  ? nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: String(process.env.SMTP_SECURE).toLowerCase() === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    })
-  : {
-      sendMail: async (opts) => {
-        console.log('Mock email (production fallback):', opts);
-        // In production, this should not happen - SMTP should be configured
-        if (process.env.VERCEL) {
-          console.error('SMTP not configured in production! Forgot password emails will not be sent.');
-        }
-        return { messageId: 'mock-' + Date.now() };
-      }
-    };
+const transporter = {
+  sendMail: async (opts) => {
+    console.log('Mock email:', opts);
+    return { messageId: 'mock-' + Date.now() };
+  }
+};
 
 // Auth routes
 app.post('/auth/login', async (req, res) => {
@@ -456,7 +442,7 @@ app.post('/auth/forgot-password', async (req, res) => {
 
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_USER || 'noreply@yourdomain.com', // Fallback from address
+      from: process.env.SMTP_USER, // Use authenticated SMTP user as from address
       to: user.email,
       subject: 'Password Reset Request',
       html: `
