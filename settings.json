@@ -1,30 +1,29 @@
 {
-  "backgroundUrl": "https://example.com/new-bg1.jpg",
+  "backgroundUrl": "https://example.com/bg1.jpg",
   "security": {
-    "adminEntryKeyHash": "$2a$10$Q8FOlfCAUHTGMQNLsBnA0.K1Zn0kSFaAZ2lKlGTxli4uVKqlnppVS",
-    "adminEntryKeyEnc": "L5WXrrDPGjCn2hUf6b7tBb7RwUrWlud8Y5G3MgbQbL7/f3RrH95Wyg=="
+    "adminEntryKeyHash": "$2a$10$3p.WhBPR2LuoX/iMzyEYoOaYfZtvbi8VyhhHVcMS47Bg/TEd2NqMe",
+    "adminEntryKeyEnc": "QfSCuQj3olFFABDo2dMV7aSvzlCzwzTaQgDMT4Nwa0cFbiQ1Rb9URg=="
   },
   "backgrounds": [
-    "https://example.com/new-bg1.jpg",
-    "https://example.com/new-bg2.jpg",
-    "https://example.com/new-bg3.jpg"
+    "https://example.com/bg1.jpg",
+    "https://example.com/bg2.jpg"
   ],
   "theme": {
-    "primaryColor": "#0000FF",
-    "accentColor": "#FFFF00"
+    "primaryColor": "#FF0000",
+    "accentColor": "#00FF00"
   },
   "author": {
-    "name": "zedong254ke",
-    "email": "",
-    "bio": "Mao ZEDONG",
-    "phone": "",
-    "whatsapp": "",
+    "name": "Test Author",
+    "email": "test@example.com",
+    "bio": "Test bio",
+    "phone": "123-456-7890",
+    "whatsapp": "098-765-4321",
     "social": {
-      "twitter": "",
-      "facebook": "",
-      "linkedin": "",
-      "instagram": "",
-      "website": ""
+      "twitter": "testtwitter",
+      "facebook": "testfb",
+      "linkedin": "testlinkedin",
+      "instagram": "testinsta",
+      "website": "https://test.com"
     }
   },
   "blogInfo": {

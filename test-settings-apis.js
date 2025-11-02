@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'Mwitijulius7';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'password'; // Try default password first
 
 let sessionCookie = '';
@@ -93,8 +93,10 @@ async function testSettingsAPIs() {
   await makeRequest('POST', '/api/settings/author', {
     name: 'Test Author',
     email: 'test@example.com',
+    bio: 'Test bio',
     phone: '123-456-7890',
     whatsapp: '098-765-4321',
+    profilePicture: 'https://example.com/profile.jpg',
     social: {
       twitter: 'testtwitter',
       facebook: 'testfb',
