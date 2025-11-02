@@ -1123,10 +1123,10 @@
             try {
                 const response = await fetch('/api/settings/author');
                 const data = await response.json();
-                if (data.success && data.settings.profilePicture) {
+                if (data.author && data.author.profilePicture) {
                     const profileImg = document.getElementById('profilePicture');
                     if (profileImg) {
-                        profileImg.src = data.settings.profilePicture;
+                        profileImg.src = data.author.profilePicture;
                     }
                 }
             } catch (error) {
