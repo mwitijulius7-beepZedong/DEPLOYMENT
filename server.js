@@ -946,6 +946,7 @@ app.post('/api/settings/author', requireAuth, async (req, res) => {
         bio: String(payload.bio || ''),
         phone: String(payload.phone || ''),
         whatsapp: String(payload.whatsapp || ''),
+        profilePicture: String(payload.profilePicture || ''),
         social: {
           twitter: String(payload.social?.twitter || ''),
           facebook: String(payload.social?.facebook || ''),
