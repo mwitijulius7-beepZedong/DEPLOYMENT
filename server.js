@@ -727,8 +727,10 @@ function readSettings() {
     author: {
       name: '',
       email: '',
+      bio: '',
       phone: '',
       whatsapp: '',
+      profilePicture: '',
       social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' }
     },
     security: {
@@ -860,17 +862,17 @@ app.get('/api/settings/author', async (req, res) => {
     // For Vercel, use MongoDB if available
     if (process.env.VERCEL && db) {
       const result = await db.collection('settings').findOne({ type: 'author' });
-      const author = result?.author || { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+      const author = result?.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
       return res.json({ author });
     }
 
     // Local development
     const settings = readSettings();
-    const author = settings.author || { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+    const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
     return res.json({ author });
   } catch (e) {
     console.error('Error reading author settings:', e);
-    const author = { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+    const author = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
     return res.json({ author });
   }
 });
