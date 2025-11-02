@@ -1,8 +1,8 @@
 {
   "backgroundUrl": "https://example.com/bg1.jpg",
   "security": {
-    "adminEntryKeyHash": "$2a$10$E.KQ29Ki27pGYeIR2lZoeeQLmEKbqPBQ6wqcc69HxXGIaq2/1PxHK",
-    "adminEntryKeyEnc": "24aOI65y5tf9SQjTpcnLR4PHcmk+UfD1osD+SQRsyLMmoMhcAf+KuQ=="
+    "adminEntryKeyHash": "",
+    "adminEntryKeyEnc": ""
   },
   "backgrounds": [
     "https://example.com/bg1.jpg",
