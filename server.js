@@ -943,6 +943,7 @@ app.post('/api/settings/author', requireAuth, async (req, res) => {
       const author = {
         name: String(payload.name || ''),
         email: String(payload.email || ''),
+        bio: String(payload.bio || ''),
         phone: String(payload.phone || ''),
         whatsapp: String(payload.whatsapp || ''),
         social: {
@@ -970,6 +971,7 @@ app.post('/api/settings/author', requireAuth, async (req, res) => {
     settings.author = {
       name: String(payload.name || ''),
       email: String(payload.email || ''),
+      bio: String(payload.bio || ''),
       phone: String(payload.phone || ''),
       whatsapp: String(payload.whatsapp || ''),
       social: {
@@ -1397,6 +1399,12 @@ app.get('/api/analytics/export', requireAuth, async (req, res) => {
 app.get('/api/welcome', (req, res) => {
   console.log(`Request received: ${req.method} ${req.path}`);
   return res.json({ message: 'Welcome to the API!' });
+});
+
+// Birthday API endpoint
+app.get('/api/birthday', (req, res) => {
+  console.log(`Request received: ${req.method} ${req.path}`);
+  return res.json({ message: 'Happy Birthday! Wishing you a fantastic year ahead!' });
 });
 
 app.get('/', (req, res) => {

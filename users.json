@@ -1,7 +1,7 @@
 {
-  "Mwitijulius7": {
-    "name": "Mwitijulius7",
-    "email": "mwitijulius7@gmail.com",
-    "passwordHash": "$2a$10$GWdAyQzFavrm4nkhZSlYC.AY3GD6O2fXHactXjImYzhNgXfGn76su"
+  "admin": {
+    "name": "Admin",
+    "email": "admin@localhost",
+    "passwordHash": "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi"
   }
 }
