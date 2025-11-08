@@ -1236,33 +1236,33 @@ app.post('/api/categories', requireAuth, async (req, res) => {
 });
 
 app.put('/api/categories/:id', requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   const { name, description } = req.body;
   if (!name) return res.status(400).json({ error: 'missing name' });
-  
+
   const categories = await loadCategories();
-  const idx = categories.findIndex(c => c.id === id);
+  const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
   if (idx === -1) return res.status(404).json({ error: 'not found' });
-  
+
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  
+
   categories[idx] = {
     ...categories[idx],
     name: name.trim(),
     slug,
     description: description ? description.trim() : ''
   };
-  
+
   await saveCategories(categories);
   return res.json({ success: true, category: categories[idx] });
 });
 
 app.delete('/api/categories/:id', requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   let categories = await loadCategories();
-  const idx = categories.findIndex(c => c.id === id);
+  const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
   if (idx === -1) return res.status(404).json({ error: 'not found' });
-  
+
   categories.splice(idx, 1);
   await saveCategories(categories);
   return res.json({ success: true });
