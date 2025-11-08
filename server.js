@@ -298,13 +298,6 @@ function decryptText(encStr) {
 function requireAuth(req, res, next) {
   console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
 
-  // For Vercel, be very permissive with auth
-  if (process.env.VERCEL) {
-    // Always allow on Vercel for now
-    req.user = { email: 'admin@example.com', name: 'Admin' };
-    return next();
-  }
-
   // Check session first
   if (req.session && req.session.user) return next();
 
