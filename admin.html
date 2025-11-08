@@ -247,6 +247,30 @@
             min-height: 80px;
         }
 
+        .password-group {
+            position: relative;
+        }
+
+        .password-group .form-input {
+            padding-right: 40px;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-medium);
+            transition: var(--transition);
+        }
+
+        .password-toggle:hover {
+            color: var(--text-dark);
+        }
+
         /* Chart Styles */
         .chart-container {
             position: relative;
@@ -495,7 +519,7 @@
             <div class="customize-grid">
                 <div class="action-card">
                     <h3>👤 Author Information</h3>
-                    <p>Update your personal information and bio.</p>
+                    <p>Update your personal information, bio, and profile picture.</p>
                     <div class="customize-options">
                         <label for="author-name">Author Name:</label>
                         <input type="text" id="author-name" value="zedong254ke" placeholder="Enter author name">
@@ -503,6 +527,22 @@
                         <input type="email" id="author-email" placeholder="Enter email address">
                         <label for="author-bio">Bio:</label>
                         <textarea id="author-bio" rows="3" placeholder="Enter author bio">Passionate developer and blogger sharing insights on technology and programming.</textarea>
+                        <label>Profile Picture:</label>
+                        <input type="file" id="profile-picture-file" accept="image/*" onchange="handleProfilePictureUpload()">
+                        <label for="author-phone">Phone:</label>
+                        <input type="tel" id="author-phone" placeholder="Enter phone number">
+                        <label for="author-whatsapp">WhatsApp:</label>
+                        <input type="tel" id="author-whatsapp" placeholder="Enter WhatsApp number">
+                        <label for="author-twitter">Twitter:</label>
+                        <input type="text" id="author-twitter" placeholder="Enter Twitter handle (without @)">
+                        <label for="author-facebook">Facebook:</label>
+                        <input type="text" id="author-facebook" placeholder="Enter Facebook profile">
+                        <label for="author-linkedin">LinkedIn:</label>
+                        <input type="text" id="author-linkedin" placeholder="Enter LinkedIn profile">
+                        <label for="author-instagram">Instagram:</label>
+                        <input type="text" id="author-instagram" placeholder="Enter Instagram handle (without @)">
+                        <label for="author-website">Website:</label>
+                        <input type="url" id="author-website" placeholder="Enter website URL">
                     </div>
                     <button class="action-btn" onclick="saveAuthorInfo()">Save Author Info</button>
                 </div>
@@ -512,7 +552,15 @@
                     <p>Manage security preferences and access controls.</p>
                     <div class="customize-options">
                         <label for="admin-entry-key">Admin Entry Key:</label>
-                        <input type="password" id="admin-entry-key" placeholder="Enter new admin entry key">
+                        <div class="password-group">
+                            <input type="password" id="admin-entry-key" class="form-input" placeholder="Enter new admin entry key">
+                            <button type="button" id="admin-key-toggle" class="password-toggle">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
                         <label for="session-timeout">Session Timeout (minutes):</label>
                         <input type="number" id="session-timeout" value="30" min="5" max="480">
                     </div>
@@ -620,10 +668,31 @@
 
                 <div class="action-card">
                     <h3>🖼️ Background Options</h3>
-                    <p>Choose background patterns or upload custom backgrounds.</p>
+                    <p>Choose background patterns, colors, or upload custom backgrounds.</p>
                     <div class="customize-options">
                         <label>Background URL:</label>
                         <input type="url" id="background-url" placeholder="Enter background image URL">
+
+                        <label>Upload Custom Background:</label>
+                        <input type="file" id="background-file" accept="image/*" onchange="handleBackgroundUpload()">
+
+                        <label>Background Color:</label>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                            <input type="color" id="background-color" value="#ffffff" onchange="previewColorBackground()">
+                            <button class="action-btn" id="apply-color-btn" style="padding: 6px 12px; font-size: 12px;" onclick="applyColorBackground()">Apply Color</button>
+                        </div>
+
+                        <label>Predefined Patterns:</label>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px;">
+                            <button class="pattern-btn" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4);" onclick="selectPattern('gradient1')"></button>
+                            <button class="pattern-btn" style="background: linear-gradient(45deg, #667eea, #764ba2);" onclick="selectPattern('gradient2')"></button>
+                            <button class="pattern-btn" style="background: linear-gradient(45deg, #f093fb, #f5576c);" onclick="selectPattern('gradient3')"></button>
+                            <button class="pattern-btn" style="background: linear-gradient(45deg, #4facfe, #00f2fe);" onclick="selectPattern('gradient4')"></button>
+                            <button class="pattern-btn" style="background: #e74c3c;" onclick="selectPattern('solid-red')"></button>
+                            <button class="pattern-btn" style="background: #27ae60;" onclick="selectPattern('solid-green')"></button>
+                            <button class="pattern-btn" style="background: #3498db;" onclick="selectPattern('solid-blue')"></button>
+                            <button class="pattern-btn" style="background: #9b59b6;" onclick="selectPattern('solid-purple')"></button>
+                        </div>
                     </div>
                     <button class="action-btn" onclick="saveBackgroundSettings()">Save Background</button>
                 </div>
@@ -654,7 +723,36 @@
                     return;
                 }
 
-                console.log('Authentication successful, loading dashboard');
+                // Check if admin entry key is required
+                const securityResponse = await fetch('/api/settings/security');
+                const securityData = await securityResponse.json();
+                console.log('Security check:', securityData);
+
+                if (securityData.hasEntryKey) {
+                    // Prompt for admin entry key
+                    const entryKey = prompt('Please enter the admin entry key to access the admin panel.');
+                    if (!entryKey) {
+                        alert('Admin entry key is required to access the admin panel.');
+                        window.location.href = '/login.html';
+                        return;
+                    }
+
+                    // Verify the entry key
+                    const verifyResponse = await fetch('/api/settings/verify-entry-key', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ adminEntryKey: entryKey })
+                    });
+                    const verifyData = await verifyResponse.json();
+
+                    if (!verifyData.success) {
+                        alert('Invalid admin entry key. Access denied.');
+                        window.location.href = '/login.html';
+                        return;
+                    }
+                }
+
+                console.log('Authentication and entry key verification successful, loading dashboard');
                 // Load dashboard data
                 loadDashboardStats();
             } catch (error) {
@@ -781,9 +879,61 @@
             }
         }
 
+        // Handle background file upload
+        async function handleBackgroundUpload() {
+            const fileInput = document.getElementById('background-file');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Please select a file first.');
+                return;
+            }
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                alert('Please select a valid image file.');
+                return;
+            }
+
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // Set the uploaded URL in the background URL input
+                    document.getElementById('background-url').value = data.url;
+                    alert('Background image uploaded successfully!');
+                } else {
+                    const errorData = await response.json();
+                    alert('Failed to upload background image: ' + (errorData.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error uploading background image:', error);
+                alert('Error uploading background image.');
+            }
+        }
+
         // Save background settings
         async function saveBackgroundSettings() {
             const backgroundUrl = document.getElementById('background-url').value;
+
+            if (!backgroundUrl) {
+                alert('Please provide a background URL or upload an image first.');
+                return;
+            }
 
             try {
                 const response = await fetch('/api/settings/background', {
@@ -796,7 +946,8 @@
                 if (response.ok) {
                     alert('Background settings saved successfully!');
                 } else {
-                    alert('Failed to save background settings.');
+                    const errorData = await response.json();
+                    alert('Failed to save background settings: ' + (errorData.error || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error saving background settings:', error);
@@ -1306,18 +1457,84 @@
             });
         }
 
+        // Handle profile picture upload
+        async function handleProfilePictureUpload() {
+            const fileInput = document.getElementById('profile-picture-file');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Please select a file first.');
+                return;
+            }
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                alert('Please select a valid image file.');
+                return;
+            }
+
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('profilePicture', file);
+
+            try {
+                const response = await fetch('/api/settings/author/profile-picture', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert('Profile picture uploaded successfully!');
+                    // Update the header logo if needed
+                    if (data.profilePictureUrl) {
+                        document.querySelector('.logo img').src = data.profilePictureUrl;
+                    }
+                } else {
+                    alert('Failed to upload profile picture.');
+                }
+            } catch (error) {
+                console.error('Error uploading profile picture:', error);
+                alert('Error uploading profile picture.');
+            }
+        }
+
         // Save author information
         async function saveAuthorInfo() {
             const authorName = document.getElementById('author-name').value;
             const authorEmail = document.getElementById('author-email').value;
             const authorBio = document.getElementById('author-bio').value;
+            const authorPhone = document.getElementById('author-phone').value;
+            const authorWhatsapp = document.getElementById('author-whatsapp').value;
+            const authorTwitter = document.getElementById('author-twitter').value;
+            const authorFacebook = document.getElementById('author-facebook').value;
+            const authorLinkedin = document.getElementById('author-linkedin').value;
+            const authorInstagram = document.getElementById('author-instagram').value;
+            const authorWebsite = document.getElementById('author-website').value;
 
             try {
                 const response = await fetch('/api/settings/author', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ name: authorName, email: authorEmail, bio: authorBio })
+                    body: JSON.stringify({
+                        name: authorName,
+                        email: authorEmail,
+                        bio: authorBio,
+                        phone: authorPhone,
+                        whatsapp: authorWhatsapp,
+                        twitter: authorTwitter,
+                        facebook: authorFacebook,
+                        linkedin: authorLinkedin,
+                        instagram: authorInstagram,
+                        website: authorWebsite
+                    })
                 });
 
                 if (response.ok) {
@@ -1541,10 +1758,34 @@
         // Initialize
         checkAuth();
 
-        // Initialize charts when analytics section is shown
-        document.addEventListener('DOMContentLoaded', function() {
-            // Charts will be initialized when analytics data is loaded
-        });
+        // Admin key visibility toggle - React-like state management
+        let showAdminKey = false;
+        const adminKeyToggle = document.getElementById('admin-key-toggle');
+        const adminKeyInput = document.getElementById('admin-entry-key');
+
+        function updateAdminKeyVisibility() {
+            adminKeyInput.setAttribute('type', showAdminKey ? 'text' : 'password');
+
+            // Update icon based on visibility state
+            const icon = adminKeyToggle.querySelector('svg');
+            if (showAdminKey) {
+                // Show password - use eye-off icon
+                icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+            } else {
+                // Hide password - use eye icon
+                icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+            }
+        }
+
+        if (adminKeyToggle && adminKeyInput) {
+            // Initialize visibility
+            updateAdminKeyVisibility();
+
+            adminKeyToggle.addEventListener('click', () => {
+                showAdminKey = !showAdminKey;
+                updateAdminKeyVisibility();
+            });
+        }
     </script>
 </body>
 </html>
