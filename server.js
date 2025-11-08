@@ -636,9 +636,9 @@ app.put('/api/posts/:id', requireAuth, async (req, res) => {
 });
 
 app.delete('/api/posts/:id', requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   let posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id === id);
+  const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   posts.splice(idx, 1);
   await savePosts(posts);
