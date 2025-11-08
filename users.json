@@ -2,6 +2,6 @@
   "admin": {
     "name": "Admin",
     "email": "admin@localhost",
-    "passwordHash": "$2a$10$N0sTSBnE/VXW78EzuztW5eaOTFCaecYqEUGTFm3Ui7UNkzkujFn0S"
+    "passwordHash": "$2a$10$spWJSboRBRxb55mjM/ptJOE0aq6cqXAwRpRJFmr65/PnlBupmdSAe"
   }
 }

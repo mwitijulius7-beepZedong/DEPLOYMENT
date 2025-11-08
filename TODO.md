@@ -1,14 +1,31 @@
-# TODO: Implement Profile Picture Display
+# Authentication System Security Improvements
 
-## Steps to Complete
-- [x] Add "profilePicture" field to author object in settings.json (initially empty string)
-- [x] Verify server.js /api/settings/author endpoint includes profilePicture in response (should be automatic)
-- [x] Update index.html header logo img to have an id for dynamic updating
-- [x] Add JavaScript in index.html to fetch author settings on page load
-- [x] Conditionally set profile picture src: use author.profilePicture if exists, else default DiceBear avatar
-- [x] Test the implementation by loading index.html and verifying display
+## Critical Security Fixes (Priority 1)
+- [ ] Fix overly permissive Vercel authentication (currently allows all requests)
+- [ ] Add rate limiting to auth endpoints (login, forgot password, etc.)
+- [ ] Improve session configuration with security headers
+- [ ] Add CSRF protection to sensitive endpoints
 
-## Notes
-- Profile picture will be fetched from database/API via /api/settings/author
-- If profilePicture is empty or not set, show default avatar
-- Default avatar: https://api.dicebear.com/7.x/avataaars/svg?seed=zedong
+## Enhanced Authentication (Priority 2)
+- [ ] Implement proper JWT tokens instead of basic base64 tokens
+- [ ] Add account lockout mechanism after failed login attempts
+- [ ] Better password validation and strength requirements
+- [ ] Implement session invalidation on password change
+
+## Production Readiness (Priority 3)
+- [ ] Move password reset tokens from memory to database/file storage
+- [ ] Add security headers (HSTS, CSP, X-Frame-Options, etc.)
+- [ ] Implement proper session store (Redis/MongoDB) for production
+- [ ] Add request logging and monitoring
+
+## Admin Security Enhancements (Priority 4)
+- [ ] Enhanced admin entry key validation with time-based restrictions
+- [ ] Multi-factor authentication support for admin accounts
+- [ ] Admin session timeout and concurrent session limits
+- [ ] Audit logging for admin actions
+
+## Testing and Validation
+- [ ] Create comprehensive auth tests
+- [ ] Security audit of all endpoints
+- [ ] Performance testing under load
+- [ ] Penetration testing preparation
