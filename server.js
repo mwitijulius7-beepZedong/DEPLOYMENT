@@ -758,10 +758,9 @@ app.get('/api/settings/background', (req, res) => {
 
 // Set background image
 app.post('/api/settings/background', requireAuth, (req, res) => {
-  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
   const { backgroundUrl } = req.body;
   if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
-  
+
   const settings = readSettings();
   settings.backgroundUrl = backgroundUrl;
   // Keep backgrounds in sync if only a single URL is provided
@@ -769,7 +768,7 @@ app.post('/api/settings/background', requireAuth, (req, res) => {
     settings.backgrounds = [backgroundUrl];
   }
   writeSettings(settings);
-  
+
   return res.json({ success: true, backgroundUrl });
 });
 

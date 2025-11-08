@@ -454,5 +454,59 @@
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
     "result": "success",
     "mode": "local"
+  },
+  {
+    "id": 1762607214891,
+    "timestamp": "2025-11-08T13:06:54.891Z",
+    "keyHash": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "result": "fail",
+    "mode": "local"
+  },
+  {
+    "id": 1762607715844,
+    "timestamp": "2025-11-08T13:15:15.844Z",
+    "keyHash": "9b935dd30f0a2b1396bf2be7edc5c94b42f0cc5117fc2d1d72cea2fb6cf0a4a5",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "result": "success",
+    "mode": "local"
+  },
+  {
+    "id": 1762610299115,
+    "timestamp": "2025-11-08T13:58:19.115Z",
+    "keyHash": "9b935dd30f0a2b1396bf2be7edc5c94b42f0cc5117fc2d1d72cea2fb6cf0a4a5",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "result": "success",
+    "mode": "local"
+  },
+  {
+    "id": 1762610348105,
+    "timestamp": "2025-11-08T13:59:08.105Z",
+    "keyHash": "9b935dd30f0a2b1396bf2be7edc5c94b42f0cc5117fc2d1d72cea2fb6cf0a4a5",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "result": "success",
+    "mode": "local"
+  },
+  {
+    "id": 1762611272360,
+    "timestamp": "2025-11-08T14:14:32.360Z",
+    "keyHash": "9b935dd30f0a2b1396bf2be7edc5c94b42f0cc5117fc2d1d72cea2fb6cf0a4a5",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "result": "success",
+    "mode": "local"
+  },
+  {
+    "id": 1762612621541,
+    "timestamp": "2025-11-08T14:37:01.541Z",
+    "keyHash": "9b935dd30f0a2b1396bf2be7edc5c94b42f0cc5117fc2d1d72cea2fb6cf0a4a5",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "result": "success",
+    "mode": "local"
   }
 ]
