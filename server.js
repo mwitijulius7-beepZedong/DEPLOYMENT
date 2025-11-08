@@ -172,10 +172,11 @@ async function loadCategories() {
       console.log('Loading from MongoDB');
       const categories = await db.collection('categories').find({}).toArray();
       console.log('MongoDB categories:', categories.length);
-      return categories.map(c => ({ ...c, id: c._id || c.id }));
+      return categories.map(c => ({ ...c, id: String(c._id || c.id) }));
     }
     console.log('Loading from file system');
-    return JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+    const cats = JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+    return cats.map(c => ({ ...c, id: String(c.id) }));
   } catch (e) {
     console.error('Load categories error:', e);
     return [];
@@ -1065,8 +1066,12 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
       };
       logs.push(entry);
       await saveSecurityLogs(logs);
-      
-      if (ok) return res.json({ success: true, mode: 'env' });
+
+      if (ok) {
+        req.session.adminKeyVerified = true;
+        req.session.adminKeyVerifiedAt = Date.now();
+        return res.json({ success: true, mode: 'env' });
+      }
       return res.status(403).json({ success: false, mode: 'env' });
     }
 
@@ -1096,6 +1101,8 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
       entry.result = 'allow_not_set';
       logs.push(entry);
       await saveSecurityLogs(logs);
+      req.session.adminKeyVerified = true;
+      req.session.adminKeyVerifiedAt = Date.now();
       return res.json({ success: true, mode: 'none' });
     }
 
@@ -1105,12 +1112,30 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
     logs.push(entry);
     await saveSecurityLogs(logs);
 
-    if (ok) return res.json({ success: true, mode: 'local' });
+    if (ok) {
+      req.session.adminKeyVerified = true;
+      req.session.adminKeyVerifiedAt = Date.now();
+      return res.json({ success: true, mode: 'local' });
+    }
     return res.status(403).json({ success: false, mode: 'local' });
   } catch (e) {
     console.error('verify-entry-key error:', e);
     return res.status(500).json({ error: 'internal' });
   }
+});
+
+// Check if admin entry key is verified in session
+app.get('/api/settings/check-admin-key-verified', (req, res) => {
+  const verified = req.session.adminKeyVerified === true;
+  const verifiedAt = req.session.adminKeyVerifiedAt || null;
+  return res.json({ verified, verifiedAt });
+});
+
+// Clear admin key verification (for idle timeout)
+app.post('/api/settings/clear-admin-key-verification', (req, res) => {
+  req.session.adminKeyVerified = false;
+  req.session.adminKeyVerifiedAt = null;
+  return res.json({ success: true });
 });
 
 // View security logs after verifying admin credentials
