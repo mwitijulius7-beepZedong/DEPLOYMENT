@@ -9,8 +9,8 @@
     "https://example.com/bg2.jpg"
   ],
   "theme": {
-    "primaryColor": "#FF0000",
-    "accentColor": "#00FF00"
+    "primaryColor": "#3c9ae2",
+    "accentColor": "#9b4b71"
   },
   "author": {
     "name": "Test Author",
@@ -28,7 +28,7 @@
     }
   },
   "blogInfo": {
-    "title": "Test Blog",
-    "description": "A test blog description"
+    "title": "zedong254ke",
+    "description": "Discover insights, tutorials, and thoughts on web development, programming, and technology."
   }
 }
