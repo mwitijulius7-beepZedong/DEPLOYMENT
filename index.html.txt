@@ -605,8 +605,21 @@
     </div>
 
     <script>
-    // OAuth 2.0 Web Client ID from Google Cloud
-    const GOOGLE_CLIENT_ID = '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com';
+    // OAuth 2.0 Web Client ID from Google Cloud - fetched dynamically
+    let GOOGLE_CLIENT_ID = '';
+
+    // Fetch Google Client ID from server
+    async function loadGoogleClientId() {
+        try {
+            const response = await fetch('/api/google-client-id');
+            const data = await response.json();
+            GOOGLE_CLIENT_ID = data.clientId;
+            console.log('Google Client ID loaded');
+        } catch (error) {
+            console.error('Failed to load Google Client ID:', error);
+            GOOGLE_CLIENT_ID = '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com'; // fallback
+        }
+    }
 
         // Minimal JWT decoder for client-side ID token parsing (no signature verification)
         function decodeJwt (token) {

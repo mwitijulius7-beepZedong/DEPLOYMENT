@@ -17,16 +17,19 @@ const cloudinary = require('cloudinary').v2;
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// MongoDB connection
-let db;
-if (process.env.MONGODB_URI) {
-  MongoClient.connect(process.env.MONGODB_URI)
-    .then(client => {
-      console.log('Connected to MongoDB');
-      db = client.db('blog');
-    })
-    .catch(error => console.error('MongoDB connection error:', error));
-}
+// MongoDB connection - commented out to allow server to start without MongoDB
+// let db;
+// if (process.env.MONGODB_URI) {
+//   MongoClient.connect(process.env.MONGODB_URI, {
+//     ssl: true,
+//     tlsInsecure: true
+//   })
+//     .then(client => {
+//       console.log('Connected to MongoDB');
+//       db = client.db('blog');
+//     })
+//     .catch(error => console.error('MongoDB connection error:', error));
+// }
 
 // Cloudinary configuration
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
@@ -38,7 +41,9 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== '
 }
 
 // Vercel serverless function export
-module.exports = app;
+if (process.env.VERCEL) {
+  module.exports = app;
+}
 
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -1391,6 +1396,12 @@ app.get('/api/analytics/export', requireAuth, async (req, res) => {
   }
 });
 
+// Google Client ID endpoint
+app.get('/api/google-client-id', (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID || '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com';
+  return res.json({ clientId });
+});
+
 // Welcome API endpoint
 app.get('/api/welcome', (req, res) => {
   console.log(`Request received: ${req.method} ${req.path}`);
@@ -1423,6 +1434,6 @@ app.get('/about.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'about.html'));
 });
 
-if (process.env.NODE_ENV !== 'production') {
+if (!process.env.VERCEL) {
   app.listen(PORT, () => console.log(`Auth server listening on http://localhost:${PORT}`));
 }
