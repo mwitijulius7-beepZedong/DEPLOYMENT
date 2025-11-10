@@ -17,19 +17,19 @@ const cloudinary = require('cloudinary').v2;
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// MongoDB connection - commented out to allow server to start without MongoDB
-// let db;
-// if (process.env.MONGODB_URI) {
-//   MongoClient.connect(process.env.MONGODB_URI, {
-//     ssl: true,
-//     tlsInsecure: true
-//   })
-//     .then(client => {
-//       console.log('Connected to MongoDB');
-//       db = client.db('blog');
-//     })
-//     .catch(error => console.error('MongoDB connection error:', error));
-// }
+// MongoDB connection
+let db;
+if (process.env.MONGODB_URI) {
+  MongoClient.connect(process.env.MONGODB_URI, {
+    ssl: true,
+    tlsInsecure: true
+  })
+    .then(client => {
+      console.log('Connected to MongoDB');
+      db = client.db('blog');
+    })
+    .catch(error => console.error('MongoDB connection error:', error));
+}
 
 // Cloudinary configuration
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
@@ -1435,5 +1435,8 @@ app.get('/about.html', (req, res) => {
 });
 
 if (!process.env.VERCEL) {
+  app.listen(PORT, () => console.log(`Auth server listening on http://localhost:${PORT}`));
+} else {
+  // For local testing, also listen even if VERCEL is set
   app.listen(PORT, () => console.log(`Auth server listening on http://localhost:${PORT}`));
 }
