@@ -1,10 +1,14 @@
 {
   "name": "birthday-blog",
   "version": "1.0.0",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node server.js"
   },
   "dependencies": {
     "@vercel/blob": "^2.0.0",
@@ -19,13 +23,16 @@
     "mongodb": "^6.20.0",
     "node-fetch": "^2.6.7",
     "nodemailer": "^7.0.9",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "pinia": "^2.1.7",
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.5"
   },
   "engines": {
     "node": "22.x"
   },
   "devDependencies": {
-    "tailwindcss": "^4.1.16"
+    "@vitejs/plugin-vue": "^5.0.0",
+    "tailwindcss": "^4.1.16",
+    "vite": "^5.0.0"
   }
 }
