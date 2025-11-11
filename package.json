@@ -4,11 +4,11 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node server.cjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "node server.js"
+    "server": "node server.cjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.0.0",
