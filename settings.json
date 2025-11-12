@@ -1,9 +1,5 @@
 {
   "backgroundUrl": "https://example.com/bg1.jpg",
-  "security": {
-    "adminEntryKeyHash": "$2a$10$3p.WhBPR2LuoX/iMzyEYoOaYfZtvbi8VyhhHVcMS47Bg/TEd2NqMe",
-    "adminEntryKeyEnc": "QfSCuQj3olFFABDo2dMV7aSvzlCzwzTaQgDMT4Nwa0cFbiQ1Rb9URg=="
-  },
   "backgrounds": [
     "https://example.com/bg1.jpg",
     "https://example.com/bg2.jpg"
@@ -18,7 +14,6 @@
     "bio": "Test bio",
     "phone": "123-456-7890",
     "whatsapp": "098-765-4321",
-    "profilePicture": "https://api.dicebear.com/7.x/avataaars/svg?seed=test",
     "social": {
       "twitter": "testtwitter",
       "facebook": "testfb",
@@ -30,5 +25,9 @@
   "blogInfo": {
     "title": "Test Blog",
     "description": "A test blog description"
+  },
+  "security": {
+    "adminEntryKeyHash": "$2a$10$uL.pfDWf2aF0L5N7bm1GIumR820O9TGvKXLBKjaMclvBKbFPpWksW",
+    "adminEntryKeyEnc": "MaDGm7LyJbiFCIZeA7QmoeqFg2g7Nf1c3uEhJuetcNTEPmCNURnebg=="
   }
 }

@@ -177,10 +177,11 @@ async function loadCategories() {
       console.log('Loading from MongoDB');
       const categories = await db.collection('categories').find({}).toArray();
       console.log('MongoDB categories:', categories.length);
-      return categories.map(c => ({ ...c, id: c._id || c.id }));
+      return categories.map(c => ({ ...c, id: String(c._id || c.id) }));
     }
     console.log('Loading from file system');
-    return JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+    const cats = JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+    return cats.map(c => ({ ...c, id: String(c.id) }));
   } catch (e) {
     console.error('Load categories error:', e);
     return [];
@@ -633,9 +634,9 @@ app.put('/api/posts/:id', requireAuth, async (req, res) => {
 });
 
 app.delete('/api/posts/:id', requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   let posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id === id);
+  const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   posts.splice(idx, 1);
   await savePosts(posts);
@@ -756,10 +757,9 @@ app.get('/api/settings/background', (req, res) => {
 
 // Set background image
 app.post('/api/settings/background', requireAuth, (req, res) => {
-  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
   const { backgroundUrl } = req.body;
   if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
-  
+
   const settings = readSettings();
   settings.backgroundUrl = backgroundUrl;
   // Keep backgrounds in sync if only a single URL is provided
@@ -767,7 +767,7 @@ app.post('/api/settings/background', requireAuth, (req, res) => {
     settings.backgrounds = [backgroundUrl];
   }
   writeSettings(settings);
-  
+
   return res.json({ success: true, backgroundUrl });
 });
 
@@ -1064,8 +1064,12 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
       };
       logs.push(entry);
       await saveSecurityLogs(logs);
-      
-      if (ok) return res.json({ success: true, mode: 'env' });
+
+      if (ok) {
+        req.session.adminKeyVerified = true;
+        req.session.adminKeyVerifiedAt = Date.now();
+        return res.json({ success: true, mode: 'env' });
+      }
       return res.status(403).json({ success: false, mode: 'env' });
     }
 
@@ -1095,6 +1099,8 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
       entry.result = 'allow_not_set';
       logs.push(entry);
       await saveSecurityLogs(logs);
+      req.session.adminKeyVerified = true;
+      req.session.adminKeyVerifiedAt = Date.now();
       return res.json({ success: true, mode: 'none' });
     }
 
@@ -1104,12 +1110,30 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
     logs.push(entry);
     await saveSecurityLogs(logs);
 
-    if (ok) return res.json({ success: true, mode: 'local' });
+    if (ok) {
+      req.session.adminKeyVerified = true;
+      req.session.adminKeyVerifiedAt = Date.now();
+      return res.json({ success: true, mode: 'local' });
+    }
     return res.status(403).json({ success: false, mode: 'local' });
   } catch (e) {
     console.error('verify-entry-key error:', e);
     return res.status(500).json({ error: 'internal' });
   }
+});
+
+// Check if admin entry key is verified in session
+app.get('/api/settings/check-admin-key-verified', (req, res) => {
+  const verified = req.session.adminKeyVerified === true;
+  const verifiedAt = req.session.adminKeyVerifiedAt || null;
+  return res.json({ verified, verifiedAt });
+});
+
+// Clear admin key verification (for idle timeout)
+app.post('/api/settings/clear-admin-key-verification', (req, res) => {
+  req.session.adminKeyVerified = false;
+  req.session.adminKeyVerifiedAt = null;
+  return res.json({ success: true });
 });
 
 // View security logs after verifying admin credentials
@@ -1210,33 +1234,33 @@ app.post('/api/categories', requireAuth, async (req, res) => {
 });
 
 app.put('/api/categories/:id', requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   const { name, description } = req.body;
   if (!name) return res.status(400).json({ error: 'missing name' });
-  
+
   const categories = await loadCategories();
-  const idx = categories.findIndex(c => c.id === id);
+  const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
   if (idx === -1) return res.status(404).json({ error: 'not found' });
-  
+
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  
+
   categories[idx] = {
     ...categories[idx],
     name: name.trim(),
     slug,
     description: description ? description.trim() : ''
   };
-  
+
   await saveCategories(categories);
   return res.json({ success: true, category: categories[idx] });
 });
 
 app.delete('/api/categories/:id', requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   let categories = await loadCategories();
-  const idx = categories.findIndex(c => c.id === id);
+  const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
   if (idx === -1) return res.status(404).json({ error: 'not found' });
-  
+
   categories.splice(idx, 1);
   await saveCategories(categories);
   return res.json({ success: true });
@@ -1415,6 +1439,16 @@ app.get('/api/birthday', (req, res) => {
 });
 
 app.get('/', (req, res) => {
+  // For SPA routing, serve index.html for all routes not handled by API or static files
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// SPA fallback for Vue Router history mode
+app.get('*', (req, res) => {
+  // Skip API routes and static files
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.includes('.')) {
+    return res.status(404).send('Not found');
+  }
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
