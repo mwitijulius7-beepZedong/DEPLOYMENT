@@ -530,7 +530,7 @@
                     <div style="text-align: center; margin-top: 1.25rem;">
                         <div id="gSignInButton"></div>
                         <p style="margin-top:0.75rem; color:#666; font-size:0.9rem;">Or sign in with your Google account</p>
-                        <p style="margin-top:0.25rem; color:#9ca3af; font-size:0.8rem;">(Replace the placeholder client ID in the script with your Google Cloud OAuth 2.0 Client ID)</p>
+                        
                     </div>
                 </div>
 
@@ -616,8 +616,8 @@
             GOOGLE_CLIENT_ID = data.clientId;
             console.log('Google Client ID loaded');
         } catch (error) {
-            console.error('Failed to load Google Client ID:', error);
-            GOOGLE_CLIENT_ID = '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com'; // fallback
+            console.error('Failed to load Google Client ID from server, using fallback:', error);
+            GOOGLE_CLIENT_ID = '338774598801-rmbjl0aprte0l23ja5u3t3fm222jkbq1.apps.googleusercontent.com'; // fallback
         }
     }
 
@@ -1098,7 +1098,7 @@
 </html>
 <!--
     Google Sign-In Integration Notes:
-    1) Replace GOOGLE_CLIENT_ID constant in the script with your OAuth 2.0 Web Client ID from Google Cloud Console.
+    1) The GOOGLE_CLIENT_ID is fetched from the `/api/google-client-id` endpoint, with a hardcoded fallback in the script.
     2) This implementation performs only client-side ID token decoding for convenience. For security, send the
          ID token (response.credential) to your backend and verify it using Google's tokeninfo endpoint or
          a Google OAuth client library before granting access.
