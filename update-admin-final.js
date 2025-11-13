@@ -1,10 +1,16 @@
-const { MongoClient } = require('mongodb');
-const bcrypt = require('bcryptjs');
+import { MongoClient } from 'mongodb';
+import bcrypt from 'bcryptjs';
+import dns from 'dns';
+
+// Force Node.js to use public DNS servers
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 async function updateAdminCredentials() {
   const uri = 'mongodb+srv://mwitijulius7_db_user:YjfuPIROdVNXgfxe@maozedong254.7x6uxql.mongodb.net/blog?retryWrites=true&w=majority';
 
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+    serverSelectionTimeoutMS: 10000 // Increase timeout
+  });
 
   try {
     await client.connect();
