@@ -26,6 +26,40 @@
       </div>
     </section>
 
+    <!-- Birthday Section -->
+    <section class="py-16 bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 text-white">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div class="mb-8">
+          <div class="text-6xl mb-4">🎂</div>
+          <h2 class="text-3xl md:text-4xl font-bold mb-4">
+            Birthday Wishes
+          </h2>
+        </div>
+
+        <!-- Loading State -->
+        <div v-if="birthdayLoading" class="flex justify-center items-center py-8">
+          <div class="loading-spinner w-8 h-8 border-4 border-white border-t-transparent rounded-full"></div>
+        </div>
+
+        <!-- Birthday Message -->
+        <div v-else-if="birthdayMessage" class="bg-white/10 backdrop-blur-sm rounded-xl p-8 shadow-lg">
+          <p class="text-xl md:text-2xl font-medium leading-relaxed">
+            {{ birthdayMessage }}
+          </p>
+          <div class="mt-6 flex justify-center space-x-4">
+            <span class="text-2xl">🎈</span>
+            <span class="text-2xl">🎉</span>
+            <span class="text-2xl">🎊</span>
+          </div>
+        </div>
+
+        <!-- Error State -->
+        <div v-else class="bg-red-500/20 backdrop-blur-sm rounded-xl p-8">
+          <p class="text-lg">Unable to load birthday message</p>
+        </div>
+      </div>
+    </section>
+
     <!-- Posts Section -->
     <section id="posts" class="py-16 bg-gray-50 dark:bg-gray-900">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -134,6 +168,8 @@ const themeStore = useThemeStore()
 
 const newsletterEmail = ref('')
 const subscribing = ref(false)
+const birthdayMessage = ref('')
+const birthdayLoading = ref(true)
 
 const subscribe = async () => {
   if (!newsletterEmail.value.trim()) return
@@ -171,10 +207,24 @@ const subscribe = async () => {
   }
 }
 
+const loadBirthdayMessage = async () => {
+  try {
+    const response = await fetch('/api/birthday')
+    const data = await response.json()
+    birthdayMessage.value = data.message
+  } catch (error) {
+    console.error('Failed to load birthday message:', error)
+    birthdayMessage.value = ''
+  } finally {
+    birthdayLoading.value = false
+  }
+}
+
 onMounted(async () => {
   themeStore.initTheme()
   await postsStore.loadPosts()
   await postsStore.loadCategories()
+  await loadBirthdayMessage()
 })
 </script>
 
