@@ -2,10 +2,9 @@ import { MongoClient } from 'mongodb';
 import bcrypt from 'bcryptjs';
 
 async function checkAdminCredentials() {
-  const uri = 'mongodb+srv://mwitijulius7_db_user:YjfuPIROdVNXgfxe@maozedong254.7x6uxql.mongodb.net/';
+  const uri = 'mongodb+srv://mwitijulius7_db_user:YjfuPIROdVNXgfxe@maozedong254.7x6uxql.mongodb.net/blog?retryWrites=true&w=majority';
 
   const client = new MongoClient(uri, {
-    directConnection: true, // Add this to help with DNS issues on some networks
     serverSelectionTimeoutMS: 5000, // Shorten timeout for quicker feedback
   });
 

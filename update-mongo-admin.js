@@ -2,16 +2,9 @@ import { MongoClient } from 'mongodb';
 import bcrypt from 'bcryptjs';
 
 async function updateAdminCredentials() {
-  // Use environment variables for sensitive information
-  const dbUser = process.env.DB_USER;
-  const dbPassword = process.env.DB_PASSWORD;
-  const dbHost = process.env.DB_HOST || 'maozedong254.7x6uxql.mongodb.net'; // Fallback to default if not set
-  const dbName = process.env.DB_NAME || 'blog';
-
-  const uri = `mongodb+srv://${dbUser}:${dbPassword}@${dbHost}/`;
+  const uri = 'mongodb+srv://mwitijulius7_db_user:YjfuPIROdVNXgfxe@maozedong254.7x6uxql.mongodb.net/blog?retryWrites=true&w=majority';
   
   const client = new MongoClient(uri, {
-    directConnection: true, // Add this to help with DNS issues on some networks
     serverSelectionTimeoutMS: 5000,
     connectTimeoutMS: 10000,
     socketTimeoutMS: 45000,
@@ -29,10 +22,6 @@ async function updateAdminCredentials() {
     const password = 'Mwitijulius7@Jm';
     const name = 'Mwitijulius7';
     const email = 'mwitijulius7@gmail.com';
-
-    if (!username || !password || !email) {
-      throw new Error('Missing admin credentials. Ensure username, password, and email are set.');
-    }
 
     // Hash the password
     const passwordHash = await bcrypt.hash(password, 10);
