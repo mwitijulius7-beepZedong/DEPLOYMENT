@@ -166,11 +166,7 @@ const handleGoogleLogin = async () => {
   error.value = ''
 
   try {
-    // Get Google Client ID
-    const clientIdResponse = await fetch('/api/google-client-id')
-    const { clientId } = await clientIdResponse.json()
-
-    // Initialize Google Sign-In
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
     if (window.google && window.google.accounts) {
       const client = window.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
