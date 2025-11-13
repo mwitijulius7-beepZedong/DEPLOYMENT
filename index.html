@@ -924,7 +924,7 @@
                     try {
                         await fetch('/api/settings/clear-admin-key-verification', {
                             method: 'POST',
-                    credentials: 'include'   
+                            credentials: 'include'
                         });
                     } catch (error) {
                         console.error('Error clearing admin key verification:', error);
@@ -1097,8 +1097,7 @@
                     return content.length > 150 ? content.substring(0, 150) + '...' : content;
                 }
             }
-        })
-        .mount('#app');
+        }).mount('#app');
     </script>
 </body>
 </html>

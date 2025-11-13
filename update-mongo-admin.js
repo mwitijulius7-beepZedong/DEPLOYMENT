@@ -5,9 +5,7 @@ async function updateAdminCredentials() {
   const uri = 'mongodb+srv://mwitijulius7_db_user:YjfuPIROdVNXgfxe@maozedong254.7x6uxql.mongodb.net/blog?retryWrites=true&w=majority';
   
   const client = new MongoClient(uri, {
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 10000,
-    socketTimeoutMS: 45000,
+    serverSelectionTimeoutMS: 5000, // Shorten timeout for quicker feedback
   });
 
   try {
