@@ -1,18 +1,12 @@
 [
   {
-    "id": 1760818634884,
-    "name": "Technologies",
-    "slug": "technologies",
-    "description": "tECH"
-  },
-  {
-    "id": 1760820176744,
+    "id": "1760820176744",
     "name": "Social media",
     "slug": "social-media",
     "description": ""
   },
   {
-    "id": 1760820932921,
+    "id": "1760820932921",
     "name": "2025",
     "slug": "2025",
     "description": "2025"

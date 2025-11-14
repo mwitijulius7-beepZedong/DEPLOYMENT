@@ -50,6 +50,7 @@
         .nav {
             display: flex;
             gap: 2rem;
+            align-items: center;
         }
 
         .nav button {
@@ -69,6 +70,96 @@
 
         .nav button.active {
             background: rgba(255,255,255,0.3);
+        }
+
+        /* Search Bar */
+        .search-container {
+            position: relative;
+            margin: 2rem 0;
+        }
+
+        /* Category Filter */
+        .category-filter {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .category-filter button {
+            padding: 0.5rem 1rem;
+            border: 2px solid #e5e7eb;
+            background: white;
+            color: #374151;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .category-filter button:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+        }
+
+        .category-filter button.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
+        }
+
+        .search-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* Filter Section */
+        .filter-section {
+            margin: 1rem 0 2rem 0;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-select {
+            padding: 0.5rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .clear-filters {
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .clear-filters:hover {
+            background: #4b5563;
         }
 
         /* Container */
@@ -337,14 +428,47 @@
             <!-- Blog View -->
             <div v-if="currentView === 'blog' && !selectedPost">
                 <h1 style="margin: 2rem 0; color: #374151;">Latest Posts</h1>
-                <div v-if="posts.length === 0" class="empty-state">
-                    <h3>No posts yet</h3>
-                    <p>Check back soon for new content!</p>
+
+                <!-- Search Bar -->
+                <div class="search-container">
+                    <input v-model="searchQuery" type="text" class="search-input" placeholder="Search posts by title, content, or tags...">
+                </div>
+
+                <!-- Category Filter -->
+                <div class="category-filter">
+                    <button
+                        v-for="category in allCategories"
+                        :key="category.id"
+                        @click="toggleCategory(category.id)"
+                        :class="{ active: selectedCategory === category.id || (selectedCategory === '' && category.id === 'all') }"
+                    >
+                        {{ category.name }}
+                    </button>
+                </div>
+
+                <!-- Filter Section -->
+                <div class="filter-section">
+                    <select v-model="selectedTag" class="filter-select">
+                        <option value="">All Tags</option>
+                        <option v-for="tag in allTags" :key="tag" :value="tag">{{ tag }}</option>
+                    </select>
+                    <select v-model="selectedArchive" class="filter-select">
+                        <option value="">All Time</option>
+                        <option v-for="archive in archives" :key="archive.key" :value="archive.key">{{ archive.label }}</option>
+                    </select>
+                    <button v-if="hasFilters" @click="clearFilters" class="clear-filters">Clear Filters</button>
+                </div>
+
+                <div v-if="filteredPosts.length === 0" class="empty-state">
+                    <h3 v-if="posts.length === 0">No posts yet</h3>
+                    <h3 v-else>No posts match your search</h3>
+                    <p v-if="posts.length === 0">Check back soon for new content!</p>
+                    <p v-else>Try adjusting your search or filters.</p>
                 </div>
                 <div v-else class="posts-grid">
-                    <div v-for="post in posts" :key="post.id" class="post-card" @click="viewPost(post)">
+                    <div v-for="post in filteredPosts" :key="post.id" class="post-card" @click="viewPost(post)">
                         <h2 class="post-title">{{ post.title }}</h2>
-                        <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }}</div>
+                        <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }} · {{ getReadingTime(post.content) }}</div>
                         <p class="post-excerpt">{{ getExcerpt(post.content) }}</p>
                         <div class="post-tags">
                             <span v-for="tag in post.tags" :key="tag" class="tag">{{ tag }}</span>
@@ -371,16 +495,24 @@
                 <!-- Login -->
                 <div v-if="!isLoggedIn" class="login-container">
                     <h2>Admin Login</h2>
-                    <div v-if="loginError" class="error-message">{{ loginError }}</div>
-                    <div class="form-group">
-                        <label>Username</label>
-                        <input v-model="loginUsername" type="text" placeholder="admin" @keyup.enter="login">
+                    <div v-if="entryKeyError" class="error-message">{{ entryKeyError }}</div>
+                    <div v-if="!entryKeyVerified" class="form-group">
+                        <label>Entry Key</label>
+                        <input v-model="entryKey" type="password" placeholder="Enter entry key" @keyup.enter="verifyEntryKey">
+                        <button class="btn" style="width: 100%; margin-top: 0.5rem;" @click="verifyEntryKey">Verify Key</button>
                     </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
+                    <div v-if="entryKeyVerified">
+                        <div v-if="loginError" class="error-message">{{ loginError }}</div>
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input v-model="loginUsername" type="text" placeholder="admin" @keyup.enter="login">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
+                        </div>
+                        <button class="btn" style="width: 100%;" @click="login">Login</button>
                     </div>
-                    <button class="btn" style="width: 100%;" @click="login">Login</button>
                     <p style="text-align:center; margin-top:0.75rem;"><a href="#" @click.prevent="showReset = true">Forgot password?</a></p>
                     <div v-if="showReset" style="margin-top:1rem; background:#f9fafb; padding:1rem; border-radius:8px;">
                         <div class="form-group">
@@ -427,6 +559,13 @@
                         <div class="form-group">
                             <label>Content</label>
                             <textarea v-model="postForm.content" placeholder="Write your post content here..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Category</label>
+                            <select v-model="postForm.categoryId" class="filter-select">
+                                <option value="">No Category</option>
+                                <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label>Tags (comma-separated)</label>
@@ -490,7 +629,15 @@
                     currentView: 'blog',
                     selectedPost: null,
                     posts: [],
+                    categories: [],
+                    searchQuery: '',
+                    selectedCategory: '',
+                    selectedTag: '',
+                    selectedArchive: '',
                     isLoggedIn: false,
+                    entryKey: '',
+                    entryKeyVerified: false,
+                    entryKeyError: '',
                     loginUsername: '',
                     loginPassword: '',
                     loginError: '',
@@ -503,18 +650,81 @@
                         title: '',
                         author: '',
                         content: '',
+                        categoryId: '',
                         tags: ''
-                    },
-                    nextId: 1
+                    }
                 };
             },
             mounted() {
-                this.loadData();
-                this.addSamplePosts();
+                this.loadPosts();
+                this.loadCategories();
                 // Initialize Google Identity after mount
                 this.initGoogleIdentity();
                 // Check server session status
                 this.checkAuthStatus();
+            },
+            computed: {
+                filteredPosts() {
+                    let filtered = this.posts;
+
+                    // Search filter
+                    if (this.searchQuery) {
+                        const query = this.searchQuery.toLowerCase();
+                        filtered = filtered.filter(post =>
+                            post.title.toLowerCase().includes(query) ||
+                            post.content.toLowerCase().includes(query) ||
+                            post.tags.some(tag => tag.toLowerCase().includes(query))
+                        );
+                    }
+
+                    // Category filter
+                    if (this.selectedCategory) {
+                        filtered = filtered.filter(post => post.categoryId === this.selectedCategory);
+                    }
+
+                    // Tag filter
+                    if (this.selectedTag) {
+                        filtered = filtered.filter(post => post.tags.includes(this.selectedTag));
+                    }
+
+                    // Archive filter
+                    if (this.selectedArchive) {
+                        const archiveDate = new Date(this.selectedArchive);
+                        filtered = filtered.filter(post => {
+                            const postDate = new Date(post.date);
+                            return postDate.getFullYear() === archiveDate.getFullYear() &&
+                                   postDate.getMonth() === archiveDate.getMonth();
+                        });
+                    }
+
+                    return filtered;
+                },
+                allTags() {
+                    const tags = new Set();
+                    this.posts.forEach(post => {
+                        post.tags.forEach(tag => tags.add(tag));
+                    });
+                    return Array.from(tags).sort();
+                },
+                archives() {
+                    const archiveMap = new Map();
+                    this.posts.forEach(post => {
+                        const date = new Date(post.date);
+                        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                        const label = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+                        archiveMap.set(key, label);
+                    });
+                    return Array.from(archiveMap.entries()).map(([key, label]) => ({ key, label })).sort((a, b) => b.key.localeCompare(a.key));
+                },
+                allCategories() {
+                    return [
+                        { id: 'all', name: 'All' },
+                        ...this.categories
+                    ];
+                },
+                hasFilters() {
+                    return this.searchQuery || this.selectedCategory || this.selectedTag || this.selectedArchive;
+                }
             },
             methods: {
                 initGoogleIdentity() {
@@ -584,49 +794,60 @@
                         this.isLoggedIn = false;
                     }
                 },
-                loadData() {
-                    const saved = this.getData('blogPosts');
-                    if (saved) {
-                        this.posts = saved;
-                        this.nextId = Math.max(...this.posts.map(p => p.id), 0) + 1;
-                    }
-                    this.isLoggedIn = this.getData('isLoggedIn') || false;
-                },
-                saveData() {
-                    this.setData('blogPosts', this.posts);
-                },
-                getData(key) {
+                async loadPosts() {
                     try {
-                        const data = window[`_${key}`];
-                        return data ? JSON.parse(JSON.stringify(data)) : null;
+                        const resp = await fetch('/api/posts');
+                        const data = await resp.json();
+                        this.posts = data.posts || [];
                     } catch (e) {
-                        return null;
+                        console.error('Failed to load posts:', e);
+                        this.posts = [];
                     }
+                },
+                async loadCategories() {
+                    try {
+                        const resp = await fetch('/api/categories');
+                        const data = await resp.json();
+                        this.categories = data.categories || [];
+                    } catch (e) {
+                        console.error('Failed to load categories:', e);
+                        this.categories = [];
+                    }
+                },
+                clearFilters() {
+                    this.searchQuery = '';
+                    this.selectedCategory = '';
+                    this.selectedTag = '';
+                    this.selectedArchive = '';
+                },
+                toggleCategory(categoryId) {
+                    if (categoryId === 'all') {
+                        this.selectedCategory = '';
+                    } else {
+                        this.selectedCategory = categoryId;
+                    }
+                },
+                getReadingTime(content) {
+                    const wordsPerMinute = 200;
+                    const words = content.trim().split(/\s+/).length;
+                    const minutes = Math.ceil(words / wordsPerMinute);
+                    return `${minutes} min read`;
                 },
                 setData(key, value) {
-                    window[`_${key}`] = JSON.parse(JSON.stringify(value));
+                    this[key] = value;
                 },
-                addSamplePosts() {
-                    if (this.posts.length === 0) {
-                        this.posts = [
-                            {
-                                id: this.nextId++,
-                                title: 'Getting Started with Vue.js',
-                                author: 'Admin',
-                                content: 'Vue.js is an amazing framework for building user interfaces. In this post, we\'ll explore the basics of Vue.js and why it\'s become so popular among developers.\n\nVue is progressive, meaning you can adopt it incrementally. Start with a simple script tag, or build a full-featured single-page application. The choice is yours!\n\nKey features include:\n- Reactive data binding\n- Component-based architecture\n- Virtual DOM for efficient updates\n- Easy to learn and use\n\nWhether you\'re building a small widget or a large application, Vue.js provides the tools you need to succeed.',
-                                date: new Date().toISOString(),
-                                tags: ['vue', 'javascript', 'tutorial']
-                            },
-                            {
-                                id: this.nextId++,
-                                title: 'The Power of Modern Web Development',
-                                author: 'Admin',
-                                content: 'Modern web development has come a long way. With tools like Vue, React, and Angular, we can build incredible user experiences that were impossible just a few years ago.\n\nThe web platform continues to evolve, adding new APIs and capabilities regularly. From Progressive Web Apps to WebAssembly, the possibilities are endless.\n\nIn this blog, I\'ll be sharing my journey learning these technologies and building cool projects. Stay tuned for more content!',
-                                date: new Date(Date.now() - 86400000).toISOString(),
-                                tags: ['web development', 'programming', 'technology']
-                            }
-                        ];
-                        this.saveData();
+                verifyEntryKey() {
+                    if (!this.entryKey) {
+                        this.entryKeyError = 'Please enter the entry key';
+                        return;
+                    }
+                    // For demo purposes, use a hardcoded key. In production, this should be server-verified.
+                    if (this.entryKey === 'admin123') {
+                        this.entryKeyVerified = true;
+                        this.entryKeyError = '';
+                        this.entryKey = '';
+                    } else {
+                        this.entryKeyError = 'Invalid entry key';
                     }
                 },
                 login() {
@@ -692,15 +913,16 @@
                         title: post.title,
                         author: post.author,
                         content: post.content,
+                        categoryId: post.categoryId || '',
                         tags: post.tags.join(', ')
                     };
                 },
                 cancelEdit() {
                     this.showNewPostForm = false;
                     this.editingPost = null;
-                    this.postForm = { title: '', author: '', content: '', tags: '' };
+                    this.postForm = { title: '', author: '', content: '', categoryId: '', tags: '' };
                 },
-                savePost() {
+                async savePost() {
                     if (!this.postForm.title || !this.postForm.content) {
                         alert('Please fill in title and content');
                         return;
@@ -711,33 +933,48 @@
                         .map(t => t.trim())
                         .filter(t => t);
 
-                    if (this.editingPost) {
-                        const idx = this.posts.findIndex(p => p.id === this.editingPost.id);
-                        this.posts[idx] = {
-                            ...this.editingPost,
-                            title: this.postForm.title,
-                            author: this.postForm.author || 'Anonymous',
-                            content: this.postForm.content,
-                            tags: tags
-                        };
-                    } else {
-                        this.posts.unshift({
-                            id: this.nextId++,
-                            title: this.postForm.title,
-                            author: this.postForm.author || 'Anonymous',
-                            content: this.postForm.content,
-                            date: new Date().toISOString(),
-                            tags: tags
-                        });
-                    }
+                    const postData = {
+                        title: this.postForm.title,
+                        author: this.postForm.author || 'Anonymous',
+                        content: this.postForm.content,
+                        categoryId: this.postForm.categoryId,
+                        tags: tags
+                    };
 
-                    this.saveData();
-                    this.cancelEdit();
+                    try {
+                        if (this.editingPost) {
+                            // Update existing post
+                            await fetch(`/api/posts/${this.editingPost.id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(postData)
+                            });
+                        } else {
+                            // Create new post
+                            await fetch('/api/posts', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(postData)
+                            });
+                        }
+                        await this.loadPosts();
+                        this.cancelEdit();
+                    } catch (e) {
+                        console.error('Failed to save post:', e);
+                        alert('Failed to save post');
+                    }
                 },
-                deletePost(id) {
+                async deletePost(id) {
                     if (confirm('Are you sure you want to delete this post?')) {
-                        this.posts = this.posts.filter(p => p.id !== id);
-                        this.saveData();
+                        try {
+                            await fetch(`/api/posts/${id}`, {
+                                method: 'DELETE'
+                            });
+                            await this.loadPosts();
+                        } catch (e) {
+                            console.error('Failed to delete post:', e);
+                            alert('Failed to delete post');
+                        }
                     }
                 },
                 formatDate(dateString) {

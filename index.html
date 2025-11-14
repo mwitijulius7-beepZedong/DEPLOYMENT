@@ -3,2167 +3,1266 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>zedong254ke Blog</title>
-    <meta name="description" :content="pageDescription">
-    <meta name="keywords" :content="pageKeywords">
-    <meta property="og:title" :content="pageTitle">
-    <meta property="og:description" :content="pageDescription">
-    <meta property="og:type" content="website">
-    <meta property="og:url" :content="currentUrl">
-    <meta property="og:image" :content="pageImage">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" :content="pageTitle">
-    <meta name="twitter:description" :content="pageDescription">
-    <meta name="twitter:image" :content="pageImage">
-    <script>
-      (function() {
-        try {
-          var saved = localStorage.getItem('theme');
-          var dark = (saved === 'dark') || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-        } catch (e) {}
-      })();
-    </script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Google Identity Services (replace CLIENT_ID below with your real client ID) -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <title>zedong254ke - Blog</title>
     <style>
+        :root {
+            --primary-color: #F4A191;
+            --accent-color: #4A9B9B;
+            --bg-color: #F8F9FA;
+            --card-bg: #FFFFFF;
+            --text-dark: #2C3E50;
+            --text-medium: #6C757D;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.15);
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
-        /* Force all potential overlay elements to be transparent */
-        body, html, #app, .content-overlay, .container, .main-content, .page-wrapper {
-            background: transparent !important;
-        }
-
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow-x: hidden;
-        }
 
         body {
-            font-family: 'Georgia', 'Times New Roman', serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
             line-height: 1.6;
-            color: var(--text-color);
-            background: transparent !important;
-            transition: background 0.3s, color 0.3s;
         }
 
-        :root {
-            --bg-color: transparent;
-            --card-bg: rgba(255, 255, 255, 0.85);
-            --text-color: #1f2937; /* slate-800 */
-            --text-muted: #64748b; /* slate-500 */
-            --border-color: rgba(0, 0, 0, 0.1);
-            --primary-color: #3b82f6;
-            --accent-color: #60a5fa;
-            /* Panel (admin content) clarity */
-            --panel-bg: rgba(255, 255, 255, 0.98);
-            --panel-border-color: rgba(0, 0, 0, 0.08);
-            --header-divider: #e5e7eb;
-            --heading-color: #0f172a;
-            --label-bg: rgba(255, 255, 255, 0.95);
-            }
-
-        [data-theme="dark"] {
-            --bg-color: transparent;
-            --card-bg: rgba(17, 24, 39, 0.55); /* slate-900 with blur */
-            --text-color: #f1f5f9; /* slate-100 */
-            --text-muted: #94a3b8; /* slate-400 */
-            --border-color: rgba(255, 255, 255, 0.15);
-            --primary-color: #60a5fa;
-            --accent-color: #93c5fd;
-            /* Panel (admin content) clarity */
-            --panel-bg: rgba(17, 24, 39, 0.9);
-            --panel-border-color: rgba(255, 255, 255, 0.12);
-            --header-divider: rgba(255, 255, 255, 0.12);
-            --heading-color: #f8fafc;
-            --label-bg: rgba(17, 24, 39, 0.9);
-        }
-
-        .animated-background {
-            position: fixed;
+        /* Header Styles */
+        header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #F6B8A9 100%);
+            box-shadow: var(--shadow-sm);
+            position: sticky;
             top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            margin: 0;
-            padding: 0;
+            z-index: 100;
         }
 
-        .bg-image {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            animation: slowMove 20s ease-in-out infinite;
-            background-attachment: fixed;
-            background-color: transparent;
-            filter: blur(6px) saturate(85%) brightness(0.9);
-            transition: filter 0.3s ease;
-            will-change: transform, filter;
-        }
-        .bg-image::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: rgba(255, 255, 255, 0.22);
-            transition: background 0.3s ease;
-            pointer-events: none;
-        }
-        [data-theme="dark"] .bg-image::after {
-            background: rgba(0, 0, 0, 0.45);
-        }
-        [data-theme="dark"] .bg-image {
-            filter: blur(7px) saturate(85%) brightness(0.7);
-        }
-
-        @keyframes slowMove {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            25% { transform: translate(-2%, -1%) scale(1.02); }
-            50% { transform: translate(1%, -2%) scale(1.01); }
-            75% { transform: translate(-1%, 1%) scale(1.02); }
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        .content-overlay {
-            min-height: 100vh;
-            position: relative;
-            z-index: 1;
-            margin: 0;
-            padding: 0;
-            background: transparent;
-        }
-
-        #app {
-            width: 100%;
-            min-height: 100vh;
-            position: relative;
-            margin: 0;
-            padding: 0;
-            background: transparent !important;
-        }
-        
-        #app .header {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            z-index: 9999 !important;
-            width: 100% !important;
-            transform: none !important;
-            will-change: auto !important;
-        }
-
-        /* Header */
-        .header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            width: 100%;
-            z-index: 1000;
-            background-color: #E87C59;
-            color: white;
-            padding: 1.5rem 0;
-            box-shadow: 0 2px 20px rgba(0,0,0,0.15);
-        }
-
-        .header-content {
+        .header-container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 0 2rem;
+            padding: 0 24px;
+            height: 80px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .logo {
-            font-size: 1.8rem;
-            font-weight: bold;
-        }
-
-        .header-left {
             display: flex;
             align-items: center;
-            gap: 1rem;
-        }
-
-        .nav {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-            overflow: visible;
-        }
-
-        .theme-toggle {
-            background: rgba(255,255,255,0.2);
-            border: none;
+            gap: 16px;
+            text-decoration: none;
             color: white;
-            padding: 0.5rem;
+        }
+
+        .logo img {
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
-            cursor: pointer;
-            font-size: 1.2rem;
-            transition: background 0.3s;
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            object-fit: cover;
         }
 
-        .theme-toggle:hover {
-            background: #D66A48;
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 600;
         }
 
-        .nav button {
-            background: none;
-            border: none;
+        nav {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            flex-wrap: wrap;
+        }
+
+        nav a {
             color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+
+        nav a:hover, nav a:focus-visible {
+            background: rgba(255,255,255,0.2);
+            outline: none;
+        }
+
+        .admin-btn {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 1rem;
-            padding: 0.5rem 1rem;
-            border-radius: 5px;
-            transition: background 0.3s;
+            font-size: 12px;
+            font-weight: 500;
+            transition: var(--transition);
+            margin-left: 16px;
+        }
+
+        .admin-btn:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        .subscription-input {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 12px;
+            transition: var(--transition);
+            margin-left: 16px;
+            width: 180px;
+        }
+
+        .subscription-input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .subscription-input:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.2);
+        }
+
+        .search-btn {
+            background: white;
+            color: var(--primary-color);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .search-btn:hover {
+            background: rgba(255,255,255,0.9);
+            transform: translateY(-2px);
+        }
+
+        .admin-key-input {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 12px;
+            transition: var(--transition);
+            margin-left: 16px;
+            width: 120px;
+        }
+
+        .admin-key-input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .admin-key-input:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            margin: 15% auto;
+            padding: 24px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            width: 90%;
+            max-width: 400px;
             position: relative;
         }
 
-        .nav button:hover {
-            background: #D66A48;
-        }
-
-        .nav button.active {
-            background: rgba(255,255,255,0.3);
-        }
-
-        /* Container */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 120px 2rem 2rem 2rem;
-            overflow: visible;
-            background: transparent;
-        }
-
-        @media (max-width: 900px) {
-            .container {
-                padding-top: 160px;
-            }
-        }
-
-        /* Blog Posts */
-        .posts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 2rem;
-            margin-top: 2rem;
-        }
-
-        .post-card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 20px rgba(139, 115, 85, 0.15);
-            transition: transform 0.3s, box-shadow 0.3s;
-            cursor: pointer;
-            border: 1px solid var(--border-color);
-            backdrop-filter: blur(10px);
-        }
-
-        .post-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 30px rgba(139, 115, 85, 0.25);
-        }
-
-        .post-title {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-            color: var(--text-color);
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.25);
-        }
-
-        .post-meta {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            margin-bottom: 1rem;
-        }
-
-        .post-excerpt {
-            color: var(--text-color);
-            line-height: 1.8;
-        }
-
-        .post-tags {
-            margin-top: 1rem;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .tag {
-            background: #ffe4e8; /* soft pink */
-            color: #e11d48; /* red */
-            padding: 0.25rem 0.75rem;
-            border-radius: 15px;
-            font-size: 0.85rem;
-        }
-
-        /* Single Post View */
-        .post-detail {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 3rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            max-width: 800px;
-            margin: 0 auto;
-            backdrop-filter: blur(10px);
-        }
-
-        .post-detail .post-title {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .post-content {
-            font-size: 1.1rem;
-            line-height: 1.8;
-            color: var(--text-color);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-            white-space: pre-wrap;
-        }
-
-        .back-button {
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1rem;
-            margin-bottom: 2rem;
-            transition: background 0.3s;
-        }
-
-        .back-button:hover {
-            background: var(--accent-color);
-        }
-
-        .btn {
-            background: #e11d48; /* red accent */
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: background 0.3s;
-        }
-
-        .btn:hover {
-            background: #c0263b;
-        }
-
-        .btn-danger {
-            background: #ef4444;
-        }
-
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-
-        .btn-small {
-            padding: 0.5rem 1rem;
-            font-size: 0.9rem;
-        }
-
-        /* Form */
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
+        .modal-header {
+            font-size: 20px;
             font-weight: 600;
-            color: var(--text-color);
+            margin-bottom: 16px;
+            color: var(--text-dark);
         }
 
-        .form-group input,
-        .form-group textarea {
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .modal-input {
             width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e5e7eb;
+            padding: 12px;
+            border: 2px solid var(--border-color);
             border-radius: 8px;
-            font-size: 1rem;
-            font-family: inherit;
-            transition: border-color 0.3s;
+            font-size: 16px;
+            margin-bottom: 12px;
         }
 
-        .form-group input:focus,
-        .form-group textarea:focus {
+        .modal-input:focus {
             outline: none;
             border-color: var(--primary-color);
         }
 
-        .form-group textarea {
-            min-height: 200px;
-            resize: vertical;
-        }
-
-        .form-actions {
+        .modal-actions {
             display: flex;
-            gap: 1rem;
-            margin-top: 2rem;
+            gap: 12px;
+            justify-content: flex-end;
         }
 
-        /* Login */
-        .login-container {
-            max-width: 400px;
-            margin: 4rem auto;
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .modal-btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .modal-btn-primary:hover {
+            background: #e64a19;
+        }
+
+        .modal-btn-secondary {
+            background: var(--text-medium);
+            color: white;
+        }
+
+        .modal-btn-secondary:hover {
+            background: #5a6c7d;
+        }
+
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-medium);
+        }
+
+        .close:hover {
+            color: var(--text-dark);
+        }
+
+        /* Password Group Styles */
+        .password-group {
+            position: relative;
+        }
+
+        .password-group .modal-input {
+            padding-right: 40px;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-medium);
+            transition: var(--transition);
+        }
+
+        .password-toggle:hover {
+            color: var(--text-dark);
+        }
+
+        /* Hero Section */
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #F6B8A9 100%);
+            color: white;
+            padding: 80px 24px;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .hero-content h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .hero-content p {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* Main Content */
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px 40px;
+        }
+
+        /* Filter Bar */
+        .filter-bar {
+            background: white;
+            padding: 16px 24px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .filter-bar span {
+            font-weight: 600;
+            color: var(--text-medium);
+        }
+
+        .filter-tag {
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 2px solid var(--primary-color);
+            background: white;
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .filter-tag:hover, .filter-tag.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* Blog Grid */
+        .blog-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 24px;
+        }
+
+        /* Blog Card */
+        .blog-card {
             background: var(--card-bg);
-            padding: 3rem;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .blog-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .blog-card:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 2px;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+        }
+
+        .card-content {
+            padding: 24px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-dark);
+            line-height: 1.3;
+        }
+
+        .card-meta {
+            font-size: 14px;
+            color: var(--text-medium);
+            margin-bottom: 16px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .reading-time {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .card-excerpt {
+            font-size: 16px;
+            color: var(--text-dark);
+            margin-bottom: 16px;
+            line-height: 1.6;
+            flex: 1;
+        }
+
+        .card-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .tag {
+            padding: 4px 12px;
+            border-radius: 16px;
+            background: #FFF5F3;
+            border: 1px solid var(--primary-color);
+            color: var(--text-dark);
+            font-size: 13px;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .tag:hover {
+            background: #FFE8E3;
+        }
+
+        .read-more {
+            color: var(--accent-color);
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: var(--transition);
+        }
+
+        .read-more:hover {
+            text-decoration: underline;
+            gap: 8px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1023px) {
+            .blog-grid {
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            }
+        }
+
+        @media (max-width: 767px) {
+            .header-container {
+                padding: 0 16px;
+            }
+
+            .logo h1 {
+                font-size: 20px;
+            }
+
+            nav {
+                gap: 16px;
+            }
+
+            nav a span {
+                display: none;
+            }
+
+            .blog-grid {
+                grid-template-columns: 1fr;
+            }
+
+            main {
+                padding: 24px 16px;
+            }
+
+            .filter-bar {
+                padding: 12px 16px;
+            }
+        }
+
+        /* Loading & Empty States */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-medium);
+        }
+
+        .empty-state h3 {
+            font-size: 24px;
+            margin-bottom: 12px;
+            color: var(--text-dark);
+        }
+
+        /* Admin Welcome Section */
+        .admin-welcome-section {
+            background: linear-gradient(135deg, var(--accent-color) 0%, #5A9B9B 100%);
+            padding: 40px 24px;
+            margin-bottom: 40px;
+            box-shadow: var(--shadow-md);
+        }
+
+        .admin-welcome-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .admin-welcome-content {
+            text-align: center;
+            color: white;
+        }
+
+        .admin-welcome-content h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .admin-welcome-content p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto 32px;
+            line-height: 1.6;
+        }
+
+        .admin-nav-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .admin-nav-btn {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 20px 16px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
             backdrop-filter: blur(10px);
         }
 
-        .login-container h2 {
-            color: var(--primary-color);
-            margin-bottom: 2rem;
-            text-align: center;
-        }
-        .auth-divider { display: flex; align-items: center; gap: .75rem; color: var(--text-muted); font-size: .9rem; margin: 1rem 0; }
-        .auth-divider::before, .auth-divider::after { content: ''; height: 1px; flex: 1; background: var(--panel-border-color, #e5e7eb); }
-        .btn-primary { width: 100%; background: linear-gradient(90deg, #ef4444, #dc2626); }
-        .btn-primary:hover { background: linear-gradient(90deg, #f05252, #e11d48); }
-
-        .error-message {
-            background: #fee2e2;
-            color: #dc2626;
-            padding: 0.75rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
+        .admin-nav-btn:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
         }
 
-        @media (max-width: 900px) {
-            .posts-grid { grid-template-columns: 1fr; }
-            .header-content { flex-direction: column; gap: 1rem; text-align: center; }
-            .nav { justify-content: center; }
-            .container { padding: 0 1rem; }
+        .btn-icon {
+            font-size: 2rem;
         }
 
-        @media (max-width: 600px) {
-            .posts-grid { grid-template-columns: 1fr; gap: 1rem; }
-            .post-card { padding: 1rem; }
+        .btn-text {
+            font-size: 1rem;
+            font-weight: 600;
         }
-    /* Sidebar */
-        .sidebar { position: fixed; top: 1rem; right: 1rem; left: auto; width: 260px; height: auto; max-height: calc(100vh - 2rem); transform: translateX(120%); transition: transform .3s ease; z-index: 10001; background: var(--card-bg); backdrop-filter: blur(10px); box-shadow: -2px 0 10px rgba(0,0,0,0.2); padding: 1rem; border-radius: 12px; overflow: auto; }
 
-    /* Admin Panel readability improvements */
-        .admin-panel { background: var(--panel-bg); border: 1px solid var(--panel-border-color); border-radius: 16px; padding: 1.25rem 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.25); backdrop-filter: none; }
+        /* Responsive Admin Section */
+        @media (max-width: 767px) {
+            .admin-welcome-section {
+                padding: 32px 16px;
+                margin-bottom: 32px;
+            }
 
-    /* Entry key popup */
-        .entry-key-popup { position: fixed; right: 2rem; bottom: 5.6rem; width: 260px; background: var(--panel-bg); border: 1px solid var(--panel-border-color); border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); z-index: 10001; padding: .75rem; }
-        .entry-key-popup::after { content: ''; position: absolute; bottom: -8px; right: 18px; border-width: 8px 8px 0 8px; border-style: solid; border-color: var(--panel-border-color) transparent transparent transparent; }
-        .entry-key-header { font-weight: 700; margin-bottom: .5rem; color: var(--heading-color); font-size: .95rem; text-transform: capitalize; }
-        .entry-key-body input { width: 100%; padding: .5rem; border: 1px solid var(--panel-border-color); border-radius: 6px; background: #ffffff; color: #111827; }
-        [data-theme="dark"] .entry-key-body input { background: #0b1220; color: var(--text-color); }
-        .entry-key-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .5rem; }
-        .entry-key-error { color: #ef4444; font-size: .85rem; margin-top: .25rem; }
-        .admin-panel .form-group label { display:inline-block; color: var(--heading-color); font-weight: 700; letter-spacing: .2px; text-shadow: none; background: var(--label-bg); border: 1px solid var(--panel-border-color); border-radius: 8px; padding: 0.25rem 0.6rem; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
-        .admin-panel .admin-form .form-group input,
-        .admin-panel .admin-form .form-group select,
-        .admin-panel .admin-form .form-group textarea { background: #ffffff; border: 1px solid var(--panel-border-color); color: #111827; }
-        [data-theme="dark"] .admin-panel .admin-form .form-group input,
-        [data-theme="dark"] .admin-panel .admin-form .form-group select,
-        [data-theme="dark"] .admin-panel .admin-form .form-group textarea { background: #0b1220; border: 1px solid var(--panel-border-color); color: var(--text-color); }
-        .admin-panel .actions { background: var(--panel-bg); border-top: 1px solid var(--panel-border-color); }
-        .sidebar.open { transform: translateX(0); }
-        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-        .sidebar-title { font-weight: 700; color: #374151; }
-        .sidebar-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #111827; }
-        .sidebar-nav { display: flex; flex-direction: column; gap: .75rem; }
-        .sidebar-item { text-align: left; background: #E87C59; color: white; border: none; padding: .75rem 1rem; border-radius: 8px; cursor: pointer; }
-        .sidebar-item:hover { background: #D66A48; }
-        .sidebar-item.compact { display: inline-flex; align-self: flex-start; padding: .5rem .9rem; font-size: 0.95rem; }
-        .sidebar-item.danger { background: #ef4444; }
-        .sidebar-item.danger:hover { background: #dc2626; }
-        .sidebar-section { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: .5rem; }
-        .dropdown-toggle { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); color: var(--text-color); }
-        .dropdown-content { overflow: hidden; transition: max-height .25s ease; display: flex; flex-direction: column; gap: .5rem; margin-top: .5rem; }
-        .sidebar-subitem { background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 6px; padding: .6rem .9rem; text-align: left; cursor: pointer; }
-        .sidebar-subitem:hover { background: #f3f4f6; }
-        .chevron { transition: transform .2s ease; }
-        .chevron.open { transform: rotate(180deg); }
-        .sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 10000; }
+            .admin-welcome-content h2 {
+                font-size: 2rem;
+            }
 
-    /* Compact Admin Form */
-        .admin-form { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; align-items: start; }
-        .admin-form .full { grid-column: 1 / -1; }
-        .admin-form .form-group label { margin-bottom: .35rem; color: var(--text-color); }
-        .admin-form .form-group input,
-        .admin-form .form-group select,
-        .admin-form .form-group textarea { padding: .5rem; font-size: .95rem; }
-        .admin-form .content-editor textarea { min-height: 140px; max-height: 30vh; overflow: auto; }
-        .admin-form .image-preview { display: flex; gap: .5rem; align-items: center; }
-        .admin-form .image-preview img { width: 100%; max-width: 220px; max-height: 140px; object-fit: cover; border-radius: 8px; display: block; }
-        .admin-form .actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: .5rem; position: sticky; bottom: 0; background: var(--card-bg); padding-top: .5rem; border-top: 1px solid var(--border-color); }
-        @media (max-width: 900px) { .admin-form { grid-template-columns: 1fr; } }
+            .admin-welcome-content p {
+                font-size: 1rem;
+            }
 
+            .admin-nav-buttons {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .admin-nav-btn {
+                padding: 16px 12px;
+            }
+
+            .btn-icon {
+                font-size: 1.5rem;
+            }
+
+            .btn-text {
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Smooth scroll */
+        html {
+            scroll-behavior: smooth;
+        }
     </style>
 </head>
 <body>
-    <div class="animated-background">
-        <div class="bg-image" :style="backgroundStyle" ref="bgEl"></div>
-    </div>
-    <div class="content-overlay">
-    <div id="app">
-        <div class="header" style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; z-index: 9999 !important; width: 100% !important;">
-            <div class="header-content">
-                <div class="header-left">
-                    <div class="profile-photo" style="width:50px; height:50px; border-radius:50%; background-size:cover; background-position:center; border:2px solid rgba(255,255,255,0.3); cursor:pointer;" :style="{ backgroundImage: profilePhoto ? 'url(' + profilePhoto + ')' : '' }" @click="currentView === 'admin' && isLoggedIn ? showSettings = true : null" :title="currentView === 'admin' && isLoggedIn ? 'Click to open settings' : ''">
-                        <div v-if="!profilePhoto" style="display:flex; align-items:center; justify-content:center; height:100%; color:rgba(255,255,255,0.7); font-size:1.2rem;">👤</div>
-                    </div>
-                    <div class="logo">{{ blogTitle }}</div>
-                </div>
-                <nav class="nav">
-                    <div v-if="currentView === 'admin' && isLoggedIn">
-                        <button @click.stop="toggleSideMenu" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">☰ Menu</button>
-                        <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
-                            {{ isDarkMode ? '☀️' : '🌙' }}
-                        </button>
-                    </div>
-                    <div v-else>
-                        <button @click="handleBlogClick" :class="{ active: currentView === 'blog' }">Blog</button>
-                        <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
-                            {{ isDarkMode ? '☀️' : '🌙' }}
-                        </button>
-                    </div>
-                </nav>
-            </div>
+    <header>
+        <div class="header-container">
+            <a href="#" class="logo">
+                <img id="profilePicture" src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile picture">
+                <h1>zedong254ke</h1>
+            </a>
+            <nav>
+                <a href="#"><span>Home</span>🏠</a>
+                <a href="#"><span>Blog</span>📝</a>
+                <a href="/about.html"><span>About</span>ℹ️</a>
+                <input type="email" class="subscription-input" placeholder="Subscribe to newsletter" id="subscriptionEmail">
+                <button class="search-btn">🔍 Search</button>
+                <button class="admin-btn" onclick="openAdminModal()">🔒 Admin</button>
+            </nav>
         </div>
+    </header>
 
-        <div class="container" style="margin-top: 120px !important; padding-top: 2rem !important;">
-            <!-- Blog View -->
-            <div v-if="currentView === 'blog' && !selectedPost">
-                <h1 style="margin: 2rem 0; color: var(--text-color);">Latest Posts</h1>
-                
-                <div v-if="posts.length === 0" class="empty-state">
-                    <h3>No posts yet</h3>
-                    <p>Check back soon for new content!</p>
-                </div>
-
-                <!-- Posts Grid -->
-                <div class="posts-grid" v-if="posts.length > 0">
-                    <div v-for="post in posts" :key="post.id" class="post-card" @click="viewPost(post)">
-                        <div v-if="post.image" style="margin-bottom: 1rem;">
-                            <img :src="post.image" :alt="post.title" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
-                        </div>
-                        <h2 class="post-title">{{ post.title }}</h2>
-                        <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }}<span v-if="getCategoryName(post.categoryId)"> · {{ getCategoryName(post.categoryId) }}</span></div>
-                        <p class="post-excerpt">{{ getExcerpt(post.content) }}</p>
-                        <div class="post-tags">
-                            <span v-for="tag in post.tags" :key="tag" class="tag">{{ tag }}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Chat & Admin Access (Bottom Right) -->
-                <div v-if="currentView === 'blog'" style="position:fixed; bottom:2rem; right:2rem; z-index:1000; display:flex; flex-direction:column; gap:1rem;">
-                    <div v-if="showEntryKeyPopup" class="entry-key-popup">
-                        <div class="entry-key-header">zedong subscription key</div>
-                        <div class="entry-key-body">
-                            <input v-model="entryKeyInput" type="password" placeholder="Enter key" @keyup.enter="submitEntryKey">
-                            <div v-if="entryKeyError" class="entry-key-error">{{ entryKeyError }}</div>
-                            <div class="entry-key-actions">
-                                <button class="btn btn-small" @click="submitEntryKey">Submit</button>
-                                <button class="btn btn-small" style="background:#6b7280;" @click="cancelEntryKey">Cancel</button>
-                            </div>
-                        </div>
-                    </div>
-                    <button @click="handleAdminAccessClick" style="background:var(--primary-color); color:white; border:none; padding:1rem; border-radius:50%; cursor:pointer; font-size:1.2rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="Admin Portal">
-                        🔒
+    <!-- Admin Welcome Section -->
+    <section class="admin-welcome-section" id="adminWelcomeSection" style="display: none;">
+        <div class="admin-welcome-container">
+            <div class="admin-welcome-content">
+                <h2>Welcome back, Admin! 👋</h2>
+                <p>Manage your blog with ease. Quick access to your admin tools below.</p>
+                <div class="admin-nav-buttons">
+                    <button class="admin-nav-btn" onclick="goToDashboard()">
+                        <span class="btn-icon">📊</span>
+                        <span class="btn-text">Dashboard</span>
+                    </button>
+                    <button class="admin-nav-btn" onclick="goToSettings()">
+                        <span class="btn-icon">⚙️</span>
+                        <span class="btn-text">Settings</span>
+                    </button>
+                    <button class="admin-nav-btn" onclick="goToAnalytics()">
+                        <span class="btn-icon">📈</span>
+                        <span class="btn-text">Analytics</span>
+                    </button>
+                    <button class="admin-nav-btn" onclick="goToCustomize()">
+                        <span class="btn-icon">🎨</span>
+                        <span class="btn-text">Customize Blog</span>
                     </button>
                 </div>
             </div>
+        </div>
+    </section>
 
-            <!-- Single Post View -->
-            <div v-if="currentView === 'blog' && selectedPost">
-                <button class="back-button" @click="goBackToList">← Back to Posts</button>
-                <div class="post-detail">
-                    <div v-if="selectedPost.image && selectedPost.image.trim()" style="margin-bottom: 2rem;">
-                        <img :src="selectedPost.image" :alt="selectedPost.title" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 12px;">
-                    </div>
-                    <h1 class="post-title">{{ selectedPost.title }}</h1>
-                    <div class="post-meta">{{ formatDate(selectedPost.date) }} · {{ selectedPost.author }}</div>
-                    <div class="post-tags" style="margin: 1rem 0 1rem 0;">
-                        <span v-for="tag in selectedPost.tags" :key="tag" class="tag">{{ tag }}</span>
-                    </div>
-                    <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:1.5rem;">
-                        <span style="color:white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">Share:</span>
-                        <a :href="shareLinks.twitter" target="_blank" rel="noopener" class="btn btn-small" style="background:#1DA1F2; text-decoration:none;">Twitter</a>
-                        <a :href="shareLinks.facebook" target="_blank" rel="noopener" class="btn btn-small" style="background:#1877F2; text-decoration:none;">Facebook</a>
-                        <a :href="shareLinks.linkedin" target="_blank" rel="noopener" class="btn btn-small" style="background:#0A66C2; text-decoration:none;">LinkedIn</a>
-                        <button class="btn btn-small" style="background:#6b7280;" @click="copyPermalink">Copy link</button>
-                    </div>
-                    <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:1.5rem;">
-                        <button class="btn btn-small" style="background:#22c55e;" @click="likePost(selectedPost.id)">👍 Like ({{ selectedPost.likes || 0 }})</button>
-                        <button class="btn btn-small" style="background:#ef4444;" @click="dislikePost(selectedPost.id)">👎 Dislike ({{ selectedPost.dislikes || 0 }})</button>
-                    </div>
-                    <div class="post-content">{{ selectedPost.content }}</div>
-                </div>
+    <main>
+        <section class="hero-section">
+            <div class="hero-content">
+                <h1>Welcome to zedong254ke's Blog</h1>
+                <p>Discover insights, tutorials, and thoughts on web development, programming, and technology.</p>
             </div>
+        </section>
 
-            <!-- Sidebar + Backdrop -->
-            <div v-if="showSidebar" class="sidebar-backdrop" @click="toggleSideMenu"></div>
-            <div class="sidebar" :class="{ open: showSidebar }" v-if="isLoggedIn">
-                <div class="sidebar-header">
-                    <div class="sidebar-title">Admin</div>
-                    <button class="sidebar-close" @click="toggleSideMenu">&times;</button>
+        <div class="filter-bar">
+            <span>Filter by:</span>
+            <button class="filter-tag active" data-category="all">All</button>
+            <!-- Categories will be loaded dynamically here -->
+        </div>
+
+        <div class="blog-grid" id="blog-grid">
+            <!-- Posts will be loaded dynamically here -->
+        </div>
+    </main>
+
+    <!-- Admin Entry Key Modal -->
+    <div id="adminModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div class="modal-header">Admin Access</div>
+            <div class="modal-body">
+                <p>Please enter the admin entry key to access the admin panel.</p>
+                <div class="password-group">
+                    <input type="password" id="adminKeyInput" class="modal-input" placeholder="Enter admin key" onkeypress="handleKeyPress(event)">
+                    <button type="button" class="password-toggle" id="adminKeyToggle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
                 </div>
-                <nav class="sidebar-nav">
-                    <button class="sidebar-item compact" @click="showNewPostForm = true; showSidebar = false">+ New Post</button>
-
-                    <div class="sidebar-section">
-                        <button class="sidebar-item dropdown-toggle" @click="sidebarManageOpen = !sidebarManageOpen">
-                            Manage
-                            <span class="chevron" :class="{ open: sidebarManageOpen }">▾</span>
-                        </button>
-                        <div class="dropdown-content" :style="{ maxHeight: sidebarManageOpen ? '220px' : '0px' }">
-                            <button class="sidebar-subitem" @click="showCategoryManagement = true; showSidebar = false">Categories</button>
-                            <button class="sidebar-subitem" @click="showSettings = true; showSidebar = false">Settings</button>
-                            <button class="sidebar-subitem" @click="showAnalytics = true; showSidebar = false">Analytics</button>
-                        </div>
-                    </div>
-
-                    <div class="sidebar-section">
-                        <button class="sidebar-item" @click="currentView = 'blog'; showSidebar = false">View Blog</button>
-                        <button class="sidebar-item danger" @click="logout">Logout</button>
-                    </div>
-                </nav>
+                <div id="errorMessage" style="color: #dc2626; font-size: 14px; margin-top: 8px; display: none;"></div>
             </div>
-
-
-
-            <!-- Category Management Modal -->
-            <div v-if="showCategoryManagement" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10002; display: flex; align-items: center; justify-content: center;">
-                <div style="background: rgba(255, 255, 255, 0.95); padding: 2rem; border-radius: 12px; max-width: 600px; width: 90%; backdrop-filter: blur(10px); max-height: 80vh; overflow-y: auto;">
-                    <h3 style="margin-bottom: 1rem;">Manage Categories</h3>
-                    
-                    <!-- Category Form -->
-                    <div style="margin-bottom: 2rem; padding: 1rem; background: #f9fafb; border-radius: 8px;">
-                        <div class="form-group">
-                            <label>Category Name</label>
-                            <input v-model="categoryForm.name" type="text" placeholder="Enter category name">
-                        </div>
-                        <div class="form-group">
-                            <label>Description</label>
-                            <input v-model="categoryForm.description" type="text" placeholder="Optional description">
-                        </div>
-                        <div style="display: flex; gap: 1rem;">
-                            <button class="btn btn-small" @click="saveCategory">{{ editingCategory ? 'Update' : 'Add' }} Category</button>
-                            <button v-if="editingCategory" class="btn btn-small" style="background: #6b7280;" @click="cancelCategoryEdit">Cancel</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Categories List -->
-                    <div style="margin-bottom: 1rem;">
-                        <h4>Existing Categories ({{ categories.length }})</h4>
-                        <div v-if="categories.length === 0" style="color: #6b7280; font-style: italic;">No categories yet</div>
-                        <div v-else>
-                            <div v-for="cat in categories" :key="cat.id" style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; margin: 0.5rem 0; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
-                                <div>
-                                    <strong>{{ cat.name }}</strong>
-                                    <div v-if="cat.description" style="font-size: 0.9rem; color: #6b7280;">{{ cat.description }}</div>
-                                </div>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <button class="btn btn-small" @click="editCategory(cat)">Edit</button>
-                                    <button class="btn btn-danger btn-small" @click="deleteCategory(cat.id)">Delete</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                        <button class="btn" style="background: #6b7280;" @click="showCategoryManagement = false">Close</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Settings Modal -->
-            <div v-if="showSettings" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10002; display: flex; align-items: center; justify-content: center;">
-                <div style="background: rgba(255, 255, 255, 0.95); padding: 2rem; border-radius: 12px; max-width: 700px; width: 90%; backdrop-filter: blur(10px); max-height: 80vh; overflow-y: auto;">
-                    <h3 style="margin-bottom: 1rem;">Settings</h3>
-                    
-                    <!-- Settings Tabs -->
-                    <div style="display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid #e5e7eb;">
-                        <button @click="activeSettingsTab = 'general'" :class="activeSettingsTab === 'general' ? 'btn' : 'btn'" :style="activeSettingsTab === 'general' ? '' : 'background: #6b7280'">General</button>
-                        <button @click="activeSettingsTab = 'author'" :class="activeSettingsTab === 'author' ? 'btn' : 'btn'" :style="activeSettingsTab === 'author' ? '' : 'background: #6b7280'">Author</button>
-                        <button @click="activeSettingsTab = 'security'" :class="activeSettingsTab === 'security' ? 'btn' : 'btn'" :style="activeSettingsTab === 'security' ? '' : 'background: #6b7280'">Security</button>
-                        <button @click="activeSettingsTab = 'social'" :class="activeSettingsTab === 'social' ? 'btn' : 'btn'" :style="activeSettingsTab === 'social' ? '' : 'background: #6b7280'">Social Media</button>
-                    </div>
-                    
-                    <!-- General Settings -->
-                    <div v-if="activeSettingsTab === 'general'">
-                        <div class="form-group">
-                            <label>Profile Photo</label>
-                            <input type="file" @change="handleProfileUpload" accept="image/*" style="margin-bottom: 0.5rem; width: 100%;">
-                            <div v-if="profilePhoto" style="margin-top: 0.5rem;">
-                                <img :src="profilePhoto" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%;">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Background Image</label>
-                            <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 2rem; text-align: center; position: relative;">
-                                <div v-if="backgroundImage" style="margin-bottom: 1rem;">
-                                    <img :src="backgroundImageUrl" style="width: 100%; max-width: 300px; height: 150px; object-fit: cover; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                                    <p style="margin: 0.5rem 0; color: #64748b; font-size: 0.9rem;">Current background image</p>
-                                </div>
-                                <div v-else style="padding: 2rem; color: #94a3b8;">
-                                    <div style="font-size: 3rem; margin-bottom: 1rem;">🖼️</div>
-                                    <p>No background image set</p>
-                                </div>
-                                <input type="file" @change="previewBackgroundImage" accept="image/*" style="margin-top: 1rem; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px; background: white;">
-                                <div v-if="pendingBackgroundImage" style="margin-top: 1rem; padding: 1rem; background: #fef3c7; border-radius: 8px;">
-                                    <img :src="pendingBackgroundImage" style="width: 200px; height: 100px; object-fit: cover; border-radius: 6px; margin-bottom: 0.5rem;">
-                                    <p style="color: #92400e; font-size: 0.9rem; margin-bottom: 1rem;">New background image ready</p>
-                                    <div style="display: flex; gap: 0.5rem; justify-content: center;">
-                                        <button class="btn btn-small" @click="confirmBackgroundChange">Apply Background</button>
-                                        <button class="btn btn-small" style="background: #6b7280;" @click="cancelBackgroundChange">Cancel</button>
-                                    </div>
-                                </div>
-                                <p style="margin-top: 0.5rem; color: #64748b; font-size: 0.85rem;">Select a new image and click Apply to change background</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Author Settings -->
-                    <div v-if="activeSettingsTab === 'author'">
-                        <div class="form-group">
-                            <label>Author Name</label>
-                            <input v-model="authorSettings.name" type="text" placeholder="Your name">
-                        </div>
-                        <div class="form-group">
-                            <label>Email</label>
-                            <input v-model="authorSettings.email" type="email" placeholder="you@example.com">
-                        </div>
-                        <div class="form-group">
-                            <label>Phone</label>
-                            <input v-model="authorSettings.phone" type="tel" placeholder="+1234567890">
-                        </div>
-                        <div class="form-group">
-                            <label>WhatsApp</label>
-                            <input v-model="authorSettings.whatsapp" type="text" placeholder="WhatsApp link or number">
-                        </div>
-                        <div class="form-group">
-                            <label>Website</label>
-                            <input v-model="authorSettings.social.website" type="url" placeholder="https://your-website.com">
-                        </div>
-                        <div class="form-group">
-                            <label>Twitter</label>
-                            <input v-model="authorSettings.social.twitter" type="url" placeholder="https://twitter.com/username">
-                        </div>
-                        <div class="form-group">
-                            <label>Facebook</label>
-                            <input v-model="authorSettings.social.facebook" type="url" placeholder="https://facebook.com/username">
-                        </div>
-                        <div class="form-group">
-                            <label>LinkedIn</label>
-                            <input v-model="authorSettings.social.linkedin" type="url" placeholder="https://linkedin.com/in/username">
-                        </div>
-                        <div class="form-group">
-                            <label>Instagram</label>
-                            <input v-model="authorSettings.social.instagram" type="url" placeholder="https://instagram.com/username">
-                        </div>
-                        <button class="btn" @click="saveAuthorSettings">Save Author</button>
-                    </div>
-
-                    <!-- Security Settings -->
-                    <div v-if="activeSettingsTab === 'security'">
-                        <div class="form-group">
-                            <label>Admin Entry Key</label>
-                            <input v-model="securityForm.adminEntryKey" type="password" placeholder="Enter new entry key (leave blank to remove)">
-                            <small style="display:block; margin-top:.5rem; color:#6b7280;">
-                                {{ securityHasEntryKey ? 'An entry key is currently set. Enter a new key to update, or click Remove to disable.' : 'No entry key set. Set one to require a key before accessing the admin portal.' }}
-                            </small>
-                        </div>
-                        <div style="display:flex; gap:.5rem; margin-bottom:1rem;">
-                            <button class="btn btn-small" @click="saveSecuritySettings">Save Key</button>
-                            <button class="btn btn-small btn-danger" @click="securityForm.adminEntryKey=''; saveSecuritySettings()">Remove Key</button>
-                        </div>
-                        <div style="margin: 1rem 0; padding: 1rem; border:1px solid var(--border-color); border-radius:8px; background: var(--card-bg);">
-                            <h4 style="margin-bottom:.75rem;">Current Admin Entry Key</h4>
-                            <div v-if="!securityKeyAuthorized" style="display:flex; gap:.5rem; align-items:center;">
-                                <input v-model="securityKeyAuth.username" type="text" placeholder="Admin username" style="flex:1; padding:.5rem; border:1px solid #e5e7eb; border-radius:6px;">
-                                <input v-model="securityKeyAuth.password" type="password" placeholder="Admin password" style="flex:1; padding:.5rem; border:1px solid #e5e7eb; border-radius:6px;">
-                                <button class="btn btn-small" @click="viewSecurityKey">View Key</button>
-                            </div>
-                            <div v-else>
-                                <div style="display:flex; align-items:center; gap:.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">
-                                    <span style="padding:.35rem .6rem; background:#e5e7eb; border-radius:6px; color:#111827;" v-if="securityKeyValue">{{ securityKeyValue }}</span>
-                                    <span style="color:#9ca3af; font-style:italic;" v-else>No key set</span>
-                                    <button class="btn btn-small" @click="copySecurityKey" v-if="securityKeyValue">Copy</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Social Media Settings -->
-                    <div v-if="activeSettingsTab === 'social'">
-                        <div class="form-group">
-                            <label>Twitter URL</label>
-                            <input v-model="socialMedia.twitter" type="url" placeholder="https://twitter.com/username">
-                        </div>
-                        <div class="form-group">
-                            <label>Facebook URL</label>
-                            <input v-model="socialMedia.facebook" type="url" placeholder="https://facebook.com/username">
-                        </div>
-                        <div class="form-group">
-                            <label>LinkedIn URL</label>
-                            <input v-model="socialMedia.linkedin" type="url" placeholder="https://linkedin.com/in/username">
-                        </div>
-                        <div class="form-group">
-                            <label>Instagram URL</label>
-                            <input v-model="socialMedia.instagram" type="url" placeholder="https://instagram.com/username">
-                        </div>
-                        <button class="btn" @click="saveSocialMedia">Save Social Media</button>
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
-                        <button class="btn" style="background: #6b7280;" @click="showSettings = false">Close</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Analytics Modal -->
-            <div v-if="showAnalytics" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10002; display: flex; align-items: center; justify-content: center;">
-                <div style="background: rgba(255, 255, 255, 0.95); padding: 2rem; border-radius: 12px; max-width: 900px; width: 95%; backdrop-filter: blur(10px); max-height: 85vh; overflow-y: auto;">
-                    <h3 style="margin-bottom: 1rem;">Analytics Dashboard</h3>
-                    <div style="display:flex; flex-wrap: wrap; gap:.75rem; align-items: flex-end; margin-bottom: 1rem;">
-                        <div class="form-group" style="margin:0;">
-                            <label>From</label>
-                            <input type="date" v-model="analyticsFilter.from" style="padding:.5rem; font-size:.95rem; min-width: 180px;">
-                        </div>
-                        <div class="form-group" style="margin:0;">
-                            <label>To</label>
-                            <input type="date" v-model="analyticsFilter.to" style="padding:.5rem; font-size:.95rem; min-width: 180px;">
-                        </div>
-                        <div style="display:flex; gap:.5rem; margin-left:auto;">
-                            <button class="btn btn-small" @click="applyAnalyticsFilter">Apply Filter</button>
-                            <button class="btn btn-small" style="background:#6b7280;" @click="clearAnalyticsFilter">Clear</button>
-                            <button class="btn btn-small" style="background:#0ea5e9;" @click="downloadExport('all','json')">Download All (JSON)</button>
-                            <button class="btn btn-small" style="background:#22c55e;" @click="downloadExport('pageViews','csv')">PageViews CSV</button>
-                            <button class="btn btn-small" style="background:#a78bfa;" @click="downloadExport('interactions','csv')">Interactions CSV</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Analytics Summary -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
-                        <div style="background: #f0f9ff; padding: 1rem; border-radius: 8px; text-align: center;">
-                        <h4 style="color: #0369a1;">Total Page Views</h4>
-                        <div style="font-size: 2rem; font-weight: bold; color: #0369a1;">{{ filteredAnalytics.pageViews.length }}</div>
-                        </div>
-                        <div style="background: #f0fdf4; padding: 1rem; border-radius: 8px; text-align: center;">
-                            <h4 style="color: #16a34a;">Total Posts</h4>
-                            <div style="font-size: 2rem; font-weight: bold; color: #16a34a;">{{ posts.length }}</div>
-                        </div>
-                        <div style="background: #fef3c7; padding: 1rem; border-radius: 8px; text-align: center;">
-                        <h4 style="color: #d97706;">Interactions</h4>
-                        <div style="font-size: 2rem; font-weight: bold; color: #d97706;">{{ filteredAnalytics.interactions.length }}</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Charts -->
-                    <div style="margin-bottom: 2rem;">
-                        <div style="display:flex; justify-content: space-between; align-items:center;">
-                            <h4>Page Views Over Time</h4>
-                            <button class="btn btn-small" @click="downloadChart('pageViews')">Download PNG</button>
-                        </div>
-                        <canvas id="pageViewsChart" width="400" height="200"></canvas>
-                    </div>
-                    <div style="margin-bottom: 2rem;">
-                        <div style="display:flex; justify-content: space-between; align-items:center;">
-                            <h4>Interactions by Type</h4>
-                            <button class="btn btn-small" @click="downloadChart('interactions')">Download PNG</button>
-                        </div>
-                        <canvas id="interactionsChart" width="400" height="200"></canvas>
-                    </div>
-                    
-                    <!-- Recent Activity -->
-                    <div style="margin-bottom: 1rem;">
-                        <h4>Recent Page Views</h4>
-                        <div style="max-height: 200px; overflow-y: auto; background: #f9fafb; padding: 1rem; border-radius: 8px;">
-                            <div v-if="filteredAnalytics.pageViews.length === 0" style="color: #6b7280; font-style: italic;">No page views recorded yet</div>
-                            <div v-else>
-                            <div v-for="view in filteredAnalytics.pageViews.slice(-10).reverse()" :key="view.id" style="padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb; font-size: 0.9rem;">
-                            <strong>{{ view.page }}</strong> - {{ formatDate(view.timestamp) }}
-                            <div style="color: #6b7280;">{{ view.userAgent.substring(0, 50) }}...</div>
-                            </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                        <button class="btn" @click="refreshAnalytics">Refresh Data</button>
-                        <button class="btn" style="background: #6b7280;" @click="showAnalytics = false">Close</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Admin View -->
-            <div v-if="currentView === 'admin'">
-                <!-- Login -->
-                <div v-if="!isLoggedIn" class="login-container">
-                    <h2 style="margin-bottom: 1rem;">Admin Login</h2>
-                    <div v-if="loginError" class="error-message">{{ loginError }}</div>
-                    <div class="form-group" style="margin-bottom: 1rem;">
-                        <input v-model="loginUsername" type="text" placeholder="Email or username" autocomplete="username" autofocus @keyup.enter="login">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 1rem;">
-                        <input v-model="loginPassword" type="password" placeholder="Password" autocomplete="current-password" @keyup.enter="login">
-                    </div>
-                    <button class="btn btn-primary" @click="login">Sign in</button>
-                    <div class="auth-divider"><span>or</span></div>
-                    <div style="text-align: center;">
-                        <div id="gSignInButton" style="display: inline-block;"></div>
-                    </div>
-                </div>
-
-                <!-- Admin Panel -->
-                <div v-if="isLoggedIn" class="admin-panel">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--header-divider);">
-                        <h2 style="color: var(--primary-color); font-size: 2rem;">{{ editingPost ? 'Edit Post' : 'Manage Posts' }}</h2>
-                        <div>
-                            <button v-if="!editingPost && !showNewPostForm" class="btn" @click="showNewPostForm = true">+ New Post</button>
-                            <button class="btn" style="margin-left: 1rem;" @click="logout">Logout</button>
-                        </div>
-                    </div>
-
-                    <!-- New/Edit Post Form -->
-                    <div v-if="showNewPostForm || editingPost" class="admin-form">
-                        <div class="form-group full">
-                            <label>Title</label>
-                            <input v-model="postForm.title" type="text" placeholder="Enter post title">
-                        </div>
-                        <div class="form-group">
-                            <label>Author</label>
-                            <div style="padding: .5rem .75rem; border: 2px solid #e5e7eb; border-radius: 8px; background: var(--card-bg); color: var(--text-color);">
-                                {{ authorSettings.name || 'Anonymous' }}
-                                <div style="font-size:.85rem; color: var(--text-muted);" v-if="authorSettings.email || authorSettings.phone">
-                                    <span v-if="authorSettings.email">{{ authorSettings.email }}</span>
-                                    <span v-if="authorSettings.email && authorSettings.phone"> · </span>
-                                    <span v-if="authorSettings.phone">{{ authorSettings.phone }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Category</label>
-                            <select v-model="postForm.categoryId" style="width: 100%; padding: 0.5rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.95rem;">
-                                <option value="">No Category</option>
-                                <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Tags</label>
-                            <input v-model="postForm.tags" type="text" placeholder="technology, coding, vue">
-                        </div>
-                        <div class="form-group image-uploader">
-                            <label>Featured Image</label>
-                            <input type="file" @change="handleImageUpload" accept="image/*" style="margin-bottom: 0.25rem;">
-                            <div v-if="postForm.image" class="image-preview">
-                                <img :src="postForm.image" alt="Preview">
-                                <button type="button" @click="postForm.image = ''" class="btn btn-small" style="background:#ef4444;">Remove</button>
-                            </div>
-                        </div>
-                        <div class="form-group full content-editor">
-                            <label>Content</label>
-                            <textarea v-model="postForm.content" placeholder="Write your post content here..."></textarea>
-                        </div>
-                        <div class="form-actions actions">
-                            <button class="btn btn-small" @click="savePost">{{ editingPost ? 'Update Post' : 'Publish Post' }}</button>
-                            <button class="btn btn-small" style="background: #6b7280;" @click="cancelEdit">Cancel</button>
-                        </div>
-                    </div>
-
-                    <!-- Posts List -->
-                    <div v-if="!showNewPostForm && !editingPost" style="margin-top: 2rem;">
-                        <h3 style="margin-bottom: 1rem; color: #374151;">Your Posts ({{ posts.length }})</h3>
-                        <div v-if="posts.length === 0" class="empty-state">
-                            <h3>No posts yet</h3>
-                            <p>Create your first post to get started!</p>
-                        </div>
-                        <div v-else>
-                            <div v-for="post in posts" :key="post.id" style="background: #f9fafb; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
-                                <div>
-                                    <h3 style="color: var(--primary-color); margin-bottom: 0.5rem;">{{ post.title }}</h3>
-                                    <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }}</div>
-                                </div>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <button class="btn btn-small" @click="editPost(post)">Edit</button>
-                                    <button class="btn btn-danger btn-small" @click="deletePost(post.id)">Delete</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="modal-btn modal-btn-primary" onclick="verifyAdminKey()">Submit</button>
             </div>
         </div>
     </div>
-    </div>
 
     <script>
-        // OAuth 2.0 Web Client ID from Google Cloud
-        const GOOGLE_CLIENT_ID = '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com';
+        let allPosts = [];
+        let currentFilter = 'all';
 
-        // Minimal JWT decoder for client-side ID token parsing (no signature verification)
-        function decodeJwt (token) {
+        // Load posts from server
+        async function loadPosts() {
             try {
-                const parts = token.split('.');
-                if (parts.length !== 3) return null;
-                const payload = parts[1];
-                const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-                return JSON.parse(decodeURIComponent(escape(json)));
-            } catch (e) {
-                return null;
+                const response = await fetch('/api/posts');
+                const data = await response.json();
+                allPosts = data.posts || [];
+                renderPosts();
+            } catch (error) {
+                console.error('Failed to load posts:', error);
+                // Show empty state
+                document.getElementById('blog-grid').innerHTML = '<div class="empty-state"><h3>No posts found</h3><p>Check back later for new content.</p></div>';
             }
         }
-        const { createApp } = Vue;
 
-        createApp({
-            data() {
-                return {
-                    blogTitle: 'zedong254ke',
-                    currentView: 'blog',
-                    selectedPost: null,
-                    posts: [],
-                    isLoggedIn: false,
-                    loginUsername: '',
-                    loginPassword: '',
-                    loginError: '',
-                    showNewPostForm: false,
-                    editingPost: null,
-                    postForm: {
-                        title: '',
-                        author: '',
-                        content: '',
-                        tags: '',
-                        image: '',
-                        categoryId: ''
-                    },
-                    nextId: 1,
-                    isDarkMode: false,
-                    backgroundImage: '',
-                    profilePhoto: localStorage.getItem('profilePhoto') || '',
-                    showSideMenu: false,
-                    showSidebar: false,
-                    sidebarManageOpen: false,
-                    showSettingsMenu: false,
-                    showProfileUpload: false,
-                    showCategoryManagement: false,
-                    showSettings: false,
-                    showAnalytics: false,
-                    activeSettingsTab: 'general',
-                    socialMedia: {
-                        twitter: localStorage.getItem('socialTwitter') || '',
-                        facebook: localStorage.getItem('socialFacebook') || '',
-                        linkedin: localStorage.getItem('socialLinkedin') || '',
-                        instagram: localStorage.getItem('socialInstagram') || ''
-                    },
-                    authorSettings: {
-                        name: '',
-                        email: '',
-                        phone: '',
-                        whatsapp: '',
-                        social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' }
-                    },
-                    analytics: { pageViews: [], postViews: [], interactions: [] },
-                    charts: { pageViews: null, interactions: null },
-                    analyticsFilter: { from: '', to: '' },
-                    categories: [],
-                    categoryForm: { name: '', description: '' },
-                    editingCategory: null,
-                    currentUrl: window.location.href,
-                    pendingBackgroundFile: null,
-                    pendingBackgroundImage: null,
-                    googleReady: false,
-                    securityHasEntryKey: false,
-                    securityForm: { adminEntryKey: '' },
-                    securityLogsAuthorized: false,
-                    securityLogsAuth: { username: '', password: '' },
-                    securityLogs: [],
-                    securityKeyAuthorized: false,
-                    securityKeyAuth: { username: '', password: '' },
-                    securityKeyValue: '',
-                    showEntryKeyPopup: false,
-                    entryKeyInput: '',
-                    entryKeyError: ''
-                };
-            },
-            mounted() {
-                console.log('Vue app mounted successfully');
-                const savedTheme = localStorage.getItem('theme');
-                if (savedTheme === 'dark' || savedTheme === 'light') {
-                    this.isDarkMode = (savedTheme === 'dark');
-                } else {
-                    this.isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    try {
-                        const mq = window.matchMedia('(prefers-color-scheme: dark)');
-                        const handler = (e) => {
-                            if (!localStorage.getItem('theme')) {
-                                this.isDarkMode = e.matches;
-                                this.applyTheme();
-                            }
-                        };
-                        if (mq.addEventListener) mq.addEventListener('change', handler);
-                        else if (mq.addListener) mq.addListener(handler);
-                    } catch (e) {}
-                }
-                this.applyTheme();
-                this.initGoogleIdentity();
-                this.checkAuthStatus();
-                this.loadData();
-                this.loadCategories();
-                this.loadAnalytics();
-                this.fetchAuthorSettings();
-                this.loadSecurityStatus();
-                this.addSamplePosts();
-                
-                if (!this.backgroundImage) {
-                    this.backgroundImage = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
-                }
-                
-                this.setBackground(this.backgroundImageUrl);
-                this.fetchBackground();
-                
-                // Restore admin view if user was logged in
-                if (this.isLoggedIn) {
-                    this.currentView = 'admin';
-                }
-                
-                window.addEventListener('popstate', () => {
-                    const id = parseInt(new URLSearchParams(window.location.search).get('post'), 10);
-                    if (id && Array.isArray(this.posts)) {
-                        const p = this.posts.find(x => x.id === id);
-                        this.selectedPost = p || null;
-                    } else {
-                        this.selectedPost = null;
+
+
+        // Create HTML for a single post card
+        function createPostCard(post) {
+            const date = new Date(post.date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            const tags = post.tags && post.tags.length > 0
+                ? post.tags.map(tag => `<span class="tag">${tag}</span>`).join('')
+                : '';
+
+            const imageUrl = post.image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=500&fit=crop';
+
+            // Calculate reading time (rough estimate: 200 words per minute)
+            const wordCount = post.content ? post.content.split(/\s+/).length : 0;
+            const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+
+            return `
+                <article class="blog-card" tabindex="0" data-post-id="${post.id}">
+                    <img src="${imageUrl}" alt="${post.title}" class="card-image">
+                    <div class="card-content">
+                        <h2 class="card-title">${post.title}</h2>
+                        <div class="card-meta">
+                            <span>${date} · ${post.author || 'Admin'}</span>
+                            <span class="reading-time">📖 ${readingTime} min read</span>
+                        </div>
+                        <p class="card-excerpt">${post.content ? post.content.substring(0, 150) + '...' : ''}</p>
+                        <div class="card-tags">
+                            ${tags}
+                        </div>
+                        <a href="/post.html?id=${post.id}" class="read-more">Read more →</a>
+                    </div>
+                </article>
+            `;
+        }
+
+        // Attach event listeners to dynamically created cards
+        function attachCardEventListeners() {
+            const blogCards = document.querySelectorAll('.blog-card');
+
+            blogCards.forEach(card => {
+                // Make entire card clickable
+                card.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('tag')) {
+                        const postId = card.dataset.postId;
+                        if (postId) {
+                            window.location.href = `/post.html?id=${postId}`;
+                        }
                     }
                 });
-                
-                const initialId = parseInt(new URLSearchParams(window.location.search).get('post'), 10);
-                if (initialId && Array.isArray(this.posts)) {
-                    const p = this.posts.find(x => x.id === initialId);
-                    if (p) this.selectedPost = p;
-                }
-            },
-            computed: {
-                pageTitle() {
-                    if (this.selectedPost) {
-                        return `${this.selectedPost.title} - ${this.blogTitle}`;
-                    }
-                    return `${this.blogTitle} - Personal Blog`;
-                },
-                pageDescription() {
-                    if (this.selectedPost) {
-                        return this.getExcerpt(this.selectedPost.content);
-                    }
-                    return 'A personal blog sharing thoughts, tutorials, and insights on web development and technology.';
-                },
-                pageKeywords() {
-                    if (this.selectedPost && this.selectedPost.tags) {
-                        return this.selectedPost.tags.join(', ');
-                    }
-                    return 'blog, web development, programming, technology';
-                },
-                pageImage() {
-                    if (this.selectedPost && this.selectedPost.image) {
-                        return this.selectedPost.image;
-                    }
-                    return 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1200';
-                },
-                shareLinks() {
-                    const baseUrl = window.location.origin + window.location.pathname;
-                    const title = this.selectedPost ? this.selectedPost.title : this.blogTitle;
-                    const url = new URL(baseUrl);
-                    if (this.selectedPost) url.searchParams.set('post', String(this.selectedPost.id));
-                    const u = encodeURIComponent(url.toString());
-                    const t = encodeURIComponent(title);
-                    return {
-                        twitter: `https://twitter.com/intent/tweet?url=${u}&text=${t}`,
-                        facebook: `https://www.facebook.com/sharer/sharer.php?u=${u}`,
-                        linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${u}`
-                    };
-                },
-                backgroundImageUrl() {
-                    const stored = localStorage.getItem('blogBackground');
-                    const version = localStorage.getItem('blogBackgroundVersion') || '';
-                    const url = stored || this.backgroundImage;
-                    console.log('Background URL:', url);
-                    if (!url) return '';
-                    if (url.startsWith('http')) {
-                        if (version) {
-                            try {
-                                const u = new URL(url);
-                                u.searchParams.set('v', version);
-                                return u.toString();
-                            } catch (e) {
-                                return url + (url.includes('?') ? '&' : '?') + 'v=' + version;
-                            }
-                        }
-                        return url;
-                    }
-                    const fullUrl = `http://localhost:3000${url.startsWith('/') ? url : '/' + url}`;
-                    console.log('Full URL:', fullUrl);
-                    return version ? `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}v=${version}` : fullUrl;
-                },
-                backgroundStyle() {
-                    if (!this.backgroundImageUrl) return {};
-                    return {
-                        backgroundImage: `url('${this.backgroundImageUrl}')`
-                    };
-                },
-                filteredAnalytics() {
-                    const from = this.analyticsFilter.from ? new Date(this.analyticsFilter.from) : null;
-                    const to = this.analyticsFilter.to ? new Date(this.analyticsFilter.to) : null;
-                    if (to) to.setHours(23,59,59,999);
-                    const inRange = (ts) => {
-                        const t = new Date(ts).getTime();
-                        if (isNaN(t)) return false;
-                        if (from && t < from.getTime()) return false;
-                        if (to && t > to.getTime()) return false;
-                        return true;
-                    };
-                    return {
-                        pageViews: (this.analytics.pageViews || []).filter(p => inRange(p.timestamp)),
-                        interactions: (this.analytics.interactions || []).filter(i => inRange(i.timestamp)),
-                        postViews: (this.analytics.postViews || []).filter(p => inRange(p.timestamp))
-                    };
-                }
-            },
-            watch: {
-                backgroundImageUrl(newUrl) {
-                    console.log('Background URL changed to:', newUrl);
-                    if (newUrl) {
-                        this.$nextTick(() => {
-                            const bgEl = document.querySelector('.bg-image');
-                            if (bgEl) {
-                                bgEl.style.setProperty('background-image', `url(${newUrl})`, 'important');
-                            }
-                        });
-                    }
-                },
-                currentView(newView) {
-                    // Update page title based on current view
-                    if (newView === 'admin') {
-                        document.title = 'zedong254ke - Admin Panel';
-                    } else if (this.selectedPost) {
-                        document.title = `${this.selectedPost.title} - zedong254ke Blog`;
-                    } else {
-                        document.title = 'zedong254ke Blog';
-                    }
-                    if (newView === 'admin' && !this.isLoggedIn) {
-                        this.$nextTick(() => this.renderGoogleButton());
-                    }
-                },
-                selectedPost(newPost) {
-                    // Update title when viewing a specific post
-                    if (newPost) {
-                        document.title = `${newPost.title} - zedong254ke Blog`;
-                    } else {
-                        document.title = 'zedong254ke Blog';
-                    }
-                },
-                isLoggedIn(val) {
-                    if (!val && this.currentView === 'admin') {
-                        this.$nextTick(() => this.renderGoogleButton());
-                    }
-                }
-            },
-            methods: {
-                toggleTheme() {
-                    this.isDarkMode = !this.isDarkMode;
-                    localStorage.setItem('theme', this.isDarkMode ? 'dark' : 'light');
-                    // Cleanup legacy key if present
-                    localStorage.removeItem('darkMode');
-                    this.applyTheme();
-                },
-                applyTheme() {
-                    const theme = this.isDarkMode ? 'dark' : 'light';
-                    document.documentElement.setAttribute('data-theme', theme);
-                    document.body.classList.toggle('dark-mode', this.isDarkMode);
-                    // Update meta theme-color for better browser UI integration
-                    try {
-                        let meta = document.querySelector('meta[name="theme-color"]');
-                        if (!meta) {
-                            meta = document.createElement('meta');
-                            meta.setAttribute('name', 'theme-color');
-                            document.head.appendChild(meta);
-                        }
-                        meta.setAttribute('content', this.isDarkMode ? '#0b1220' : '#ffffff');
-                    } catch (e) {}
-                },
-                initGoogleIdentity() {
-                    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-                        setTimeout(() => this.initGoogleIdentity(), 500);
-                        return;
-                    }
 
-                    try {
-                        window.google.accounts.id.initialize({
-                            client_id: GOOGLE_CLIENT_ID,
-                            callback: (response) => this.handleGoogleCredential(response)
-                        });
-                        this.googleReady = true;
-                        this.$nextTick(() => this.renderGoogleButton());
-                        // Optionally enable One Tap prompt:
-                        // window.google.accounts.id.prompt();
-                    } catch (error) {
-                        console.error('Google Identity initialization failed:', error);
+                // Keyboard support
+                card.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        const postId = card.dataset.postId;
+                        if (postId) {
+                            window.location.href = `/post.html?id=${postId}`;
+                        }
                     }
-                },
-                handleGoogleCredential(response) {
-                    const token = response && response.credential;
-                    if (!token) {
-                        this.loginError = 'Google sign-in failed';
-                        return;
-                    }
+                });
+            });
+        }
 
-                    fetch('/auth/google', {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id_token: token })
-                    })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data && data.success) {
-                            this.isLoggedIn = true;
-                            this.setData('isLoggedIn', true);
-                            this.currentView = 'admin';
-                            this.loginError = '';
-                            this.loginUsername = '';
-                            this.loginPassword = '';
-                        } else {
-                            this.loginError = data && data.error ? data.error : 'Server verification failed';
-                        }
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        this.loginError = 'Network error';
-                    });
-                },
-                renderGoogleButton() {
-                    try {
-                        if (!this.googleReady || !window.google || !window.google.accounts || !window.google.accounts.id) return;
-                        const buttonElement = document.getElementById('gSignInButton');
-                        if (!buttonElement) return;
-                        // Clear any previous content to avoid duplicate buttons
-                        buttonElement.innerHTML = '';
-                        window.google.accounts.id.renderButton(
-                            buttonElement,
-                            { theme: 'outline', size: 'large', width: '250' }
-                        );
-                    } catch (e) {
-                        console.error('renderGoogleButton error:', e);
-                    }
-                },
-                async checkAuthStatus() {
-                    try {
-                        const resp = await fetch('/auth/status', { credentials: 'include' });
-                        const data = await resp.json();
-                        if (data.loggedIn) {
-                            this.isLoggedIn = true;
-                            this.setData('isLoggedIn', true);
-                            // Stay in admin view if already logged in
-                            if (this.currentView !== 'blog') {
-                                this.currentView = 'admin';
-                            }
-                        } else {
-                            this.isLoggedIn = false;
-                            this.setData('isLoggedIn', false);
-                        }
-                    } catch (e) {
-                        this.isLoggedIn = false;
-                        this.setData('isLoggedIn', false);
-                    }
-                },
-                loadData() {
-                    const saved = this.getData('blogPosts');
-                    if (saved) {
-                        this.posts = saved;
-                        this.nextId = Math.max(...this.posts.map(p => p.id), 0) + 1;
-                    }
-                    // Load login state from localStorage
-                    this.isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-                },
-                saveData() {
-                    this.setData('blogPosts', this.posts);
-                },
-                getData(key) {
-                    try {
-                        const data = window[`_${key}`];
-                        return data ? JSON.parse(JSON.stringify(data)) : null;
-                    } catch (e) {
-                        return null;
-                    }
-                },
-                setData(key, value) {
-                    window[`_${key}`] = JSON.parse(JSON.stringify(value));
-                    // Also save to localStorage for persistence
-                    if (key === 'isLoggedIn') {
-                        localStorage.setItem('isLoggedIn', String(value));
-                    }
-                },
-                addSamplePosts() {
-                    if (this.posts.length === 0) {
-                        this.posts = [
-                            {
-                                id: this.nextId++,
-                                title: 'Getting Started with Vue.js',
-                                author: 'Admin',
-                                content: 'Vue.js is an amazing framework for building user interfaces. In this post, we\'ll explore the basics of Vue.js and why it\'s become so popular among developers.\n\nVue is progressive, meaning you can adopt it incrementally. Start with a simple script tag, or build a full-featured single-page application. The choice is yours!\n\nKey features include:\n- Reactive data binding\n- Component-based architecture\n- Virtual DOM for efficient updates\n- Easy to learn and use\n\nWhether you\'re building a small widget or a large application, Vue.js provides the tools you need to succeed.',
-                                date: new Date().toISOString(),
-                                tags: ['vue', 'javascript', 'tutorial'],
-                                image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1400&auto=format&fit=crop&crop=entropy',
-                                featured: true
-                            },
-                            {
-                                id: this.nextId++,
-                                title: 'The Power of Modern Web Development',
-                                author: 'Admin',
-                                content: 'Modern web development has come a long way. With tools like Vue, React, and Angular, we can build incredible user experiences that were impossible just a few years ago.\n\nThe web platform continues to evolve, adding new APIs and capabilities regularly. From Progressive Web Apps to WebAssembly, the possibilities are endless.\n\nIn this blog, I\'ll be sharing my journey learning these technologies and building cool projects. Stay tuned for more content!',
-                                date: new Date(Date.now() - 86400000).toISOString(),
-                                tags: ['web development', 'programming', 'technology'],
-                                image: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?q=80&w=1400&auto=format&fit=crop&crop=entropy',
-                                featured: false
-                            }
-                        ];
-                        this.saveData();
-                    }
-                },
-                login() {
-                    fetch('/auth/login', {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: this.loginUsername, password: this.loginPassword })
-                    })
-                    .then(r => r.json().then(j => ({ status: r.status, body: j })).catch(() => ({ status: r.status })))
-                    .then(({ status, body }) => {
-                        if (status === 200 && body && body.success) {
-                            this.isLoggedIn = true;
-                            this.setData('isLoggedIn', true);
-                            this.loginError = '';
-                            this.loginUsername = '';
-                            this.loginPassword = '';
-                        } else if (status === 401) {
-                            this.loginError = (body && body.error) ? body.error : 'Invalid credentials';
-                        } else {
-                            this.loginError = (body && body.error) ? body.error : 'Login failed';
-                        }
-                    })
-                    .catch(() => {
-                        this.loginError = 'Network error';
-                    });
-                },
-                logout() {
-                    fetch('/auth/logout', { method: 'POST', credentials: 'include' })
-                        .then(() => {
-                            this.isLoggedIn = false;
-                            this.setData('isLoggedIn', false);
-                            localStorage.removeItem('isLoggedIn');
-                            this.currentView = 'blog';
-                            this.showNewPostForm = false;
-                            this.editingPost = null;
-                        })
-                        .catch(() => {
-                            this.isLoggedIn = false;
-                            this.setData('isLoggedIn', false);
-                            localStorage.removeItem('isLoggedIn');
-                            this.currentView = 'blog';
-                            this.showNewPostForm = false;
-                            this.editingPost = null;
-                        });
-                },
-                viewPost(post) {
-                    this.selectedPost = post;
-                    // Update URL for sharable permalinks
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('post', String(post.id));
-                    window.history.pushState({ postId: post.id }, '', url.toString());
-                },
-                goBackToList() {
-                    this.selectedPost = null;
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete('post');
-                    window.history.pushState({}, '', url.toString());
-                },
-                editPost(post) {
-                    this.editingPost = post;
-                    this.postForm = {
-                        title: post.title,
-                        author: post.author,
-                        content: post.content,
-                        tags: post.tags.join(', '),
-                        image: post.image || '',
-                        categoryId: post.categoryId || ''
-                    };
-                },
-                cancelEdit() {
-                    this.showNewPostForm = false;
-                    this.editingPost = null;
-                    this.postForm = { title: '', author: '', content: '', tags: '', image: '', categoryId: '' };
-                },
-                savePost() {
-                    if (!this.postForm.title || !this.postForm.content) {
-                        alert('Please fill in title and content');
-                        return;
-                    }
+        // Filter functionality
+        const filterTags = document.querySelectorAll('.filter-tag');
 
-                    const tags = this.postForm.tags
-                        .split(',')
-                        .map(t => t.trim())
-                        .filter(t => t);
+        filterTags.forEach(tag => {
+            tag.addEventListener('click', () => {
+                // Remove active class from all tags
+                filterTags.forEach(t => t.classList.remove('active'));
+                // Add active class to clicked tag
+                tag.classList.add('active');
 
-                    if (this.editingPost) {
-                    const idx = this.posts.findIndex(p => p.id === this.editingPost.id);
-                    this.posts[idx] = {
-                    ...this.editingPost,
-                    title: this.postForm.title,
-                    author: this.authorSettings.name || 'Anonymous',
-                    authorDetails: JSON.parse(JSON.stringify(this.authorSettings)),
-                    content: this.postForm.content,
-                    tags: tags,
-                    image: this.postForm.image,
-                    categoryId: this.postForm.categoryId || null
-                    };
-                    } else {
-                    this.posts.unshift({
-                    id: this.nextId++,
-                    title: this.postForm.title,
-                    author: this.authorSettings.name || 'Anonymous',
-                    authorDetails: JSON.parse(JSON.stringify(this.authorSettings)),
-                    content: this.postForm.content,
-                    date: new Date().toISOString(),
-                    tags: tags,
-                    image: this.postForm.image,
-                    categoryId: this.postForm.categoryId || null
-                    });
-                    }
+                currentFilter = tag.textContent.toLowerCase();
+                renderPosts();
+            });
+        });
 
-                    this.saveData();
-                    this.cancelEdit();
-                    alert('Saved!');
-                },
-                deletePost(id) {
-                    if (confirm('Are you sure you want to delete this post?')) {
-                        this.posts = this.posts.filter(p => p.id !== id);
-                        this.saveData();
-                    }
-                },
-                formatDate(dateString) {
-                    const date = new Date(dateString);
-                    return date.toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                    });
-                },
-                getExcerpt(content) {
-                    return content.length > 150 ? content.substring(0, 150) + '...' : content;
-                },
-                getCategoryName(categoryId) {
-                    if (!categoryId) return '';
-                    const category = this.categories.find(c => c.id === categoryId);
-                    return category ? category.name : '';
-                },
-                handleBlogClick() {
-                    if (this.isLoggedIn) {
-                        window.open(window.location.origin + window.location.pathname, '_blank');
-                    } else {
-                        this.currentView = 'blog';
-                    }
-                },
-                async handleAdminAccessClick() {
-                    try {
-                        if (!this.securityHasEntryKey) {
-                            this.currentView = 'admin';
-                            this.$nextTick(() => this.renderGoogleButton());
-                            return;
-                        }
-                        this.entryKeyInput = '';
-                        this.entryKeyError = '';
-                        this.showEntryKeyPopup = true;
-                    } catch (e) {
-                        this.currentView = 'blog';
-                    }
-                },
-                async submitEntryKey() {
-                    try {
-                        const resp = await fetch('/api/settings/verify-entry-key', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ adminEntryKey: this.entryKeyInput })
-                        });
-                        this.showEntryKeyPopup = false;
-                        if (resp.ok) {
-                            this.currentView = 'admin';
-                            this.$nextTick(() => this.renderGoogleButton());
-                        } else {
-                            this.entryKeyError = 'Invalid key';
-                            this.currentView = 'blog';
-                            setTimeout(() => { this.entryKeyError = ''; }, 2000);
-                        }
-                    } catch (e) {
-                        this.showEntryKeyPopup = false;
-                        this.currentView = 'blog';
-                    }
-                },
-                cancelEntryKey() {
-                    this.showEntryKeyPopup = false;
-                    this.currentView = 'blog';
-                },
-                async loadSecurityStatus() {
-                    try {
-                        const s = await fetch('/api/settings/security', { credentials: 'include' });
-                        const sj = await s.json();
-                        this.securityHasEntryKey = !!sj.hasEntryKey;
-                    } catch (e) { this.securityHasEntryKey = false; }
-                },
-                async saveSecuritySettings() {
-                    try {
-                        const resp = await fetch('/api/settings/security', {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ adminEntryKey: this.securityForm.adminEntryKey })
-                        });
-                        const data = await resp.json();
-                        if (resp.ok && data.success) {
-                            this.securityHasEntryKey = !!data.hasEntryKey;
-                            this.securityForm.adminEntryKey = '';
-                            alert('Security settings saved');
-                        } else {
-                            alert('Failed to save security settings');
-                        }
-                    } catch (e) {
-                        alert('Network error');
-                    }
-                },
-                async loadSecurityLogs() {
-                    try {
-                        const resp = await fetch('/api/settings/security/logs', {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                username: this.securityLogsAuth.username,
-                                password: this.securityLogsAuth.password
-                            })
-                        });
-                        const data = await resp.json();
-                        if (resp.ok && data.success) {
-                            this.securityLogsAuthorized = true;
-                            this.securityLogs = Array.isArray(data.logs) ? data.logs : [];
-                        } else {
-                            this.securityLogsAuthorized = false;
-                            this.securityLogs = [];
-                            alert(data.error || 'Invalid credentials');
-                        }
-                    } catch (e) {
-                        this.securityLogsAuthorized = false;
-                        this.securityLogs = [];
-                        alert('Network error');
-                    }
-                },
-                async viewSecurityKey() {
-                    try {
-                        const resp = await fetch('/api/settings/security/key-view', {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                username: this.securityKeyAuth.username,
-                                password: this.securityKeyAuth.password
-                            })
-                        });
-                        const data = await resp.json();
-                        if (resp.ok && data.success) {
-                            this.securityKeyAuthorized = true;
-                            this.securityKeyValue = data.key || '';
-                        } else {
-                            this.securityKeyAuthorized = false;
-                            this.securityKeyValue = '';
-                            alert(data.error || 'Invalid credentials');
-                        }
-                    } catch (e) {
-                        this.securityKeyAuthorized = false;
-                        this.securityKeyValue = '';
-                        alert('Network error');
-                    }
-                },
-                async copySecurityKey() {
-                    try {
-                        if (!this.securityKeyValue) return;
-                        await navigator.clipboard.writeText(this.securityKeyValue);
-                        alert('Key copied to clipboard');
-                    } catch (e) {
-                        alert('Failed to copy');
-                    }
-                },
-                async copyPermalink() {
-                    const baseUrl = window.location.origin + window.location.pathname;
-                    const url = new URL(baseUrl);
-                    if (this.selectedPost) url.searchParams.set('post', String(this.selectedPost.id));
-                    const link = url.toString();
-                    try {
-                        if (navigator.clipboard && navigator.clipboard.writeText) {
-                            await navigator.clipboard.writeText(link);
-                            alert('Link copied to clipboard');
-                        } else {
-                            throw new Error('clipboard not available');
-                        }
-                    } catch (e) {
-                        prompt('Copy this link:', link);
-                    }
-                },
-                toggleSideMenu() {
-                    const next = !this.showSidebar;
-                    this.showSidebar = next;
-                    this.showSideMenu = next; // keep legacy flag in sync
-                },
-                async handleImageUpload(event) {
-                    const file = event.target.files[0];
-                    if (!file) return;
-                    
-                    const formData = new FormData();
-                    formData.append('image', file);
-                    
-                    try {
-                        const response = await fetch('/api/upload', {
-                            method: 'POST',
-                            credentials: 'include',
-                            body: formData
-                        });
-                        
-                        const result = await response.json();
-                        if (result.success) {
-                            this.postForm.image = result.url;
-                        } else {
-                            alert('Upload failed: ' + (result.error || 'Unknown error'));
-                        }
-                    } catch (error) {
-                        console.error('Upload error:', error);
-                        alert('Upload failed: Network error');
-                    }
-                },
-                async handleProfileUpload(event) {
-                    const file = event.target.files[0];
-                    if (!file) return;
-                    
-                    const formData = new FormData();
-                    formData.append('image', file);
-                    
-                    try {
-                        const response = await fetch('/api/upload', {
-                            method: 'POST',
-                            credentials: 'include',
-                            body: formData
-                        });
-                        
-                        const result = await response.json();
-                        if (result.success) {
-                            this.profilePhoto = result.url;
-                            localStorage.setItem('profilePhoto', result.url);
-                        } else {
-                            alert('Upload failed: ' + (result.error || 'Unknown error'));
-                        }
-                    } catch (error) {
-                        console.error('Upload error:', error);
-                        alert('Upload failed: Network error');
-                    }
-                },
-                previewBackgroundImage(event) {
-                    const file = event.target.files[0];
-                    if (!file) return;
-                    
-                    this.pendingBackgroundFile = file;
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        this.pendingBackgroundImage = e.target.result;
-                    };
-                    reader.readAsDataURL(file);
-                },
-                async confirmBackgroundChange() {
-                    if (!this.pendingBackgroundFile) return;
-                    
-                    const formData = new FormData();
-                    formData.append('image', this.pendingBackgroundFile);
-                    
-                    try {
-                        const response = await fetch('/api/upload', {
-                            method: 'POST',
-                            credentials: 'include',
-                            body: formData
-                        });
-                        
-                        const result = await response.json();
-                        if (!response.ok) {
-                            if (response.status === 401) {
-                                alert('Please login first');
-                                return;
-                            }
-                            throw new Error('Upload failed');
-                        }
-                        
-                        if (result.success) {
-                            // Save to backend
-                            await fetch('/api/settings/background', {
-                                method: 'POST',
-                                credentials: 'include',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ backgroundUrl: result.url })
-                            });
+        // Search functionality
+        let searchQuery = '';
 
-                            // Persist to local storage and version to survive reload and bust cache
-                            const bgVersion = String(Date.now());
-                            localStorage.setItem('blogBackground', result.url);
-                            localStorage.setItem('blogBackgroundVersion', bgVersion);
-
-                            // Force reload with cache-busting query param
-                            const sep = window.location.search ? '&' : '?';
-                            window.location.replace(window.location.pathname + window.location.search + sep + 'v=' + bgVersion);
-                        } else {
-                            alert('Upload failed: ' + (result.error || 'Unknown error'));
-                        }
-                    } catch (error) {
-                        console.error('Upload error:', error);
-                        alert('Upload failed: Network error');
-                    }
-                },
-                cancelBackgroundChange() {
-                    this.pendingBackgroundFile = null;
-                    this.pendingBackgroundImage = null;
-                },
-                setBackground(url) {
-                    const bgEl = (this.$refs && this.$refs.bgEl) ? this.$refs.bgEl : document.querySelector('.bg-image');
-                    if (bgEl && url) {
-                        const u = String(url);
-                        bgEl.style.setProperty('background-image', `url('${u}')`, 'important');
-                        bgEl.style.setProperty('background-size', 'cover', 'important');
-                        bgEl.style.setProperty('background-position', 'center', 'important');
-                    }
-                },
-                async loadCategories() {
-                    try {
-                        const response = await fetch('/api/categories');
-                        const data = await response.json();
-                        this.categories = data.categories || [];
-                    } catch (error) {
-                        console.error('Failed to load categories:', error);
-                    }
-                },
-                async saveCategory() {
-                    if (!this.categoryForm.name.trim()) {
-                        alert('Category name is required');
-                        return;
-                    }
-                    
-                    try {
-                        const method = this.editingCategory ? 'PUT' : 'POST';
-                        const url = this.editingCategory ? `/api/categories/${this.editingCategory.id}` : '/api/categories';
-                        
-                        const response = await fetch(url, {
-                            method,
-                            credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                name: this.categoryForm.name.trim(),
-                                description: this.categoryForm.description.trim()
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        if (result.success) {
-                            await this.loadCategories();
-                            this.cancelCategoryEdit();
-                            alert('Saved!');
-                        } else {
-                            alert('Failed to save category: ' + (result.error || 'Unknown error'));
-                        }
-                    } catch (error) {
-                        console.error('Save category error:', error);
-                        alert('Failed to save category: Network error');
-                    }
-                },
-                editCategory(category) {
-                    this.editingCategory = category;
-                    this.categoryForm = {
-                        name: category.name,
-                        description: category.description || ''
-                    };
-                },
-                cancelCategoryEdit() {
-                    this.editingCategory = null;
-                    this.categoryForm = { name: '', description: '' };
-                },
-                async deleteCategory(id) {
-                    if (!confirm('Are you sure you want to delete this category?')) return;
-                    
-                    try {
-                        const response = await fetch(`/api/categories/${id}`, {
-                            method: 'DELETE',
-                            credentials: 'include'
-                        });
-                        
-                        const result = await response.json();
-                        if (result.success) {
-                            await this.loadCategories();
-                        } else {
-                            alert('Failed to delete category: ' + (result.error || 'Unknown error'));
-                        }
-                    } catch (error) {
-                        console.error('Delete category error:', error);
-                        alert('Failed to delete category: Network error');
-                    }
-                },
-                saveSocialMedia() {
-                    localStorage.setItem('socialTwitter', this.socialMedia.twitter);
-                    localStorage.setItem('socialFacebook', this.socialMedia.facebook);
-                    localStorage.setItem('socialLinkedin', this.socialMedia.linkedin);
-                    localStorage.setItem('socialInstagram', this.socialMedia.instagram);
-                    alert('Saved!');
-                },
-                async fetchAuthorSettings() {
-                    try {
-                        const resp = await fetch('/api/settings/author', { credentials: 'include' });
-                        if (resp.ok) {
-                            const data = await resp.json();
-                            this.authorSettings = Object.assign({ name:'',email:'',phone:'',whatsapp:'',social:{twitter:'',facebook:'',linkedin:'',instagram:'',website:''}}, data.author || {});
-                        }
-                    } catch (e) { console.error('Failed to load author settings', e); }
-                },
-                async saveAuthorSettings() {
-                    try {
-                        const resp = await fetch('/api/settings/author', {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ author: this.authorSettings })
-                        });
-                        const data = await resp.json();
-                        if (resp.ok && data.success) {
-                            alert('Author settings saved');
-                        } else {
-                            alert('Failed to save author settings');
-                        }
-                    } catch (e) { console.error('Save author settings error', e); alert('Network error'); }
-                },
-                async loadAnalytics() {
-                    try {
-                        const response = await fetch('/api/analytics', { credentials: 'include' });
-                        if (response.ok) {
-                            const data = await response.json();
-                            this.analytics = data;
-                            this.$nextTick(() => this.renderCharts());
-                        }
-                    } catch (error) {
-                        console.error('Failed to load analytics:', error);
-                    }
-                },
-                async refreshAnalytics() {
-                    await this.loadAnalytics();
-                },
-                applyAnalyticsFilter() {
-                    this.renderCharts();
-                },
-                clearAnalyticsFilter() {
-                    this.analyticsFilter = { from: '', to: '' };
-                    this.renderCharts();
-                },
-                renderCharts() {
-                    const pv = this.filteredAnalytics.pageViews;
-                    const inter = this.filteredAnalytics.interactions;
-
-                    // Destroy existing charts
-                    try { this.charts.pageViews && this.charts.pageViews.destroy(); } catch(e){}
-                    try { this.charts.interactions && this.charts.interactions.destroy(); } catch(e){}
-
-                    // Page Views by Day
-                    const pvAgg = this.aggregatePageViewsByDay(pv);
-                    const ctx1 = document.getElementById('pageViewsChart');
-                    if (ctx1) {
-                        this.charts.pageViews = new Chart(ctx1, {
-                            type: 'line',
-                            data: {
-                                labels: pvAgg.labels,
-                                datasets: [{
-                                    label: 'Page Views',
-                                    data: pvAgg.counts,
-                                    borderColor: '#3b82f6',
-                                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                                    tension: 0.25,
-                                    fill: true,
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                plugins: { legend: { display: false } },
-                                scales: {
-                                    x: { title: { display: true, text: 'Date' } },
-                                    y: { title: { display: true, text: 'Views' }, beginAtZero: true, precision: 0 }
-                                }
-                            }
-                        });
-                    }
-
-                    // Interactions by Type
-                    const interAgg = this.aggregateInteractionsByType(inter);
-                    const ctx2 = document.getElementById('interactionsChart');
-                    if (ctx2) {
-                        this.charts.interactions = new Chart(ctx2, {
-                            type: 'bar',
-                            data: {
-                                labels: interAgg.labels,
-                                datasets: [{
-                                    label: 'Interactions',
-                                    data: interAgg.counts,
-                                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16']
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                plugins: { legend: { display: false } },
-                                scales: {
-                                    x: { title: { display: true, text: 'Type' } },
-                                    y: { title: { display: true, text: 'Count' }, beginAtZero: true, precision: 0 }
-                                }
-                            }
-                        });
-                    }
-                },
-                aggregatePageViewsByDay(list) {
-                    const map = {};
-                    for (const v of list) {
-                        const d = new Date(v.timestamp || v).toISOString().slice(0,10);
-                        map[d] = (map[d] || 0) + 1;
-                    }
-                    const labels = Object.keys(map).sort();
-                    return { labels, counts: labels.map(l => map[l]) };
-                },
-                aggregateInteractionsByType(list) {
-                    const map = {};
-                    for (const i of list) {
-                        const t = i.type || 'other';
-                        map[t] = (map[t] || 0) + 1;
-                    }
-                    const labels = Object.keys(map).sort();
-                    return { labels, counts: labels.map(l => map[l]) };
-                },
-                downloadChart(which) {
-                    const id = which === 'interactions' ? 'interactionsChart' : 'pageViewsChart';
-                    const canvas = document.getElementById(id);
-                    if (!canvas) return;
-                    const link = document.createElement('a');
-                    const from = this.analyticsFilter.from || 'all';
-                    const to = this.analyticsFilter.to || 'all';
-                    link.download = `${which}-chart_${from}_to_${to}.png`;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                },
-                buildExportUrl(dataset, format) {
-                    const params = new URLSearchParams();
-                    if (dataset) params.set('dataset', dataset);
-                    if (format) params.set('format', format);
-                    if (this.analyticsFilter.from) params.set('from', this.analyticsFilter.from);
-                    if (this.analyticsFilter.to) params.set('to', this.analyticsFilter.to);
-                    return `/api/analytics/export?${params.toString()}`;
-                },
-                downloadExport(dataset, format) {
-                    const url = this.buildExportUrl(dataset, format);
-                    window.open(url, '_blank');
-                },
-                async fetchBackground() {
-                    try {
-                        const response = await fetch('/api/settings/background', {
-                            credentials: 'include'
-                        });
-                        const data = await response.json();
-                        this.backgroundImage = data.backgroundUrl;
-                        console.log('Background loaded:', this.backgroundImageUrl);
-                        // Ensure application even if the computed value didn't change (no watcher fire)
-                        this.$nextTick(() => this.setBackground(this.backgroundImageUrl));
-                    } catch (error) {
-                        console.error('Failed to load background:', error);
-                        // Attempt to apply any stored background anyway
-                        this.$nextTick(() => this.setBackground(this.backgroundImageUrl));
-                    }
-                },
-                likePost(postId) {
-                    const post = this.posts.find(p => p.id === postId);
-                    if (post) {
-                        post.likes = (post.likes || 0) + 1;
-                        this.saveData();
-                    }
-                },
-                dislikePost(postId) {
-                    const post = this.posts.find(p => p.id === postId);
-                    if (post) {
-                        post.dislikes = (post.dislikes || 0) + 1;
-                        this.saveData();
-                    }
-                },
-                renderAnalyticsChart() {
-                    this.$nextTick(() => {
-                        const canvas = document.getElementById('pageViewsChart');
-                        if (!canvas) return;
-                        
-                        const ctx = canvas.getContext('2d');
-                        
-                        // Group page views by date
-                        const viewsByDate = {};
-                        this.analytics.pageViews.forEach(view => {
-                            const date = new Date(view.timestamp).toDateString();
-                            viewsByDate[date] = (viewsByDate[date] || 0) + 1;
-                        });
-                        
-                        const dates = Object.keys(viewsByDate).slice(-7);
-                        const counts = dates.map(date => viewsByDate[date]);
-                        
-                        new Chart(ctx, {
-                            type: 'line',
-                            data: {
-                                labels: dates,
-                                datasets: [{
-                                    label: 'Page Views',
-                                    data: counts,
-                                    borderColor: '#3b82f6',
-                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                    tension: 0.4
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                scales: {
-                                    y: {
-                                        beginAtZero: true
-                                    }
-                                }
-                            }
-                        });
-                    });
-                }
+        document.querySelector('.search-btn').addEventListener('click', () => {
+            const query = prompt('Enter search terms:');
+            if (query !== null && query.trim() !== '') {
+                performSearch(query.trim());
             }
-        }).mount('#app');
+        });
+
+        function performSearch(query) {
+            searchQuery = query.toLowerCase();
+
+            // Filter posts based on search query
+            const filteredPosts = allPosts.filter(post => {
+                const titleMatch = post.title && post.title.toLowerCase().includes(searchQuery);
+                const contentMatch = post.content && post.content.toLowerCase().includes(searchQuery);
+                const tagsMatch = post.tags && post.tags.some(tag => tag.toLowerCase().includes(searchQuery));
+                const authorMatch = post.author && post.author.toLowerCase().includes(searchQuery);
+
+                return titleMatch || contentMatch || tagsMatch || authorMatch;
+            });
+
+            // Update current filter to 'search' and render filtered posts
+            currentFilter = 'search';
+            renderSearchResults(filteredPosts, query);
+
+            // Scroll to results
+            document.getElementById('blog-grid').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function renderSearchResults(filteredPosts, query) {
+            const grid = document.getElementById('blog-grid');
+
+            if (filteredPosts.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No posts found for "${query}"</h3>
+                        <p>Try different search terms or check your spelling.</p>
+                        <button class="filter-tag active" onclick="clearSearch()">Clear Search</button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Add search results header
+            const resultsHeader = `
+                <div style="margin-bottom: 24px; text-align: center;">
+                    <h2 style="color: var(--text-dark); margin-bottom: 8px;">Search Results for "${query}"</h2>
+                    <p style="color: var(--text-medium); margin-bottom: 16px;">Found ${filteredPosts.length} post${filteredPosts.length !== 1 ? 's' : ''}</p>
+                    <button class="filter-tag active" onclick="clearSearch()">Clear Search</button>
+                </div>
+            `;
+
+            grid.innerHTML = resultsHeader + filteredPosts.map(post => createPostCard(post)).join('');
+            attachCardEventListeners();
+        }
+
+        function clearSearch() {
+            searchQuery = '';
+            currentFilter = 'all';
+
+            // Reset filter tags
+            const filterTags = document.querySelectorAll('.filter-tag');
+            filterTags.forEach(tag => {
+                if (tag.textContent.toLowerCase() === 'all') {
+                    tag.classList.add('active');
+                } else {
+                    tag.classList.remove('active');
+                }
+            });
+
+            renderPosts();
+        }
+
+        // Newsletter subscription
+        const subscriptionInput = document.getElementById('subscriptionEmail');
+        subscriptionInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                subscribeToNewsletter();
+            }
+        });
+
+        async function subscribeToNewsletter() {
+            const email = subscriptionInput.value.trim();
+            if (!email) {
+                alert('Please enter your email address');
+                return;
+            }
+
+            // Basic email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                alert('Please enter a valid email address');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/subscribe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Thank you for subscribing!');
+                    subscriptionInput.value = '';
+                } else {
+                    alert(result.error || 'Subscription failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Subscription error:', error);
+                alert('An error occurred. Please try again.');
+            }
+        }
+
+        // Admin Modal Functions
+        function openAdminModal() {
+            document.getElementById('adminModal').style.display = 'block';
+            document.getElementById('adminKeyInput').focus();
+        }
+
+        function closeModal() {
+            document.getElementById('adminModal').style.display = 'none';
+            document.getElementById('adminKeyInput').value = '';
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                verifyAdminKey();
+            } else if (event.key === 'Escape') {
+                closeModal();
+            }
+        }
+
+        async function verifyAdminKey() {
+            const key = document.getElementById('adminKeyInput').value.trim();
+            if (!key) {
+                showError('Please enter the admin key');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/settings/verify-entry-key', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ adminEntryKey: key })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Redirect to login page after successful key verification
+                    window.location.href = '/login.html';
+                } else {
+                    showError('Invalid admin key. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error verifying admin key:', error);
+                showError('An error occurred. Please try again.');
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('adminModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Add admin access trigger (you can call openAdminModal() from any element)
+        // Example: Add a hidden admin link or keyboard shortcut
+        document.addEventListener('keydown', function(event) {
+            // Press Ctrl+Shift+A to open admin modal
+            if (event.ctrlKey && event.shiftKey && event.key === 'A') {
+                event.preventDefault();
+                openAdminModal();
+            }
+        });
+
+        // Admin authentication check
+        async function checkAdminAuth() {
+            try {
+                const response = await fetch('/auth/status', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.loggedIn === true;
+                }
+                return false;
+            } catch (error) {
+                console.log('Auth check failed:', error);
+                return false;
+            }
+        }
+
+        // Show admin welcome section if authenticated
+        async function showAdminWelcome() {
+            const isAdmin = await checkAdminAuth();
+            const adminSection = document.getElementById('adminWelcomeSection');
+            if (isAdmin) {
+                adminSection.style.display = 'block';
+            } else {
+                adminSection.style.display = 'none';
+            }
+        }
+
+        // Navigation functions for admin buttons
+        function goToDashboard() {
+            window.location.href = '/admin.html';
+        }
+
+        function goToSettings() {
+            window.location.href = '/admin.html#settings';
+        }
+
+        function goToAnalytics() {
+            window.location.href = '/admin.html#analytics';
+        }
+
+        function goToCustomize() {
+            window.location.href = '/admin.html#customize';
+        }
+
+        // Load categories from server
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/categories');
+                const data = await response.json();
+                const categories = data.categories || [];
+                renderCategoryFilters(categories);
+            } catch (error) {
+                console.error('Failed to load categories:', error);
+            }
+        }
+
+        // Render category filter buttons
+        function renderCategoryFilters(categories) {
+            const filterBar = document.querySelector('.filter-bar');
+            const allButton = filterBar.querySelector('[data-category="all"]');
+
+            // Clear existing category buttons (except "All")
+            const existingCategoryButtons = filterBar.querySelectorAll('.filter-tag:not([data-category="all"])');
+            existingCategoryButtons.forEach(btn => btn.remove());
+
+            // Add category buttons
+            categories.forEach(category => {
+                const button = document.createElement('button');
+                button.className = 'filter-tag';
+                button.textContent = category.name;
+                button.dataset.category = category.id.toString();
+                button.addEventListener('click', () => handleCategoryFilter(category.id.toString()));
+                filterBar.appendChild(button);
+            });
+
+            // Re-attach event listeners for all filter tags
+            attachFilterEventListeners();
+        }
+
+        // Handle category filter click
+        function handleCategoryFilter(categoryId) {
+            // Remove active class from all tags
+            const filterTags = document.querySelectorAll('.filter-tag');
+            filterTags.forEach(tag => tag.classList.remove('active'));
+
+            // Add active class to clicked tag
+            const clickedTag = document.querySelector(`[data-category="${categoryId}"]`);
+            if (clickedTag) {
+                clickedTag.classList.add('active');
+            }
+
+            currentFilter = categoryId;
+            renderPosts();
+        }
+
+        // Attach event listeners to filter tags
+        function attachFilterEventListeners() {
+            const filterTags = document.querySelectorAll('.filter-tag');
+
+            filterTags.forEach(tag => {
+                tag.addEventListener('click', () => {
+                    // Remove active class from all tags
+                    filterTags.forEach(t => t.classList.remove('active'));
+                    // Add active class to clicked tag
+                    tag.classList.add('active');
+
+                    currentFilter = tag.dataset.category || tag.textContent.toLowerCase();
+                    renderPosts();
+                });
+            });
+        }
+
+        // Update renderPosts to handle category filtering
+        function renderPosts() {
+            const grid = document.getElementById('blog-grid');
+            let filteredPosts = allPosts;
+
+            if (currentFilter === 'all') {
+                filteredPosts = allPosts;
+            } else if (currentFilter === 'search') {
+                // Search filtering is handled separately
+                return;
+            } else {
+                // Filter by category ID
+                filteredPosts = allPosts.filter(post => post.categoryId == currentFilter);
+            }
+
+            if (filteredPosts.length === 0) {
+                grid.innerHTML = '<div class="empty-state"><h3>No posts found</h3><p>Try adjusting your filter or check back later.</p></div>';
+                return;
+            }
+
+            grid.innerHTML = filteredPosts.map(post => createPostCard(post)).join('');
+            attachCardEventListeners();
+        }
+
+        // Load author settings and update profile picture
+        async function loadAuthorSettings() {
+            try {
+                const response = await fetch('/api/settings/author');
+                const data = await response.json();
+                if (data.author && data.author.profilePicture) {
+                    const profileImg = document.getElementById('profilePicture');
+                    if (profileImg) {
+                        profileImg.src = data.author.profilePicture;
+                    }
+                }
+            } catch (error) {
+                console.log('Failed to load author settings:', error);
+            }
+        }
+
+        // Password toggle functionality
+        function togglePasswordVisibility(inputId, toggleId) {
+            const input = document.getElementById(inputId);
+            const toggle = document.getElementById(toggleId);
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                toggle.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                `;
+            } else {
+                input.type = 'password';
+                toggle.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                `;
+            }
+        }
+
+        // Attach password toggle event listener
+        document.addEventListener('DOMContentLoaded', function() {
+            const adminKeyToggle = document.getElementById('adminKeyToggle');
+            if (adminKeyToggle) {
+                adminKeyToggle.addEventListener('click', () => togglePasswordVisibility('adminKeyInput', 'adminKeyToggle'));
+            }
+        });
+
+        // Admin key toggle functionality (for admin.html compatibility)
+        document.addEventListener('DOMContentLoaded', function() {
+            const adminKeyToggle = document.getElementById('admin-key-toggle');
+            if (adminKeyToggle) {
+                adminKeyToggle.addEventListener('click', function() {
+                    const input = document.getElementById('admin-entry-key');
+                    const icon = this.querySelector('svg');
+
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+                    } else {
+                        input.type = 'password';
+                        icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+                    }
+                });
+            }
+        });
+
+        // Load theme settings and apply them
+        async function loadThemeSettings() {
+            try {
+                const response = await fetch('/api/settings/theme');
+                const data = await response.json();
+                if (data.theme) {
+                    const { primaryColor, accentColor } = data.theme;
+                    if (primaryColor) {
+                        document.documentElement.style.setProperty('--primary-color', primaryColor);
+                    }
+                    if (accentColor) {
+                        document.documentElement.style.setProperty('--accent-color', accentColor);
+                    }
+                }
+            } catch (error) {
+                console.log('Failed to load theme settings:', error);
+            }
+        }
+
+        // Load background settings and apply them
+        async function loadBackgroundSettings() {
+            try {
+                const response = await fetch('/api/settings/background');
+                const data = await response.json();
+                if (data.backgroundUrl) {
+                    document.body.style.backgroundImage = `url('${data.backgroundUrl}')`;
+                    document.body.style.backgroundSize = 'cover';
+                    document.body.style.backgroundPosition = 'center';
+                    document.body.style.backgroundRepeat = 'no-repeat';
+                    document.body.style.backgroundAttachment = 'fixed';
+                }
+            } catch (error) {
+                console.log('Failed to load background settings:', error);
+            }
+        }
+
+        // Load posts when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPosts();
+            loadCategories();
+            showAdminWelcome(); // Check and show admin section
+            loadAuthorSettings(); // Load and display profile picture
+            loadThemeSettings(); // Load and apply saved theme settings
+            loadBackgroundSettings(); // Load and apply saved background settings
+        });
     </script>
 </body>
 </html>
