@@ -1,0 +1,14 @@
+{
+  "pageViews": [
+    {
+      "id": 1761595066803,
+      "page": "/test",
+      "referrer": "http://example.com",
+      "userAgent": "curl/8.14.1",
+      "ip": "::1",
+      "timestamp": "2025-10-27T19:57:46.805Z"
+    }
+  ],
+  "postViews": [],
+  "interactions": []
+}

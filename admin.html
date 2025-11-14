@@ -1,0 +1,1864 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Blog</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #F4A191;
+            --accent-color: #4A9B9B;
+            --bg-color: #F8F9FA;
+            --card-bg: #FFFFFF;
+            --text-dark: #2C3E50;
+            --text-medium: #6C757D;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.15);
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #F6B8A9 100%);
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 16px 24px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .logo img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .logo h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+        }
+
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: var(--transition);
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .logout-btn {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .welcome-section {
+            background: white;
+            padding: 32px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .welcome-section h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+            color: var(--text-dark);
+        }
+
+        .welcome-section p {
+            color: var(--text-medium);
+            font-size: 16px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 24px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: var(--text-medium);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .action-card {
+            background: white;
+            padding: 24px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .action-card h3 {
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: var(--text-dark);
+        }
+
+        .action-card p {
+            color: var(--text-medium);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .action-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: var(--transition);
+            width: 100%;
+        }
+
+        .action-btn:hover {
+            background: #e64a19;
+            transform: translateY(-2px);
+        }
+
+        .action-btn.secondary {
+            background: var(--accent-color);
+        }
+
+        .action-btn.secondary:hover {
+            background: #3a7a7a;
+        }
+
+        .customize-section {
+            margin-top: 24px;
+        }
+
+        .customize-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+        }
+
+        .customize-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .customize-options label {
+            font-weight: 500;
+            color: var(--text-dark);
+        }
+
+        .customize-options input,
+        .customize-options textarea,
+        .customize-options select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .customize-options textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .password-group {
+            position: relative;
+        }
+
+        .password-group .form-input {
+            padding-right: 40px;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-medium);
+            transition: var(--transition);
+        }
+
+        .password-toggle:hover {
+            color: var(--text-dark);
+        }
+
+        /* Chart Styles */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 16px;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .nav-links {
+                gap: 16px;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .nav-link {
+                text-align: center;
+                padding: 12px 16px;
+            }
+
+            .logout-btn {
+                align-self: center;
+                margin-top: 8px;
+            }
+
+            .container {
+                padding: 16px;
+            }
+
+            .welcome-section {
+                padding: 24px 16px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .actions-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .customize-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
+                height: 250px;
+            }
+
+            .action-card .customize-options + div {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .action-card .customize-options + div button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile picture">
+                <h1>zedong254ke</h1>
+            </a>
+            <nav class="nav-links">
+                <a href="#dashboard" class="nav-link active">Dashboard</a>
+                <a href="#posts" class="nav-link">Posts</a>
+                <a href="#settings" class="nav-link">Settings</a>
+                <a href="#analytics" class="nav-link">Analytics</a>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="welcome-section">
+            <h1>Welcome to Admin Panel</h1>
+            <p>Manage your blog posts, settings, and analytics from here.</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="posts-count">0</div>
+                <div class="stat-label">Total Posts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="views-count">0</div>
+                <div class="stat-label">Total Views</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="subscribers-count">0</div>
+                <div class="stat-label">Subscribers</div>
+            </div>
+        </div>
+
+        <div class="actions-grid">
+            <div class="action-card">
+                <h3>📝 Manage Posts</h3>
+                <p>Create, edit, and delete blog posts. Organize your content and keep your readers engaged.</p>
+                <button class="action-btn" onclick="showPostsSection()">Go to Posts</button>
+            </div>
+            <div class="action-card">
+                <h3>⚙️ Settings</h3>
+                <p>Configure your blog settings, author information, and security preferences.</p>
+                <button class="action-btn secondary" onclick="showSettingsSection()">Go to Settings</button>
+            </div>
+            <div class="action-card">
+                <h3>📊 Analytics</h3>
+                <p>View detailed analytics about your blog's performance and reader engagement.</p>
+                <button class="action-btn" onclick="showAnalyticsSection()">View Analytics</button>
+            </div>
+            <div class="action-card">
+                <h3>🎨 Customize</h3>
+                <p>Customize your blog's appearance with different backgrounds and themes.</p>
+                <button class="action-btn secondary" onclick="showCustomizeSection()">Customize Blog</button>
+            </div>
+        </div>
+
+        <!-- Posts Section -->
+        <div id="posts-section" class="customize-section" style="display: none;">
+            <div class="welcome-section">
+                <h1>📝 Manage Posts</h1>
+                <p>Create, edit, and delete blog posts. Organize your content and keep your readers engaged.</p>
+            </div>
+
+            <div class="customize-grid">
+                <div class="action-card">
+                    <h3>📋 All Posts</h3>
+                    <p>View and manage all your blog posts.</p>
+                    <button class="action-btn" onclick="togglePostsList()">Show Posts</button>
+                    <div id="posts-list-container" style="display: none; margin-top: 16px;">
+                        <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
+                            <label style="display: flex; align-items: center; gap: 4px;">
+                                <input type="checkbox" id="select-all-posts" onchange="toggleSelectAllPosts()">
+                                <span style="font-size: 14px;">Select All</span>
+                            </label>
+                            <button class="action-btn" id="delete-selected-posts" style="display: none; background: #dc3545;" onclick="deleteSelectedPosts()">Delete Selected (<span id="selected-posts-count">0</span>)</button>
+                        </div>
+                        <div id="posts-list">
+                            <!-- Posts will be loaded here -->
+                        </div>
+                        <button class="action-btn" onclick="loadPostsList()">Refresh Posts</button>
+                    </div>
+                </div>
+
+                <div class="action-card">
+                    <h3>➕ Create New Post</h3>
+                    <p>Add a new blog post to your collection.</p>
+                    <button class="action-btn" onclick="createNewPost()">Create Post</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>📊 Post Statistics</h3>
+                    <p>View statistics about your posts.</p>
+                    <div class="stat-number" id="total-posts">0</div>
+                    <div class="stat-label">Total Posts</div>
+                    <button class="action-btn secondary" onclick="viewPostStats()">View Stats</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Section -->
+        <div id="analytics-section" class="customize-section" style="display: none;">
+            <div class="welcome-section">
+                <h1>📊 Analytics Dashboard</h1>
+                <p>View detailed analytics about your blog's performance and reader engagement.</p>
+            </div>
+
+            <div class="customize-grid">
+                <div class="action-card">
+                    <h3>📈 Page Views</h3>
+                    <p>Track visitor traffic and page view statistics.</p>
+                    <div class="stat-number" id="analytics-page-views">0</div>
+                    <div class="stat-label">Total Views</div>
+                    <div class="chart-container">
+                        <canvas id="pageViewsChart"></canvas>
+                    </div>
+                    <button class="action-btn" onclick="refreshAnalytics()">Refresh Data</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>👥 User Engagement</h3>
+                    <p>Monitor reader interaction and engagement metrics.</p>
+                    <div class="stat-number" id="analytics-engagement">0%</div>
+                    <div class="stat-label">Engagement Rate</div>
+                    <div class="chart-container">
+                        <canvas id="engagementChart"></canvas>
+                    </div>
+                    <button class="action-btn secondary" onclick="viewEngagementDetails()">View Details</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>📊 Popular Content</h3>
+                    <p>See which posts are performing best.</p>
+                    <div class="chart-container">
+                        <canvas id="popularPostsChart"></canvas>
+                    </div>
+                    <button class="action-btn" onclick="exportAnalytics()">Export Report</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>📅 Time Analytics</h3>
+                    <p>Analyze traffic patterns over time.</p>
+                    <div class="customize-options">
+                        <label>Time Period:</label>
+                        <select id="analytics-period">
+                            <option value="7d">Last 7 days</option>
+                            <option value="30d">Last 30 days</option>
+                            <option value="90d">Last 90 days</option>
+                        </select>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="timeAnalyticsChart"></canvas>
+                    </div>
+                    <button class="action-btn secondary" onclick="loadTimeAnalytics()">Load Analytics</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Section -->
+        <div id="settings-section" class="customize-section" style="display: none;">
+            <div class="welcome-section">
+                <h1>⚙️ Blog Settings</h1>
+                <p>Configure your blog settings, author information, and security preferences.</p>
+            </div>
+
+            <div class="customize-grid">
+                <div class="action-card">
+                    <h3>👤 Author Information</h3>
+                    <p>Update your personal information, bio, and profile picture.</p>
+                    <div class="customize-options">
+                        <label for="author-name">Author Name:</label>
+                        <input type="text" id="author-name" value="zedong254ke" placeholder="Enter author name">
+                        <label for="author-email">Email:</label>
+                        <input type="email" id="author-email" placeholder="Enter email address">
+                        <label for="author-bio">Bio:</label>
+                        <textarea id="author-bio" rows="3" placeholder="Enter author bio">Passionate developer and blogger sharing insights on technology and programming.</textarea>
+                        <label>Profile Picture:</label>
+                        <input type="file" id="profile-picture-file" accept="image/*" onchange="handleProfilePictureUpload()">
+                        <label for="author-phone">Phone:</label>
+                        <input type="tel" id="author-phone" placeholder="Enter phone number">
+                        <label for="author-whatsapp">WhatsApp:</label>
+                        <input type="tel" id="author-whatsapp" placeholder="Enter WhatsApp number">
+                        <label for="author-twitter">Twitter:</label>
+                        <input type="text" id="author-twitter" placeholder="Enter Twitter handle (without @)">
+                        <label for="author-facebook">Facebook:</label>
+                        <input type="text" id="author-facebook" placeholder="Enter Facebook profile">
+                        <label for="author-linkedin">LinkedIn:</label>
+                        <input type="text" id="author-linkedin" placeholder="Enter LinkedIn profile">
+                        <label for="author-instagram">Instagram:</label>
+                        <input type="text" id="author-instagram" placeholder="Enter Instagram handle (without @)">
+                        <label for="author-website">Website:</label>
+                        <input type="url" id="author-website" placeholder="Enter website URL">
+                    </div>
+                    <button class="action-btn" onclick="saveAuthorInfo()">Save Author Info</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>🔒 Security Settings</h3>
+                    <p>Manage security preferences and access controls.</p>
+                    <div class="customize-options">
+                        <label for="admin-entry-key">Admin Entry Key:</label>
+                        <div class="password-group">
+                            <input type="password" id="admin-entry-key" class="form-input" placeholder="Enter new admin entry key">
+                            <button type="button" id="admin-key-toggle" class="password-toggle">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                        <label for="session-timeout">Session Timeout (minutes):</label>
+                        <input type="number" id="session-timeout" value="30" min="5" max="480">
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 16px;">
+                        <button class="action-btn secondary" onclick="saveSecuritySettings()">Save Security</button>
+                        <button class="action-btn" onclick="viewCurrentKey()">View Current Key</button>
+                        <button class="action-btn secondary" onclick="clearKey()">Clear Key</button>
+                    </div>
+                </div>
+
+                <div class="action-card">
+                    <h3>📧 Notification Settings</h3>
+                    <p>Configure email notifications and alerts.</p>
+                    <div class="customize-options">
+                        <label><input type="checkbox" id="email-notifications" checked> Email Notifications</label>
+                        <label><input type="checkbox" id="comment-notifications"> Comment Notifications</label>
+                        <label><input type="checkbox" id="system-alerts" checked> System Alerts</label>
+                    </div>
+                    <button class="action-btn" onclick="saveNotificationSettings()">Save Notifications</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>🗂️ Content Management</h3>
+                    <p>Manage content settings and publishing options.</p>
+                    <div class="customize-options">
+                        <label for="posts-per-page">Posts Per Page:</label>
+                        <input type="number" id="posts-per-page" value="10" min="5" max="50">
+                        <label><input type="checkbox" id="auto-publish" checked> Auto-publish new posts</label>
+                        <label><input type="checkbox" id="enable-comments"> Enable comments</label>
+                    </div>
+                    <button class="action-btn secondary" onclick="saveContentSettings()">Save Content Settings</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>📂 Category Management</h3>
+                    <p>Manage blog categories for organizing posts.</p>
+                    <button class="action-btn" onclick="toggleCategoriesList()">Show Categories</button>
+                    <div id="categories-list-container" style="display: none; margin-top: 16px;">
+                        <div class="customize-options">
+                            <label for="category-name">Category Name:</label>
+                            <input type="text" id="category-name" placeholder="Enter category name">
+                            <label for="category-description">Description:</label>
+                            <textarea id="category-description" rows="2" placeholder="Enter category description"></textarea>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 16px;">
+                            <button class="action-btn secondary" onclick="addCategory()">Add Category</button>
+                            <button class="action-btn" onclick="loadCategories()">Refresh Categories</button>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
+                            <label style="display: flex; align-items: center; gap: 4px;">
+                                <input type="checkbox" id="select-all-categories" onchange="toggleSelectAllCategories()">
+                                <span style="font-size: 14px;">Select All</span>
+                            </label>
+                            <button class="action-btn" id="delete-selected-categories" style="display: none; background: #dc3545;" onclick="deleteSelectedCategories()">Delete Selected (<span id="selected-categories-count">0</span>)</button>
+                        </div>
+                        <div id="categories-list">
+                            <!-- Categories will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customize Section -->
+        <div id="customize-section" class="customize-section" style="display: none;">
+            <div class="welcome-section">
+                <h1>🎨 Customize Your Blog</h1>
+                <p>Personalize your blog's appearance and theme settings.</p>
+            </div>
+
+            <div class="customize-grid">
+                <div class="action-card">
+                    <h3>🎨 Theme Settings</h3>
+                    <p>Change colors, fonts, and overall theme of your blog.</p>
+                    <div class="customize-options">
+                        <div style="margin-bottom: 16px;">
+                            <label for="primary-color">Primary Color:</label>
+                            <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                                <input type="color" id="primary-color" value="#F4A191" onchange="showPrimaryOkButton()">
+                                <button class="action-btn" id="primary-ok-btn" style="padding: 6px 12px; font-size: 12px; display: none;" onclick="confirmPrimaryColor()">OK</button>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 16px;">
+                            <label for="accent-color">Accent Color:</label>
+                            <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                                <input type="color" id="accent-color" value="#4A9B9B" onchange="showAccentOkButton()">
+                                <button class="action-btn" id="accent-ok-btn" style="padding: 6px 12px; font-size: 12px; display: none;" onclick="confirmAccentColor()">OK</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="action-btn" onclick="saveThemeSettings()">Save Theme</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>📝 Blog Information</h3>
+                    <p>Update your blog title, description, and author information.</p>
+                    <div class="customize-options">
+                        <label for="blog-title">Blog Title:</label>
+                        <input type="text" id="blog-title" value="zedong254ke" placeholder="Enter blog title">
+                        <label for="blog-description">Description:</label>
+                        <textarea id="blog-description" rows="3" placeholder="Enter blog description">Discover insights, tutorials, and thoughts on web development, programming, and technology.</textarea>
+                    </div>
+                    <button class="action-btn secondary" onclick="saveBlogInfo()">Save Information</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>🖼️ Background Options</h3>
+                    <p>Choose background patterns, colors, or upload custom backgrounds.</p>
+                    <div class="customize-options">
+                        <label>Background URL:</label>
+                        <input type="url" id="background-url" placeholder="Enter background image URL">
+
+                        <label>Upload Custom Background:</label>
+                        <input type="file" id="background-file" accept="image/*" onchange="handleBackgroundUpload()">
+
+                        <label>Background Color:</label>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                            <input type="color" id="background-color" value="#ffffff" onchange="previewColorBackground()">
+                            <button class="action-btn" id="apply-color-btn" style="padding: 6px 12px; font-size: 12px;" onclick="applyColorBackground()">Apply Color</button>
+                        </div>
+
+                        <label>Predefined Patterns:</label>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px;">
+                            <button class="pattern-btn" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4);" onclick="selectPattern('gradient1')"></button>
+                            <button class="pattern-btn" style="background: linear-gradient(45deg, #667eea, #764ba2);" onclick="selectPattern('gradient2')"></button>
+                            <button class="pattern-btn" style="background: linear-gradient(45deg, #f093fb, #f5576c);" onclick="selectPattern('gradient3')"></button>
+                            <button class="pattern-btn" style="background: linear-gradient(45deg, #4facfe, #00f2fe);" onclick="selectPattern('gradient4')"></button>
+                            <button class="pattern-btn" style="background: #e74c3c;" onclick="selectPattern('solid-red')"></button>
+                            <button class="pattern-btn" style="background: #27ae60;" onclick="selectPattern('solid-green')"></button>
+                            <button class="pattern-btn" style="background: #3498db;" onclick="selectPattern('solid-blue')"></button>
+                            <button class="pattern-btn" style="background: #9b59b6;" onclick="selectPattern('solid-purple')"></button>
+                        </div>
+                    </div>
+                    <button class="action-btn" onclick="saveBackgroundSettings()">Save Background</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>🔄 Preview Changes</h3>
+                    <p>See how your changes look before applying them.</p>
+                    <button class="action-btn secondary" onclick="previewChanges()">Preview</button>
+                    <button class="action-btn" onclick="applyChanges()">Apply All Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Idle timeout variables
+        let idleTimer;
+        let lastActivity = Date.now();
+        const IDLE_TIMEOUT = 10 * 1000; // 10 seconds for testing (change to 10 * 60 * 1000 for 10 minutes)
+
+        // Reset idle timer on user activity
+        function resetIdleTimer() {
+            lastActivity = Date.now();
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(checkIdleTimeout, 1000); // Check every second
+        }
+
+        // Check if user has been idle for too long
+        function checkIdleTimeout() {
+            const now = Date.now();
+            if (now - lastActivity >= IDLE_TIMEOUT) {
+                // Clear admin key verification from session
+                clearAdminKeyVerification();
+                // Prompt for admin key again
+                promptForAdminKey();
+            } else {
+                // Continue checking
+                idleTimer = setTimeout(checkIdleTimeout, 1000);
+            }
+        }
+
+        // Clear admin key verification from session
+        async function clearAdminKeyVerification() {
+            try {
+                await fetch('/api/settings/clear-admin-key-verification', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+            } catch (error) {
+                console.error('Error clearing admin key verification:', error);
+            }
+        }
+
+        // Prompt for admin entry key
+        async function promptForAdminKey() {
+            const entryKey = prompt('Your session has expired due to inactivity. Please enter the admin entry key to continue.');
+            if (!entryKey) {
+                alert('Admin entry key is required to access the admin panel.');
+                window.location.href = '/login.html';
+                return false;
+            }
+
+            // Verify the entry key
+            try {
+                const verifyResponse = await fetch('/api/settings/verify-entry-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminEntryKey: entryKey }),
+                    credentials: 'include'
+                });
+                const verifyData = await verifyResponse.json();
+
+                if (!verifyData.success) {
+                    alert('Invalid admin entry key. Access denied.');
+                    window.location.href = '/login.html';
+                    return false;
+                }
+
+                // Reset idle timer after successful verification
+                resetIdleTimer();
+                return true;
+            } catch (error) {
+                console.error('Error verifying admin key:', error);
+                alert('Error verifying admin key. Please try again.');
+                window.location.href = '/login.html';
+                return false;
+            }
+        }
+
+        // Check authentication on page load
+        async function checkAuth() {
+            console.log('Checking authentication status...');
+            try {
+                const response = await fetch('/auth/status', { credentials: 'include' });
+                const data = await response.json();
+                console.log('Auth response received:', { status: response.status, loggedIn: data.loggedIn });
+
+                if (!data.loggedIn) {
+                    // Redirect to login if not authenticated
+                    console.log('Not logged in, redirecting to login');
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                // Check if admin entry key is required
+                const securityResponse = await fetch('/api/settings/security');
+                const securityData = await securityResponse.json();
+                console.log('Security check:', securityData);
+
+                if (securityData.hasEntryKey) {
+                    // First check if admin key is already verified in session
+                    const checkResponse = await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' });
+                    const checkData = await checkResponse.json();
+
+                    if (!checkData.verified) {
+                        // Not verified, prompt for admin entry key
+                        const success = await promptForAdminKey();
+                        if (!success) return;
+                    } else {
+                        // Already verified, start idle timer
+                        resetIdleTimer();
+                    }
+                }
+
+                console.log('Authentication and entry key verification successful, loading dashboard');
+                // Load dashboard data
+                loadDashboardStats();
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = '/login.html';
+            }
+        }
+
+        // Add event listeners for user activity
+        document.addEventListener('DOMContentLoaded', () => {
+            // Activity events to reset idle timer
+            ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'].forEach(event => {
+                document.addEventListener(event, resetIdleTimer, true);
+            });
+        });
+
+        // Load dashboard statistics
+        async function loadDashboardStats() {
+            try {
+                // Load posts count
+                const postsResponse = await fetch('/api/posts');
+                const postsData = await postsResponse.json();
+                document.getElementById('posts-count').textContent = postsData.posts.length;
+
+                // Load analytics (simplified)
+                const analyticsResponse = await fetch('/api/analytics');
+                const analyticsData = await analyticsResponse.json();
+                document.getElementById('views-count').textContent = analyticsData.pageViews?.length || 0;
+
+                // For subscribers, we could add a counter later
+                document.getElementById('subscribers-count').textContent = '0';
+
+            } catch (error) {
+                console.error('Failed to load dashboard stats:', error);
+            }
+        }
+
+        // Logout function
+        async function logout() {
+            try {
+                await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Logout failed:', error);
+                // Force redirect anyway
+                window.location.href = '/';
+            }
+        }
+
+        // Show customize section
+        function showCustomizeSection() {
+            const customizeSection = document.getElementById('customize-section');
+            if (customizeSection.style.display === 'block') {
+                customizeSection.style.display = 'none';
+            } else {
+                customizeSection.style.display = 'block';
+                customizeSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Show primary OK button when color changes
+        function showPrimaryOkButton() {
+            document.getElementById('primary-ok-btn').style.display = 'inline-block';
+        }
+
+        // Show accent OK button when color changes
+        function showAccentOkButton() {
+            document.getElementById('accent-ok-btn').style.display = 'inline-block';
+        }
+
+        // Confirm primary color selection
+        function confirmPrimaryColor() {
+            const primaryColor = document.getElementById('primary-color').value;
+            alert(`Primary color selected: ${primaryColor}`);
+            // Here you could add logic to preview the color or store it temporarily
+            document.getElementById('primary-ok-btn').style.display = 'none';
+        }
+
+        // Confirm accent color selection
+        function confirmAccentColor() {
+            const accentColor = document.getElementById('accent-color').value;
+            alert(`Accent color selected: ${accentColor}`);
+            // Here you could add logic to preview the color or store it temporarily
+            document.getElementById('accent-ok-btn').style.display = 'none';
+        }
+
+        // Save theme settings
+        async function saveThemeSettings() {
+            const primaryColor = document.getElementById('primary-color').value;
+            const accentColor = document.getElementById('accent-color').value;
+
+            try {
+                const response = await fetch('/api/settings/theme', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ primaryColor, accentColor })
+                });
+
+                if (response.ok) {
+                    alert('Theme settings saved successfully!');
+                } else {
+                    alert('Failed to save theme settings.');
+                }
+            } catch (error) {
+                console.error('Error saving theme settings:', error);
+                alert('Error saving theme settings.');
+            }
+        }
+
+        // Save blog information
+        async function saveBlogInfo() {
+            const blogTitle = document.getElementById('blog-title').value;
+            const blogDescription = document.getElementById('blog-description').value;
+
+            try {
+                const response = await fetch('/api/settings/blog-info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ blogTitle, blogDescription })
+                });
+
+                if (response.ok) {
+                    alert('Blog information saved successfully!');
+                } else {
+                    alert('Failed to save blog information.');
+                }
+            } catch (error) {
+                console.error('Error saving blog information:', error);
+                alert('Error saving blog information.');
+            }
+        }
+
+        // Handle background file upload
+        async function handleBackgroundUpload() {
+            const fileInput = document.getElementById('background-file');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Please select a file first.');
+                return;
+            }
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                alert('Please select a valid image file.');
+                return;
+            }
+
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // Set the uploaded URL in the background URL input
+                    document.getElementById('background-url').value = data.url;
+                    alert('Background image uploaded successfully!');
+                } else {
+                    const errorData = await response.json();
+                    alert('Failed to upload background image: ' + (errorData.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error uploading background image:', error);
+                alert('Error uploading background image.');
+            }
+        }
+
+        // Save background settings
+        async function saveBackgroundSettings() {
+            const backgroundUrl = document.getElementById('background-url').value;
+
+            if (!backgroundUrl) {
+                alert('Please provide a background URL or upload an image first.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/settings/background', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ backgroundUrl })
+                });
+
+                if (response.ok) {
+                    alert('Background settings saved successfully!');
+                } else {
+                    const errorData = await response.json();
+                    alert('Failed to save background settings: ' + (errorData.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving background settings:', error);
+                alert('Error saving background settings.');
+            }
+        }
+
+        // Preview changes
+        function previewChanges() {
+            const primaryColor = document.getElementById('primary-color').value;
+            const accentColor = document.getElementById('accent-color').value;
+
+            // Temporarily apply colors for preview
+            document.documentElement.style.setProperty('--primary-color', primaryColor);
+            document.documentElement.style.setProperty('--accent-color', accentColor);
+
+            alert('Preview applied! Click "Apply All Changes" to save permanently.');
+        }
+
+        // Apply all changes
+        async function applyChanges() {
+            // Save all settings
+            await saveThemeSettings();
+            await saveBlogInfo();
+            await saveBackgroundSettings();
+
+            alert('All changes applied successfully!');
+        }
+
+        // Analytics functions
+        async function refreshAnalytics() {
+            try {
+                const analyticsResponse = await fetch('/api/analytics');
+                const analyticsData = await analyticsResponse.json();
+
+                document.getElementById('analytics-page-views').textContent = analyticsData.pageViews?.length || 0;
+                document.getElementById('analytics-engagement').textContent = analyticsData.engagementRate || '0%';
+
+                alert('Analytics data refreshed successfully!');
+            } catch (error) {
+                console.error('Failed to refresh analytics:', error);
+                alert('Failed to refresh analytics data.');
+            }
+        }
+
+        async function viewEngagementDetails() {
+            try {
+                const response = await fetch('/api/analytics/engagement');
+                const data = await response.json();
+
+                alert(`Engagement Details:\n- Total Interactions: ${data.totalInteractions || 0}\n- Average Time: ${data.averageTime || 0}s\n- Bounce Rate: ${data.bounceRate || 0}%`);
+            } catch (error) {
+                console.error('Failed to load engagement details:', error);
+                alert('Failed to load engagement details.');
+            }
+        }
+
+        async function exportAnalytics() {
+            try {
+                const response = await fetch('/api/analytics/export');
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'analytics-report.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    alert('Failed to export analytics report.');
+                }
+            } catch (error) {
+                console.error('Failed to export analytics:', error);
+                alert('Failed to export analytics report.');
+            }
+        }
+
+        async function loadTimeAnalytics() {
+            const period = document.getElementById('analytics-period').value;
+            try {
+                const response = await fetch(`/api/analytics/time?period=${period}`);
+                const data = await response.json();
+
+                alert(`Time Analytics for ${period}:\n- Total Views: ${data.totalViews || 0}\n- Peak Hours: ${data.peakHours || 'N/A'}\n- Growth Rate: ${data.growthRate || 0}%`);
+            } catch (error) {
+                console.error('Failed to load time analytics:', error);
+                alert('Failed to load time analytics.');
+            }
+        }
+
+        // Show analytics section
+        function showAnalyticsSection() {
+            const analyticsSection = document.getElementById('analytics-section');
+            if (analyticsSection.style.display === 'block') {
+                analyticsSection.style.display = 'none';
+            } else {
+                analyticsSection.style.display = 'block';
+                analyticsSection.scrollIntoView({ behavior: 'smooth' });
+                // Load initial analytics data
+                refreshAnalytics();
+                // Initialize charts
+                initializeCharts();
+            }
+        }
+
+        // Show posts section
+        function showPostsSection() {
+            const postsSection = document.getElementById('posts-section');
+            if (postsSection.style.display === 'block') {
+                postsSection.style.display = 'none';
+            } else {
+                postsSection.style.display = 'block';
+                postsSection.scrollIntoView({ behavior: 'smooth' });
+                // Load posts data
+                loadPostsList();
+            }
+        }
+
+        // Toggle posts list visibility
+        function togglePostsList() {
+            const postsListContainer = document.getElementById('posts-list-container');
+            if (postsListContainer.style.display === 'none') {
+                postsListContainer.style.display = 'block';
+                loadPostsList(); // Load posts when showing
+            } else {
+                postsListContainer.style.display = 'none';
+            }
+        }
+
+        // Load posts list
+        async function loadPostsList() {
+            try {
+                const response = await fetch('/api/posts');
+                const data = await response.json();
+                const postsList = document.getElementById('posts-list');
+                const totalPosts = document.getElementById('total-posts');
+
+                if (data.posts && data.posts.length > 0) {
+                    postsList.innerHTML = data.posts.map(post => `
+                        <div class="post-item" style="padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; background: #f9f9f9;">
+                            <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+                                <input type="checkbox" class="post-checkbox" data-post-id="${post.id}" onchange="updateSelectedCount()">
+                                <div style="flex: 1;">
+                                    <h4 style="margin: 0 0 8px 0; font-size: 16px;">${post.title}</h4>
+                                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">${post.content ? post.content.substring(0, 100) + '...' : 'No content'}</p>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="action-btn" style="padding: 6px 12px; font-size: 12px;" onclick="editPost('${post.id}')">Edit</button>
+                                <button class="action-btn secondary" style="padding: 6px 12px; font-size: 12px;" onclick="deletePost('${post.id}')">Delete</button>
+                            </div>
+                        </div>
+                    `).join('');
+                    totalPosts.textContent = data.posts.length;
+                } else {
+                    postsList.innerHTML = '<p>No posts found.</p>';
+                    totalPosts.textContent = '0';
+                }
+                // Reset select all checkbox and selected count
+                document.getElementById('select-all-posts').checked = false;
+                updateSelectedCount();
+            } catch (error) {
+                console.error('Failed to load posts:', error);
+                document.getElementById('posts-list').innerHTML = '<p>Error loading posts.</p>';
+            }
+        }
+
+        // Create new post
+        function createNewPost() {
+            alert('Create new post functionality - This would open a form to create a new post');
+        }
+
+        // Edit post
+        function editPost(postId) {
+            alert(`Edit post functionality - This would open a form to edit post with ID: ${postId}`);
+        }
+
+        // Delete post
+        async function deletePost(postId) {
+            if (confirm('Are you sure you want to delete this post?')) {
+                try {
+                    const response = await fetch(`/api/posts/${postId}`, {
+                        method: 'DELETE',
+                        credentials: 'include'
+                    });
+
+                    if (response.ok) {
+                        alert('Post deleted successfully!');
+                        loadPostsList(); // Refresh the list
+                    } else {
+                        alert('Failed to delete post.');
+                    }
+                } catch (error) {
+                    console.error('Error deleting post:', error);
+                    alert('Error deleting post.');
+                }
+            }
+        }
+
+        // View post stats
+        function viewPostStats() {
+            alert('View post statistics functionality - This would show detailed statistics about posts');
+        }
+
+        // Toggle select all posts
+        function toggleSelectAllPosts() {
+            const selectAllCheckbox = document.getElementById('select-all-posts');
+            const postCheckboxes = document.querySelectorAll('.post-checkbox');
+            postCheckboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            updateSelectedCount();
+        }
+
+        // Update selected posts count
+        function updateSelectedCount() {
+            const postCheckboxes = document.querySelectorAll('.post-checkbox');
+            const checkedCount = Array.from(postCheckboxes).filter(cb => cb.checked).length;
+            const deleteButton = document.getElementById('delete-selected-posts');
+            const countSpan = document.getElementById('selected-posts-count');
+
+            countSpan.textContent = checkedCount;
+            deleteButton.style.display = checkedCount > 0 ? 'inline-block' : 'none';
+        }
+
+        // Delete selected posts
+        async function deleteSelectedPosts() {
+            const postCheckboxes = document.querySelectorAll('.post-checkbox:checked');
+            const selectedIds = Array.from(postCheckboxes).map(cb => cb.getAttribute('data-post-id'));
+
+            if (selectedIds.length === 0) {
+                alert('No posts selected.');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete ${selectedIds.length} selected post(s)?`)) {
+                return;
+            }
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const postId of selectedIds) {
+                try {
+                    const response = await fetch(`/api/posts/${postId}`, {
+                        method: 'DELETE',
+                        credentials: 'include'
+                    });
+
+                    if (response.ok) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error('Error deleting post:', error);
+                    errorCount++;
+                }
+            }
+
+            if (successCount > 0) {
+                alert(`${successCount} post(s) deleted successfully!`);
+                loadPostsList(); // Refresh the list
+            }
+
+            if (errorCount > 0) {
+                alert(`Failed to delete ${errorCount} post(s).`);
+            }
+        }
+
+        // Toggle select all categories
+        function toggleSelectAllCategories() {
+            const selectAllCheckbox = document.getElementById('select-all-categories');
+            const categoryCheckboxes = document.querySelectorAll('.category-checkbox');
+            categoryCheckboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            updateSelectedCategoriesCount();
+        }
+
+        // Update selected categories count
+        function updateSelectedCategoriesCount() {
+            const categoryCheckboxes = document.querySelectorAll('.category-checkbox');
+            const checkedCount = Array.from(categoryCheckboxes).filter(cb => cb.checked).length;
+            const deleteButton = document.getElementById('delete-selected-categories');
+            const countSpan = document.getElementById('selected-categories-count');
+
+            countSpan.textContent = checkedCount;
+            deleteButton.style.display = checkedCount > 0 ? 'inline-block' : 'none';
+        }
+
+        // Delete selected categories
+        async function deleteSelectedCategories() {
+            const categoryCheckboxes = document.querySelectorAll('.category-checkbox:checked');
+            const selectedIds = Array.from(categoryCheckboxes).map(cb => cb.getAttribute('data-category-id'));
+
+            if (selectedIds.length === 0) {
+                alert('No categories selected.');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete ${selectedIds.length} selected categor(y/ies)?`)) {
+                return;
+            }
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const categoryId of selectedIds) {
+                try {
+                    const response = await fetch(`/api/categories/${categoryId}`, {
+                        method: 'DELETE',
+                        credentials: 'include'
+                    });
+
+                    if (response.ok) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error('Error deleting category:', error);
+                    errorCount++;
+                }
+            }
+
+            if (successCount > 0) {
+                alert(`${successCount} categor(y/ies) deleted successfully!`);
+                loadCategories(); // Refresh the list
+            }
+
+            if (errorCount > 0) {
+                alert(`Failed to delete ${errorCount} categor(y/ies).`);
+            }
+        }
+
+        // Show settings section
+        function showSettingsSection() {
+            const settingsSection = document.getElementById('settings-section');
+            if (settingsSection.style.display === 'block') {
+                settingsSection.style.display = 'none';
+            } else {
+                settingsSection.style.display = 'block';
+                settingsSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Toggle categories list visibility
+        function toggleCategoriesList() {
+            const categoriesListContainer = document.getElementById('categories-list-container');
+            if (categoriesListContainer.style.display === 'none') {
+                categoriesListContainer.style.display = 'block';
+                loadCategories(); // Load categories when showing
+            } else {
+                categoriesListContainer.style.display = 'none';
+            }
+        }
+
+        // Chart initialization functions
+        function initializeCharts() {
+            // Page Views Chart
+            const pageViewsCtx = document.getElementById('pageViewsChart').getContext('2d');
+            new Chart(pageViewsCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Page Views',
+                        data: [12, 19, 3, 5, 2, 3, 9],
+                        borderColor: 'rgb(244, 161, 145)',
+                        backgroundColor: 'rgba(244, 161, 145, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Engagement Chart
+            const engagementCtx = document.getElementById('engagementChart').getContext('2d');
+            new Chart(engagementCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Engaged', 'Not Engaged'],
+                    datasets: [{
+                        data: [65, 35],
+                        backgroundColor: [
+                            'rgb(244, 161, 145)',
+                            'rgb(116, 155, 155)'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Popular Posts Chart
+            const popularPostsCtx = document.getElementById('popularPostsChart').getContext('2d');
+            new Chart(popularPostsCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Post 1', 'Post 2', 'Post 3', 'Post 4', 'Post 5'],
+                    datasets: [{
+                        label: 'Views',
+                        data: [120, 95, 80, 65, 45],
+                        backgroundColor: 'rgb(244, 161, 145)',
+                        borderRadius: 4,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Time Analytics Chart
+            const timeAnalyticsCtx = document.getElementById('timeAnalyticsChart').getContext('2d');
+            new Chart(timeAnalyticsCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [{
+                        label: 'Views',
+                        data: [45, 59, 80, 81],
+                        borderColor: 'rgb(116, 155, 155)',
+                        backgroundColor: 'rgba(116, 155, 155, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Handle profile picture upload
+        async function handleProfilePictureUpload() {
+            const fileInput = document.getElementById('profile-picture-file');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Please select a file first.');
+                return;
+            }
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                alert('Please select a valid image file.');
+                return;
+            }
+
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('profilePicture', file);
+
+            try {
+                const response = await fetch('/api/settings/author/profile-picture', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert('Profile picture uploaded successfully!');
+                    // Update the header logo if needed
+                    if (data.profilePictureUrl) {
+                        document.querySelector('.logo img').src = data.profilePictureUrl;
+                    }
+                } else {
+                    alert('Failed to upload profile picture.');
+                }
+            } catch (error) {
+                console.error('Error uploading profile picture:', error);
+                alert('Error uploading profile picture.');
+            }
+        }
+
+        // Save author information
+        async function saveAuthorInfo() {
+            const authorName = document.getElementById('author-name').value;
+            const authorEmail = document.getElementById('author-email').value;
+            const authorBio = document.getElementById('author-bio').value;
+            const authorPhone = document.getElementById('author-phone').value;
+            const authorWhatsapp = document.getElementById('author-whatsapp').value;
+            const authorTwitter = document.getElementById('author-twitter').value;
+            const authorFacebook = document.getElementById('author-facebook').value;
+            const authorLinkedin = document.getElementById('author-linkedin').value;
+            const authorInstagram = document.getElementById('author-instagram').value;
+            const authorWebsite = document.getElementById('author-website').value;
+
+            try {
+                const response = await fetch('/api/settings/author', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        name: authorName,
+                        email: authorEmail,
+                        bio: authorBio,
+                        phone: authorPhone,
+                        whatsapp: authorWhatsapp,
+                        twitter: authorTwitter,
+                        facebook: authorFacebook,
+                        linkedin: authorLinkedin,
+                        instagram: authorInstagram,
+                        website: authorWebsite
+                    })
+                });
+
+                if (response.ok) {
+                    alert('Author information saved successfully!');
+                } else {
+                    alert('Failed to save author information.');
+                }
+            } catch (error) {
+                console.error('Error saving author information:', error);
+                alert('Error saving author information.');
+            }
+        }
+
+        // Save security settings
+        async function saveSecuritySettings() {
+            const adminEntryKey = document.getElementById('admin-entry-key').value;
+            const sessionTimeout = document.getElementById('session-timeout').value;
+
+            try {
+                const response = await fetch('/api/settings/security', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ adminEntryKey, sessionTimeout: parseInt(sessionTimeout) })
+                });
+
+                if (response.ok) {
+                    alert('Security settings saved successfully!');
+                } else {
+                    alert('Failed to save security settings.');
+                }
+            } catch (error) {
+                console.error('Error saving security settings:', error);
+                alert('Error saving security settings.');
+            }
+        }
+
+        // View current admin entry key
+        async function viewCurrentKey() {
+            const password = prompt('Enter your admin password to view the current key:');
+            if (!password) return;
+
+            try {
+                const response = await fetch('/api/settings/security/key-view', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username: 'admin', password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    alert(`Current Admin Entry Key: ${data.key || '(empty)'}`);
+                } else {
+                    alert('Failed to retrieve key: ' + (data.error || 'Authentication failed'));
+                }
+            } catch (error) {
+                console.error('Error viewing current key:', error);
+                alert('Error viewing current key.');
+            }
+        }
+
+        // Clear admin entry key
+        async function clearKey() {
+            if (!confirm('Are you sure you want to clear the admin entry key? This will remove the current key.')) {
+                return;
+            }
+
+            document.getElementById('admin-entry-key').value = '';
+            await saveSecuritySettings();
+        }
+
+        // Save notification settings
+        async function saveNotificationSettings() {
+            const emailNotifications = document.getElementById('email-notifications').checked;
+            const commentNotifications = document.getElementById('comment-notifications').checked;
+            const systemAlerts = document.getElementById('system-alerts').checked;
+
+            try {
+                const response = await fetch('/api/settings/notifications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ emailNotifications, commentNotifications, systemAlerts })
+                });
+
+                if (response.ok) {
+                    alert('Notification settings saved successfully!');
+                } else {
+                    alert('Failed to save notification settings.');
+                }
+            } catch (error) {
+                console.error('Error saving notification settings:', error);
+                alert('Error saving notification settings.');
+            }
+        }
+
+        // Save content settings
+        async function saveContentSettings() {
+            const postsPerPage = document.getElementById('posts-per-page').value;
+            const autoPublish = document.getElementById('auto-publish').checked;
+            const enableComments = document.getElementById('enable-comments').checked;
+
+            try {
+                const response = await fetch('/api/settings/content', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ postsPerPage: parseInt(postsPerPage), autoPublish, enableComments })
+                });
+
+                if (response.ok) {
+                    alert('Content settings saved successfully!');
+                } else {
+                    alert('Failed to save content settings.');
+                }
+            } catch (error) {
+                console.error('Error saving content settings:', error);
+                alert('Error saving content settings.');
+            }
+        }
+
+        // Add new category
+        async function addCategory() {
+            const name = document.getElementById('category-name').value.trim();
+            const description = document.getElementById('category-description').value.trim();
+
+            if (!name) {
+                alert('Category name is required!');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ name, description })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Category added successfully!');
+                    document.getElementById('category-name').value = '';
+                    document.getElementById('category-description').value = '';
+                    loadCategories(); // Refresh the list
+                } else {
+                    alert('Failed to add category: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error adding category:', error);
+                alert('Error adding category.');
+            }
+        }
+
+        // Load and display categories
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/categories');
+                const data = await response.json();
+                const categoriesList = document.getElementById('categories-list');
+
+                if (data.categories && data.categories.length > 0) {
+                    categoriesList.innerHTML = data.categories.map(category => `
+                        <div class="category-item" style="padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; background: #f9f9f9;">
+                            <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+                                <input type="checkbox" class="category-checkbox" data-category-id="${category.id}" onchange="updateSelectedCategoriesCount()">
+                                <div style="flex: 1;">
+                                    <h4 style="margin: 0 0 8px 0; font-size: 16px;">${category.name}</h4>
+                                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">${category.description || 'No description'}</p>
+                                    <p style="margin: 0 0 8px 0; font-size: 12px; color: #999;">Slug: ${category.slug}</p>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="action-btn secondary" style="padding: 4px 8px; font-size: 12px;" onclick="editCategory('${category.id}')">Edit</button>
+                                <button class="action-btn" style="padding: 4px 8px; font-size: 12px; background: #dc3545;" onclick="deleteCategory('${category.id}')">Delete</button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    categoriesList.innerHTML = '<p>No categories found.</p>';
+                }
+                // Reset select all checkbox and selected count
+                document.getElementById('select-all-categories').checked = false;
+                updateSelectedCategoriesCount();
+            } catch (error) {
+                console.error('Failed to load categories:', error);
+                document.getElementById('categories-list').innerHTML = '<p>Error loading categories.</p>';
+            }
+        }
+
+        // Edit category
+        function editCategory(categoryId) {
+            alert(`Edit category functionality - This would open a form to edit category with ID: ${categoryId}`);
+        }
+
+        // Delete category
+        async function deleteCategory(categoryId) {
+            if (confirm('Are you sure you want to delete this category?')) {
+                try {
+                    const response = await fetch(`/api/categories/${categoryId}`, {
+                        method: 'DELETE',
+                        credentials: 'include'
+                    });
+
+                    if (response.ok) {
+                        alert('Category deleted successfully!');
+                        loadCategories(); // Refresh the list
+                    } else {
+                        alert('Failed to delete category.');
+                    }
+                } catch (error) {
+                    console.error('Error deleting category:', error);
+                    alert('Error deleting category.');
+                }
+            }
+        }
+
+        // Initialize
+        checkAuth();
+
+        // Admin key visibility toggle - React-like state management
+        let showAdminKey = false;
+        const adminKeyToggle = document.getElementById('admin-key-toggle');
+        const adminKeyInput = document.getElementById('admin-entry-key');
+
+        function updateAdminKeyVisibility() {
+            adminKeyInput.setAttribute('type', showAdminKey ? 'text' : 'password');
+
+            // Update icon based on visibility state
+            const icon = adminKeyToggle.querySelector('svg');
+            if (showAdminKey) {
+                // Show password - use eye-off icon
+                icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+            } else {
+                // Hide password - use eye icon
+                icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+            }
+        }
+
+        if (adminKeyToggle && adminKeyInput) {
+            // Initialize visibility
+            updateAdminKeyVisibility();
+
+            adminKeyToggle.addEventListener('click', () => {
+                showAdminKey = !showAdminKey;
+                updateAdminKeyVisibility();
+            });
+        }
+    </script>
+</body>
+</html>
