@@ -8,6 +8,8 @@
             :src="profilePicture"
             alt="Profile picture"
             class="w-10 h-10 rounded-full border-2 border-white shadow-md object-cover"
+            width="40"
+            height="40"
           >
           <h1 class="text-xl font-semibold">zedong254ke</h1>
         </router-link>
