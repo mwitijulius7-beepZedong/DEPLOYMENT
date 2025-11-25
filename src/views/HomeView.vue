@@ -1,13 +1,13 @@
 <template>
   <div class="min-h-screen">
     <!-- Hero Section -->
-    <section class="bg-gradient-to-br from-pink-400 via-purple-500 to-teal-500 text-white py-20">
+    <section class="text-white py-20" :style="{ backgroundColor: primaryColor, backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <h1 class="text-4xl md:text-6xl font-bold mb-6 animate-fade-in">
-          Welcome to My Blog
+          {{ blogTitle }}
         </h1>
         <p class="text-xl md:text-2xl mb-8 opacity-90 max-w-3xl mx-auto">
-          Discover insights, tutorials, and thoughts on web development, programming, and technology.
+          {{ blogDescription }}
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
           <router-link
@@ -18,7 +18,8 @@
           </router-link>
           <a
             href="#posts"
-            class="bg-white text-purple-600 hover:bg-gray-100 px-8 py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
+            class="bg-white hover:bg-gray-100 px-8 py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
+            :style="{ color: primaryColor }"
           >
             Read My Posts
           </a>
@@ -134,6 +135,10 @@ const themeStore = useThemeStore()
 
 const newsletterEmail = ref('')
 const subscribing = ref(false)
+const primaryColor = ref('#667eea')
+const blogTitle = ref('Welcome to My Blog')
+const blogDescription = ref('Discover insights, tutorials, and thoughts on web development, programming, and technology.')
+const backgroundImageUrl = ref('')
 
 const subscribe = async () => {
   if (!newsletterEmail.value.trim()) return
@@ -173,6 +178,42 @@ const subscribe = async () => {
 
 onMounted(async () => {
   themeStore.initTheme()
+  
+  // Load settings
+  try {
+    const [themeRes, blogRes, bgRes] = await Promise.all([
+      fetch('/api/settings/theme'),
+      fetch('/api/settings/blog-info'),
+      fetch('/api/settings/background')
+    ])
+    
+    if (themeRes.ok) {
+      const themeData = await themeRes.json()
+      if (themeData.theme?.primaryColor) {
+        primaryColor.value = themeData.theme.primaryColor
+      }
+    }
+    
+    if (blogRes.ok) {
+      const blogData = await blogRes.json()
+      if (blogData.blogInfo?.title) {
+        blogTitle.value = blogData.blogInfo.title
+      }
+      if (blogData.blogInfo?.description) {
+        blogDescription.value = blogData.blogInfo.description
+      }
+    }
+    
+    if (bgRes.ok) {
+      const bgData = await bgRes.json()
+      if (bgData.backgroundUrl) {
+        backgroundImageUrl.value = bgData.backgroundUrl
+      }
+    }
+  } catch (error) {
+    console.log('Failed to load settings:', error)
+  }
+  
   await postsStore.loadPosts()
   await postsStore.loadCategories()
 })
