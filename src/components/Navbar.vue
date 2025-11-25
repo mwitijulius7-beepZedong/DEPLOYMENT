@@ -1,5 +1,5 @@
 <template>
-  <header class="bg-gradient-to-r from-pink-400 to-teal-500 shadow-lg sticky top-0 z-50">
+  <header class="shadow-lg sticky top-0 z-50" :style="{ backgroundColor: themeColor }">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between items-center h-16">
         <!-- Logo -->
@@ -11,7 +11,7 @@
             width="40"
             height="40"
           >
-          <h1 class="text-xl font-semibold">zedong254ke</h1>
+          <h1 class="text-xl font-semibold">{{ blogTitle }}</h1>
         </router-link>
 
         <!-- Navigation -->
@@ -97,7 +97,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useThemeStore } from '../stores/theme'
 import { usePostsStore } from '../stores/posts'
@@ -111,6 +111,8 @@ const showSearch = ref(false)
 const searchInput = ref('')
 const searchInputRef = ref(null)
 const profilePicture = ref('https://api.dicebear.com/7.x/avataaars/svg?seed=zedong')
+const themeColor = ref('#667eea')
+const blogTitle = ref('My Personal Blog')
 
 const subscribe = async () => {
   if (!email.value.trim()) {
@@ -172,15 +174,36 @@ const openAdminModal = () => {
 }
 
 onMounted(async () => {
-  // Load author settings for profile picture
+  // Load blog settings
   try {
-    const response = await fetch('/api/settings/author')
-    const data = await response.json()
-    if (data.author?.profilePicture) {
-      profilePicture.value = data.author.profilePicture
+    const [themeRes, authorRes, blogRes] = await Promise.all([
+      fetch('/api/settings/theme'),
+      fetch('/api/settings/author'),
+      fetch('/api/settings/blog-info')
+    ])
+    
+    if (themeRes.ok) {
+      const themeData = await themeRes.json()
+      if (themeData.theme?.primaryColor) {
+        themeColor.value = themeData.theme.primaryColor
+      }
+    }
+    
+    if (authorRes.ok) {
+      const authorData = await authorRes.json()
+      if (authorData.author?.profilePicture) {
+        profilePicture.value = authorData.author.profilePicture
+      }
+    }
+    
+    if (blogRes.ok) {
+      const blogData = await blogRes.json()
+      if (blogData.blogInfo?.title) {
+        blogTitle.value = blogData.blogInfo.title
+      }
     }
   } catch (error) {
-    console.log('Failed to load author settings:', error)
+    console.log('Failed to load settings:', error)
   }
 })
 </script>
