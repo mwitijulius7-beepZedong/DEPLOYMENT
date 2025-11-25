@@ -1,68 +1,58 @@
 <template>
-  <div class="min-h-screen">
-    <!-- Hero Section -->
-    <section class="text-white py-20" :style="{ backgroundColor: primaryColor, backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h1 class="text-4xl md:text-6xl font-bold mb-6 animate-fade-in">
-          {{ blogTitle }}
-        </h1>
-        <p class="text-xl md:text-2xl mb-8 opacity-90 max-w-3xl mx-auto">
-          {{ blogDescription }}
-        </p>
-        <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <router-link
-            to="/about"
-            class="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 px-8 py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
-          >
-            Learn More About Me
-          </router-link>
-          <a
-            href="#posts"
-            class="bg-white hover:bg-gray-100 px-8 py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
-            :style="{ color: primaryColor }"
-          >
-            Read My Posts
-          </a>
-        </div>
+  <div class="relative min-h-screen">
+    <!-- Background Layer (image from settings or theme color) -->
+    <div class="absolute inset-0 -z-10">
+      <div
+        v-if="backgroundImageUrl"
+        class="absolute inset-0"
+        :style="{
+          backgroundImage: `url(${backgroundImageUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }"
+      />
+      <div v-else class="absolute inset-0" :style="{ backgroundColor: primaryColor }" />
+      <!-- Blur + dim to match reference look -->
+      <div class="absolute inset-0 backdrop-blur-3xl bg-black/20" />
+    </div>
+
+    <!-- Content -->
+    <section class="pt-14 pb-4">
+      <div class="max-w-5xl mx-auto px-4">
+        <h2 class="text-3xl md:text-4xl font-extrabold text-slate-800 dark:text-white font-serif">Latest Posts</h2>
       </div>
     </section>
 
-    <!-- Posts Section -->
-    <section id="posts" class="py-16 bg-gray-50 dark:bg-gray-900">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- Section Header -->
-        <div class="text-center mb-12">
-          <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Latest Posts
-          </h2>
-          <p class="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Explore my thoughts, tutorials, and insights on various topics in technology and development.
-          </p>
-        </div>
-
+    <section class="pb-16">
+      <div class="max-w-5xl mx-auto px-4">
         <!-- Loading State -->
         <div v-if="postsStore.loading" class="flex justify-center items-center py-20">
-          <div class="loading-spinner w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full"></div>
+          <div class="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
 
         <!-- Error State -->
-        <div v-else-if="postsStore.error" class="text-center py-20">
-          <div class="text-red-500 text-lg mb-4">⚠️ {{ postsStore.error }}</div>
-          <button
-            @click="postsStore.loadPosts()"
-            class="bg-pink-500 text-white px-6 py-2 rounded-lg hover:bg-pink-600 transition-colors"
-          >
-            Try Again
-          </button>
+        <div v-else-if="postsStore.error" class="text-center py-12">
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-50 text-red-600 border border-red-200 mb-4">⚠️ {{ postsStore.error }}</div>
+          <div>
+            <button
+              @click="postsStore.loadPosts()"
+              class="bg-pink-500 text-white px-6 py-2 rounded-lg hover:bg-pink-600 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
 
-        <!-- Posts Grid -->
-        <div v-else>
-          <CategoryFilter />
+        <!-- Content when loaded -->
+        <div v-else class="space-y-6">
+          <!-- Category filter as a subtle card -->
+          <div class="rounded-2xl border border-white/30 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 backdrop-blur p-4">
+            <CategoryFilter />
+          </div>
 
           <!-- No posts found -->
           <div v-if="postsStore.filteredPosts.length === 0" class="text-center py-20">
-            <div class="text-gray-500 dark:text-gray-400 text-lg mb-4">
+            <div class="text-gray-700 dark:text-gray-300 text-lg mb-4">
               {{ postsStore.searchQuery ? 'No posts found matching your search.' : 'No posts available.' }}
             </div>
             <button
@@ -75,48 +65,38 @@
           </div>
 
           <!-- Posts Grid -->
-          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
             <BlogCard
               v-for="post in postsStore.filteredPosts"
               :key="post.id"
               :post="post"
-              class="fade-in"
             />
-          </div>
-
-          <!-- Load More Button (if needed in future) -->
-          <div v-if="postsStore.filteredPosts.length > 0 && postsStore.filteredPosts.length === postsStore.posts.length" class="text-center mt-12">
-            <p class="text-gray-500 dark:text-gray-400">
-              You've reached the end of the posts.
-            </p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Newsletter Section -->
-    <section class="py-16 bg-white dark:bg-gray-800">
-      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-          Stay Updated
-        </h2>
-        <p class="text-lg text-gray-600 dark:text-gray-300 mb-8">
-          Subscribe to my newsletter for the latest posts and updates.
-        </p>
-        <div class="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-          <input
-            v-model="newsletterEmail"
-            type="email"
-            placeholder="Enter your email"
-            class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 dark:bg-gray-700 dark:text-white transition-colors"
-          >
-          <button
-            @click="subscribe"
-            :disabled="!newsletterEmail.trim() || subscribing"
-            class="bg-pink-500 text-white px-6 py-3 rounded-lg hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-          >
-            {{ subscribing ? 'Subscribing...' : 'Subscribe' }}
-          </button>
+    <!-- Newsletter (kept minimal, separate from hero) -->
+    <section class="py-12">
+      <div class="max-w-3xl mx-auto px-4">
+        <div class="bg-white/80 dark:bg-gray-800/80 backdrop-blur rounded-2xl border border-gray-200/70 dark:border-gray-700 p-6 text-center">
+          <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Stay Updated</h3>
+          <p class="text-gray-600 dark:text-gray-300 mb-6">Subscribe to my newsletter for the latest posts and updates.</p>
+          <div class="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+            <input
+              v-model="newsletterEmail"
+              type="email"
+              placeholder="Enter your email"
+              class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 dark:bg-gray-700 dark:text-white transition-colors"
+            >
+            <button
+              @click="subscribe"
+              :disabled="!newsletterEmail.trim() || subscribing"
+              class="bg-pink-500 text-white px-6 py-3 rounded-lg hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            >
+              {{ subscribing ? 'Subscribing...' : 'Subscribe' }}
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -208,6 +188,8 @@ onMounted(async () => {
       const bgData = await bgRes.json()
       if (bgData.backgroundUrl) {
         backgroundImageUrl.value = bgData.backgroundUrl
+      } else {
+        backgroundImageUrl.value = ''
       }
     }
   } catch (error) {
@@ -220,22 +202,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* fade-in utility for potential future use */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-
-.animate-fade-in {
-  animation: fadeIn 1s ease-out;
-}
-
-.fade-in {
-  animation: fadeIn 0.6s ease-out;
-}
+.animate-fade-in { animation: fadeIn 1s ease-out; }
 </style>
