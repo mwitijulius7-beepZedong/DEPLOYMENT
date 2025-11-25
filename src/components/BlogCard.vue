@@ -1,26 +1,19 @@
 <template>
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer transform hover:-translate-y-1">
+  <div class="bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded-2xl border border-gray-200/70 dark:border-gray-700 shadow-[0_4px_30px_rgba(0,0,0,0.08)] hover:shadow-[0_8px_40px_rgba(0,0,0,0.12)] transition-all duration-300 overflow-hidden group cursor-pointer">
     <!-- Featured Image -->
-    <div v-if="post.image" class="relative overflow-hidden">
+    <div v-if="post.image" class="relative overflow-hidden px-4 pt-4">
       <img
         :src="post.image"
         :alt="post.title"
-        class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+        class="w-full h-56 object-cover rounded-xl ring-1 ring-black/5 group-hover:scale-[1.02] transition-transform duration-300"
       >
-      <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+      <div class="pointer-events-none absolute inset-x-4 top-4 h-56 rounded-xl bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
     </div>
 
     <!-- Content -->
     <div class="p-6">
-      <!-- Category Badge -->
-      <div v-if="categoryName" class="mb-3">
-        <span class="inline-block px-3 py-1 text-xs font-medium bg-pink-100 dark:bg-pink-900 text-pink-800 dark:text-pink-200 rounded-full">
-          {{ categoryName }}
-        </span>
-      </div>
-
       <!-- Title -->
-      <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">
+      <h3 class="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-3 line-clamp-2 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors font-serif">
         {{ post.title }}
       </h3>
 
@@ -47,29 +40,29 @@
       </div>
 
       <!-- Excerpt -->
-      <p class="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-4 line-clamp-3">
+      <p class="text-gray-700 dark:text-gray-300 text-sm leading-7 mb-4 line-clamp-3">
         {{ excerpt }}
       </p>
 
       <!-- Tags -->
-      <div v-if="post.tags && post.tags.length > 0" class="flex flex-wrap gap-2 mb-4">
+      <div v-if="post.tags && post.tags.length > 0" class="flex flex-wrap gap-2 mb-2">
         <span
           v-for="tag in post.tags.slice(0, 3)"
           :key="tag"
-          class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md"
+          class="px-3 py-1 text-xs font-medium bg-pink-100 text-pink-700 rounded-full"
         >
-          #{{ tag }}
+          {{ tag }}
         </span>
         <span
           v-if="post.tags.length > 3"
-          class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md"
+          class="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full"
         >
           +{{ post.tags.length - 3 }} more
         </span>
       </div>
 
       <!-- Read More -->
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between pt-2">
         <router-link
           :to="`/post/${post.id}`"
           class="inline-flex items-center text-pink-600 dark:text-pink-400 hover:text-pink-700 dark:hover:text-pink-300 font-medium transition-colors group"
@@ -110,7 +103,6 @@ const categoryName = computed(() => {
 
 const excerpt = computed(() => {
   if (!props.post.content) return ''
-  // Remove HTML tags and get first 150 characters
   const text = props.post.content.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
   return text.length > 150 ? text.substring(0, 150) + '...' : text
 })
@@ -127,7 +119,7 @@ const formatDate = (dateString) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric'
     })
   } catch (error) {

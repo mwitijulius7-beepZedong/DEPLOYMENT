@@ -1,73 +1,75 @@
 <template>
-  <header class="shadow-lg sticky top-0 z-50" :style="{ backgroundColor: themeColor }">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center h-16">
-        <!-- Logo -->
-        <router-link to="/" class="flex items-center space-x-3 text-white hover:opacity-90 transition-opacity">
-          <img
-            :src="profilePicture"
-            alt="Profile picture"
-            class="w-10 h-10 rounded-full border-2 border-white shadow-md object-cover"
-            width="40"
-            height="40"
-          >
-          <h1 class="text-xl font-semibold">{{ blogTitle }}</h1>
-        </router-link>
-
-        <!-- Navigation -->
-        <nav class="hidden md:flex items-center space-x-8">
-          <router-link to="/" class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-200 flex items-center space-x-1">
-            <span>🏠</span>
-            <span>Home</span>
-          </router-link>
-          <router-link to="/" class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-200 flex items-center space-x-1">
-            <span>📝</span>
-            <span>Blog</span>
-          </router-link>
-          <router-link to="/about" class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-200 flex items-center space-x-1">
-            <span>ℹ️</span>
-            <span>About</span>
+  <header class="sticky top-0 z-50 shadow-sm">
+    <div class="bg-indigo-600" :style="{ backgroundColor: themeColor }">
+      <div class="max-w-5xl mx-auto px-4">
+        <div class="h-16 flex items-center justify-between gap-4">
+          <!-- Logo / Title -->
+          <router-link to="/" class="flex items-center gap-3 text-white hover:opacity-90 transition-opacity overflow-hidden">
+            <img
+              :src="profilePicture"
+              alt="Profile picture"
+              class="w-10 h-10 rounded-full border border-white/60 object-cover shrink-0"
+              width="40"
+              height="40"
+            >
+            <h1 class="text-lg sm:text-xl font-semibold whitespace-nowrap">{{ blogTitle }}</h1>
           </router-link>
 
-          <!-- Newsletter input -->
-          <input
-            v-model="email"
-            type="email"
-            placeholder="Subscribe to newsletter"
-            class="px-3 py-2 rounded-lg border border-white/30 bg-white/10 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all"
-            @keypress.enter="subscribe"
-          >
+          <!-- Navigation -->
+          <nav class="hidden md:flex items-center gap-6 whitespace-nowrap">
+            <router-link to="/" class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-1">
+              <span>🏠</span>
+              <span>Home</span>
+            </router-link>
+            <router-link to="/" class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-1">
+              <span>📝</span>
+              <span>Blog</span>
+            </router-link>
+            <router-link to="/about" class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-1">
+              <span>ℹ️</span>
+              <span>About</span>
+            </router-link>
 
-          <!-- Search button -->
+            <!-- Newsletter input -->
+            <input
+              v-model="email"
+              type="email"
+              placeholder="Subscribe to newsletter"
+              class="px-3 py-2 rounded-lg border border-white/20 bg-white/10 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/40 transition-all w-56"
+              @keypress.enter="subscribe"
+            >
+
+            <!-- Search button -->
+            <button
+              @click="openSearch"
+              class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-200"
+            >
+              🔍 Search
+            </button>
+
+            <!-- Admin button -->
+            <button
+              @click="openAdminModal"
+              class="bg-white/10 hover:bg-white/20 text-white border border-white/30 px-3 py-2 rounded-lg transition-all duration-200 text-sm"
+            >
+              🔒 Admin
+            </button>
+          </nav>
+
+          <!-- Theme toggle -->
           <button
-            @click="openSearch"
-            class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-200"
+            @click="themeStore.toggleTheme"
+            class="text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200 ml-2"
+            :title="themeStore.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
           >
-            🔍 Search
+            <svg v-if="themeStore.isDark" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" />
+            </svg>
+            <svg v-else class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+            </svg>
           </button>
-
-          <!-- Admin button -->
-          <button
-            @click="openAdminModal"
-            class="bg-white/10 hover:bg-white/20 text-white border border-white/30 px-3 py-2 rounded-lg transition-all duration-200 text-sm"
-          >
-            🔒 Admin
-          </button>
-        </nav>
-
-        <!-- Theme toggle -->
-        <button
-          @click="themeStore.toggleTheme"
-          class="text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200 ml-4"
-          :title="themeStore.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-        >
-          <svg v-if="themeStore.isDark" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" />
-          </svg>
-          <svg v-else class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-          </svg>
-        </button>
+        </div>
       </div>
     </div>
   </header>
@@ -97,7 +99,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useThemeStore } from '../stores/theme'
 import { usePostsStore } from '../stores/posts'
@@ -110,7 +112,8 @@ const email = ref('')
 const showSearch = ref(false)
 const searchInput = ref('')
 const searchInputRef = ref(null)
-const profilePicture = ref('https://api.dicebear.com/7.x/avataaars/svg?seed=zedong')
+// Default to uploaded image; falls back to Dicebear if settings override not found
+const profilePicture = ref('/uploads/1760955634211__DSC1067.jpg')
 const themeColor = ref('#667eea')
 const blogTitle = ref('My Personal Blog')
 
@@ -193,6 +196,8 @@ onMounted(async () => {
       const authorData = await authorRes.json()
       if (authorData.author?.profilePicture) {
         profilePicture.value = authorData.author.profilePicture
+      } else {
+        // if not provided keep default
       }
     }
     
