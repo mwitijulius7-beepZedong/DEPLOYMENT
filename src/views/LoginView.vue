@@ -166,31 +166,40 @@ const handleGoogleLogin = async () => {
   error.value = ''
 
   try {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    // Get Google Client ID
+    const clientIdResponse = await fetch('/api/google-client-id')
+    const { clientId } = await clientIdResponse.json()
+
+    // Initialize Google Sign-In
     if (window.google && window.google.accounts) {
-      window.google.accounts.id.initialize({
+      const client = window.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
-        callback: async (credentialResponse) => {
-          const backendResponse = await fetch('/auth/google', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ id_token: credentialResponse.credential }),
-            credentials: 'include'
-          });
+        scope: 'openid email profile',
+        callback: async (response) => {
+          if (response.access_token) {
+            // Send token to backend
+            const backendResponse = await fetch('/auth/google', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ id_token: response.id_token }),
+              credentials: 'include'
+            })
 
-          const result = await backendResponse.json();
+            const result = await backendResponse.json()
 
-          if (result.success) {
-            await authStore.checkAuth();
-            router.push('/admin');
-          } else {
-            error.value = result.error || 'Google Sign-In failed on the server.';
+            if (result.success) {
+              await authStore.checkAuth()
+              router.push('/admin') // Redirect to admin panel
+            } else {
+              error.value = result.error
+            }
           }
         }
       })
-      window.google.accounts.id.prompt(); // This will trigger the One Tap or a popup
+
+      client.requestAccessToken()
     } else {
       error.value = 'Google Sign-In not available'
     }
