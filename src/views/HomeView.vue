@@ -1,101 +1,121 @@
 <template>
-  <div class="relative min-h-screen">
-    <!-- Background Layer (image from settings or theme color) -->
-    <div class="absolute inset-0 -z-10">
-      <div
-        v-if="backgroundImageUrl"
-        class="absolute inset-0"
-        :style="{
-          backgroundImage: `url(${backgroundImageUrl})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }"
-      />
-      <div v-else class="absolute inset-0" :style="{ backgroundColor: primaryColor }" />
-      <!-- Blur + dim to match reference look -->
-      <div class="absolute inset-0 backdrop-blur-3xl bg-black/20" />
-    </div>
+  <div class="min-h-screen" :style="{ backgroundColor: themeStore.theme?.background || '#ffffff', color: themeStore.theme?.text || '#000000' }">
+    <!-- Header -->
+    <header class="py-4 px-6" :style="{ backgroundColor: themeStore.theme?.header?.background || '#f8f9fa', color: themeStore.theme?.header?.text || '#000000' }">
+      <div class="max-w-7xl mx-auto flex items-center justify-between">
+        <!-- Logo -->
+        <div class="flex items-center">
+          <img v-if="branding.logo" :src="branding.logo" alt="Logo" class="h-8 w-auto mr-4" />
+          <span v-else class="text-xl font-bold">Scribe</span>
+        </div>
 
-    <!-- Content -->
-    <section class="pt-14 pb-4">
-      <div class="max-w-5xl mx-auto px-4">
-        <h2 class="text-3xl md:text-4xl font-extrabold text-slate-800 dark:text-white font-serif">Latest Posts</h2>
+        <!-- Navigation -->
+        <nav class="hidden md:flex space-x-8">
+          <router-link
+            v-for="link in navigationLinks"
+            :key="link.label"
+            :to="link.target"
+            class="text-sm font-medium hover:text-gray-600 transition-colors"
+            :style="{ color: themeStore.theme?.text || '#000000' }"
+          >
+            {{ link.label }}
+          </router-link>
+        </nav>
+
+        <!-- Actions -->
+        <div class="flex items-center space-x-4">
+          <router-link to="/about" class="text-sm font-medium hover:text-gray-600 transition-colors">About</router-link>
+          <button
+            @click="subscribe"
+            class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            :style="{
+              backgroundColor: themeStore.theme?.buttons?.primary?.background || '#007bff',
+              color: themeStore.theme?.buttons?.primary?.text || '#ffffff'
+            }"
+          >
+            Subscribe
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="py-20 px-6 text-center" :style="{ backgroundColor: themeStore.theme?.background || '#ffffff' }">
+      <div class="max-w-4xl mx-auto">
+        <h1
+          class="text-4xl md:text-6xl font-bold mb-6"
+          :style="{
+            fontFamily: themeStore.theme?.fonts?.heading || 'serif',
+            color: themeStore.theme?.text?.heading || '#000000'
+          }"
+        >
+          Welcome to Scribe, we write about technology, people and culture
+        </h1>
+        <div
+          class="w-24 h-1 mx-auto"
+          :style="{ backgroundColor: themeStore.theme?.divider || '#cccccc' }"
+        ></div>
       </div>
     </section>
 
-    <section class="pb-16">
-      <div class="max-w-5xl mx-auto px-4">
-        <!-- Loading State -->
-        <div v-if="postsStore.loading" class="flex justify-center items-center py-20">
-          <div class="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-
-        <!-- Error State -->
-        <div v-else-if="postsStore.error" class="text-center py-12">
-          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-50 text-red-600 border border-red-200 mb-4">⚠️ {{ postsStore.error }}</div>
-          <div>
-            <button
-              @click="postsStore.loadPosts()"
-              class="bg-pink-500 text-white px-6 py-2 rounded-lg hover:bg-pink-600 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-
-        <!-- Content when loaded -->
-        <div v-else class="space-y-6">
-          <!-- Category filter as a subtle card -->
-          <div class="rounded-2xl border border-white/30 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 backdrop-blur p-4">
-            <CategoryFilter />
-          </div>
-
-          <!-- No posts found -->
-          <div v-if="postsStore.filteredPosts.length === 0" class="text-center py-20">
-            <div class="text-gray-700 dark:text-gray-300 text-lg mb-4">
-              {{ postsStore.searchQuery ? 'No posts found matching your search.' : 'No posts available.' }}
+    <!-- Content Section -->
+    <section class="py-16 px-6">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-10 gap-8">
+          <!-- Featured (60%) -->
+          <div class="lg:col-span-6">
+            <h2 class="text-2xl font-bold mb-6" :style="{ color: themeStore.theme?.text?.heading || '#000000' }">Featured</h2>
+            <div v-if="featuredPost" class="bg-white rounded-lg shadow-md overflow-hidden">
+              <img v-if="featuredPost.image" :src="featuredPost.image" :alt="featuredPost.title" class="w-full h-64 object-cover" />
+              <div class="p-6">
+                <span class="inline-block px-3 py-1 text-sm font-medium bg-gray-100 text-gray-800 rounded-full mb-2">{{ featuredPost.category }}</span>
+                <p class="text-sm text-gray-600 mb-2">{{ formatDate(featuredPost.date) }}</p>
+                <h3 class="text-xl font-bold mb-2">{{ featuredPost.title }}</h3>
+                <p class="text-gray-700">{{ featuredPost.description }}</p>
+              </div>
             </div>
-            <button
-              v-if="postsStore.searchQuery"
-              @click="postsStore.clearSearch()"
-              class="bg-pink-500 text-white px-6 py-2 rounded-lg hover:bg-pink-600 transition-colors"
-            >
-              Clear Search
-            </button>
+            <div v-else class="text-center py-12">
+              <p class="text-gray-500">No featured post available</p>
+            </div>
           </div>
 
-          <!-- Posts Grid -->
-          <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
-            <BlogCard
-              v-for="post in postsStore.filteredPosts"
-              :key="post.id"
-              :post="post"
-            />
+          <!-- Recent (40%) -->
+          <div class="lg:col-span-4">
+            <h2 class="text-2xl font-bold mb-6" :style="{ color: themeStore.theme?.text?.heading || '#000000' }">Recent</h2>
+            <div class="space-y-6">
+              <div v-for="post in recentPosts" :key="post.id" class="bg-white rounded-lg shadow-md overflow-hidden">
+                <img v-if="post.image" :src="post.image" :alt="post.title" class="w-full h-32 object-cover" />
+                <div class="p-4">
+                  <span class="inline-block px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full mb-1">{{ post.category }}</span>
+                  <p class="text-xs text-gray-600 mb-1">{{ formatDate(post.date) }}</p>
+                  <h4 class="text-sm font-bold mb-1">{{ post.title }}</h4>
+                  <p class="text-xs text-gray-700 line-clamp-2">{{ post.description }}</p>
+                </div>
+              </div>
+              <div v-if="recentPosts.length === 0" class="text-center py-6">
+                <p class="text-gray-500 text-sm">No recent posts available</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Newsletter (kept minimal, separate from hero) -->
-    <section class="py-12">
-      <div class="max-w-3xl mx-auto px-4">
-        <div class="bg-white/80 dark:bg-gray-800/80 backdrop-blur rounded-2xl border border-gray-200/70 dark:border-gray-700 p-6 text-center">
-          <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Stay Updated</h3>
-          <p class="text-gray-600 dark:text-gray-300 mb-6">Subscribe to my newsletter for the latest posts and updates.</p>
-          <div class="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-            <input
-              v-model="newsletterEmail"
-              type="email"
-              placeholder="Enter your email"
-              class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 dark:bg-gray-700 dark:text-white transition-colors"
-            >
-            <button
-              @click="subscribe"
-              :disabled="!newsletterEmail.trim() || subscribing"
-              class="bg-pink-500 text-white px-6 py-3 rounded-lg hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              {{ subscribing ? 'Subscribing...' : 'Subscribe' }}
-            </button>
+    <!-- Content Grid -->
+    <section class="py-16 px-6 bg-gray-50">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div v-for="post in gridPosts" :key="post.id" class="bg-white rounded-lg shadow-md overflow-hidden">
+            <img v-if="post.image" :src="post.image" :alt="post.title" class="w-full h-48 object-cover" />
+            <div class="p-6">
+              <span class="inline-block px-3 py-1 text-sm font-medium bg-gray-100 text-gray-800 rounded-full mb-2">{{ post.category }}</span>
+              <p class="text-sm text-gray-600 mb-2">{{ formatDate(post.date) }}</p>
+              <h3 class="text-xl font-bold mb-2">{{ post.title }}</h3>
+              <p class="text-gray-700">{{ post.description }}</p>
+            </div>
+          </div>
+          <div v-if="gridPosts.length === 0" class="col-span-full text-center py-12">
+            <p class="text-gray-500">No additional posts available</p>
           </div>
         </div>
       </div>
@@ -104,100 +124,56 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { usePostsStore } from '../stores/posts'
 import { useThemeStore } from '../stores/theme'
-import BlogCard from '../components/BlogCard.vue'
-import CategoryFilter from '../components/CategoryFilter.vue'
 
 const postsStore = usePostsStore()
 const themeStore = useThemeStore()
 
-const newsletterEmail = ref('')
-const subscribing = ref(false)
-const primaryColor = ref('#667eea')
-const blogTitle = ref('Welcome to My Blog')
-const blogDescription = ref('Discover insights, tutorials, and thoughts on web development, programming, and technology.')
-const backgroundImageUrl = ref('')
+// Branding and navigation data
+const branding = ref({ logo: '' })
+const navigationLinks = [
+  { label: 'All articles', target: '/articles' },
+  { label: 'Culture', target: '/culture' },
+  { label: 'Lifestyle', target: '/lifestyle' },
+  { label: 'People', target: '/people' },
+  { label: 'Technology', target: '/technology' }
+]
 
+// Computed properties for content
+const featuredPost = computed(() => postsStore.posts.length > 0 ? postsStore.posts[0] : null)
+const recentPosts = computed(() => postsStore.posts.slice(1, 3))
+const gridPosts = computed(() => postsStore.posts.slice(3, 5))
+
+// Subscribe functionality
 const subscribe = async () => {
-  if (!newsletterEmail.value.trim()) return
+  // Placeholder for subscribe logic - can be implemented later
+  alert('Subscribe functionality to be implemented')
+}
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(newsletterEmail.value)) {
-    alert('Please enter a valid email address')
-    return
-  }
-
-  subscribing.value = true
-
-  try {
-    const response = await fetch('/api/subscribe', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email: newsletterEmail.value })
-    })
-
-    const result = await response.json()
-
-    if (result.success) {
-      alert('Thank you for subscribing!')
-      newsletterEmail.value = ''
-    } else {
-      alert(result.error || 'Subscription failed. Please try again.')
-    }
-  } catch (error) {
-    console.error('Subscription error:', error)
-    alert('An error occurred. Please try again.')
-  } finally {
-    subscribing.value = false
-  }
+// Date formatting utility
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 onMounted(async () => {
   themeStore.initTheme()
-  
-  // Load settings
-  try {
-    const [themeRes, blogRes, bgRes] = await Promise.all([
-      fetch('/api/settings/theme'),
-      fetch('/api/settings/blog-info'),
-      fetch('/api/settings/background')
-    ])
-    
-    if (themeRes.ok) {
-      const themeData = await themeRes.json()
-      if (themeData.theme?.primaryColor) {
-        primaryColor.value = themeData.theme.primaryColor
-      }
-    }
-    
-    if (blogRes.ok) {
-      const blogData = await blogRes.json()
-      if (blogData.blogInfo?.title) {
-        blogTitle.value = blogData.blogInfo.title
-      }
-      if (blogData.blogInfo?.description) {
-        blogDescription.value = blogData.blogInfo.description
-      }
-    }
-    
-    if (bgRes.ok) {
-      const bgData = await bgRes.json()
-      if (bgData.backgroundUrl) {
-        backgroundImageUrl.value = bgData.backgroundUrl
-      } else {
-        backgroundImageUrl.value = ''
-      }
-    }
-  } catch (error) {
-    console.log('Failed to load settings:', error)
-  }
-  
   await postsStore.loadPosts()
   await postsStore.loadCategories()
+
+  // Load branding settings if available
+  try {
+    const brandingRes = await fetch('/api/settings/branding')
+    if (brandingRes.ok) {
+      const brandingData = await brandingRes.json()
+      branding.value = brandingData
+    }
+  } catch (error) {
+    console.log('Failed to load branding:', error)
+  }
 })
 </script>
 
