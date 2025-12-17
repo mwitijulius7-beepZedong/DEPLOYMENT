@@ -11,6 +11,31 @@ const routes = [
     component: HomeView
   },
   {
+    path: '/articles',
+    name: 'Articles',
+    component: HomeView // Using HomeView for now, can create separate component later
+  },
+  {
+    path: '/culture',
+    name: 'Culture',
+    component: HomeView
+  },
+  {
+    path: '/lifestyle',
+    name: 'Lifestyle',
+    component: HomeView
+  },
+  {
+    path: '/people',
+    name: 'People',
+    component: HomeView
+  },
+  {
+    path: '/technology',
+    name: 'Technology',
+    component: HomeView
+  },
+  {
     path: '/post/:id',
     name: 'Post',
     component: PostView,
