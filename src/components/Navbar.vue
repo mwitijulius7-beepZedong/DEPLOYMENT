@@ -1,14 +1,14 @@
 <template>
   <header class="sticky top-0 z-50 shadow-sm">
-    <div class="bg-indigo-600" :style="{ backgroundColor: themeColor }">
-      <div class="max-w-5xl mx-auto px-4">
-        <div class="h-16 flex items-center justify-between gap-4">
+    <div class="bg-indigo-600 w-full" :style="{ backgroundColor: themeColor }">
+      <div class="w-full px-4 lg:px-6">
+        <div class="h-16 flex items-center justify-between gap-2 sm:gap-4">
           <!-- Logo / Title -->
-          <router-link to="/" class="flex items-center gap-3 text-white hover:opacity-90 transition-opacity overflow-hidden">
+          <router-link to="/" class="flex items-center gap-3 text-white hover:opacity-90 transition-opacity flex-shrink-0">
             <img
               :src="profilePicture"
               alt="Profile picture"
-              class="w-10 h-10 rounded-full border border-white/60 object-cover shrink-0"
+              class="w-10 h-10 rounded-full border border-white/60 object-cover"
               width="40"
               height="40"
             >
@@ -16,18 +16,18 @@
           </router-link>
 
           <!-- Navigation -->
-          <nav class="hidden md:flex items-center gap-6 whitespace-nowrap">
-            <router-link to="/" class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-1">
+          <nav class="hidden md:flex items-center gap-2 lg:gap-4 whitespace-nowrap flex-1 overflow-hidden">
+            <router-link to="/" class="text-white hover:bg-white/20 px-2 lg:px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-1 text-sm lg:text-base flex-shrink-0">
               <span>🏠</span>
-              <span>Home</span>
+              <span class="hidden lg:inline">Home</span>
             </router-link>
-            <router-link to="/" class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-1">
+            <router-link to="/" class="text-white hover:bg-white/20 px-2 lg:px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-1 text-sm lg:text-base flex-shrink-0">
               <span>📝</span>
-              <span>Blog</span>
+              <span class="hidden lg:inline">Blog</span>
             </router-link>
-            <router-link to="/about" class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-1">
+            <router-link to="/about" class="text-white hover:bg-white/20 px-2 lg:px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-1 text-sm lg:text-base flex-shrink-0">
               <span>ℹ️</span>
-              <span>About</span>
+              <span class="hidden lg:inline">About</span>
             </router-link>
 
             <!-- Newsletter input -->
@@ -35,31 +35,33 @@
               v-model="email"
               type="email"
               placeholder="Subscribe to newsletter"
-              class="px-3 py-2 rounded-lg border border-white/20 bg-white/10 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/40 transition-all w-56"
+              class="px-3 py-2 rounded-lg border border-white/20 bg-white/10 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/40 transition-all w-40 lg:w-56 flex-shrink-0"
               @keypress.enter="subscribe"
             >
 
             <!-- Search button -->
             <button
               @click="openSearch"
-              class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition-all duration-200"
+              class="text-white hover:bg-white/20 px-2 lg:px-3 py-2 rounded-lg transition-all duration-200 flex-shrink-0"
             >
-              🔍 Search
+              <span class="hidden lg:inline">🔍 Search</span>
+              <span class="lg:hidden">🔍</span>
             </button>
 
             <!-- Admin button -->
             <button
               @click="openAdminModal"
-              class="bg-white/10 hover:bg-white/20 text-white border border-white/30 px-3 py-2 rounded-lg transition-all duration-200 text-sm"
+              class="bg-white/10 hover:bg-white/20 text-white border border-white/30 px-2 lg:px-3 py-2 rounded-lg transition-all duration-200 text-xs lg:text-sm flex-shrink-0"
             >
-              🔒 Admin
+              <span class="hidden lg:inline">🔒 Admin</span>
+              <span class="lg:hidden">🔒</span>
             </button>
           </nav>
 
           <!-- Theme toggle -->
           <button
             @click="themeStore.toggleTheme"
-            class="text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200 ml-2"
+            class="text-white hover:bg-white/20 p-2 rounded-lg transition-all duration-200 flex-shrink-0"
             :title="themeStore.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
           >
             <svg v-if="themeStore.isDark" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
