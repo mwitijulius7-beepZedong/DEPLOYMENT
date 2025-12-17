@@ -7,6 +7,7 @@ const path = require('path');
 const fileUpload = require('express-fileupload');
 const fs = require('fs');
 const crypto = require('crypto');
+const dns = require('dns');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const { put } = require('@vercel/blob');
@@ -16,6 +17,9 @@ const cloudinary = require('cloudinary').v2;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Force Node.js to use public DNS servers to resolve DNS issues on some networks
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 // MongoDB connection
 let db;
