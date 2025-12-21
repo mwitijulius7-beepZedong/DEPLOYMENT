@@ -1,8 +1,8 @@
 const fetch = require('node-fetch');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'password'; // Try default password first
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'Mwitijulius7';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Mwitijulius7'; // Try default password first
 
 let sessionCookie = '';
 

@@ -7,6 +7,7 @@ const path = require('path');
 const fileUpload = require('express-fileupload');
 const fs = require('fs');
 const crypto = require('crypto');
+const dns = require('dns');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const { put } = require('@vercel/blob');
@@ -17,10 +18,16 @@ const cloudinary = require('cloudinary').v2;
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Force Node.js to use public DNS servers to resolve DNS issues on some networks
+dns.setServers(['8.8.8.8', '8.8.4.4']);
+
 // MongoDB connection
 let db;
 if (process.env.MONGODB_URI) {
-  MongoClient.connect(process.env.MONGODB_URI)
+  MongoClient.connect(process.env.MONGODB_URI, {
+    ssl: true,
+    tlsInsecure: true
+  })
     .then(client => {
       console.log('Connected to MongoDB');
       db = client.db('blog');
@@ -38,7 +45,9 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== '
 }
 
 // Vercel serverless function export
-module.exports = app;
+if (process.env.VERCEL) {
+  module.exports = app;
+}
 
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -172,10 +181,11 @@ async function loadCategories() {
       console.log('Loading from MongoDB');
       const categories = await db.collection('categories').find({}).toArray();
       console.log('MongoDB categories:', categories.length);
-      return categories.map(c => ({ ...c, id: c._id || c.id }));
+      return categories.map(c => ({ ...c, id: String(c._id || c.id) }));
     }
     console.log('Loading from file system');
-    return JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+    const cats = JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+    return cats.map(c => ({ ...c, id: String(c.id) }));
   } catch (e) {
     console.error('Load categories error:', e);
     return [];
@@ -296,13 +306,6 @@ function decryptText(encStr) {
 
 function requireAuth(req, res, next) {
   console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
-
-  // For Vercel, be very permissive with auth
-  if (process.env.VERCEL) {
-    // Always allow on Vercel for now
-    req.user = { email: 'admin@example.com', name: 'Admin' };
-    return next();
-  }
 
   // Check session first
   if (req.session && req.session.user) return next();
@@ -635,9 +638,9 @@ app.put('/api/posts/:id', requireAuth, async (req, res) => {
 });
 
 app.delete('/api/posts/:id', requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   let posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id === id);
+  const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   posts.splice(idx, 1);
   await savePosts(posts);
@@ -758,10 +761,9 @@ app.get('/api/settings/background', (req, res) => {
 
 // Set background image
 app.post('/api/settings/background', requireAuth, (req, res) => {
-  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
   const { backgroundUrl } = req.body;
   if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
-  
+
   const settings = readSettings();
   settings.backgroundUrl = backgroundUrl;
   // Keep backgrounds in sync if only a single URL is provided
@@ -769,7 +771,7 @@ app.post('/api/settings/background', requireAuth, (req, res) => {
     settings.backgrounds = [backgroundUrl];
   }
   writeSettings(settings);
-  
+
   return res.json({ success: true, backgroundUrl });
 });
 
@@ -1066,8 +1068,12 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
       };
       logs.push(entry);
       await saveSecurityLogs(logs);
-      
-      if (ok) return res.json({ success: true, mode: 'env' });
+
+      if (ok) {
+        req.session.adminKeyVerified = true;
+        req.session.adminKeyVerifiedAt = Date.now();
+        return res.json({ success: true, mode: 'env' });
+      }
       return res.status(403).json({ success: false, mode: 'env' });
     }
 
@@ -1097,6 +1103,8 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
       entry.result = 'allow_not_set';
       logs.push(entry);
       await saveSecurityLogs(logs);
+      req.session.adminKeyVerified = true;
+      req.session.adminKeyVerifiedAt = Date.now();
       return res.json({ success: true, mode: 'none' });
     }
 
@@ -1106,12 +1114,30 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
     logs.push(entry);
     await saveSecurityLogs(logs);
 
-    if (ok) return res.json({ success: true, mode: 'local' });
+    if (ok) {
+      req.session.adminKeyVerified = true;
+      req.session.adminKeyVerifiedAt = Date.now();
+      return res.json({ success: true, mode: 'local' });
+    }
     return res.status(403).json({ success: false, mode: 'local' });
   } catch (e) {
     console.error('verify-entry-key error:', e);
     return res.status(500).json({ error: 'internal' });
   }
+});
+
+// Check if admin entry key is verified in session
+app.get('/api/settings/check-admin-key-verified', (req, res) => {
+  const verified = req.session.adminKeyVerified === true;
+  const verifiedAt = req.session.adminKeyVerifiedAt || null;
+  return res.json({ verified, verifiedAt });
+});
+
+// Clear admin key verification (for idle timeout)
+app.post('/api/settings/clear-admin-key-verification', (req, res) => {
+  req.session.adminKeyVerified = false;
+  req.session.adminKeyVerifiedAt = null;
+  return res.json({ success: true });
 });
 
 // View security logs after verifying admin credentials
@@ -1212,33 +1238,33 @@ app.post('/api/categories', requireAuth, async (req, res) => {
 });
 
 app.put('/api/categories/:id', requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   const { name, description } = req.body;
   if (!name) return res.status(400).json({ error: 'missing name' });
-  
+
   const categories = await loadCategories();
-  const idx = categories.findIndex(c => c.id === id);
+  const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
   if (idx === -1) return res.status(404).json({ error: 'not found' });
-  
+
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  
+
   categories[idx] = {
     ...categories[idx],
     name: name.trim(),
     slug,
     description: description ? description.trim() : ''
   };
-  
+
   await saveCategories(categories);
   return res.json({ success: true, category: categories[idx] });
 });
 
 app.delete('/api/categories/:id', requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   let categories = await loadCategories();
-  const idx = categories.findIndex(c => c.id === id);
+  const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
   if (idx === -1) return res.status(404).json({ error: 'not found' });
-  
+
   categories.splice(idx, 1);
   await saveCategories(categories);
   return res.json({ success: true });
@@ -1398,6 +1424,12 @@ app.get('/api/analytics/export', requireAuth, async (req, res) => {
   }
 });
 
+// Google Client ID endpoint
+app.get('/api/google-client-id', (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID || '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com';
+  return res.json({ clientId });
+});
+
 // Welcome API endpoint
 app.get('/api/welcome', (req, res) => {
   console.log(`Request received: ${req.method} ${req.path}`);
@@ -1411,6 +1443,16 @@ app.get('/api/birthday', (req, res) => {
 });
 
 app.get('/', (req, res) => {
+  // For SPA routing, serve index.html for all routes not handled by API or static files
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// SPA fallback for Vue Router history mode
+app.get('*', (req, res) => {
+  // Skip API routes and static files
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.includes('.')) {
+    return res.status(404).send('Not found');
+  }
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
@@ -1430,6 +1472,9 @@ app.get('/about.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'about.html'));
 });
 
-if (process.env.NODE_ENV !== 'production') {
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => console.log(`Auth server listening on http://localhost:${PORT}`));
+} else {
+  // For local testing, also listen even if VERCEL is set
   app.listen(PORT, () => console.log(`Auth server listening on http://localhost:${PORT}`));
 }
