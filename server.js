@@ -7,7 +7,6 @@ const path = require('path');
 const fileUpload = require('express-fileupload');
 const fs = require('fs');
 const crypto = require('crypto');
-const dns = require('dns');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const { put } = require('@vercel/blob');
@@ -18,16 +17,10 @@ const cloudinary = require('cloudinary').v2;
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Force Node.js to use public DNS servers to resolve DNS issues on some networks
-dns.setServers(['8.8.8.8', '8.8.4.4']);
-
 // MongoDB connection
 let db;
 if (process.env.MONGODB_URI) {
-  MongoClient.connect(process.env.MONGODB_URI, {
-    ssl: true,
-    tlsInsecure: true
-  })
+  MongoClient.connect(process.env.MONGODB_URI)
     .then(client => {
       console.log('Connected to MongoDB');
       db = client.db('blog');
@@ -45,9 +38,7 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== '
 }
 
 // Vercel serverless function export
-if (process.env.VERCEL) {
-  module.exports = app;
-}
+module.exports = app;
 
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -1424,12 +1415,6 @@ app.get('/api/analytics/export', requireAuth, async (req, res) => {
   }
 });
 
-// Google Client ID endpoint
-app.get('/api/google-client-id', (req, res) => {
-  const clientId = process.env.GOOGLE_CLIENT_ID || '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com';
-  return res.json({ clientId });
-});
-
 // Welcome API endpoint
 app.get('/api/welcome', (req, res) => {
   console.log(`Request received: ${req.method} ${req.path}`);
@@ -1443,16 +1428,6 @@ app.get('/api/birthday', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  // For SPA routing, serve index.html for all routes not handled by API or static files
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// SPA fallback for Vue Router history mode
-app.get('*', (req, res) => {
-  // Skip API routes and static files
-  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.includes('.')) {
-    return res.status(404).send('Not found');
-  }
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
@@ -1472,9 +1447,6 @@ app.get('/about.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'about.html'));
 });
 
-if (!process.env.VERCEL) {
-  app.listen(PORT, () => console.log(`Auth server listening on http://localhost:${PORT}`));
-} else {
-  // For local testing, also listen even if VERCEL is set
+if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => console.log(`Auth server listening on http://localhost:${PORT}`));
 }

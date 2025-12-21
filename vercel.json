@@ -1,21 +1,14 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
-    },
-    {
-      "src": "server.cjs",
-      "use": "@vercel/node"
-    }
-  ],
   "functions": {
-    "server.cjs": { "maxDuration": 10 }
+    "server.js": {
+      "maxDuration": 10
+    }
   },
   "routes": [
-    { "src": "/(api|auth)/.*", "dest": "/server.cjs" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    {
+      "src": "/(.*)",
+      "dest": "/server.js"
+    }
   ]
 }
