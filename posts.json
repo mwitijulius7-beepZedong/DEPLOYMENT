@@ -1,16 +1,1 @@
-[
-  {
-    "id": 1762071406184,
-    "title": "Test Post",
-    "author": "Admin",
-    "content": "This is a test post for critical path testing.",
-    "date": "2025-11-02T08:16:46.184Z",
-    "tags": [
-      "test"
-    ],
-    "image": "",
-    "featured": false,
-    "isDraft": false,
-    "categoryId": null
-  }
-]
+[]

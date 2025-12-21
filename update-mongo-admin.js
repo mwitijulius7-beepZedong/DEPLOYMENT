@@ -1,15 +1,12 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient, ServerApiVersion } from 'mongodb';
 import bcrypt from 'bcryptjs';
-import dns from 'dns';
-
-// Force Node.js to use public DNS servers
-dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 async function updateAdminCredentials() {
-  const uri = 'mongodb+srv://mwitijulius7_db_user:YjfuPIROdVNXgfxe@maozedong254.7x6uxql.mongodb.net/blog?retryWrites=true&w=majority';
+  const uri = 'mongodb+srv://Mwitijulius7:svBn72pmTnvmNvtz@maozedong254.7x6uxql.mongodb.net/blog?retryWrites=true&w=majority';
 
   const client = new MongoClient(uri, {
-    serverSelectionTimeoutMS: 10000 // Increase timeout
+    serverSelectionTimeoutMS: 5000, // Shorten timeout for quicker feedback
+    serverApi: ServerApiVersion.v1,
   });
 
   try {
@@ -39,7 +36,7 @@ async function updateAdminCredentials() {
           passwordHash: passwordHash
         }
       },
-      { upsert: true }
+          { upsert: true }
     );
 
     if (result.upsertedCount > 0) {
@@ -54,7 +51,8 @@ async function updateAdminCredentials() {
     console.log(`Username: ${username}`);
     console.log(`Password: ${password}`);
     console.log(`Email: ${email}`);
-
+    console.log(`Password Hash: ${passwordHash}`);
+  
   } catch (error) {
     console.error('Error updating admin credentials:', error);
   } finally {
@@ -63,4 +61,4 @@ async function updateAdminCredentials() {
   }
 }
 
-updateAdminCredentials();
+updateAdminCredentials().catch(console.error);
