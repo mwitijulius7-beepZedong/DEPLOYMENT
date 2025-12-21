@@ -1,26 +1,26 @@
-import { MongoClient } from 'mongodb';
-import bcrypt from 'bcryptjs';
+const { MongoClient } = require('mongodb');
+const bcrypt = require('bcryptjs');
 
 async function checkAdminCredentials() {
-  const uri = 'mongodb+srv://mwitijulius7_db_user:YjfuPIROdVNXgfxe@maozedong254.7x6uxql.mongodb.net/blog?retryWrites=true&w=majority';
+  const uri = 'mongodb+srv://mwitijulius7_db_user:YjfuPIROdVNXgfxe@maozedong254.7x6uxql.mongodb.net/';
 
-  const client = new MongoClient(uri, {
-    serverSelectionTimeoutMS: 5000, // Shorten timeout for quicker feedback
-  });
+  const client = new MongoClient(uri);
 
   try {
     await client.connect();
-    console.log('✅ Connected to MongoDB successfully.');
+    console.log('Connected to MongoDB');
 
     const db = client.db('blog');
     const usersCollection = db.collection('users');
 
+    // Check all users in the database
+    const allUsers = await usersCollection.find({}).toArray();
+    console.log('All users in database:', allUsers.map(u => ({ username: u.username, email: u.email })));
+
     // Check specifically for our admin user
     const adminUser = await usersCollection.findOne({ username: 'Mwitijulius7' });
-
     if (adminUser) {
-      console.log('✅ Admin user "Mwitijulius7" found in the database.');
-      console.log('   - User details:', {
+      console.log('Admin user found:', {
         username: adminUser.username,
         email: adminUser.email,
         hasPasswordHash: !!adminUser.passwordHash
@@ -29,19 +29,17 @@ async function checkAdminCredentials() {
       // Test password verification
       const testPassword = 'Mwitijulius7@Jm';
       const isValid = await bcrypt.compare(testPassword, adminUser.passwordHash);
-      
-      console.log(`\nVerifying password "${testPassword}"...`);
-      console.log(isValid ? '✅ SUCCESS: Password verification passed!' : '❌ FAILED: Password does not match the one in the database.');
+      console.log('Password verification test:', isValid ? 'SUCCESS' : 'FAILED');
 
     } else {
-      console.log('❌ Admin user "Mwitijulius7" was NOT found in the database.');
+      console.log('Admin user NOT found in database');
     }
 
   } catch (error) {
-    console.error('❌ Error during check:', error);
+    console.error('Error checking admin credentials:', error);
   } finally {
     await client.close();
-    console.log('\nDisconnected from MongoDB.');
+    console.log('Disconnected from MongoDB');
   }
 }
 

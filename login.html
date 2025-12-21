@@ -266,7 +266,7 @@
         </form>
 
         <div class="divider">
-          <span>or</span>
+            <span>or</span>
         </div>
 
         <button class="google-btn" id="googleBtn">
@@ -375,11 +375,11 @@
 
                 const data = await response.json();
 
-               if (data.success) {
+                if (data.success) {
                     // Redirect to admin panel
                     window.location.href = '/admin.html';
                 } else {
-                   showError(data.error || 'Google login failed');
+                    showError(data.error || 'Google login failed');
                 }
             } catch (error) {
                 console.error('Google login error:', error);
@@ -435,7 +435,6 @@
         // Handle password toggle
         const passwordToggle = document.getElementById('passwordToggle');
         const passwordInput = document.getElementById('password');
-
 
         passwordToggle.addEventListener('click', () => {
             const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
