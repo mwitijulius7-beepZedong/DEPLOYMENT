@@ -1,7 +1,7 @@
 {
   "admin": {
-    "name": "Admin",
-    "email": "admin@localhost",
-    "passwordHash": "$2a$10$N0sTSBnE/VXW78EzuztW5eaOTFCaecYqEUGTFm3Ui7UNkzkujFn0S"
+    "name": "Birthday Admin",
+    "email": "birthday@blog.com",
+    "passwordHash": "$2a$10$1OB8rDOMAEykq.8nWrVNF.hesdQQx126hSvy5LoUL7hmEc0Y.miEi"
   }
 }
