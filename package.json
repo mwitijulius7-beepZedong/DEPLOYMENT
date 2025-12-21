@@ -1,10 +1,14 @@
 {
   "name": "birthday-blog",
   "version": "1.0.0",
+  "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node server.cjs",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node server.cjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.0.0",
@@ -16,17 +20,20 @@
     "express-fileupload": "^1.4.0",
     "express-session": "^1.17.3",
     "google-auth-library": "^8.7.0",
-    "mongodb": "^6.20.0",
+    "mongodb": "^6.21.0",
     "node-fetch": "^2.6.7",
     "nodemailer": "^7.0.9",
+    "pinia": "^2.1.7",
     "puppeteer": "^24.29.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.5"
   },
   "engines": {
     "node": "22.x"
   },
   "devDependencies": {
-    "tailwindcss": "^4.1.16"
+    "@vitejs/plugin-vue": "^5.0.0",
+    "tailwindcss": "^4.1.16",
+    "vite": "^7.2.2"
   }
 }

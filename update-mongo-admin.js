@@ -1,13 +1,12 @@
-const { MongoClient } = require('mongodb');
-const bcrypt = require('bcryptjs');
+import { MongoClient, ServerApiVersion } from 'mongodb';
+import bcrypt from 'bcryptjs';
 
 async function updateAdminCredentials() {
-  const uri = 'mongodb+srv://mwitijulius7_db_user:YjfuPIROdVNXgfxe@maozedong254.7x6uxql.mongodb.net/';
+  const uri = 'mongodb+srv://Mwitijulius7:svBn72pmTnvmNvtz@maozedong254.7x6uxql.mongodb.net/blog?retryWrites=true&w=majority';
 
   const client = new MongoClient(uri, {
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 10000,
-    socketTimeoutMS: 45000,
+    serverSelectionTimeoutMS: 5000, // Shorten timeout for quicker feedback
+    serverApi: ServerApiVersion.v1,
   });
 
   try {
@@ -37,7 +36,7 @@ async function updateAdminCredentials() {
           passwordHash: passwordHash
         }
       },
-      { upsert: true }
+          { upsert: true }
     );
 
     if (result.upsertedCount > 0) {
@@ -53,7 +52,7 @@ async function updateAdminCredentials() {
     console.log(`Password: ${password}`);
     console.log(`Email: ${email}`);
     console.log(`Password Hash: ${passwordHash}`);
-
+  
   } catch (error) {
     console.error('Error updating admin credentials:', error);
   } finally {
@@ -62,4 +61,4 @@ async function updateAdminCredentials() {
   }
 }
 
-updateAdminCredentials();
+updateAdminCredentials().catch(console.error);
