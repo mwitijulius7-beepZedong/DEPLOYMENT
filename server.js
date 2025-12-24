@@ -468,6 +468,86 @@ app.post('/auth/google', async (req, res) => {
   }
 });
 
+// Forgot password endpoint
+app.post('/auth/forgot', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'missing email' });
+
+  try {
+    const users = await loadUsers();
+    const user = Object.values(users).find(u => u.email === email);
+    if (!user) return res.status(404).json({ error: 'user not found' });
+
+    // Generate reset token (username + timestamp + random)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const tokenData = `${user.username}|${Date.now()}|${resetToken}`;
+    const encryptedToken = encryptText(tokenData);
+
+    // Store token temporarily (in production, use Redis or database)
+    // For now, we'll use a simple in-memory store (not persistent)
+    if (!global.resetTokens) global.resetTokens = {};
+    global.resetTokens[resetToken] = { username: user.username, expires: Date.now() + 24 * 60 * 60 * 1000 }; // 24 hours
+
+    // Send email with reset link
+    const resetUrl = `${req.protocol}://${req.get('host')}/reset.html?token=${resetToken}`;
+    const mailOptions = {
+      from: process.env.SMTP_USER || 'noreply@example.com',
+      to: email,
+      subject: 'Password Reset Request',
+      html: `
+        <h2>Password Reset</h2>
+        <p>You requested a password reset for your account.</p>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetUrl}">Reset Password</a>
+        <p>This link will expire in 24 hours.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    return res.json({ success: true, message: 'Reset email sent' });
+  } catch (e) {
+    console.error('Forgot password error:', e);
+    return res.status(500).json({ error: 'failed to send reset email' });
+  }
+});
+
+// Reset password endpoint
+app.post('/auth/reset', async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'missing token or password' });
+
+  try {
+    // Verify token
+    if (!global.resetTokens || !global.resetTokens[token]) {
+      return res.status(400).json({ error: 'invalid or expired token' });
+    }
+
+    const tokenInfo = global.resetTokens[token];
+    if (Date.now() > tokenInfo.expires) {
+      delete global.resetTokens[token];
+      return res.status(400).json({ error: 'token expired' });
+    }
+
+    // Update user password
+    const users = await loadUsers();
+    const user = users[tokenInfo.username];
+    if (!user) return res.status(404).json({ error: 'user not found' });
+
+    const hash = await bcrypt.hash(password, 10);
+    user.passwordHash = hash;
+    await saveUsers(users);
+
+    // Clean up token
+    delete global.resetTokens[token];
+
+    return res.json({ success: true, message: 'password reset successfully' });
+  } catch (e) {
+    console.error('Reset password error:', e);
+    return res.status(500).json({ error: 'failed to reset password' });
+  }
+});
+
 // Posts API
 app.get('/api/posts', async (req, res) => {
   const posts = await loadPosts();

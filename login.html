@@ -185,6 +185,30 @@
             text-decoration: underline;
         }
 
+        .forgot-password {
+            text-align: center;
+            margin-top: 16px;
+        }
+
+        .forgot-password a {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .forgot-password a:hover {
+            text-decoration: underline;
+        }
+
+        .forgot-password-form {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .forgot-password-form .form-group {
+            margin-bottom: 16px;
+        }
+
         @media (max-width: 480px) {
             .login-container {
                 padding: 24px;
@@ -214,6 +238,21 @@
 
             <button type="submit" class="login-btn" id="loginBtn">Sign In</button>
         </form>
+
+        <div class="forgot-password">
+            <a href="#" id="forgotPasswordLink">Forgot your password?</a>
+        </div>
+
+        <div class="forgot-password-form" id="forgotPasswordForm">
+            <div class="form-group">
+                <label for="resetEmail" class="form-label">Email Address</label>
+                <input type="email" id="resetEmail" class="form-input" placeholder="Enter your email" required>
+            </div>
+            <button type="submit" class="login-btn" id="resetBtn">Send Reset Email</button>
+            <div class="forgot-password" style="margin-top: 12px;">
+                <a href="#" id="backToLoginLink">← Back to Login</a>
+            </div>
+        </div>
 
         <div class="divider">
             <span>or</span>
@@ -297,6 +336,67 @@
             // For Google login, you would typically redirect to Google's OAuth URL
             // For now, we'll show a placeholder
             showError('Google login not yet implemented. Please use username/password.');
+        });
+
+        // Handle forgot password link
+        forgotPasswordLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            hideError();
+            loginForm.style.display = 'none';
+            forgotPasswordForm.style.display = 'block';
+            document.querySelector('.forgot-password').style.display = 'none';
+            resetEmail.focus();
+        });
+
+        // Handle back to login link
+        backToLoginLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            hideError();
+            forgotPasswordForm.style.display = 'none';
+            loginForm.style.display = 'flex';
+            document.querySelector('.forgot-password').style.display = 'block';
+            document.getElementById('username').focus();
+        });
+
+        // Handle reset password form submission
+        forgotPasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError();
+
+            const email = resetEmail.value.trim();
+
+            if (!email) {
+                showError('Please enter your email address');
+                return;
+            }
+
+            resetBtn.disabled = true;
+            resetBtn.textContent = 'Sending...';
+
+            try {
+                const response = await fetch('/auth/forgot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email }),
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showError('Password reset email sent. Check your inbox.');
+                    resetEmail.value = '';
+                } else {
+                    showError(data.error || 'Failed to send reset email');
+                }
+            } catch (error) {
+                console.error('Forgot password error:', error);
+                showError('An error occurred. Please try again.');
+            } finally {
+                resetBtn.disabled = false;
+                resetBtn.textContent = 'Send Reset Email';
+            }
         });
 
         // Focus on username field
