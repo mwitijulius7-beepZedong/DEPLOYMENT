@@ -1,7 +1,33 @@
 {
-  "backgroundUrl": "http://localhost:3000/uploads/1760955634211__DSC1067.jpg",
+  "backgroundUrl": "https://example.com/bg1.jpg",
+  "backgrounds": [
+    "https://example.com/bg1.jpg",
+    "https://example.com/bg2.jpg"
+  ],
+  "theme": {
+    "primaryColor": "#FF0000",
+    "accentColor": "#00FF00"
+  },
+  "author": {
+    "name": "Test Author",
+    "email": "test@example.com",
+    "bio": "Test bio",
+    "phone": "123-456-7890",
+    "whatsapp": "098-765-4321",
+    "social": {
+      "twitter": "testtwitter",
+      "facebook": "testfb",
+      "linkedin": "testlinkedin",
+      "instagram": "testinsta",
+      "website": "https://test.com"
+    }
+  },
+  "blogInfo": {
+    "title": "Test Blog",
+    "description": "A test blog description"
+  },
   "security": {
-    "adminEntryKeyHash": "",
-    "adminEntryKeyEnc": ""
+    "adminEntryKeyHash": "$2a$10$uL.pfDWf2aF0L5N7bm1GIumR820O9TGvKXLBKjaMclvBKbFPpWksW",
+    "adminEntryKeyEnc": "MaDGm7LyJbiFCIZeA7QmoeqFg2g7Nf1c3uEhJuetcNTEPmCNURnebg=="
   }
 }

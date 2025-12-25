@@ -65,6 +65,7 @@
             border-radius: 50%;
             border: 3px solid white;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            object-fit: cover;
         }
 
         .logo h1 {
@@ -147,6 +148,28 @@
         .search-btn:hover {
             background: rgba(255,255,255,0.9);
             transform: translateY(-2px);
+        }
+
+        .admin-key-input {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 12px;
+            transition: var(--transition);
+            margin-left: 16px;
+            width: 120px;
+        }
+
+        .admin-key-input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .admin-key-input:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.2);
         }
 
         /* Modal Styles */
@@ -241,6 +264,31 @@
         }
 
         .close:hover {
+            color: var(--text-dark);
+        }
+
+        /* Password Group Styles */
+        .password-group {
+            position: relative;
+        }
+
+        .password-group .modal-input {
+            padding-right: 40px;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-medium);
+            transition: var(--transition);
+        }
+
+        .password-toggle:hover {
             color: var(--text-dark);
         }
 
@@ -587,7 +635,7 @@
     <header>
         <div class="header-container">
             <a href="#" class="logo">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile picture">
+                <img id="profilePicture" src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile picture">
                 <h1>zedong254ke</h1>
             </a>
             <nav>
@@ -655,7 +703,15 @@
             <div class="modal-header">Admin Access</div>
             <div class="modal-body">
                 <p>Please enter the admin entry key to access the admin panel.</p>
-                <input type="password" id="adminKeyInput" class="modal-input" placeholder="Enter admin key" onkeypress="handleKeyPress(event)">
+                <div class="password-group">
+                    <input type="password" id="adminKeyInput" class="modal-input" placeholder="Enter admin key" onkeypress="handleKeyPress(event)">
+                    <button type="button" class="password-toggle" id="adminKeyToggle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
                 <div id="errorMessage" style="color: #dc2626; font-size: 14px; margin-top: 8px; display: none;"></div>
             </div>
             <div class="modal-actions">
@@ -1095,11 +1151,117 @@
             attachCardEventListeners();
         }
 
+        // Load author settings and update profile picture
+        async function loadAuthorSettings() {
+            try {
+                const response = await fetch('/api/settings/author');
+                const data = await response.json();
+                if (data.author && data.author.profilePicture) {
+                    const profileImg = document.getElementById('profilePicture');
+                    if (profileImg) {
+                        profileImg.src = data.author.profilePicture;
+                    }
+                }
+            } catch (error) {
+                console.log('Failed to load author settings:', error);
+            }
+        }
+
+        // Password toggle functionality
+        function togglePasswordVisibility(inputId, toggleId) {
+            const input = document.getElementById(inputId);
+            const toggle = document.getElementById(toggleId);
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                toggle.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                `;
+            } else {
+                input.type = 'password';
+                toggle.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                `;
+            }
+        }
+
+        // Attach password toggle event listener
+        document.addEventListener('DOMContentLoaded', function() {
+            const adminKeyToggle = document.getElementById('adminKeyToggle');
+            if (adminKeyToggle) {
+                adminKeyToggle.addEventListener('click', () => togglePasswordVisibility('adminKeyInput', 'adminKeyToggle'));
+            }
+        });
+
+        // Admin key toggle functionality (for admin.html compatibility)
+        document.addEventListener('DOMContentLoaded', function() {
+            const adminKeyToggle = document.getElementById('admin-key-toggle');
+            if (adminKeyToggle) {
+                adminKeyToggle.addEventListener('click', function() {
+                    const input = document.getElementById('admin-entry-key');
+                    const icon = this.querySelector('svg');
+
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+                    } else {
+                        input.type = 'password';
+                        icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+                    }
+                });
+            }
+        });
+
+        // Load theme settings and apply them
+        async function loadThemeSettings() {
+            try {
+                const response = await fetch('/api/settings/theme');
+                const data = await response.json();
+                if (data.theme) {
+                    const { primaryColor, accentColor } = data.theme;
+                    if (primaryColor) {
+                        document.documentElement.style.setProperty('--primary-color', primaryColor);
+                    }
+                    if (accentColor) {
+                        document.documentElement.style.setProperty('--accent-color', accentColor);
+                    }
+                }
+            } catch (error) {
+                console.log('Failed to load theme settings:', error);
+            }
+        }
+
+        // Load background settings and apply them
+        async function loadBackgroundSettings() {
+            try {
+                const response = await fetch('/api/settings/background');
+                const data = await response.json();
+                if (data.backgroundUrl) {
+                    document.body.style.backgroundImage = `url('${data.backgroundUrl}')`;
+                    document.body.style.backgroundSize = 'cover';
+                    document.body.style.backgroundPosition = 'center';
+                    document.body.style.backgroundRepeat = 'no-repeat';
+                    document.body.style.backgroundAttachment = 'fixed';
+                }
+            } catch (error) {
+                console.log('Failed to load background settings:', error);
+            }
+        }
+
         // Load posts when page loads
         document.addEventListener('DOMContentLoaded', function() {
             loadPosts();
             loadCategories();
             showAdminWelcome(); // Check and show admin section
+            loadAuthorSettings(); // Load and display profile picture
+            loadThemeSettings(); // Load and apply saved theme settings
+            loadBackgroundSettings(); // Load and apply saved background settings
         });
     </script>
 </body>

@@ -93,9 +93,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // Allow HTTP for production environments without HTTPS
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    sameSite: 'lax', // Use 'lax' for better compatibility across environments
     maxAge: 24 * 60 * 60 * 1000
   },
   name: 'sessionId'
@@ -172,10 +172,11 @@ async function loadCategories() {
       console.log('Loading from MongoDB');
       const categories = await db.collection('categories').find({}).toArray();
       console.log('MongoDB categories:', categories.length);
-      return categories.map(c => ({ ...c, id: c._id || c.id }));
+      return categories.map(c => ({ ...c, id: String(c._id || c.id) }));
     }
     console.log('Loading from file system');
-    return JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+    const cats = JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+    return cats.map(c => ({ ...c, id: String(c.id) }));
   } catch (e) {
     console.error('Load categories error:', e);
     return [];
@@ -296,17 +297,10 @@ function decryptText(encStr) {
 
 function requireAuth(req, res, next) {
   console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
-  
+
   // Check session first
   if (req.session && req.session.user) return next();
-  
-  // For Vercel, be very permissive with auth
-  if (process.env.VERCEL) {
-    // Always allow on Vercel for now
-    req.user = { email: 'admin@example.com', name: 'Admin' };
-    return next();
-  }
-  
+
   // Check Authorization header as fallback
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -316,9 +310,9 @@ function requireAuth(req, res, next) {
       const decoded = Buffer.from(token, 'base64').toString('utf8');
       const [email, timestamp] = decoded.split('|');
       const tokenAge = Date.now() - parseInt(timestamp);
-      
+
       console.log('Token validation:', { email, tokenAge, valid: tokenAge < 24 * 60 * 60 * 1000 });
-      
+
       // Token valid for 24 hours
       if (tokenAge < 24 * 60 * 60 * 1000 && email) {
         req.user = { email, name: 'Admin' };
@@ -328,21 +322,26 @@ function requireAuth(req, res, next) {
       console.error('Token validation error:', e);
     }
   }
-  
+
   return res.status(401).json({ error: 'not authenticated' });
 }
 
-const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
+const transporter = process.env.SENDGRID_API_KEY
   ? nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: String(process.env.SMTP_SECURE).toLowerCase() === 'true',
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      secure: false,
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
+        user: 'apikey',
+        pass: process.env.SENDGRID_API_KEY
       }
     })
-  : { sendMail: async (opts) => { console.log('Mock email:', opts); } };
+  : {
+      sendMail: async (opts) => {
+        console.log('Mock email:', opts);
+        return { messageId: 'mock-' + Date.now() };
+      }
+    };
 
 // Auth routes
 app.post('/auth/login', async (req, res) => {
@@ -355,6 +354,7 @@ app.post('/auth/login', async (req, res) => {
 
   if (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD) {
     req.session.user = { email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com', name: user.name || 'Admin' };
+    console.log('Login successful for admin (dev password), session set:', req.session.user);
     return res.json({ success: true, email: req.session.user.email, name: req.session.user.name });
   }
 
@@ -362,6 +362,7 @@ app.post('/auth/login', async (req, res) => {
   if (!ok) return res.status(401).json({ error: 'invalid credentials' });
 
   req.session.user = { email: user.email, name: user.name };
+  console.log('Login successful, session set:', req.session.user);
   return res.json({ success: true, email: user.email, name: user.name });
 });
 
@@ -398,19 +399,99 @@ app.post('/auth/setup', async (req, res) => {
 });
 
 app.get('/auth/status', (req, res) => {
-  console.log('Auth status - Session exists:', !!req.session, 'User exists:', !!req.session?.user);
+  console.log('Auth status check - Session exists:', !!req.session, 'User exists:', !!req.session?.user, 'Session ID:', req.sessionID);
   if (req.session && req.session.user) {
+    console.log('User authenticated:', req.session.user);
     return res.json({ loggedIn: true, user: req.session.user });
   }
+  console.log('User not authenticated');
   return res.json({ loggedIn: false });
 });
 
 app.post('/auth/logout', (req, res) => {
+  console.log('Logout requested - Session before destroy:', !!req.session, 'User:', !!req.session?.user);
   req.session.destroy(err => {
-    if (err) return res.status(500).json({ error: 'failed to logout' });
-    res.clearCookie('connect.sid');
+    if (err) {
+      console.error('Session destroy error:', err);
+      return res.status(500).json({ error: 'failed to logout' });
+    }
+    console.log('Session destroyed successfully');
+    res.clearCookie('sessionId'); // Clear the correct cookie name
     return res.json({ success: true });
   });
+});
+
+app.post('/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'email required' });
+
+  const users = await loadUsers();
+  const user = Object.values(users).find(u => u.email === email);
+  if (!user) return res.status(404).json({ error: 'user not found' });
+
+  // Generate reset token
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+  // Store reset token (in production, use Redis or database)
+  // For now, we'll store it in memory - this is not production-ready
+  if (!global.resetTokens) global.resetTokens = {};
+  global.resetTokens[resetTokenHash] = {
+    email: user.email,
+    expires: Date.now() + 60 * 60 * 1000 // 1 hour
+  };
+
+  // Send reset email
+  const resetUrl = `${req.protocol}://${req.get('host')}/reset.html?token=${resetToken}`;
+
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_USER, // Use authenticated SMTP user as from address
+      to: user.email,
+      subject: 'Password Reset Request',
+      html: `
+        <h2>Password Reset Request</h2>
+        <p>You requested a password reset for your blog admin account.</p>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetUrl}" style="background: #F4A191; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+      `
+    });
+
+    return res.json({ success: true, message: 'reset email sent' });
+  } catch (error) {
+    console.error('Email send error:', error);
+    return res.status(500).json({ error: 'failed to send email' });
+  }
+});
+
+app.post('/auth/reset', async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'missing token or password' });
+
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const resetData = global.resetTokens?.[tokenHash];
+
+  if (!resetData || resetData.expires < Date.now()) {
+    return res.status(400).json({ error: 'invalid or expired token' });
+  }
+
+  const users = await loadUsers();
+  const user = Object.values(users).find(u => u.email === resetData.email);
+  if (!user) return res.status(404).json({ error: 'user not found' });
+
+  // Update password
+  const hashedPassword = await bcrypt.hash(password, 10);
+  user.passwordHash = hashedPassword;
+
+  // Save updated users
+  await fs.promises.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
+
+  // Remove used token
+  delete global.resetTokens[tokenHash];
+
+  return res.json({ success: true });
 });
 
 app.post('/auth/google', async (req, res) => {
@@ -666,9 +747,9 @@ app.put('/api/posts/:id', requireAuth, async (req, res) => {
 });
 
 app.delete('/api/posts/:id', requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   let posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id === id);
+  const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   posts.splice(idx, 1);
   await savePosts(posts);
@@ -758,8 +839,10 @@ function readSettings() {
     author: {
       name: '',
       email: '',
+      bio: '',
       phone: '',
       whatsapp: '',
+      profilePicture: '',
       social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' }
     },
     security: {
@@ -787,10 +870,9 @@ app.get('/api/settings/background', (req, res) => {
 
 // Set background image
 app.post('/api/settings/background', requireAuth, (req, res) => {
-  if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
   const { backgroundUrl } = req.body;
   if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
-  
+
   const settings = readSettings();
   settings.backgroundUrl = backgroundUrl;
   // Keep backgrounds in sync if only a single URL is provided
@@ -798,7 +880,7 @@ app.post('/api/settings/background', requireAuth, (req, res) => {
     settings.backgrounds = [backgroundUrl];
   }
   writeSettings(settings);
-  
+
   return res.json({ success: true, backgroundUrl });
 });
 
@@ -891,17 +973,17 @@ app.get('/api/settings/author', async (req, res) => {
     // For Vercel, use MongoDB if available
     if (process.env.VERCEL && db) {
       const result = await db.collection('settings').findOne({ type: 'author' });
-      const author = result?.author || { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+      const author = result?.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
       return res.json({ author });
     }
 
     // Local development
     const settings = readSettings();
-    const author = settings.author || { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+    const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
     return res.json({ author });
   } catch (e) {
     console.error('Error reading author settings:', e);
-    const author = { name: '', email: '', phone: '', whatsapp: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+    const author = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
     return res.json({ author });
   }
 });
@@ -974,8 +1056,10 @@ app.post('/api/settings/author', requireAuth, async (req, res) => {
       const author = {
         name: String(payload.name || ''),
         email: String(payload.email || ''),
+        bio: String(payload.bio || ''),
         phone: String(payload.phone || ''),
         whatsapp: String(payload.whatsapp || ''),
+        profilePicture: String(payload.profilePicture || ''),
         social: {
           twitter: String(payload.social?.twitter || ''),
           facebook: String(payload.social?.facebook || ''),
@@ -1001,6 +1085,7 @@ app.post('/api/settings/author', requireAuth, async (req, res) => {
     settings.author = {
       name: String(payload.name || ''),
       email: String(payload.email || ''),
+      bio: String(payload.bio || ''),
       phone: String(payload.phone || ''),
       whatsapp: String(payload.whatsapp || ''),
       social: {
@@ -1092,8 +1177,12 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
       };
       logs.push(entry);
       await saveSecurityLogs(logs);
-      
-      if (ok) return res.json({ success: true, mode: 'env' });
+
+      if (ok) {
+        req.session.adminKeyVerified = true;
+        req.session.adminKeyVerifiedAt = Date.now();
+        return res.json({ success: true, mode: 'env' });
+      }
       return res.status(403).json({ success: false, mode: 'env' });
     }
 
@@ -1123,6 +1212,8 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
       entry.result = 'allow_not_set';
       logs.push(entry);
       await saveSecurityLogs(logs);
+      req.session.adminKeyVerified = true;
+      req.session.adminKeyVerifiedAt = Date.now();
       return res.json({ success: true, mode: 'none' });
     }
 
@@ -1132,12 +1223,30 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
     logs.push(entry);
     await saveSecurityLogs(logs);
 
-    if (ok) return res.json({ success: true, mode: 'local' });
+    if (ok) {
+      req.session.adminKeyVerified = true;
+      req.session.adminKeyVerifiedAt = Date.now();
+      return res.json({ success: true, mode: 'local' });
+    }
     return res.status(403).json({ success: false, mode: 'local' });
   } catch (e) {
     console.error('verify-entry-key error:', e);
     return res.status(500).json({ error: 'internal' });
   }
+});
+
+// Check if admin entry key is verified in session
+app.get('/api/settings/check-admin-key-verified', (req, res) => {
+  const verified = req.session.adminKeyVerified === true;
+  const verifiedAt = req.session.adminKeyVerifiedAt || null;
+  return res.json({ verified, verifiedAt });
+});
+
+// Clear admin key verification (for idle timeout)
+app.post('/api/settings/clear-admin-key-verification', (req, res) => {
+  req.session.adminKeyVerified = false;
+  req.session.adminKeyVerifiedAt = null;
+  return res.json({ success: true });
 });
 
 // View security logs after verifying admin credentials
@@ -1238,33 +1347,33 @@ app.post('/api/categories', requireAuth, async (req, res) => {
 });
 
 app.put('/api/categories/:id', requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   const { name, description } = req.body;
   if (!name) return res.status(400).json({ error: 'missing name' });
-  
+
   const categories = await loadCategories();
-  const idx = categories.findIndex(c => c.id === id);
+  const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
   if (idx === -1) return res.status(404).json({ error: 'not found' });
-  
+
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  
+
   categories[idx] = {
     ...categories[idx],
     name: name.trim(),
     slug,
     description: description ? description.trim() : ''
   };
-  
+
   await saveCategories(categories);
   return res.json({ success: true, category: categories[idx] });
 });
 
 app.delete('/api/categories/:id', requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   let categories = await loadCategories();
-  const idx = categories.findIndex(c => c.id === id);
+  const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
   if (idx === -1) return res.status(404).json({ error: 'not found' });
-  
+
   categories.splice(idx, 1);
   await saveCategories(categories);
   return res.json({ success: true });
@@ -1422,6 +1531,18 @@ app.get('/api/analytics/export', requireAuth, async (req, res) => {
     console.error('analytics export error:', e);
     return res.status(500).json({ error: 'internal' });
   }
+});
+
+// Welcome API endpoint
+app.get('/api/welcome', (req, res) => {
+  console.log(`Request received: ${req.method} ${req.path}`);
+  return res.json({ message: 'Welcome to the API!' });
+});
+
+// Birthday API endpoint
+app.get('/api/birthday', (req, res) => {
+  console.log(`Request received: ${req.method} ${req.path}`);
+  return res.json({ message: 'Happy Birthday! Wishing you a fantastic year ahead!' });
 });
 
 app.get('/', (req, res) => {
