@@ -1,10 +1,7 @@
 {
   "admin": {
-    "name": "Admin",
-    "email": "admin@localhost",
-    "passwordHash": "$2a$10$spWJSboRBRxb55mjM/ptJOE0aq6cqXAwRpRJFmr65/PnlBupmdSAe"
-    "name": "Birthday Admin",
-    "email": "birthday@blog.com",
-    "passwordHash": "$2a$10$kz.hudlg0721.6941FdzfuBSXVo2Zc86Juu47lZzuKvDYU8GrGCqe"
+    "name": "Mwitijulius7",
+    "email": "mwitijulius7@gmail.com",
+    "passwordHash": "$2a$10$XLoM197Ptzw/jjz1SII7wu2pKG335acABn7/6UJGpQTuge3Wn9/k2"
   }
 }
