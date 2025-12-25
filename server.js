@@ -556,32 +556,70 @@ app.post('/auth/forgot', async (req, res) => {
 
   try {
     const users = await loadUsers();
-    const user = Object.values(users).find(u => u.email === email);
-    if (!user) return res.status(404).json({ error: 'user not found' });
+    const targetUser = Object.values(users).find(u => u.email === email);
+
+    // Resolve admin email: prefer admin user email, then settings.author.email, then ALLOWED_EMAIL, else requester email
+    let adminEmail = '';
+    try {
+      adminEmail = (users['admin'] && users['admin'].email) ? users['admin'].email : '';
+      if (!adminEmail) {
+        const settings = readSettings();
+        adminEmail = (settings && settings.author && settings.author.email) ? settings.author.email : '';
+      }
+      if (!adminEmail) adminEmail = process.env.ALLOWED_EMAIL || '';
+      if (!adminEmail) adminEmail = email; // last resort
+    } catch (e) {
+      adminEmail = process.env.ALLOWED_EMAIL || email;
+    }
+
+    // If no matching user, avoid user enumeration: notify admin optionally, but always return success
+    if (!targetUser) {
+      const mailOptions = {
+        from: process.env.SMTP_USER || 'noreply@example.com',
+        to: adminEmail,
+        subject: `Password reset attempted for unknown email: ${email}`,
+        html: `
+          <h2>Password Reset Attempt</h2>
+          <p>A password reset was requested for <strong>${email}</strong>, but no matching user was found.</p>
+          <p>No action is required. If this was unexpected, you may review security logs in the admin panel.</p>
+        `
+      };
+      try { await transporter.sendMail(mailOptions); } catch (_) {}
+      return res.json({ success: true, message: 'If an account exists, a reset email has been sent.' });
+    }
 
     // Generate reset token (username + timestamp + random)
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const tokenData = `${user.username}|${Date.now()}|${resetToken}`;
+    const tokenData = `${targetUser.username}|${Date.now()}|${resetToken}`;
     const encryptedToken = encryptText(tokenData);
 
     // Store token temporarily (in production, use Redis or database)
-    // For now, we'll use a simple in-memory store (not persistent)
     if (!global.resetTokens) global.resetTokens = {};
-    global.resetTokens[resetToken] = { username: user.username, expires: Date.now() + 24 * 60 * 60 * 1000 }; // 24 hours
+    global.resetTokens[resetToken] = { username: targetUser.username, expires: Date.now() + 24 * 60 * 60 * 1000 }; // 24 hours
 
-    // Send email with reset link
-    const resetUrl = `${req.protocol}://${req.get('host')}/reset.html?token=${resetToken}`;
+    // Build admin-focused email with both password reset link and admin key guidance
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const resetUrl = `${baseUrl}/reset.html?token=${resetToken}`;
+    const adminPanelUrl = `${baseUrl}/admin.html`;
+
     const mailOptions = {
       from: process.env.SMTP_USER || 'noreply@example.com',
-      to: email,
-      subject: 'Password Reset Request',
+      to: adminEmail,
+      subject: `Admin action required: Password reset for ${targetUser.username} (${email})`,
       html: `
-        <h2>Password Reset</h2>
-        <p>You requested a password reset for your account.</p>
-        <p>Click the link below to reset your password:</p>
-        <a href="${resetUrl}">Reset Password</a>
-        <p>This link will expire in 24 hours.</p>
-        <p>If you didn't request this, please ignore this email.</p>
+        <h2>Password Reset Requested</h2>
+        <p>A password reset was requested for the user:</p>
+        <ul>
+          <li><strong>Username:</strong> ${targetUser.username}</li>
+          <li><strong>Email:</strong> ${email}</li>
+        </ul>
+        <p>Use the link below to reset the password:</p>
+        <p><a href="${resetUrl}">Reset Password</a> (expires in 24 hours)</p>
+        <hr>
+        <h3>Admin Entry Key</h3>
+        <p>If you also need to rotate or reset the Admin Entry Key, open the admin panel and update it in the Security section:</p>
+        <p><a href="${adminPanelUrl}">Open Admin Panel</a></p>
+        <p>This email was sent to the configured admin email to ensure secure password and key management.</p>
       `
     };
 
