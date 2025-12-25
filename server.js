@@ -50,6 +50,7 @@ const SECURITY_LOGS_FILE = path.join(__dirname, 'security_logs.json');
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const ALLOWED_EMAIL = process.env.ALLOWED_EMAIL || '';
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || '';
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 
 if (!CLIENT_ID) {
   console.warn('WARNING: GOOGLE_CLIENT_ID is not set in .env - server verification will fail');
@@ -360,18 +361,53 @@ app.post('/auth/login', async (req, res) => {
   const user = users[username];
   if (!user) return res.status(401).json({ error: 'invalid credentials' });
 
+  // Check if user is active
+  if (user.active === false) return res.status(401).json({ error: 'account disabled' });
+
   if (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD) {
-    req.session.user = { email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com', name: user.name || 'Admin' };
-    console.log('Login successful for admin (dev password), session set:', req.session.user);
-    return res.json({ success: true, email: req.session.user.email, name: req.session.user.name });
+    // Generate JWT token for dev admin
+    const token = jwt.sign({
+      username: user.username || username,
+      email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com',
+      name: user.name || 'Admin',
+      role: user.role || 'ADMIN'
+    }, JWT_SECRET, { expiresIn: '24h' });
+
+    console.log('Login successful for admin (dev password), JWT token generated');
+    return res.json({
+      success: true,
+      token,
+      user: {
+        username: user.username || username,
+        email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com',
+        name: user.name || 'Admin',
+        role: user.role || 'ADMIN'
+      }
+    });
   }
 
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'invalid credentials' });
 
-  req.session.user = { email: user.email, name: user.name };
-  console.log('Login successful, session set:', req.session.user);
-  return res.json({ success: true, email: user.email, name: user.name });
+  // Generate JWT token
+  const token = jwt.sign({
+    username: username,
+    email: user.email,
+    name: user.name,
+    role: user.role || 'USER'
+  }, JWT_SECRET, { expiresIn: '24h' });
+
+  console.log('Login successful, JWT token generated for:', username, 'Role:', user.role || 'USER');
+  return res.json({
+    success: true,
+    token,
+    user: {
+      username: username,
+      email: user.email,
+      name: user.name,
+      role: user.role || 'USER'
+    }
+  });
 });
 
 app.get('/auth/setup-status', async (req, res) => {
@@ -407,12 +443,27 @@ app.post('/auth/setup', async (req, res) => {
 });
 
 app.get('/auth/status', (req, res) => {
-  console.log('Auth status check - Session exists:', !!req.session, 'User exists:', !!req.session?.user, 'Session ID:', req.sessionID);
-  if (req.session && req.session.user) {
-    console.log('User authenticated:', req.session.user);
-    return res.json({ loggedIn: true, user: req.session.user });
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      console.log('JWT token verified for user:', decoded.username);
+      return res.json({
+        loggedIn: true,
+        user: {
+          username: decoded.username,
+          email: decoded.email,
+          name: decoded.name,
+          role: decoded.role
+        }
+      });
+    } catch (error) {
+      console.log('JWT verification failed:', error.message);
+      return res.json({ loggedIn: false });
+    }
   }
-  console.log('User not authenticated');
+  console.log('No JWT token provided');
   return res.json({ loggedIn: false });
 });
 
