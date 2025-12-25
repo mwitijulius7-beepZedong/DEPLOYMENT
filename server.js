@@ -326,22 +326,30 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ error: 'not authenticated' });
 }
 
-const transporter = process.env.SENDGRID_API_KEY
+const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
   ? nodemailer.createTransport({
-      host: 'smtp.sendgrid.net',
-      port: 587,
-      secure: false,
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
       auth: {
-        user: 'apikey',
-        pass: process.env.SENDGRID_API_KEY
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
       }
     })
-  : {
-      sendMail: async (opts) => {
-        console.log('Mock email:', opts);
-        return { messageId: 'mock-' + Date.now() };
-      }
-    };
+  : (process.env.SENDGRID_API_KEY
+      ? nodemailer.createTransport({
+          host: 'smtp.sendgrid.net',
+          port: 587,
+          secure: false,
+          auth: { user: 'apikey', pass: process.env.SENDGRID_API_KEY }
+        })
+      : {
+          sendMail: async (opts) => {
+            console.log('Mock email:', opts);
+            return { messageId: 'mock-' + Date.now() };
+          }
+        }
+    );
 
 // Auth routes
 app.post('/auth/login', async (req, res) => {
@@ -575,7 +583,7 @@ app.post('/auth/forgot', async (req, res) => {
     // If no matching user, avoid user enumeration: notify admin optionally, but always return success
     if (!targetUser) {
       const mailOptions = {
-        from: process.env.SMTP_USER || 'noreply@example.com',
+        from: (process.env.SMTP_FROM && String(process.env.SMTP_FROM).trim()) ? String(process.env.SMTP_FROM).trim() : (process.env.ALLOWED_EMAIL || 'noreply@example.com'),
         to: adminEmail,
         subject: `Password reset attempted for unknown email: ${email}`,
         html: `
@@ -602,8 +610,13 @@ app.post('/auth/forgot', async (req, res) => {
     const resetUrl = `${baseUrl}/reset.html?token=${resetToken}`;
     const adminPanelUrl = `${baseUrl}/admin.html`;
 
+    // Choose a valid From address (avoid using SMTP_USER like 'apikey')
+    const fromAddress = (process.env.SMTP_FROM && String(process.env.SMTP_FROM).trim())
+      ? String(process.env.SMTP_FROM).trim()
+      : (adminEmail || process.env.ALLOWED_EMAIL || 'noreply@example.com');
+
     const mailOptions = {
-      from: process.env.SMTP_USER || 'noreply@example.com',
+      from: fromAddress,
       to: adminEmail,
       subject: `Admin action required: Password reset for ${targetUser.username} (${email})`,
       html: `
