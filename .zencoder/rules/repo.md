@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## Summary
 
-Birthday Blog is a full-stack web application for publishing and managing blog posts with Google OAuth authentication. The project includes a Vue.js frontend, Node.js/Express backend, and integrates with MongoDB for data persistence, Cloudinary for image storage, and supports deployment to both Vercel and Netlify.
+Birthday Blog is a full-stack web application for publishing and managing blog posts with Google OAuth authentication. The project includes a Vue.js frontend, Node.js/Express backend, and integrates with MongoDB for data persistence, Cloudinary for image storage, and supports deployment to Vercel.
 
 ## Structure
 
@@ -68,7 +68,6 @@ No Dockerfile or Docker Compose configuration found in the repository.
 
 ## Deployment
 
-**Netlify Configuration** (`netlify.toml`):
 - Functions directory: `netlify/functions`
 - Publish directory: root
 - Serverless functions for `/api/*` and `/auth/*` endpoints
@@ -97,7 +96,6 @@ No Dockerfile or Docker Compose configuration found in the repository.
 
 - **`.env`**: Environment variables (not included; copy from `.env.example`)
 - **`tailwind.config.js`**: Tailwind CSS configuration
-- **`netlify.toml`**: Netlify deployment configuration
 - **`vercel.json`**: Vercel deployment configuration
 - **Data Files**: `users.json`, `posts.json`, `categories.json`, `analytics.json`, `security_logs.json`
 
