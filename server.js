@@ -1633,7 +1633,13 @@ app.get('/', (req, res) => {
 });
 
 app.get('/admin.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'admin.html'));
+  // Serve the React-based admin with modern sidebar UI in production
+  const reactAdmin = path.join(__dirname, 'admin-react.html');
+  const fallback = path.join(__dirname, 'admin.html');
+  try {
+    if (fs.existsSync(reactAdmin)) return res.sendFile(reactAdmin);
+  } catch (e) {}
+  return res.sendFile(fallback);
 });
 
 app.get('/login.html', (req, res) => {
