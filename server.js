@@ -12,6 +12,7 @@ const bcrypt = require('bcryptjs');
 const { put } = require('@vercel/blob');
 const { MongoClient } = require('mongodb');
 const cloudinary = require('cloudinary').v2;
+const jwt = require('jsonwebtoken');
 // const { kv } = require('@vercel/kv'); // Only for Vercel deployment
 
 const app = express();
@@ -50,6 +51,12 @@ const SECURITY_LOGS_FILE = path.join(__dirname, 'security_logs.json');
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const ALLOWED_EMAIL = process.env.ALLOWED_EMAIL || '';
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || '';
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
+
+// Set dev admin password for development
+if (process.env.NODE_ENV !== 'production') {
+  process.env.DEV_ADMIN_PASSWORD = 'Mwitijulius7';
+}
 
 if (!CLIENT_ID) {
   console.warn('WARNING: GOOGLE_CLIENT_ID is not set in .env - server verification will fail');
@@ -326,22 +333,30 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ error: 'not authenticated' });
 }
 
-const transporter = process.env.SENDGRID_API_KEY
+const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
   ? nodemailer.createTransport({
-      host: 'smtp.sendgrid.net',
-      port: 587,
-      secure: false,
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
       auth: {
-        user: 'apikey',
-        pass: process.env.SENDGRID_API_KEY
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
       }
     })
-  : {
-      sendMail: async (opts) => {
-        console.log('Mock email:', opts);
-        return { messageId: 'mock-' + Date.now() };
-      }
-    };
+  : (process.env.SENDGRID_API_KEY
+      ? nodemailer.createTransport({
+          host: 'smtp.sendgrid.net',
+          port: 587,
+          secure: false,
+          auth: { user: 'apikey', pass: process.env.SENDGRID_API_KEY }
+        })
+      : {
+          sendMail: async (opts) => {
+            console.log('Mock email:', opts);
+            return { messageId: 'mock-' + Date.now() };
+          }
+        }
+    );
 
 // Auth routes
 app.post('/auth/login', async (req, res) => {
@@ -352,18 +367,53 @@ app.post('/auth/login', async (req, res) => {
   const user = users[username];
   if (!user) return res.status(401).json({ error: 'invalid credentials' });
 
+  // Check if user is active
+  if (user.active === false) return res.status(401).json({ error: 'account disabled' });
+
   if (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD) {
-    req.session.user = { email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com', name: user.name || 'Admin' };
-    console.log('Login successful for admin (dev password), session set:', req.session.user);
-    return res.json({ success: true, email: req.session.user.email, name: req.session.user.name });
+    // Generate JWT token for dev admin
+    const token = jwt.sign({
+      username: user.username || username,
+      email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com',
+      name: user.name || 'Admin',
+      role: user.role || 'ADMIN'
+    }, JWT_SECRET, { expiresIn: '24h' });
+
+    console.log('Login successful for admin (dev password), JWT token generated');
+    return res.json({
+      success: true,
+      token,
+      user: {
+        username: user.username || username,
+        email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com',
+        name: user.name || 'Admin',
+        role: user.role || 'ADMIN'
+      }
+    });
   }
 
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'invalid credentials' });
 
-  req.session.user = { email: user.email, name: user.name };
-  console.log('Login successful, session set:', req.session.user);
-  return res.json({ success: true, email: user.email, name: user.name });
+  // Generate JWT token
+  const token = jwt.sign({
+    username: username,
+    email: user.email,
+    name: user.name,
+    role: user.role || 'USER'
+  }, JWT_SECRET, { expiresIn: '24h' });
+
+  console.log('Login successful, JWT token generated for:', username, 'Role:', user.role || 'USER');
+  return res.json({
+    success: true,
+    token,
+    user: {
+      username: username,
+      email: user.email,
+      name: user.name,
+      role: user.role || 'USER'
+    }
+  });
 });
 
 app.get('/auth/setup-status', async (req, res) => {
@@ -399,12 +449,27 @@ app.post('/auth/setup', async (req, res) => {
 });
 
 app.get('/auth/status', (req, res) => {
-  console.log('Auth status check - Session exists:', !!req.session, 'User exists:', !!req.session?.user, 'Session ID:', req.sessionID);
-  if (req.session && req.session.user) {
-    console.log('User authenticated:', req.session.user);
-    return res.json({ loggedIn: true, user: req.session.user });
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      console.log('JWT token verified for user:', decoded.username);
+      return res.json({
+        loggedIn: true,
+        user: {
+          username: decoded.username,
+          email: decoded.email,
+          name: decoded.name,
+          role: decoded.role
+        }
+      });
+    } catch (error) {
+      console.log('JWT verification failed:', error.message);
+      return res.json({ loggedIn: false });
+    }
   }
-  console.log('User not authenticated');
+  console.log('No JWT token provided');
   return res.json({ loggedIn: false });
 });
 
@@ -546,6 +611,129 @@ app.post('/auth/google', async (req, res) => {
   } catch (e) {
     console.error('Google auth error:', e);
     return res.status(500).json({ error: 'verification failed' });
+  }
+});
+
+// Forgot password endpoint
+app.post('/auth/forgot', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'missing email' });
+
+  try {
+    const users = await loadUsers();
+    const targetUser = Object.values(users).find(u => u.email === email);
+
+    // Resolve admin email: prefer admin user email, then settings.author.email, then ALLOWED_EMAIL, else requester email
+    let adminEmail = '';
+    try {
+      adminEmail = (users['admin'] && users['admin'].email) ? users['admin'].email : '';
+      if (!adminEmail) {
+        const settings = readSettings();
+        adminEmail = (settings && settings.author && settings.author.email) ? settings.author.email : '';
+      }
+      if (!adminEmail) adminEmail = process.env.ALLOWED_EMAIL || '';
+      if (!adminEmail) adminEmail = email; // last resort
+    } catch (e) {
+      adminEmail = process.env.ALLOWED_EMAIL || email;
+    }
+
+    // If no matching user, avoid user enumeration: notify admin optionally, but always return success
+    if (!targetUser) {
+      const mailOptions = {
+        from: (process.env.SMTP_FROM && String(process.env.SMTP_FROM).trim()) ? String(process.env.SMTP_FROM).trim() : (process.env.ALLOWED_EMAIL || 'noreply@example.com'),
+        to: adminEmail,
+        subject: `Password reset attempted for unknown email: ${email}`,
+        html: `
+          <h2>Password Reset Attempt</h2>
+          <p>A password reset was requested for <strong>${email}</strong>, but no matching user was found.</p>
+          <p>No action is required. If this was unexpected, you may review security logs in the admin panel.</p>
+        `
+      };
+      try { await transporter.sendMail(mailOptions); } catch (_) {}
+      return res.json({ success: true, message: 'If an account exists, a reset email has been sent.' });
+    }
+
+    // Generate reset token (username + timestamp + random)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const tokenData = `${targetUser.username}|${Date.now()}|${resetToken}`;
+    const encryptedToken = encryptText(tokenData);
+
+    // Store token temporarily (in production, use Redis or database)
+    if (!global.resetTokens) global.resetTokens = {};
+    global.resetTokens[resetToken] = { username: targetUser.username, expires: Date.now() + 24 * 60 * 60 * 1000 }; // 24 hours
+
+    // Build admin-focused email with both password reset link and admin key guidance
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const resetUrl = `${baseUrl}/reset.html?token=${resetToken}`;
+    const adminPanelUrl = `${baseUrl}/admin.html`;
+
+    // Choose a valid From address (avoid using SMTP_USER like 'apikey')
+    const fromAddress = (process.env.SMTP_FROM && String(process.env.SMTP_FROM).trim())
+      ? String(process.env.SMTP_FROM).trim()
+      : (adminEmail || process.env.ALLOWED_EMAIL || 'noreply@example.com');
+
+    const mailOptions = {
+      from: fromAddress,
+      to: adminEmail,
+      subject: `Admin action required: Password reset for ${targetUser.username} (${email})`,
+      html: `
+        <h2>Password Reset Requested</h2>
+        <p>A password reset was requested for the user:</p>
+        <ul>
+          <li><strong>Username:</strong> ${targetUser.username}</li>
+          <li><strong>Email:</strong> ${email}</li>
+        </ul>
+        <p>Use the link below to reset the password:</p>
+        <p><a href="${resetUrl}">Reset Password</a> (expires in 24 hours)</p>
+        <hr>
+        <h3>Admin Entry Key</h3>
+        <p>If you also need to rotate or reset the Admin Entry Key, open the admin panel and update it in the Security section:</p>
+        <p><a href="${adminPanelUrl}">Open Admin Panel</a></p>
+        <p>This email was sent to the configured admin email to ensure secure password and key management.</p>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    return res.json({ success: true, message: 'Reset email sent' });
+  } catch (e) {
+    console.error('Forgot password error:', e);
+    return res.status(500).json({ error: 'failed to send reset email' });
+  }
+});
+
+// Reset password endpoint
+app.post('/auth/reset', async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'missing token or password' });
+
+  try {
+    // Verify token
+    if (!global.resetTokens || !global.resetTokens[token]) {
+      return res.status(400).json({ error: 'invalid or expired token' });
+    }
+
+    const tokenInfo = global.resetTokens[token];
+    if (Date.now() > tokenInfo.expires) {
+      delete global.resetTokens[token];
+      return res.status(400).json({ error: 'token expired' });
+    }
+
+    // Update user password
+    const users = await loadUsers();
+    const user = users[tokenInfo.username];
+    if (!user) return res.status(404).json({ error: 'user not found' });
+
+    const hash = await bcrypt.hash(password, 10);
+    user.passwordHash = hash;
+    await saveUsers(users);
+
+    // Clean up token
+    delete global.resetTokens[token];
+
+    return res.json({ success: true, message: 'password reset successfully' });
+  } catch (e) {
+    console.error('Reset password error:', e);
+    return res.status(500).json({ error: 'failed to reset password' });
   }
 });
 

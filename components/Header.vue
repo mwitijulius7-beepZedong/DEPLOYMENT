@@ -1,5 +1,5 @@
 <template>
-  <header class="header" style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; width: 100% !important; z-index: 9999 !important;">
+  <header class="header">
     <div class="header-content">
       <div class="header-left">
         <div class="profile-photo" :style="{ backgroundImage: profilePhoto ? 'url(' + profilePhoto + ')' : '' }" @click="handleProfileClick" :title="profileTitle">
