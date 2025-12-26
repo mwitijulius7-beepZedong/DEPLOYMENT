@@ -711,7 +711,7 @@
         // Idle timeout variables
         let idleTimer;
         let lastActivity = Date.now();
-        const IDLE_TIMEOUT = 10 * 1000; // 10 seconds for testing (change to 10 * 60 * 1000 for 10 minutes)
+        const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes in production
 
         // Reset idle timer on user activity
         function resetIdleTimer() {
@@ -786,7 +786,8 @@
         async function checkAuth() {
             console.log('Checking authentication status...');
             try {
-                const response = await fetch('/auth/status', { credentials: 'include' });
+                const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : '';
+                const response = await fetch('/auth/status', { credentials: 'include', headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
                 const data = await response.json();
                 console.log('Auth response received:', { status: response.status, loggedIn: data.loggedIn });
 
@@ -838,12 +839,14 @@
         async function loadDashboardStats() {
             try {
                 // Load posts count
-                const postsResponse = await fetch('/api/posts');
+                const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : '';
+                const postsResponse = await fetch('/api/posts', { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
                 const postsData = await postsResponse.json();
                 document.getElementById('posts-count').textContent = postsData.posts.length;
 
                 // Load analytics (simplified)
-                const analyticsResponse = await fetch('/api/analytics');
+                const token2 = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : '';
+                const analyticsResponse = await fetch('/api/analytics', { headers: token2 ? { 'Authorization': `Bearer ${token2}` } : {} });
                 const analyticsData = await analyticsResponse.json();
                 document.getElementById('views-count').textContent = analyticsData.pageViews?.length || 0;
 
@@ -858,6 +861,8 @@
         // Logout function
         async function logout() {
             try {
+                // Clear stored token
+                try { localStorage.removeItem('authToken'); } catch (_) {}
                 await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
                 window.location.href = '/';
             } catch (error) {
@@ -1053,7 +1058,8 @@
         // Analytics functions
         async function refreshAnalytics() {
             try {
-                const analyticsResponse = await fetch('/api/analytics');
+                const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : '';
+                const analyticsResponse = await fetch('/api/analytics', { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
                 const analyticsData = await analyticsResponse.json();
 
                 document.getElementById('analytics-page-views').textContent = analyticsData.pageViews?.length || 0;
@@ -1080,7 +1086,8 @@
 
         async function exportAnalytics() {
             try {
-                const response = await fetch('/api/analytics/export');
+                const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : '';
+                const response = await fetch('/api/analytics/export', { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
