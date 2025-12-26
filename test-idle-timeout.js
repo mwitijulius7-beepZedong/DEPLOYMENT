@@ -16,7 +16,11 @@ async function testIdleTimeout() {
 
   try {
     // Navigate to login page
-    await page.goto('http://localhost:3000/login.html', { timeout: 60000 });
+    console.log('Navigating to login page...');
+    await page.goto('http://localhost:3000/login.html', { timeout: 60000, waitUntil: 'domcontentloaded' });
+    console.log('Login page loaded, waiting for elements...');
+    await page.waitForSelector('#username', { timeout: 10000 });
+    console.log('Username field found');
 
     // Type username
     await page.type('#username', 'Mwitijulius7');

@@ -1,9 +1,7 @@
 {
-  "admin": {
-    "name": "Mwitijulius7",
-    "email": "mwitijulius7@gmail.com",
-    "passwordHash": "$2a$10$XLoM197Ptzw/jjz1SII7wu2pKG335acABn7/6UJGpQTuge3Wn9/k2",
-    "role": "ADMIN",
-    "active": true
+  "Mwitijulius7": {
+    "name": "Admin",
+    "email": "admin@example.com",
+    "passwordHash": "$2a$10$13kKLXp3244/1ARvrhhDt.rBw.KCuVMUDmFJY7ZQn6Wwc/efhWGgO"
   }
 }
