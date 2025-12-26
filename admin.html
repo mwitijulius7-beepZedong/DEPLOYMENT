@@ -708,10 +708,16 @@
     </div>
 
     <script>
+        const IDLE_TIMEOUT = 10 * 1000; // 10 seconds for testing
+>>>>>>> 6849a7ae474fab392976e62c9c4a339242f3feed
+=======
         // Idle timeout variables
         let idleTimer;
         let lastActivity = Date.now();
         const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes in production
+=======
+        const IDLE_TIMEOUT = 10 * 1000; // 10 seconds for testing
+>>>>>>> 6849a7ae474fab392976e62c9c4a339242f3feed
 
         // Reset idle timer on user activity
         function resetIdleTimer() {
