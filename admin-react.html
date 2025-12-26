@@ -22,7 +22,7 @@
 
     <script type="text/babel">
         const { useState } = React;
-        const { BrowserRouter, Routes, Route, NavLink } = ReactRouterDOM;
+        const { HashRouter, Routes, Route, NavLink } = ReactRouterDOM;
         const {
             LayoutDashboard,
             FileText,
@@ -216,7 +216,7 @@
         // Main App Component
         function App() {
             return (
-                <BrowserRouter>
+                <HashRouter>
                     <AdminLayout>
                         <Routes>
                             <Route path="/" element={<Dashboard />} />
@@ -227,7 +227,7 @@
                             <Route path="/settings" element={<div className="p-6"><h1 className="text-2xl font-bold">Settings</h1><p>Configure your blog</p></div>} />
                         </Routes>
                     </AdminLayout>
-                </BrowserRouter>
+                </HashRouter>
             );
         }
 
