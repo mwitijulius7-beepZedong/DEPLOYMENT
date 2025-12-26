@@ -355,10 +355,10 @@
                 <h1>zedong254ke</h1>
             </a>
             <nav class="nav-links">
-                <a href="#dashboard" class="nav-link active">Dashboard</a>
-                <a href="#posts" class="nav-link">Posts</a>
-                <a href="#settings" class="nav-link">Settings</a>
-                <a href="#analytics" class="nav-link">Analytics</a>
+                <a href="#dashboard" class="nav-link active" onclick="showDashboard()">Dashboard</a>
+                <a href="#posts" class="nav-link" onclick="showPostsSection()">Posts</a>
+                <a href="#settings" class="nav-link" onclick="showSettingsSection()">Settings</a>
+                <a href="#analytics" class="nav-link" onclick="showAnalyticsSection()">Analytics</a>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </nav>
         </div>
@@ -707,14 +707,152 @@
         </div>
     </div>
 
-    <script>
         const IDLE_TIMEOUT = 10 * 1000; // 10 seconds for testing
->>>>>>> 6849a7ae474fab392976e62c9c4a339242f3feed
-=======
+
         // Idle timeout variables
         let idleTimer;
         let lastActivity = Date.now();
-        const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes in production
+
+        // Reset idle timer on user activity
+        function resetIdleTimer() {
+            lastActivity = Date.now();
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(checkIdleTimeout, 1000); // Check every second
+        }
+
+        // Check if user has been idle for too long
+        function checkIdleTimeout() {
+            const now = Date.now();
+            if (now - lastActivity >= IDLE_TIMEOUT) {
+                // Clear admin key verification from session
+                clearAdminKeyVerification();
+                // Prompt for admin key again
+                promptForAdminKey();
+            } else {
+                // Continue checking
+                idleTimer = setTimeout(checkIdleTimeout, 1000);
+            }
+        }
+
+        // Clear admin key verification from session
+        async function clearAdminKeyVerification() {
+            try {
+                await fetch('/api/settings/clear-admin-key-verification', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+            } catch (error) {
+                console.error('Error clearing admin key verification:', error);
+            }
+        }
+
+        // Prompt for admin entry key
+        async function promptForAdminKey() {
+            const entryKey = prompt('Your session has expired due to inactivity. Please enter the admin entry key to continue.');
+            if (!entryKey) {
+                alert('Admin entry key is required to access the admin panel.');
+                window.location.href = '/login.html';
+                return false;
+            }
+
+            // Verify the entry key
+            try {
+                const verifyResponse = await fetch('/api/settings/verify-entry-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminEntryKey: entryKey }),
+                    credentials: 'include'
+                });
+                const verifyData = await verifyResponse.json();
+
+                if (!verifyData.success) {
+                    alert('Invalid admin entry key. Access denied.');
+                    window.location.href = '/login.html';
+                    return false;
+                }
+
+                // Reset idle timer after successful verification
+                resetIdleTimer();
+                return true;
+            } catch (error) {
+                console.error('Error verifying admin key:', error);
+                alert('Error verifying admin key. Please try again.');
+                window.location.href = '/login.html';
+                return false;
+            }
+        }
+=======
+        const IDLE_TIMEOUT = 10 * 1000; // 10 seconds for testing
+
+        // Idle timeout variables
+        let idleTimer;
+        let lastActivity = Date.now();
+
+        // Reset idle timer on user activity
+=======
+        const IDLE_TIMEOUT = 10 * 1000; // 10 seconds for testing
+>>>>>>> 6849a7ae474fab392976e62c9c4a339242f3feed
+
+        // Reset idle timer on user activity
+=======
+        const IDLE_TIMEOUT = 10 * 1000; // 10 seconds for testing
+
+        // Idle timeout variables
+        let idleTimer;
+        let lastActivity = Date.now();
+
+        // Reset idle timer on user activity
+=======
+        const IDLE_TIMEOUT = 10 * 1000; // 10 seconds for testing
+>>>>>>> 6849a7ae474fab392976e62c9c4a339242f3feed
+
+        // Reset idle timer on user activity
+        function resetIdleTimer() {
+            lastActivity = Date.now();
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(checkIdleTimeout, 1000); // Check every second
+        }
+
+        // Check if user has been idle for too long
+        function checkIdleTimeout() {
+            const now = Date.now();
+            if (now - lastActivity >= IDLE_TIMEOUT) {
+                // Clear admin key verification from session
+                clearAdminKeyVerification();
+                // Prompt for admin key again
+                promptForAdminKey();
+            } else {
+                // Continue checking
+                idleTimer = setTimeout(checkIdleTimeout, 1000);
+            }
+        }
+=======
+        const IDLE_TIMEOUT = 10 * 1000; // 10 seconds for testing
+
+        // Idle timeout variables
+        let idleTimer;
+        let lastActivity = Date.now();
+
+        // Reset idle timer on user activity
+        function resetIdleTimer() {
+            lastActivity = Date.now();
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(checkIdleTimeout, 1000); // Check every second
+        }
+
+        // Check if user has been idle for too long
+        function checkIdleTimeout() {
+            const now = Date.now();
+            if (now - lastActivity >= IDLE_TIMEOUT) {
+                // Clear admin key verification from session
+                clearAdminKeyVerification();
+                // Prompt for admin key again
+                promptForAdminKey();
+            } else {
+                // Continue checking
+                idleTimer = setTimeout(checkIdleTimeout, 1000);
+            }
+        }
 =======
         const IDLE_TIMEOUT = 10 * 1000; // 10 seconds for testing
 >>>>>>> 6849a7ae474fab392976e62c9c4a339242f3feed

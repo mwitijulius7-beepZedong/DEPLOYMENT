@@ -68,10 +68,6 @@ No Dockerfile or Docker Compose configuration found in the repository.
 
 ## Deployment
 
-- Functions directory: `netlify/functions`
-- Publish directory: root
-- Serverless functions for `/api/*` and `/auth/*` endpoints
-
 **Vercel Configuration** (`vercel.json`):
 - Version 2 API
 - Server timeout: 10 seconds
