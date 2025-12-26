@@ -9,6 +9,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { put } = require('@vercel/blob');
 const { MongoClient } = require('mongodb');
 const cloudinary = require('cloudinary').v2;
@@ -374,15 +375,19 @@ app.post('/auth/login', async (req, res) => {
     }, JWT_SECRET, { expiresIn: '24h' });
 
     console.log('Login successful for admin (dev password), JWT token generated');
+
+    // Ensure session-based auth works without JWT header
+    req.session.user = {
+      username: user.username || username,
+      email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com',
+      name: user.name || 'Admin',
+      role: user.role || 'ADMIN'
+    };
+
     return res.json({
       success: true,
       token,
-      user: {
-        username: user.username || username,
-        email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com',
-        name: user.name || 'Admin',
-        role: user.role || 'ADMIN'
-      }
+      user: req.session.user
     });
   }
 
@@ -398,15 +403,19 @@ app.post('/auth/login', async (req, res) => {
   }, JWT_SECRET, { expiresIn: '24h' });
 
   console.log('Login successful, JWT token generated for:', username, 'Role:', user.role || 'USER');
+
+  // Ensure session-based auth works without JWT header
+  req.session.user = {
+    username: username,
+    email: user.email,
+    name: user.name,
+    role: user.role || 'USER'
+  };
+
   return res.json({
     success: true,
     token,
-    user: {
-      username: username,
-      email: user.email,
-      name: user.name,
-      role: user.role || 'USER'
-    }
+    user: req.session.user
   });
 });
 
@@ -443,6 +452,15 @@ app.post('/auth/setup', async (req, res) => {
 });
 
 app.get('/auth/status', (req, res) => {
+  // Prefer active session
+  if (req.session && req.session.user) {
+    return res.json({
+      loggedIn: true,
+      user: req.session.user
+    });
+  }
+
+  // Fallback to JWT Authorization header
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
@@ -463,7 +481,7 @@ app.get('/auth/status', (req, res) => {
       return res.json({ loggedIn: false });
     }
   }
-  console.log('No JWT token provided');
+  console.log('No active session or JWT token provided');
   return res.json({ loggedIn: false });
 });
 

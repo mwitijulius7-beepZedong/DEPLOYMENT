@@ -371,6 +371,8 @@
                 const data = await response.json();
 
                 if (data.success) {
+                    // Persist JWT token for production requests
+                    try { localStorage.setItem('authToken', data.token || ''); } catch (_) {}
                     // Redirect to admin panel
                     window.location.href = '/admin.html';
                 } else {
@@ -415,6 +417,8 @@
                 const data = await response.json();
 
                 if (data.success) {
+                    // Persist simple token returned for serverless environments
+                    try { localStorage.setItem('authToken', data.token || ''); } catch (_) {}
                     // Redirect to admin panel
                     window.location.href = '/admin.html';
                 } else {
