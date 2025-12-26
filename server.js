@@ -12,6 +12,7 @@ const bcrypt = require('bcryptjs');
 const { put } = require('@vercel/blob');
 const { MongoClient } = require('mongodb');
 const cloudinary = require('cloudinary').v2;
+const jwt = require('jsonwebtoken');
 // const { kv } = require('@vercel/kv'); // Only for Vercel deployment
 
 const app = express();
@@ -51,6 +52,11 @@ const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const ALLOWED_EMAIL = process.env.ALLOWED_EMAIL || '';
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || '';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
+
+// Set dev admin password for development
+if (process.env.NODE_ENV !== 'production') {
+  process.env.DEV_ADMIN_PASSWORD = 'Mwitijulius7';
+}
 
 if (!CLIENT_ID) {
   console.warn('WARNING: GOOGLE_CLIENT_ID is not set in .env - server verification will fail');
