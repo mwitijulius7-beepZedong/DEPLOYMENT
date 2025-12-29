@@ -53,6 +53,11 @@ const ALLOWED_EMAIL = process.env.ALLOWED_EMAIL || '';
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || '';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 
+// Idle timeout configuration (in minutes)
+const ADMIN_IDLE_TIMEOUT_MINUTES = parseInt(process.env.ADMIN_IDLE_TIMEOUT_MINUTES) || 10;
+const ADMIN_IDLE_TIMEOUT_MS = ADMIN_IDLE_TIMEOUT_MINUTES * 60 * 1000;
+const ADMIN_IDLE_WARNING_MS = (ADMIN_IDLE_TIMEOUT_MINUTES - 1) * 60 * 1000; // Warning at 1 minute before timeout
+
 // Set dev admin password for development
 if (process.env.NODE_ENV !== 'production') {
   process.env.DEV_ADMIN_PASSWORD = 'Mwitijulius7';
@@ -328,6 +333,33 @@ function requireAuth(req, res, next) {
 
   return res.status(401).json({ error: 'not authenticated' });
 }
+
+// Middleware to check idle timeout for admin routes
+function checkIdleTimeout(req, res, next) {
+  if (req.session && req.session.adminKeyVerified) {
+    const now = Date.now();
+    const verifiedAt = req.session.adminKeyVerifiedAt || 0;
+    const timeSinceVerification = now - verifiedAt;
+
+    if (timeSinceVerification > ADMIN_IDLE_TIMEOUT_MS) {
+      // Clear verification on timeout
+      req.session.adminKeyVerified = false;
+      req.session.adminKeyVerifiedAt = null;
+      return res.status(401).json({ error: 'session_expired', message: 'Your session has expired due to inactivity' });
+    }
+  }
+  next();
+}
+
+// Middleware to update admin activity timestamp
+function updateAdminActivity(req, res, next) {
+  if (req.session && req.session.adminKeyVerified) {
+    req.session.adminKeyVerifiedAt = Date.now();
+  }
+  next();
+}
+
+const requireAdmin = [requireAuth, checkIdleTimeout, updateAdminActivity];
 
 const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
   ? nodemailer.createTransport({
@@ -764,7 +796,7 @@ app.get('/api/posts/:id', async (req, res) => {
   return res.json({ post });
 });
 
-app.post('/api/posts', requireAuth, async (req, res) => {
+app.post('/api/posts', requireAdmin, async (req, res) => {
   const body = req.body;
   if (!body || !body.title || !body.content) return res.status(400).json({ error: 'missing title or content' });
 
@@ -797,7 +829,7 @@ app.post('/api/posts', requireAuth, async (req, res) => {
 });
 
 // PUT /api/posts/:id - update (admin only)
-app.put('/api/posts/:id', requireAuth, async (req, res) => {
+app.put('/api/posts/:id', requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const body = req.body;
   const posts = await loadPosts();
@@ -829,7 +861,7 @@ app.put('/api/posts/:id', requireAuth, async (req, res) => {
   return res.json({ success: true, post: updated });
 });
 
-app.delete('/api/posts/:id', requireAuth, async (req, res) => {
+app.delete('/api/posts/:id', requireAdmin, async (req, res) => {
   const id = req.params.id;
   let posts = await loadPosts();
   const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
@@ -840,7 +872,7 @@ app.delete('/api/posts/:id', requireAuth, async (req, res) => {
 });
 
 // Upload API with Cloudinary
-app.post('/api/upload', requireAuth, async (req, res) => {
+app.post('/api/upload', requireAdmin, async (req, res) => {
   try {
     if (!req.files || !req.files.image) return res.status(400).json({ error: 'no file uploaded' });
     const image = req.files.image;
@@ -952,7 +984,7 @@ app.get('/api/settings/background', (req, res) => {
 });
 
 // Set background image
-app.post('/api/settings/background', requireAuth, (req, res) => {
+app.post('/api/settings/background', requireAdmin, (req, res) => {
   const { backgroundUrl } = req.body;
   if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
 
@@ -974,7 +1006,7 @@ app.get('/api/settings/backgrounds', (req, res) => {
   return res.json({ backgrounds: arr });
 });
 
-app.post('/api/settings/backgrounds', requireAuth, (req, res) => {
+app.post('/api/settings/backgrounds', requireAdmin, (req, res) => {
   try {
     if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
     const { backgrounds } = req.body || {};
@@ -1013,7 +1045,7 @@ app.get('/api/settings/theme', async (req, res) => {
   }
 });
 
-app.post('/api/settings/theme', requireAuth, async (req, res) => {
+app.post('/api/settings/theme', requireAdmin, async (req, res) => {
   try {
     // For Vercel, use MongoDB if available
     if (process.env.VERCEL && db) {
@@ -1092,7 +1124,7 @@ app.get('/api/settings/blog-info', async (req, res) => {
   }
 });
 
-app.post('/api/settings/blog-info', requireAuth, async (req, res) => {
+app.post('/api/settings/blog-info', requireAdmin, async (req, res) => {
   try {
     // For Vercel, use MongoDB if available
     if (process.env.VERCEL && db) {
@@ -1129,7 +1161,7 @@ app.post('/api/settings/blog-info', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/settings/author', requireAuth, async (req, res) => {
+app.post('/api/settings/author', requireAdmin, async (req, res) => {
   try {
     // For Vercel, use MongoDB if available
     if (process.env.VERCEL && db) {
@@ -1209,7 +1241,7 @@ app.get('/api/settings/security', async (req, res) => {
   }
 });
 
-app.post('/api/settings/security', requireAuth, async (req, res) => {
+app.post('/api/settings/security', requireAdmin, async (req, res) => {
   try {
     if (process.env.VERCEL || process.env.ADMIN_ENTRY_KEY) {
       return res.status(501).json({ error: 'not_supported_on_serverless_or_env_managed' });
@@ -1333,7 +1365,7 @@ app.post('/api/settings/clear-admin-key-verification', (req, res) => {
 });
 
 // View security logs after verifying admin credentials
-app.post('/api/settings/security/logs', requireAuth, async (req, res) => {
+app.post('/api/settings/security/logs', requireAdmin, async (req, res) => {
   try {
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
@@ -1354,7 +1386,7 @@ app.post('/api/settings/security/logs', requireAuth, async (req, res) => {
 });
 
 // View current admin entry key (requires admin creds). Returns plaintext if stored, else empty
-app.post('/api/settings/security/key-view', requireAuth, async (req, res) => {
+app.post('/api/settings/security/key-view', requireAdmin, async (req, res) => {
   try {
     if (process.env.ADMIN_ENTRY_KEY) {
       return res.status(403).json({
@@ -1401,7 +1433,7 @@ app.get('/api/categories', async (req, res) => {
   }
 });
 
-app.post('/api/categories', requireAuth, async (req, res) => {
+app.post('/api/categories', requireAdmin, async (req, res) => {
   try {
     console.log('Creating category - DB connected:', !!db, 'Body:', req.body);
     const { name, description } = req.body;
@@ -1429,7 +1461,7 @@ app.post('/api/categories', requireAuth, async (req, res) => {
   }
 });
 
-app.put('/api/categories/:id', requireAuth, async (req, res) => {
+app.put('/api/categories/:id', requireAdmin, async (req, res) => {
   const id = req.params.id;
   const { name, description } = req.body;
   if (!name) return res.status(400).json({ error: 'missing name' });
@@ -1451,7 +1483,7 @@ app.put('/api/categories/:id', requireAuth, async (req, res) => {
   return res.json({ success: true, category: categories[idx] });
 });
 
-app.delete('/api/categories/:id', requireAuth, async (req, res) => {
+app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
   const id = req.params.id;
   let categories = await loadCategories();
   const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
@@ -1515,7 +1547,7 @@ app.post('/api/analytics/interaction', async (req, res) => {
 });
 
 // Get analytics data (protected)
-app.get('/api/analytics', requireAuth, async (req, res) => {
+app.get('/api/analytics', requireAdmin, async (req, res) => {
   const analytics = await loadAnalytics();
   return res.json(analytics);
 });
@@ -1543,7 +1575,7 @@ app.post('/api/subscribe', async (req, res) => {
 
 // Export analytics data with optional date filters
 // Query params: dataset=pageViews|interactions|all (default=all), format=json|csv (default=json), from=ISO, to=ISO
-app.get('/api/analytics/export', requireAuth, async (req, res) => {
+app.get('/api/analytics/export', requireAdmin, async (req, res) => {
   try {
     const { dataset = 'all', format = 'json', from, to } = req.query;
     const all = await loadAnalytics();
