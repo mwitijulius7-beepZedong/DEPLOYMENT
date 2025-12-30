@@ -196,11 +196,26 @@
             font-weight: 500;
             transition: var(--transition);
             width: 100%;
+            position: relative;
+            z-index: 10;
+            pointer-events: auto;
+            user-select: none;
         }
 
         .action-btn:hover {
             background: #e64a19;
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(244, 161, 145, 0.3);
+        }
+
+        .action-btn:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 2px;
+        }
+
+        .action-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(244, 161, 145, 0.2);
         }
 
         .action-btn.secondary {
