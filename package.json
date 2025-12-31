@@ -21,7 +21,6 @@
     "mongodb": "^6.20.0",
     "node-fetch": "^2.6.7",
     "nodemailer": "^7.0.9",
-    "puppeteer": "^24.29.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.11.0"
@@ -30,6 +29,7 @@
     "node": "22.x"
   },
   "devDependencies": {
+    "puppeteer": "^24.34.0",
     "tailwindcss": "^4.1.16"
   }
 }
