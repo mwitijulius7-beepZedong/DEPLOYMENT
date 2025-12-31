@@ -1,5 +1,5 @@
 // idle-timeout.js
-const IDLE_TIMEOUT = 10 * 1000; // 10 seconds (testing)
+const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
 let idleTimer;
 let lastActivity = Date.now();
