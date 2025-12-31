@@ -7,11 +7,17 @@ let showCustomizeSection, showPrimaryOkButton, showAccentOkButton, confirmPrimar
 let initializeCharts;
 
 try {
-    const idleTimeoutModule = await import('../idle-timeout.js');
+    let idleTimeoutModule;
+    try {
+        idleTimeoutModule = await import('../idle-timeout.js');
+    } catch (firstError) {
+        console.warn('Failed to load ../idle-timeout.js, trying ./idle-timeout.js:', firstError.message);
+        idleTimeoutModule = await import('./idle-timeout.js');
+    }
     initIdleTracking = idleTimeoutModule.initIdleTracking;
     resetIdleTimer = idleTimeoutModule.resetIdleTimer;
 } catch (error) {
-    console.error('Failed to load idle-timeout.js:', error);
+    console.error('Failed to load idle-timeout.js from both paths:', error);
     initIdleTracking = () => {};
     resetIdleTimer = () => {};
 }
