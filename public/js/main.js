@@ -1,12 +1,162 @@
 // Main application entry point
-import { initIdleTracking, resetIdleTimer } from '../idle-timeout.js';
-import { checkAuth, logout } from './auth.js';
-import { loadDashboardStats, showDashboard } from './dashboard.js';
-import { showPostsSection, togglePostsList, loadPostsList, createNewPost, editPost, deletePost, viewPostStats, toggleSelectAllPosts, updateSelectedCount, deleteSelectedPosts } from './posts.js';
-import { showAnalyticsSection, refreshAnalytics, viewEngagementDetails, exportAnalytics, loadTimeAnalytics } from './analytics.js';
-import { showSettingsSection, toggleCategoriesList, loadCategories, addCategory, editCategory, deleteCategory, toggleSelectAllCategories, updateSelectedCategoriesCount, deleteSelectedCategories, saveAuthorInfo, saveSecuritySettings, viewCurrentKey, clearKey, saveNotificationSettings, saveContentSettings, handleProfilePictureUpload } from './settings.js';
-import { showCustomizeSection, showPrimaryOkButton, showAccentOkButton, confirmPrimaryColor, confirmAccentColor, saveThemeSettings, saveBlogInfo, handleBackgroundUpload, saveBackgroundSettings, previewChanges, applyChanges, previewColorBackground, applyColorBackground, selectPattern } from './customize.js';
-import { initializeCharts } from './charts.js';
+let initIdleTracking, resetIdleTimer, checkAuth, logout, loadDashboardStats, showDashboard;
+let showPostsSection, togglePostsList, loadPostsList, createNewPost, editPost, deletePost, viewPostStats, toggleSelectAllPosts, updateSelectedCount, deleteSelectedPosts;
+let showAnalyticsSection, refreshAnalytics, viewEngagementDetails, exportAnalytics, loadTimeAnalytics;
+let showSettingsSection, toggleCategoriesList, loadCategories, addCategory, editCategory, deleteCategory, toggleSelectAllCategories, updateSelectedCategoriesCount, deleteSelectedCategories, saveAuthorInfo, saveSecuritySettings, viewCurrentKey, clearKey, saveNotificationSettings, saveContentSettings, handleProfilePictureUpload;
+let showCustomizeSection, showPrimaryOkButton, showAccentOkButton, confirmPrimaryColor, confirmAccentColor, saveThemeSettings, saveBlogInfo, handleBackgroundUpload, saveBackgroundSettings, previewChanges, applyChanges, previewColorBackground, applyColorBackground, selectPattern;
+let initializeCharts;
+
+try {
+    const idleTimeoutModule = await import('../idle-timeout.js');
+    initIdleTracking = idleTimeoutModule.initIdleTracking;
+    resetIdleTimer = idleTimeoutModule.resetIdleTimer;
+} catch (error) {
+    console.error('Failed to load idle-timeout.js:', error);
+    initIdleTracking = () => {};
+    resetIdleTimer = () => {};
+}
+
+try {
+    const authModule = await import('./auth.js');
+    checkAuth = authModule.checkAuth;
+    logout = authModule.logout;
+} catch (error) {
+    console.error('Failed to load auth.js:', error);
+    checkAuth = () => {};
+    logout = () => {};
+}
+
+try {
+    const dashboardModule = await import('./dashboard.js');
+    loadDashboardStats = dashboardModule.loadDashboardStats;
+    showDashboard = dashboardModule.showDashboard;
+} catch (error) {
+    console.error('Failed to load dashboard.js:', error);
+    loadDashboardStats = () => {};
+    showDashboard = () => {};
+}
+
+try {
+    const postsModule = await import('./posts.js');
+    showPostsSection = postsModule.showPostsSection;
+    togglePostsList = postsModule.togglePostsList;
+    loadPostsList = postsModule.loadPostsList;
+    createNewPost = postsModule.createNewPost;
+    editPost = postsModule.editPost;
+    deletePost = postsModule.deletePost;
+    viewPostStats = postsModule.viewPostStats;
+    toggleSelectAllPosts = postsModule.toggleSelectAllPosts;
+    updateSelectedCount = postsModule.updateSelectedCount;
+    deleteSelectedPosts = postsModule.deleteSelectedPosts;
+} catch (error) {
+    console.error('Failed to load posts.js:', error);
+    showPostsSection = () => {};
+    togglePostsList = () => {};
+    loadPostsList = () => {};
+    createNewPost = () => {};
+    editPost = () => {};
+    deletePost = () => {};
+    viewPostStats = () => {};
+    toggleSelectAllPosts = () => {};
+    updateSelectedCount = () => {};
+    deleteSelectedPosts = () => {};
+}
+
+try {
+    const analyticsModule = await import('./analytics.js');
+    showAnalyticsSection = analyticsModule.showAnalyticsSection;
+    refreshAnalytics = analyticsModule.refreshAnalytics;
+    viewEngagementDetails = analyticsModule.viewEngagementDetails;
+    exportAnalytics = analyticsModule.exportAnalytics;
+    loadTimeAnalytics = analyticsModule.loadTimeAnalytics;
+} catch (error) {
+    console.error('Failed to load analytics.js:', error);
+    showAnalyticsSection = () => {};
+    refreshAnalytics = () => {};
+    viewEngagementDetails = () => {};
+    exportAnalytics = () => {};
+    loadTimeAnalytics = () => {};
+}
+
+try {
+    const settingsModule = await import('./settings.js');
+    showSettingsSection = settingsModule.showSettingsSection;
+    toggleCategoriesList = settingsModule.toggleCategoriesList;
+    loadCategories = settingsModule.loadCategories;
+    addCategory = settingsModule.addCategory;
+    editCategory = settingsModule.editCategory;
+    deleteCategory = settingsModule.deleteCategory;
+    toggleSelectAllCategories = settingsModule.toggleSelectAllCategories;
+    updateSelectedCategoriesCount = settingsModule.updateSelectedCategoriesCount;
+    deleteSelectedCategories = settingsModule.deleteSelectedCategories;
+    saveAuthorInfo = settingsModule.saveAuthorInfo;
+    saveSecuritySettings = settingsModule.saveSecuritySettings;
+    viewCurrentKey = settingsModule.viewCurrentKey;
+    clearKey = settingsModule.clearKey;
+    saveNotificationSettings = settingsModule.saveNotificationSettings;
+    saveContentSettings = settingsModule.saveContentSettings;
+    handleProfilePictureUpload = settingsModule.handleProfilePictureUpload;
+} catch (error) {
+    console.error('Failed to load settings.js:', error);
+    showSettingsSection = () => {};
+    toggleCategoriesList = () => {};
+    loadCategories = () => {};
+    addCategory = () => {};
+    editCategory = () => {};
+    deleteCategory = () => {};
+    toggleSelectAllCategories = () => {};
+    updateSelectedCategoriesCount = () => {};
+    deleteSelectedCategories = () => {};
+    saveAuthorInfo = () => {};
+    saveSecuritySettings = () => {};
+    viewCurrentKey = () => {};
+    clearKey = () => {};
+    saveNotificationSettings = () => {};
+    saveContentSettings = () => {};
+    handleProfilePictureUpload = () => {};
+}
+
+try {
+    const customizeModule = await import('./customize.js');
+    showCustomizeSection = customizeModule.showCustomizeSection;
+    showPrimaryOkButton = customizeModule.showPrimaryOkButton;
+    showAccentOkButton = customizeModule.showAccentOkButton;
+    confirmPrimaryColor = customizeModule.confirmPrimaryColor;
+    confirmAccentColor = customizeModule.confirmAccentColor;
+    saveThemeSettings = customizeModule.saveThemeSettings;
+    saveBlogInfo = customizeModule.saveBlogInfo;
+    handleBackgroundUpload = customizeModule.handleBackgroundUpload;
+    saveBackgroundSettings = customizeModule.saveBackgroundSettings;
+    previewChanges = customizeModule.previewChanges;
+    applyChanges = customizeModule.applyChanges;
+    previewColorBackground = customizeModule.previewColorBackground;
+    applyColorBackground = customizeModule.applyColorBackground;
+    selectPattern = customizeModule.selectPattern;
+} catch (error) {
+    console.error('Failed to load customize.js:', error);
+    showCustomizeSection = () => {};
+    showPrimaryOkButton = () => {};
+    showAccentOkButton = () => {};
+    confirmPrimaryColor = () => {};
+    confirmAccentColor = () => {};
+    saveThemeSettings = () => {};
+    saveBlogInfo = () => {};
+    handleBackgroundUpload = () => {};
+    saveBackgroundSettings = () => {};
+    previewChanges = () => {};
+    applyChanges = () => {};
+    previewColorBackground = () => {};
+    applyColorBackground = () => {};
+    selectPattern = () => {};
+}
+
+try {
+    const chartsModule = await import('./charts.js');
+    initializeCharts = chartsModule.initializeCharts;
+} catch (error) {
+    console.error('Failed to load charts.js:', error);
+    initializeCharts = () => {};
+}
 
 // Make functions globally available for onclick handlers
 window.logout = logout;
@@ -57,8 +207,89 @@ window.previewColorBackground = previewColorBackground;
 window.applyColorBackground = applyColorBackground;
 window.selectPattern = selectPattern;
 
+// Fallback function definitions in case module loading fails
+function defineFallbackFunctions() {
+    console.log('Checking for missing functions...');
+
+    if (typeof window.showCustomizeSection === 'undefined') {
+        console.log('Defining fallback showCustomizeSection');
+        window.showCustomizeSection = function() {
+            console.log('showCustomizeSection called (fallback)');
+            const customizeSection = document.getElementById('customize-section');
+            if (customizeSection) {
+                if (customizeSection.style.display === 'block') {
+                    customizeSection.style.display = 'none';
+                } else {
+                    customizeSection.style.display = 'block';
+                    customizeSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            } else {
+                console.error('customize-section element not found');
+            }
+        };
+    }
+
+    if (typeof window.showPostsSection === 'undefined') {
+        console.log('Defining fallback showPostsSection');
+        window.showPostsSection = function() {
+            console.log('showPostsSection called (fallback)');
+            const postsSection = document.getElementById('posts-section');
+            if (postsSection) {
+                if (postsSection.style.display === 'block') {
+                    postsSection.style.display = 'none';
+                } else {
+                    postsSection.style.display = 'block';
+                    postsSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+        };
+    }
+
+    if (typeof window.showSettingsSection === 'undefined') {
+        console.log('Defining fallback showSettingsSection');
+        window.showSettingsSection = function() {
+            console.log('showSettingsSection called (fallback)');
+            const settingsSection = document.getElementById('settings-section');
+            if (settingsSection) {
+                if (settingsSection.style.display === 'block') {
+                    settingsSection.style.display = 'none';
+                } else {
+                    settingsSection.style.display = 'block';
+                    settingsSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+        };
+    }
+
+    if (typeof window.showAnalyticsSection === 'undefined') {
+        console.log('Defining fallback showAnalyticsSection');
+        window.showAnalyticsSection = function() {
+            console.log('showAnalyticsSection called (fallback)');
+            const analyticsSection = document.getElementById('analytics-section');
+            if (analyticsSection) {
+                if (analyticsSection.style.display === 'block') {
+                    analyticsSection.style.display = 'none';
+                } else {
+                    analyticsSection.style.display = 'block';
+                    analyticsSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+        };
+    }
+
+    console.log('Fallback functions check complete:', {
+        showCustomizeSection: typeof window.showCustomizeSection,
+        showPostsSection: typeof window.showPostsSection,
+        showSettingsSection: typeof window.showSettingsSection,
+        showAnalyticsSection: typeof window.showAnalyticsSection
+    });
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
+    // Define fallback functions immediately
+    defineFallbackFunctions();
+
     // Activity events to reset idle timer
     ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'].forEach(event => {
         document.addEventListener(event, resetIdleTimer, true);
