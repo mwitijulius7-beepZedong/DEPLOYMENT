@@ -7,11 +7,17 @@ let showCustomizeSection, showPrimaryOkButton, showAccentOkButton, confirmPrimar
 let initializeCharts;
 
 try {
-    const idleTimeoutModule = await import('../idle-timeout.js');
+    let idleTimeoutModule;
+    try {
+        idleTimeoutModule = await import('../idle-timeout.js');
+    } catch (firstError) {
+        console.warn('Failed to load ../idle-timeout.js, trying ./idle-timeout.js:', firstError.message);
+        idleTimeoutModule = await import('./idle-timeout.js');
+    }
     initIdleTracking = idleTimeoutModule.initIdleTracking;
     resetIdleTimer = idleTimeoutModule.resetIdleTimer;
 } catch (error) {
-    console.error('Failed to load idle-timeout.js:', error);
+    console.error('Failed to load idle-timeout.js from both paths:', error);
     initIdleTracking = () => {};
     resetIdleTimer = () => {};
 }
@@ -286,9 +292,22 @@ function defineFallbackFunctions() {
 }
 
 // Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
+const initApp = () => {
     // Define fallback functions immediately
     defineFallbackFunctions();
+
+    // Attach event listeners for dashboard buttons
+    const btnPosts = document.getElementById('btn-posts');
+    if (btnPosts) btnPosts.addEventListener('click', () => showPostsSection());
+
+    const btnSettings = document.getElementById('btn-settings');
+    if (btnSettings) btnSettings.addEventListener('click', () => showSettingsSection());
+
+    const btnAnalytics = document.getElementById('btn-analytics');
+    if (btnAnalytics) btnAnalytics.addEventListener('click', () => showAnalyticsSection());
+
+    const btnCustomize = document.getElementById('btn-customize');
+    if (btnCustomize) btnCustomize.addEventListener('click', () => showCustomizeSection());
 
     // Activity events to reset idle timer
     ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'].forEach(event => {
@@ -297,4 +316,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Check authentication on page load
     checkAuth();
-});
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
