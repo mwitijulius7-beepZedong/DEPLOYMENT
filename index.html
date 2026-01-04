@@ -498,7 +498,10 @@
                     <div v-if="entryKeyError" class="error-message">{{ entryKeyError }}</div>
                     <div v-if="!entryKeyVerified" class="form-group">
                         <label>Entry Key</label>
-                        <input v-model="entryKey" type="password" placeholder="Enter entry key" @keyup.enter="verifyEntryKey">
+                        <div style="position: relative;">
+                            <input v-model="entryKey" :type="showEntryKey ? 'text' : 'password'" placeholder="Enter entry key" @keyup.enter="verifyEntryKey" style="padding-right: 40px;">
+                            <button type="button" @click="showEntryKey = !showEntryKey" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.2rem;">{{ showEntryKey ? '👁️' : '🔒' }}</button>
+                        </div>
                         <button class="btn" style="width: 100%; margin-top: 0.5rem;" @click="verifyEntryKey">Verify Key</button>
                     </div>
                     <div v-if="entryKeyVerified">
@@ -509,7 +512,10 @@
                         </div>
                         <div class="form-group">
                             <label>Password</label>
-                            <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
+                            <div style="position: relative;">
+                                <input v-model="loginPassword" :type="showLoginPassword ? 'text' : 'password'" placeholder="password" @keyup.enter="login" style="padding-right: 40px;">
+                                <button type="button" @click="showLoginPassword = !showLoginPassword" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.2rem;">{{ showLoginPassword ? '👁️' : '🔒' }}</button>
+                            </div>
                         </div>
                         <button class="btn" style="width: 100%;" @click="login">Login</button>
                     </div>
@@ -524,7 +530,7 @@
                         <div v-if="resetMessage" style="margin-top:0.75rem; color:#444">{{ resetMessage }}</div>
                     </div>
                     <p style="margin-top: 1rem; color: #666; font-size: 0.9rem; text-align: center;">
-                        Default: admin / password
+                        Default: Mwitijulius7 / Mwitijulius7@Jm
                     </p>
                     <!-- Google Sign-In -->
                     <div style="text-align: center; margin-top: 1.25rem;">
@@ -662,6 +668,8 @@
                     isLoggedIn: false,
                     entryKey: '',
                     entryKeyVerified: false,
+                    showEntryKey: false,
+                    showLoginPassword: false,
                     entryKeyError: '',
                     loginUsername: '',
                     loginPassword: '',
