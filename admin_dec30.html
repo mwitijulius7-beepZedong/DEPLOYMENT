@@ -172,18 +172,34 @@
             padding: 24px;
             border-radius: var(--border-radius);
             box-shadow: var(--shadow-sm);
-            position: relative;
         }
 
         .action-card h3 {
-            user-select: none;
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: var(--text-dark);
         }
 
-        .action-btn:disabled {
-            background: var(--text-medium);
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
+        .action-card p {
+            color: var(--text-medium);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .action-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: var(--transition);
+            width: 100%;
+            position: relative;
+            z-index: 10;
+            pointer-events: auto;
+            user-select: none;
         }
 
         .action-btn:hover {

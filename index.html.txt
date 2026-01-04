@@ -498,7 +498,10 @@
                     <div v-if="entryKeyError" class="error-message">{{ entryKeyError }}</div>
                     <div v-if="!entryKeyVerified" class="form-group">
                         <label>Entry Key</label>
-                        <input v-model="entryKey" type="password" placeholder="Enter entry key" @keyup.enter="verifyEntryKey">
+                        <div style="position: relative;">
+                            <input v-model="entryKey" :type="showEntryKey ? 'text' : 'password'" placeholder="Enter entry key" @keyup.enter="verifyEntryKey" style="padding-right: 40px;">
+                            <button type="button" @click="showEntryKey = !showEntryKey" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.2rem;">{{ showEntryKey ? '👁️' : '🔒' }}</button>
+                        </div>
                         <button class="btn" style="width: 100%; margin-top: 0.5rem;" @click="verifyEntryKey">Verify Key</button>
                     </div>
                     <div v-if="entryKeyVerified">
@@ -509,7 +512,10 @@
                         </div>
                         <div class="form-group">
                             <label>Password</label>
-                            <input v-model="loginPassword" type="password" placeholder="password" @keyup.enter="login">
+                            <div style="position: relative;">
+                                <input v-model="loginPassword" :type="showLoginPassword ? 'text' : 'password'" placeholder="password" @keyup.enter="login" style="padding-right: 40px;">
+                                <button type="button" @click="showLoginPassword = !showLoginPassword" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.2rem;">{{ showLoginPassword ? '👁️' : '🔒' }}</button>
+                            </div>
                         </div>
                         <button class="btn" style="width: 100%;" @click="login">Login</button>
                     </div>
@@ -524,7 +530,7 @@
                         <div v-if="resetMessage" style="margin-top:0.75rem; color:#444">{{ resetMessage }}</div>
                     </div>
                     <p style="margin-top: 1rem; color: #666; font-size: 0.9rem; text-align: center;">
-                        Default: admin / password
+                        Default: Mwitijulius7 / Mwitijulius7@Jm
                     </p>
                     <!-- Google Sign-In -->
                     <div style="text-align: center; margin-top: 1.25rem;">
@@ -537,10 +543,13 @@
                 <!-- Admin Panel -->
                 <div v-if="isLoggedIn" class="admin-panel">
                     <div class="admin-header">
-                        <h2>{{ editingPost ? 'Edit Post' : 'Manage Posts' }}</h2>
+                        <h2>{{ editingPost ? 'Edit Post' : (showNewPostForm ? 'New Post' : (showSettings ? 'Settings' : 'Manage Posts')) }}</h2>
                         <div>
-                            <button v-if="!editingPost && !showNewPostForm" class="btn" @click="showNewPostForm = true">
+                            <button v-if="!editingPost && !showNewPostForm && !showSettings" class="btn" @click="showNewPostForm = true">
                                 + New Post
+                            </button>
+                            <button v-if="!editingPost && !showNewPostForm && !showSettings" class="btn" style="margin-left: 1rem;" @click="showSettings = true">
+                                Settings
                             </button>
                             <button class="btn" style="margin-left: 1rem;" @click="logout">Logout</button>
                         </div>
@@ -579,8 +588,29 @@
                         </div>
                     </div>
 
+                    <!-- Settings View -->
+                    <div v-if="showSettings">
+                        <div class="form-group">
+                            <h3 style="margin-bottom:1rem; color:#374151;">Manage Categories</h3>
+                            <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                                <input v-model="newCategoryName" type="text" placeholder="New category name" style="flex:1;" @keyup.enter="createCategory">
+                                <button class="btn" @click="createCategory">Add</button>
+                            </div>
+                            <div v-if="categories.length === 0" style="color:#666;">No categories found.</div>
+                            <ul style="list-style:none;">
+                                <li v-for="cat in categories" :key="cat.id" style="display:flex; justify-content:space-between; align-items:center; padding:0.75rem; background:#f9fafb; margin-bottom:0.5rem; border-radius:8px; border: 1px solid #e5e7eb;">
+                                    <span>{{ cat.name }}</span>
+                                    <button class="btn btn-danger btn-small" @click="removeCategory(cat.id)">Delete</button>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn" style="background: #6b7280;" @click="showSettings = false">Close</button>
+                        </div>
+                    </div>
+
                     <!-- Posts List -->
-                    <div v-if="!showNewPostForm && !editingPost" class="admin-posts-list">
+                    <div v-if="!showNewPostForm && !editingPost && !showSettings" class="admin-posts-list">
                         <h3 style="margin-bottom: 1rem; color: #374151;">Your Posts ({{ posts.length }})</h3>
                         <div v-if="posts.length === 0" class="empty-state">
                             <h3>No posts yet</h3>
@@ -607,6 +637,7 @@
     <script>
     // OAuth 2.0 Web Client ID from Google Cloud
     const GOOGLE_CLIENT_ID = '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com';
+    const GOOGLE_CLIENT_ID = '338774598801-rmbjl0aprte0l23ja5u3t3fm222jkbq1.apps.googleusercontent.com';
 
         // Minimal JWT decoder for client-side ID token parsing (no signature verification)
         function decodeJwt (token) {
@@ -637,6 +668,8 @@
                     isLoggedIn: false,
                     entryKey: '',
                     entryKeyVerified: false,
+                    showEntryKey: false,
+                    showLoginPassword: false,
                     entryKeyError: '',
                     loginUsername: '',
                     loginPassword: '',
@@ -646,6 +679,8 @@
                     resetMessage: '',
                     showNewPostForm: false,
                     editingPost: null,
+                    showSettings: false,
+                    newCategoryName: '',
                     postForm: {
                         title: '',
                         author: '',
@@ -661,7 +696,26 @@
                 // Initialize Google Identity after mount
                 this.initGoogleIdentity();
                 // Check server session status
-                this.checkAuthStatus();
+                this.checkAuthStatus().then(() => {
+                    // Auto-login on localhost
+                    if (!this.isLoggedIn && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+                        this.entryKey = 'Mwitijulius7';
+                        this.verifyEntryKey();
+                        this.loginUsername = 'Mwitijulius7';
+                        this.loginPassword = 'Mwitijulius7@Jm';
+                        this.login();
+                        this.currentView = 'admin';
+                    }
+                });
+            },
+            watch: {
+                isLoggedIn(newVal) {
+                    if (!newVal) {
+                        this.$nextTick(() => {
+                            this.initGoogleIdentity();
+                        });
+                    }
+                }
             },
             computed: {
                 filteredPosts() {
@@ -728,6 +782,8 @@
             },
             methods: {
                 initGoogleIdentity() {
+                    if (this.isLoggedIn) return;
+
                     // Wait until the Google Identity script has loaded
                     if (!window.google || !window.google.accounts || !window.google.accounts.id) {
                         // Retry shortly if script hasn't loaded yet
@@ -741,10 +797,13 @@
                         callback: (response) => this.handleGoogleCredential(response)
                     });
 
-                    window.google.accounts.id.renderButton(
-                        document.getElementById('gSignInButton'),
-                        { theme: 'outline', size: 'large', width: '250' } // customization
-                    );
+                    const btnContainer = document.getElementById('gSignInButton');
+                    if (btnContainer) {
+                        window.google.accounts.id.renderButton(
+                            btnContainer,
+                            { theme: 'outline', size: 'large', width: '250' } // customization
+                        );
+                    }
 
                     // Optionally prompt the One Tap UX (commented out by default)
                     // window.google.accounts.id.prompt();
@@ -836,18 +895,27 @@
                 setData(key, value) {
                     this[key] = value;
                 },
-                verifyEntryKey() {
+                async verifyEntryKey() {
                     if (!this.entryKey) {
                         this.entryKeyError = 'Please enter the entry key';
                         return;
                     }
-                    // For demo purposes, use a hardcoded key. In production, this should be server-verified.
-                    if (this.entryKey === 'admin123') {
-                        this.entryKeyVerified = true;
-                        this.entryKeyError = '';
-                        this.entryKey = '';
-                    } else {
-                        this.entryKeyError = 'Invalid entry key';
+                    try {
+                        const response = await fetch('/api/settings/verify-entry-key', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ adminEntryKey: this.entryKey })
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            this.entryKeyVerified = true;
+                            this.entryKeyError = '';
+                            this.entryKey = '';
+                        } else {
+                            this.entryKeyError = 'Invalid entry key';
+                        }
+                    } catch (e) {
+                        this.entryKeyError = 'Verification failed';
                     }
                 },
                 login() {
@@ -895,6 +963,7 @@
                             this.setData('isLoggedIn', false);
                             this.showNewPostForm = false;
                             this.editingPost = null;
+                            this.showSettings = false;
                         })
                         .catch(() => {
                             // Fallback: clear client state even if server call fails
@@ -902,6 +971,7 @@
                             this.setData('isLoggedIn', false);
                             this.showNewPostForm = false;
                             this.editingPost = null;
+                            this.showSettings = false;
                         });
                 },
                 viewPost(post) {
@@ -920,6 +990,7 @@
                 cancelEdit() {
                     this.showNewPostForm = false;
                     this.editingPost = null;
+                    this.showSettings = false;
                     this.postForm = { title: '', author: '', content: '', categoryId: '', tags: '' };
                 },
                 async savePost() {
@@ -974,6 +1045,34 @@
                         } catch (e) {
                             console.error('Failed to delete post:', e);
                             alert('Failed to delete post');
+                        }
+                    }
+                },
+                async createCategory() {
+                    if (!this.newCategoryName.trim()) return;
+                    try {
+                        await fetch('/api/categories', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: this.newCategoryName })
+                        });
+                        this.newCategoryName = '';
+                        await this.loadCategories();
+                    } catch (e) {
+                        console.error('Failed to create category:', e);
+                        alert('Failed to create category');
+                    }
+                },
+                async removeCategory(id) {
+                    if (confirm('Are you sure you want to delete this category?')) {
+                        try {
+                            await fetch(`/api/categories/${id}`, {
+                                method: 'DELETE'
+                            });
+                            await this.loadCategories();
+                        } catch (e) {
+                            console.error('Failed to delete category:', e);
+                            alert('Failed to delete category');
                         }
                     }
                 },

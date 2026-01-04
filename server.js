@@ -60,7 +60,7 @@ const ADMIN_IDLE_WARNING_MS = (ADMIN_IDLE_TIMEOUT_MINUTES - 1) * 60 * 1000; // W
 
 // Set dev admin password for development
 if (process.env.NODE_ENV !== 'production') {
-  process.env.DEV_ADMIN_PASSWORD = 'Mwitijulius7';
+  process.env.DEV_ADMIN_PASSWORD = 'Mwitijulius7@Jm';
 }
 
 if (!CLIENT_ID) {
@@ -393,28 +393,31 @@ app.post('/auth/login', async (req, res) => {
 
   const users = await loadUsers();
   const user = users[username];
-  if (!user) return res.status(401).json({ error: 'invalid credentials' });
 
-  // Check if user is active
-  if (user.active === false) return res.status(401).json({ error: 'account disabled' });
+  // Check for dev admin credentials (admin/password)
+  // Allow if explicitly configured via env var, OR if running in non-production with default 'password'
+  const isDev = !process.env.NODE_ENV || process.env.NODE_ENV !== 'production';
+  const devPwd = process.env.DEV_ADMIN_PASSWORD || 'password';
+  const isDevAuth = (isDev && username === 'admin' && password === devPwd);
+  const isEnvAuth = (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD);
 
-  if (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD) {
+  if (isDevAuth || isEnvAuth) {
     // Generate JWT token for dev admin
     const token = jwt.sign({
-      username: user.username || username,
-      email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com',
-      name: user.name || 'Admin',
-      role: user.role || 'ADMIN'
+      username: 'admin',
+      email: (user && user.email) || process.env.ALLOWED_EMAIL || 'admin@example.com',
+      name: (user && user.name) || 'Admin',
+      role: (user && user.role) || 'ADMIN'
     }, JWT_SECRET, { expiresIn: '24h' });
 
     console.log('Login successful for admin (dev password), JWT token generated');
 
     // Ensure session-based auth works without JWT header
     req.session.user = {
-      username: user.username || username,
-      email: user.email || process.env.ALLOWED_EMAIL || 'admin@example.com',
-      name: user.name || 'Admin',
-      role: user.role || 'ADMIN'
+      username: 'admin',
+      email: (user && user.email) || process.env.ALLOWED_EMAIL || 'admin@example.com',
+      name: (user && user.name) || 'Admin',
+      role: (user && user.role) || 'ADMIN'
     };
 
     return res.json({
@@ -423,6 +426,11 @@ app.post('/auth/login', async (req, res) => {
       user: req.session.user
     });
   }
+
+  if (!user) return res.status(401).json({ error: 'invalid credentials' });
+
+  // Check if user is active
+  if (user.active === false) return res.status(401).json({ error: 'account disabled' });
 
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'invalid credentials' });
