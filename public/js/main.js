@@ -171,6 +171,79 @@ window.showPostsSection = showPostsSection;
 window.showSettingsSection = showSettingsSection;
 window.showAnalyticsSection = showAnalyticsSection;
 window.showCustomizeSection = showCustomizeSection;
+
+// Ensure critical functions are always available
+window.showSettingsSection = window.showSettingsSection || function() {
+    console.log('showSettingsSection called (fallback)');
+    const settingsSection = document.getElementById('settings-section');
+    if (settingsSection) {
+        if (settingsSection.style.display === 'block') {
+            settingsSection.style.display = 'none';
+        } else {
+            settingsSection.style.display = 'block';
+            settingsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+    } else {
+        console.error('settings-section element not found');
+    }
+};
+
+window.showPostsSection = window.showPostsSection || function() {
+    console.log('showPostsSection called (fallback)');
+    const postsSection = document.getElementById('posts-section');
+    if (postsSection) {
+        // Hide all other sections first
+        const sections = ['settings-section', 'analytics-section', 'customize-section'];
+        sections.forEach(id => {
+            const section = document.getElementById(id);
+            if (section) section.style.display = 'none';
+        });
+
+        // Show posts section
+        postsSection.style.display = 'block';
+        postsSection.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        console.error('posts-section element not found');
+    }
+};
+
+window.showAnalyticsSection = window.showAnalyticsSection || function() {
+    console.log('showAnalyticsSection called (fallback)');
+    const analyticsSection = document.getElementById('analytics-section');
+    if (analyticsSection) {
+        // Hide all other sections first
+        const sections = ['settings-section', 'posts-section', 'customize-section'];
+        sections.forEach(id => {
+            const section = document.getElementById(id);
+            if (section) section.style.display = 'none';
+        });
+
+        // Show analytics section
+        analyticsSection.style.display = 'block';
+        analyticsSection.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        console.error('analytics-section element not found');
+    }
+};
+
+window.showCustomizeSection = window.showCustomizeSection || function() {
+    console.log('showCustomizeSection called (fallback)');
+    const customizeSection = document.getElementById('customize-section');
+    if (customizeSection) {
+        // Hide all other sections first
+        const sections = ['settings-section', 'posts-section', 'analytics-section'];
+        sections.forEach(id => {
+            const section = document.getElementById(id);
+            if (section) section.style.display = 'none';
+        });
+
+        // Show customize section
+        customizeSection.style.display = 'block';
+        customizeSection.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        console.error('customize-section element not found');
+    }
+};
 window.togglePostsList = togglePostsList;
 window.loadPostsList = loadPostsList;
 window.createNewPost = createNewPost;
