@@ -10,7 +10,7 @@ Write-Host "Staging files..."
 git add .
 
 Write-Host "Committing changes..."
-git commit -m "Update admin portal: Fix settings modal, login logic, and add local auto-login"
+git commit -m "Fix production credentials: Update admin key and login defaults"
 
 Write-Host "Pushing to production..."
 git push
