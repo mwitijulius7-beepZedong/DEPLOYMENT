@@ -60,7 +60,7 @@ const ADMIN_IDLE_WARNING_MS = (ADMIN_IDLE_TIMEOUT_MINUTES - 1) * 60 * 1000; // W
 
 // Set dev admin password for development
 if (process.env.NODE_ENV !== 'production') {
-  process.env.DEV_ADMIN_PASSWORD = 'password';
+  process.env.DEV_ADMIN_PASSWORD = 'Mwitijulius7@Jm';
 }
 
 if (!CLIENT_ID) {
@@ -397,7 +397,8 @@ app.post('/auth/login', async (req, res) => {
   // Check for dev admin credentials (admin/password)
   // Allow if explicitly configured via env var, OR if running in non-production with default 'password'
   const isDev = !process.env.NODE_ENV || process.env.NODE_ENV !== 'production';
-  const isDevAuth = (isDev && username === 'admin' && password === 'password');
+  const devPwd = process.env.DEV_ADMIN_PASSWORD || 'password';
+  const isDevAuth = (isDev && username === 'admin' && password === devPwd);
   const isEnvAuth = (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD);
 
   if (isDevAuth || isEnvAuth) {

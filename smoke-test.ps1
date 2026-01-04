@@ -1,7 +1,7 @@
 param(
     [string] $Base = 'http://localhost:3000',
-    [string] $Username = 'admin',
-    [string] $Password = 'password',
+    [string] $Username = 'Mwitijulius7',
+    [string] $Password = 'Mwitijulius7@Jm',
     [string] $ImagePath = "$env:TEMP\smoke-test.png",
     [string] $CategoryName = 'Smoke Test',
     [switch] $StartServer,
