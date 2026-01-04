@@ -631,6 +631,7 @@
     <script>
     // OAuth 2.0 Web Client ID from Google Cloud
     const GOOGLE_CLIENT_ID = '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com';
+    const GOOGLE_CLIENT_ID = '338774598801-rmbjl0aprte0l23ja5u3t3fm222jkbq1.apps.googleusercontent.com';
 
         // Minimal JWT decoder for client-side ID token parsing (no signature verification)
         function decodeJwt (token) {
@@ -690,10 +691,10 @@
                 this.checkAuthStatus().then(() => {
                     // Auto-login on localhost
                     if (!this.isLoggedIn && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-                        this.entryKey = 'admin123';
+                        this.entryKey = 'Mwitijulius7';
                         this.verifyEntryKey();
-                        this.loginUsername = 'admin';
-                        this.loginPassword = 'password';
+                        this.loginUsername = 'Mwitijulius7';
+                        this.loginPassword = 'Mwitijulius7@Jm';
                         this.login();
                         this.currentView = 'admin';
                     }
@@ -886,18 +887,27 @@
                 setData(key, value) {
                     this[key] = value;
                 },
-                verifyEntryKey() {
+                async verifyEntryKey() {
                     if (!this.entryKey) {
                         this.entryKeyError = 'Please enter the entry key';
                         return;
                     }
-                    // For demo purposes, use a hardcoded key. In production, this should be server-verified.
-                    if (this.entryKey === 'admin123') {
-                        this.entryKeyVerified = true;
-                        this.entryKeyError = '';
-                        this.entryKey = '';
-                    } else {
-                        this.entryKeyError = 'Invalid entry key';
+                    try {
+                        const response = await fetch('/api/settings/verify-entry-key', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ adminEntryKey: this.entryKey })
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            this.entryKeyVerified = true;
+                            this.entryKeyError = '';
+                            this.entryKey = '';
+                        } else {
+                            this.entryKeyError = 'Invalid entry key';
+                        }
+                    } catch (e) {
+                        this.entryKeyError = 'Verification failed';
                     }
                 },
                 login() {
