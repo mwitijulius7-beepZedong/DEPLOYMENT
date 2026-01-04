@@ -10,7 +10,7 @@ Write-Host "Staging files..."
 git add .
 
 Write-Host "Committing changes..."
-git commit -m "Fix production credentials: Update admin key and login defaults"
+git commit -m "Restore admin key visibility toggle and confirm production credentials"
 
 Write-Host "Pushing to production..."
 git push
