@@ -59,7 +59,20 @@ export async function loadPostsList() {
 }
 
 export function createNewPost() {
-    alert('Create new post functionality - This would open a form to create a new post');
+    // Show the settings section and navigate to new post panel
+    const settingsSection = document.getElementById('settings-section');
+    settingsSection.style.display = 'block';
+    settingsSection.scrollIntoView({ behavior: 'smooth' });
+
+    // Navigate to new post panel
+    const navButtons = document.querySelectorAll('.settings-nav-btn');
+    const panels = document.querySelectorAll('.settings-panel');
+
+    navButtons.forEach(btn => btn.classList.remove('active'));
+    panels.forEach(panel => panel.classList.remove('active'));
+
+    document.querySelector('[data-panel="new-post"]').classList.add('active');
+    document.getElementById('new-post-panel').classList.add('active');
 }
 
 export function editPost(postId) {
@@ -152,4 +165,161 @@ export async function deleteSelectedPosts() {
     if (errorCount > 0) {
         alert(`Failed to delete ${errorCount} post(s).`);
     }
+}
+
+// New Post Creation Functions
+export function handlePostImageUpload() {
+    const fileInput = document.getElementById('post-image-file');
+    const previewDiv = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+
+    if (fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please select a valid image file.');
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image file size must be less than 5MB.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            previewDiv.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+export async function saveNewPost() {
+    const title = document.getElementById('post-title').value.trim();
+    const category = document.getElementById('post-category').value;
+    const content = document.getElementById('post-content').value.trim();
+    const tags = document.getElementById('post-tags').value.trim();
+    const status = document.getElementById('post-status').value;
+    const imageFile = document.getElementById('post-image-file').files[0];
+
+    // Validation
+    if (!title) {
+        alert('Please enter a post title.');
+        return;
+    }
+
+    if (!content) {
+        alert('Please enter post content.');
+        return;
+    }
+
+    if (!category) {
+        alert('Please select a category.');
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('category', category);
+        formData.append('content', content);
+        formData.append('tags', tags);
+        formData.append('status', status);
+
+        if (imageFile) {
+            formData.append('image', imageFile);
+        }
+
+        const response = await fetch('/api/posts', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            alert('Post saved successfully!');
+            clearPostForm();
+            // Refresh posts list if visible
+            if (document.getElementById('posts-list-container').style.display !== 'none') {
+                loadPostsList();
+            }
+        } else {
+            const error = await response.json();
+            alert(`Failed to save post: ${error.message || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Error saving post:', error);
+        alert('Error saving post. Please try again.');
+    }
+}
+
+export function previewPost() {
+    const title = document.getElementById('post-title').value.trim();
+    const content = document.getElementById('post-content').value.trim();
+    const category = document.getElementById('post-category').value;
+    const tags = document.getElementById('post-tags').value.trim();
+
+    if (!title || !content) {
+        alert('Please enter both title and content to preview.');
+        return;
+    }
+
+    // Create preview modal
+    const previewModal = document.createElement('div');
+    previewModal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    `;
+
+    const previewContent = document.createElement('div');
+    previewContent.style.cssText = `
+        background: white;
+        padding: 32px;
+        border-radius: 12px;
+        max-width: 800px;
+        max-height: 80vh;
+        overflow-y: auto;
+        position: relative;
+    `;
+
+    previewContent.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid #eee; padding-bottom: 16px;">
+            <h2 style="margin: 0; color: #333;">Post Preview</h2>
+            <button onclick="this.closest('div').parentElement.remove()" style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Close</button>
+        </div>
+        <div style="margin-bottom: 16px;">
+            <span style="background: #e9ecef; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: #666;">${category}</span>
+        </div>
+        <h1 style="margin: 0 0 16px 0; color: #333; font-size: 28px; line-height: 1.3;">${title}</h1>
+        <div style="color: #666; margin-bottom: 24px;">
+            <small>By zedong254ke • ${new Date().toLocaleDateString()}</small>
+        </div>
+        <div style="line-height: 1.7; color: #333; margin-bottom: 24px;">${content.replace(/\n/g, '<br>')}</div>
+        ${tags ? `<div style="border-top: 1px solid #eee; padding-top: 16px;"><strong>Tags:</strong> ${tags.split(',').map(tag => `<span style="background: #f8f9fa; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 4px;">${tag.trim()}</span>`).join('')}</div>` : ''}
+    `;
+
+    previewModal.appendChild(previewContent);
+    document.body.appendChild(previewModal);
+}
+
+export function clearPostForm() {
+    document.getElementById('post-title').value = '';
+    document.getElementById('post-category').value = '';
+    document.getElementById('post-content').value = '';
+    document.getElementById('post-tags').value = '';
+    document.getElementById('post-status').value = 'draft';
+    document.getElementById('post-image-file').value = '';
+    document.getElementById('image-preview').style.display = 'none';
 }
