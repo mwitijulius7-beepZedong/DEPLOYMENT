@@ -495,7 +495,7 @@
             <div class="customize-grid">
                 <div class="action-card">
                     <h3>👤 Author Information</h3>
-                    <p>Update your personal information and bio.</p>
+                    <p>Update your personal information, bio, and profile picture.</p>
                     <div class="customize-options">
                         <label for="author-name">Author Name:</label>
                         <input type="text" id="author-name" value="zedong254ke" placeholder="Enter author name">
@@ -503,6 +503,22 @@
                         <input type="email" id="author-email" placeholder="Enter email address">
                         <label for="author-bio">Bio:</label>
                         <textarea id="author-bio" rows="3" placeholder="Enter author bio">Passionate developer and blogger sharing insights on technology and programming.</textarea>
+                        <label>Profile Picture:</label>
+                        <input type="file" id="profile-picture-file" accept="image/*" onchange="handleProfilePictureUpload()">
+                        <label for="author-phone">Phone:</label>
+                        <input type="tel" id="author-phone" placeholder="Enter phone number">
+                        <label for="author-whatsapp">WhatsApp:</label>
+                        <input type="tel" id="author-whatsapp" placeholder="Enter WhatsApp number">
+                        <label for="author-twitter">Twitter:</label>
+                        <input type="text" id="author-twitter" placeholder="Enter Twitter handle (without @)">
+                        <label for="author-facebook">Facebook:</label>
+                        <input type="text" id="author-facebook" placeholder="Enter Facebook profile">
+                        <label for="author-linkedin">LinkedIn:</label>
+                        <input type="text" id="author-linkedin" placeholder="Enter LinkedIn profile">
+                        <label for="author-instagram">Instagram:</label>
+                        <input type="text" id="author-instagram" placeholder="Enter Instagram handle (without @)">
+                        <label for="author-website">Website:</label>
+                        <input type="url" id="author-website" placeholder="Enter website URL">
                     </div>
                     <button class="action-btn" onclick="saveAuthorInfo()">Save Author Info</button>
                 </div>
@@ -1140,6 +1156,12 @@
             } else {
                 settingsSection.style.display = 'block';
                 settingsSection.scrollIntoView({ behavior: 'smooth' });
+                // Load settings data when section is opened
+                loadAuthorSettings();
+                loadSecuritySettings();
+                loadNotificationSettings();
+                loadContentSettings();
+                loadCategories();
             }
         }
 
@@ -1292,18 +1314,76 @@
             });
         }
 
+        // Handle profile picture upload
+        async function handleProfilePictureUpload() {
+            const fileInput = document.getElementById('profile-picture-file');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Please select a file first.');
+                return;
+            }
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                alert('Please select a valid image file.');
+                return;
+            }
+
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File size must be less than 5MB.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('profilePicture', file);
+
+            try {
+                const response = await fetch('/api/settings/profile-picture', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert('Profile picture uploaded successfully!');
+                    // Update the header image if needed
+                    const headerImg = document.querySelector('.logo img');
+                    if (headerImg && data.imageUrl) {
+                        headerImg.src = data.imageUrl;
+                    }
+                } else {
+                    alert('Failed to upload profile picture.');
+                }
+            } catch (error) {
+                console.error('Error uploading profile picture:', error);
+                alert('Error uploading profile picture.');
+            }
+        }
+
         // Save author information
         async function saveAuthorInfo() {
-            const authorName = document.getElementById('author-name').value;
-            const authorEmail = document.getElementById('author-email').value;
-            const authorBio = document.getElementById('author-bio').value;
+            const authorData = {
+                name: document.getElementById('author-name').value,
+                email: document.getElementById('author-email').value,
+                bio: document.getElementById('author-bio').value,
+                phone: document.getElementById('author-phone').value,
+                whatsapp: document.getElementById('author-whatsapp').value,
+                twitter: document.getElementById('author-twitter').value,
+                facebook: document.getElementById('author-facebook').value,
+                linkedin: document.getElementById('author-linkedin').value,
+                instagram: document.getElementById('author-instagram').value,
+                website: document.getElementById('author-website').value
+            };
 
             try {
                 const response = await fetch('/api/settings/author', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ name: authorName, email: authorEmail, bio: authorBio })
+                    body: JSON.stringify(authorData)
                 });
 
                 if (response.ok) {
@@ -1458,6 +1538,75 @@
             } catch (error) {
                 console.error('Error adding category:', error);
                 alert('Error adding category.');
+            }
+        }
+
+        // Load author settings
+        async function loadAuthorSettings() {
+            try {
+                const response = await fetch('/api/settings/author');
+                const data = await response.json();
+
+                if (response.ok && data) {
+                    document.getElementById('author-name').value = data.name || '';
+                    document.getElementById('author-email').value = data.email || '';
+                    document.getElementById('author-bio').value = data.bio || '';
+                    document.getElementById('author-phone').value = data.phone || '';
+                    document.getElementById('author-whatsapp').value = data.whatsapp || '';
+                    document.getElementById('author-twitter').value = data.twitter || '';
+                    document.getElementById('author-facebook').value = data.facebook || '';
+                    document.getElementById('author-linkedin').value = data.linkedin || '';
+                    document.getElementById('author-instagram').value = data.instagram || '';
+                    document.getElementById('author-website').value = data.website || '';
+                }
+            } catch (error) {
+                console.error('Failed to load author settings:', error);
+            }
+        }
+
+        // Load security settings
+        async function loadSecuritySettings() {
+            try {
+                const response = await fetch('/api/settings/security');
+                const data = await response.json();
+
+                if (response.ok && data) {
+                    document.getElementById('session-timeout').value = data.sessionTimeout || 30;
+                }
+            } catch (error) {
+                console.error('Failed to load security settings:', error);
+            }
+        }
+
+        // Load notification settings
+        async function loadNotificationSettings() {
+            try {
+                const response = await fetch('/api/settings/notifications');
+                const data = await response.json();
+
+                if (response.ok && data) {
+                    document.getElementById('email-notifications').checked = data.emailNotifications || false;
+                    document.getElementById('comment-notifications').checked = data.commentNotifications || false;
+                    document.getElementById('system-alerts').checked = data.systemAlerts || false;
+                }
+            } catch (error) {
+                console.error('Failed to load notification settings:', error);
+            }
+        }
+
+        // Load content settings
+        async function loadContentSettings() {
+            try {
+                const response = await fetch('/api/settings/content');
+                const data = await response.json();
+
+                if (response.ok && data) {
+                    document.getElementById('posts-per-page').value = data.postsPerPage || 10;
+                    document.getElementById('auto-publish').checked = data.autoPublish || false;
+                    document.getElementById('enable-comments').checked = data.enableComments || false;
+                }
+            } catch (error) {
+                console.error('Failed to load content settings:', error);
             }
         }
 

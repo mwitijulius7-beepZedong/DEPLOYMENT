@@ -936,7 +936,7 @@
                 <div class="logo">{{ blogTitle }}</div>
                 <nav class="nav">
                     <button @click="currentView = 'blog'" :class="{ active: currentView === 'blog' }">Blog</button>
-                    <button @click="currentView = 'admin'" :class="{ active: currentView === 'admin' }">Admin</button>
+                    <button @click="currentView = 'admin'" :class="{ active: currentView === 'admin' }" title="Admin Panel">⚙️</button>
                     <button v-if="isLoggedIn" @click="currentView = 'analytics'" :class="{ active: currentView === 'analytics' }">Analytics</button>
                 </nav>
             </div>
@@ -1005,6 +1005,36 @@
                         <span v-for="tag in selectedPost.tags" :key="tag" class="tag">{{ tag }}</span>
                     </div>
                     <div class="post-content">{{ selectedPost.content }}</div>
+
+                    <!-- Like/Dislike and Social Sharing Section -->
+                    <div class="post-interactions" style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #e5e7eb;">
+                        <!-- Like/Dislike Buttons -->
+                        <div class="like-dislike-section" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;">
+                            <button @click="likePost(selectedPost.id)" class="interaction-btn like-btn" :class="{ active: postLikes[selectedPost.id] }">
+                                👍 Like ({{ postLikes[selectedPost.id] || 0 }})
+                            </button>
+                            <button @click="dislikePost(selectedPost.id)" class="interaction-btn dislike-btn" :class="{ active: postDislikes[selectedPost.id] }">
+                                👎 Dislike ({{ postDislikes[selectedPost.id] || 0 }})
+                            </button>
+                        </div>
+
+                        <!-- Social Sharing Buttons -->
+                        <div class="social-sharing" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                            <span style="font-weight: 600; color: #374151; margin-right: 0.5rem;">Share:</span>
+                            <button @click="shareOnFacebook(selectedPost)" class="share-btn facebook-btn" title="Share on Facebook">
+                                📘 Facebook
+                            </button>
+                            <button @click="shareOnTwitter(selectedPost)" class="share-btn twitter-btn" title="Share on Twitter">
+                                🐦 Twitter
+                            </button>
+                            <button @click="shareOnLinkedIn(selectedPost)" class="share-btn linkedin-btn" title="Share on LinkedIn">
+                                💼 LinkedIn
+                            </button>
+                            <button @click="copyLink(selectedPost)" class="share-btn copy-btn" title="Copy Link">
+                                🔗 Copy Link
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1239,6 +1269,8 @@
                     selectedTag: '',
                     selectedArchive: '',
                     isLoggedIn: false,
+                    postLikes: {},
+                    postDislikes: {},
                     entryKey: '',
                     entryKeyVerified: false,
                     showEntryKey: false,
@@ -1275,6 +1307,8 @@
             mounted() {
                 this.loadPosts();
                 this.loadCategories();
+                // Load likes and dislikes from localStorage
+                this.loadLikesFromStorage();
                 // Initialize Google Identity after mount
                 this.initGoogleIdentity();
                 // Check server session status
@@ -1670,6 +1704,73 @@
                 },
                 getExcerpt(content) {
                     return content.length > 150 ? content.substring(0, 150) + '...' : content;
+                },
+
+                likePost(postId) {
+                    if (!this.postLikes[postId]) {
+                        this.postLikes[postId] = 0;
+                    }
+                    this.postLikes[postId]++;
+                    this.saveLikesToStorage();
+                },
+
+                dislikePost(postId) {
+                    if (!this.postDislikes[postId]) {
+                        this.postDislikes[postId] = 0;
+                    }
+                    this.postDislikes[postId]++;
+                    this.saveLikesToStorage();
+                },
+
+                saveLikesToStorage() {
+                    localStorage.setItem('postLikes', JSON.stringify(this.postLikes));
+                    localStorage.setItem('postDislikes', JSON.stringify(this.postDislikes));
+                },
+
+                loadLikesFromStorage() {
+                    const likes = localStorage.getItem('postLikes');
+                    const dislikes = localStorage.getItem('postDislikes');
+                    if (likes) {
+                        this.postLikes = JSON.parse(likes);
+                    }
+                    if (dislikes) {
+                        this.postDislikes = JSON.parse(dislikes);
+                    }
+                },
+
+                shareOnFacebook(post) {
+                    const url = encodeURIComponent(window.location.href + '?post=' + post.id);
+                    const text = encodeURIComponent(`Check out this post: ${post.title}`);
+                    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank');
+                },
+
+                shareOnTwitter(post) {
+                    const url = encodeURIComponent(window.location.href + '?post=' + post.id);
+                    const text = encodeURIComponent(`Check out this post: ${post.title}`);
+                    window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank');
+                },
+
+                shareOnLinkedIn(post) {
+                    const url = encodeURIComponent(window.location.href + '?post=' + post.id);
+                    const title = encodeURIComponent(post.title);
+                    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}&title=${title}`, '_blank');
+                },
+
+                async copyLink(post) {
+                    const url = window.location.href + '?post=' + post.id;
+                    try {
+                        await navigator.clipboard.writeText(url);
+                        alert('Link copied to clipboard!');
+                    } catch (err) {
+                        // Fallback for older browsers
+                        const textArea = document.createElement('textarea');
+                        textArea.value = url;
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        alert('Link copied to clipboard!');
+                    }
                 },
 
                 initializeAnalyticsData() {
