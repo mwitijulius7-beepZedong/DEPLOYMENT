@@ -8,13 +8,29 @@ async function testAdminModernization() {
     let page;
 
     try {
+        // Force non-headless mode to ensure proper rendering
+        process.env.PUPPETEER_HEADLESS = 'false';
+
         browser = await puppeteer.launch({
             headless: false,
             defaultViewport: { width: 1280, height: 800 },
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+            protocolTimeout: 120000, // Increase timeout to 120 seconds
+            timeout: 120000 // Increase launch timeout
         });
 
         page = await browser.newPage();
+
+        // Block Google APIs to prevent timeouts
+        await page.setRequestInterception(true);
+        page.on('request', (request) => {
+            const url = request.url();
+            if (url.includes('apis.google.com') || url.includes('googleusercontent.com') || url.includes('gstatic.com')) {
+                request.abort();
+            } else {
+                request.continue();
+            }
+        });
 
         // Enable console logging
         page.on('console', msg => {
@@ -25,10 +41,75 @@ async function testAdminModernization() {
 
         console.log('📱 Testing responsive design and layout...');
 
+        // First, login to access admin panel
+        console.log('🔐 Logging in to admin panel...');
+        await page.goto('http://localhost:3000/login.html', { waitUntil: 'networkidle0' });
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Fill login form
+        await page.type('#username', 'admin');
+        await page.type('#password', 'Mwitijulius7@Jm'); // Use the dev password from server.js
+        await page.click('#loginBtn');
+
+        // Wait for redirect to admin panel
+        try {
+            await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 10000 });
+            console.log('✅ Successfully logged in and redirected');
+        } catch (error) {
+            console.log('⚠️ Navigation timeout, checking current URL...');
+            const currentUrl = page.url();
+            console.log(`Current URL: ${currentUrl}`);
+            if (currentUrl.includes('admin.html')) {
+                console.log('✅ Already on admin page');
+            } else {
+                // Try waiting for URL change instead of navigation event
+                console.log('⏳ Waiting for URL change...');
+                await page.waitForFunction(() => window.location.href.includes('admin.html'), { timeout: 5000 });
+                console.log('✅ URL changed to admin page');
+            }
+        }
+
         // Test desktop layout
         await page.setViewport({ width: 1280, height: 800 });
-        await page.goto('http://localhost:3000/admin.html');
+        console.log('🌐 Testing admin panel...');
         await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Check if page loaded
+        const title = await page.title();
+        console.log(`📄 Page title: ${title}`);
+
+        // Check for any console errors
+        const errors = [];
+        page.on('console', msg => {
+            if (msg.type() === 'error') {
+                errors.push(msg.text());
+                console.log('❌ Browser Error:', msg.text());
+            }
+        });
+
+        // Wait for body to be present first
+        await page.waitForSelector('body', { timeout: 5000 });
+        console.log('✅ Body loaded');
+
+        // Check if sidebar element exists in DOM
+        const sidebarExists = await page.$('.sidebar') !== null;
+        console.log(`🔍 Sidebar element exists: ${sidebarExists}`);
+
+        if (!sidebarExists) {
+            // Log the page HTML for debugging
+            const bodyHTML = await page.evaluate(() => document.body.innerHTML);
+            console.log('📄 Page body HTML (first 500 chars):', bodyHTML.substring(0, 500));
+        }
+
+        // Wait for sidebar to be present with longer timeout
+        console.log('⏳ Waiting for sidebar...');
+        await page.waitForSelector('.sidebar', { timeout: 15000 });
+        console.log('✅ Sidebar found!');
+
+        // Check for JavaScript errors
+        if (errors.length > 0) {
+            console.log('⚠️ JavaScript errors detected:', errors);
+        }
 
         // Check sidebar visibility on desktop
         const sidebarVisible = await page.$eval('.sidebar', el => !el.classList.contains('collapsed'));

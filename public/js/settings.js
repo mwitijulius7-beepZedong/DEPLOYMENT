@@ -365,3 +365,21 @@ export async function handleProfilePictureUpload() {
         alert('Error uploading profile picture.');
     }
 }
+
+// Expose functions to window for HTML onclick handlers
+window.showSettingsSection = showSettingsSection;
+window.toggleCategoriesList = toggleCategoriesList;
+window.loadCategories = loadCategories;
+window.addCategory = addCategory;
+window.editCategory = editCategory;
+window.deleteCategory = deleteCategory;
+window.toggleSelectAllCategories = toggleSelectAllCategories;
+window.updateSelectedCategoriesCount = updateSelectedCategoriesCount;
+window.deleteSelectedCategories = deleteSelectedCategories;
+window.saveAuthorInfo = saveAuthorInfo;
+window.saveSecuritySettings = saveSecuritySettings;
+window.viewCurrentKey = viewCurrentKey;
+window.clearKey = clearKey;
+window.saveNotificationSettings = saveNotificationSettings;
+window.saveContentSettings = saveContentSettings;
+window.handleProfilePictureUpload = handleProfilePictureUpload;
