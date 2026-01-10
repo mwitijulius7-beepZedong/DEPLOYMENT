@@ -89,4 +89,11 @@ export async function logout() {
 }
 
 // Import idle timeout functionality
-import { initIdleTracking, resetIdleTimer } from './idle-timeout.js';
+// import { initIdleTracking, resetIdleTimer } from './idle-timeout.js';
+function resetIdleTimer() {
+    if (window.resetIdleTimer) window.resetIdleTimer();
+}
+
+window.checkAuth = checkAuth;
+window.promptForAdminKey = promptForAdminKey;
+window.logout = logout;
