@@ -22,6 +22,8 @@ try {
     resetIdleTimer = () => {};
 }
 
+    window.resetIdleTimer = resetIdleTimer;
+
 try {
     const authModule = await import('./auth.js');
     checkAuth = authModule.checkAuth;
