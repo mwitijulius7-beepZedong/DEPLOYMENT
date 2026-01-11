@@ -6,6 +6,14 @@ export function showSettingsSection() {
     } else {
         settingsSection.style.display = 'block';
         settingsSection.scrollIntoView({ behavior: 'smooth' });
+
+        // Initialize navigation and password toggle when settings section is shown
+        if (typeof initSettingsNavigation === 'function') {
+            initSettingsNavigation();
+        }
+        if (typeof initPasswordToggle === 'function') {
+            initPasswordToggle();
+        }
     }
 }
 

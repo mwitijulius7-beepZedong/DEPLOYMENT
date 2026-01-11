@@ -208,25 +208,32 @@
 
         nav a:hover, nav a:focus-visible {
             background: rgba(255,255,255,0.2);
-            outline: none;
+            outline: 2px solid rgba(255,255,255,0.5);
+            outline-offset: 2px;
         }
 
         .back-btn {
             background: rgba(255,255,255,0.1);
             color: white;
             border: 1px solid rgba(255,255,255,0.3);
-            padding: 6px 12px;
-            border-radius: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 14px;
             font-weight: 500;
             transition: var(--transition);
             margin-left: 16px;
         }
 
-        .back-btn:hover {
+        .back-btn:hover, .back-btn:focus-visible {
             background: rgba(255,255,255,0.2);
             border-color: rgba(255,255,255,0.5);
+            outline: 2px solid rgba(255,255,255,0.5);
+            outline-offset: 2px;
+        }
+
+        .back-btn:focus-visible {
+            outline: 2px solid rgba(255,255,255,0.8);
         }
 
         /* Main Content */
@@ -673,7 +680,7 @@
             <nav>
                 <a href="/"><span>Home</span>🏠</a>
                 <a href="/"><span>Blog</span>📝</a>
-                <a href="/"><span>About</span>ℹ️</a>
+                <a href="/about.html"><span>About</span>ℹ️</a>
                 <button class="back-btn" onclick="goBack()">← Back to Blog</button>
             </nav>
         </div>
