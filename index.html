@@ -8,6 +8,32 @@
     <!-- Google Identity Services (replace CLIENT_ID below with your real client ID) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
+        :root {
+            --primaryColor: #667eea;
+            --secondaryColor: #764ba2;
+            --accentColor: #2563eb;
+            --background: #f5f5f5;
+            --textColor: #333;
+            --cardBackground: #ffffff;
+            --borderColor: #e5e7eb;
+            --hoverColor: #f3f4f6;
+            --shadowColor: rgba(0,0,0,0.1);
+            --mutedTextColor: #666;
+            --excerptColor: #555;
+            --tagBackground: #e0e7ff;
+            --tagColor: var(--primaryColor);
+            --dangerColor: #ef4444;
+            --dangerHoverColor: #dc2626;
+            --grayColor: #6b7280;
+            --grayHoverColor: #4b5563;
+            --lightGrayBackground: #f9fafb;
+            --emptyStateColor: #9ca3af;
+            --errorBackground: #fee2e2;
+            --errorColor: #dc2626;
+            --contentColor: #444;
+            --headingColor: #374151;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -17,8 +43,8 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
-            color: #333;
-            background: #f5f5f5;
+            color: var(--textColor);
+            background: var(--background);
         }
 
         #app {
@@ -27,10 +53,10 @@
 
         /* Header */
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primaryColor) 0%, var(--secondaryColor) 100%);
             color: white;
             padding: 2rem 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px var(--shadowColor);
         }
 
         .header-content {
@@ -90,7 +116,7 @@
             padding: 0.5rem 1rem;
             border: 2px solid #e5e7eb;
             background: white;
-            color: #374151;
+            color: var(--headingColor);
             border-radius: 9999px;
             font-size: 0.875rem;
             font-weight: 500;
@@ -104,9 +130,9 @@
         }
 
         .category-filter button.active {
-            background: #2563eb;
+            background: var(--accentColor);
             color: white;
-            border-color: #2563eb;
+            border-color: var(--accentColor);
             box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
         }
 
@@ -122,7 +148,7 @@
 
         .search-input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--primaryColor);
         }
 
         /* Filter Section */
@@ -145,7 +171,7 @@
 
         .filter-select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--primaryColor);
         }
 
         .clear-filters {
@@ -178,10 +204,10 @@
         }
 
         .post-card {
-            background: white;
+            background: var(--cardBackground);
             border-radius: 12px;
             padding: 2rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px var(--shadowColor);
             transition: transform 0.3s, box-shadow 0.3s;
             cursor: pointer;
         }
@@ -194,17 +220,17 @@
         .post-title {
             font-size: 1.5rem;
             margin-bottom: 0.5rem;
-            color: #667eea;
+            color: var(--primaryColor);
         }
 
         .post-meta {
-            color: #666;
+            color: var(--mutedTextColor);
             font-size: 0.9rem;
             margin-bottom: 1rem;
         }
 
         .post-excerpt {
-            color: #555;
+            color: var(--excerptColor);
             line-height: 1.8;
         }
 
@@ -216,8 +242,8 @@
         }
 
         .tag {
-            background: #e0e7ff;
-            color: #667eea;
+            background: var(--tagBackground);
+            color: var(--tagColor);
             padding: 0.25rem 0.75rem;
             border-radius: 15px;
             font-size: 0.85rem;
@@ -241,12 +267,12 @@
         .post-content {
             font-size: 1.1rem;
             line-height: 1.8;
-            color: #444;
+            color: var(--contentColor);
             white-space: pre-wrap;
         }
 
         .back-button {
-            background: #667eea;
+            background: var(--primaryColor);
             color: white;
             border: none;
             padding: 0.75rem 1.5rem;
@@ -279,12 +305,12 @@
         }
 
         .admin-header h2 {
-            color: #667eea;
+            color: var(--primaryColor);
             font-size: 2rem;
         }
 
         .btn {
-            background: #667eea;
+            background: var(--primaryColor);
             color: white;
             border: none;
             padding: 0.75rem 1.5rem;
@@ -299,11 +325,11 @@
         }
 
         .btn-danger {
-            background: #ef4444;
+            background: var(--dangerColor);
         }
 
         .btn-danger:hover {
-            background: #dc2626;
+            background: var(--dangerHoverColor);
         }
 
         .btn-small {
@@ -337,7 +363,7 @@
         .form-group input:focus,
         .form-group textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--primaryColor);
         }
 
         .form-group textarea {
@@ -637,7 +663,6 @@
     <script>
     // OAuth 2.0 Web Client ID from Google Cloud
     const GOOGLE_CLIENT_ID = '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com';
-    const GOOGLE_CLIENT_ID = '338774598801-rmbjl0aprte0l23ja5u3t3fm222jkbq1.apps.googleusercontent.com';
 
         // Minimal JWT decoder for client-side ID token parsing (no signature verification)
         function decodeJwt (token) {
