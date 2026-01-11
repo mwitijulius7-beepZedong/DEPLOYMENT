@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -927,20 +927,101 @@
             height: 300px;
             width: 100%;
         }
+
+        /* Birthday Banner */
+        .birthday-banner {
+            background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+            color: white;
+            padding: 1rem 2rem;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+            animation: slideDown 0.5s ease-out;
+            z-index: 1000;
+        }
+
+        .birthday-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .birthday-icon {
+            font-size: 2rem;
+            animation: bounce 1s infinite;
+        }
+
+        .birthday-text {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .birthday-close {
+            position: absolute;
+            top: 0.5rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .birthday-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
     </style>
 </head>
 <body>
-    <div id="app">
-        <div class="header">
-            <div class="header-content">
-                <div class="logo">{{ blogTitle }}</div>
-                <nav class="nav">
-                    <button @click="currentView = 'blog'" :class="{ active: currentView === 'blog' }">Blog</button>
-                    <button @click="currentView = 'admin'" :class="{ active: currentView === 'admin' }" title="Admin Panel">⚙️</button>
-                    <button v-if="isLoggedIn" @click="currentView = 'analytics'" :class="{ active: currentView === 'analytics' }">Analytics</button>
-                </nav>
+        <div id="app">
+            <!-- Birthday Banner -->
+            <div v-if="birthdayMessage" class="birthday-banner">
+                <div class="birthday-content">
+                    <span class="birthday-icon">🎉</span>
+                    <span class="birthday-text">{{ birthdayMessage }}</span>
+                    <button @click="dismissBirthday" class="birthday-close">&times;</button>
+                </div>
             </div>
-        </div>
+
+            <div class="header">
+                <div class="header-content">
+                    <div class="logo">{{ blogTitle }}</div>
+                    <nav class="nav">
+                        <button @click="currentView = 'blog'" :class="{ active: currentView === 'blog' }">Blog</button>
+                        <button @click="currentView = 'admin'" :class="{ active: currentView === 'admin' }" title="Admin Panel">⚙️</button>
+                        <button v-if="isLoggedIn" @click="currentView = 'analytics'" :class="{ active: currentView === 'analytics' }">Analytics</button>
+                    </nav>
+                </div>
+            </div>
 
         <div class="container">
             <!-- Blog View -->
@@ -1293,6 +1374,9 @@
                         categoryId: '',
                         tags: ''
                     },
+                    // Birthday banner
+                    birthdayMessage: null,
+                    birthdayDate: '1990-01-01', // Replace with actual birthday in YYYY-MM-DD format
                     // Analytics data
                     totalPageViews: 0,
                     uniqueVisitors: 0,
@@ -1325,6 +1409,8 @@
                 });
                 // Initialize analytics data
                 this.initializeAnalyticsData();
+                // Check for birthday
+                this.checkBirthday();
             },
             watch: {
                 isLoggedIn(newVal) {
@@ -1871,6 +1957,18 @@
                             });
                         }
                     });
+                },
+
+                checkBirthday() {
+                    const today = new Date();
+                    const birthday = new Date(this.birthdayDate);
+                    if (today.getMonth() === birthday.getMonth() && today.getDate() === birthday.getDate()) {
+                        this.birthdayMessage = "Happy Birthday! 🎉";
+                    }
+                },
+
+                dismissBirthday() {
+                    this.birthdayMessage = null;
                 }
             }
         }).mount('#app');
