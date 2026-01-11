@@ -1334,76 +1334,6 @@
 
                 <!-- Content Area -->
                 <div class="settings-content">
-                    <!-- New Post Panel -->
-                    <div id="new-post-panel" class="settings-panel">
-                        <div class="panel-header">
-                            <h2 class="panel-title">Create New Post</h2>
-                            <p class="panel-description">Write and publish a new blog post with images and rich content.</p>
-                        </div>
-
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Post Title</label>
-                                <input type="text" class="form-input" id="post-title" placeholder="Enter an engaging title for your post">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Category</label>
-                                <select class="form-input" id="post-category">
-                                    <option value="">Select a category</option>
-                                    <option value="technology">Technology</option>
-                                    <option value="programming">Programming</option>
-                                    <option value="web-development">Web Development</option>
-                                    <option value="tutorials">Tutorials</option>
-                                    <option value="news">News</option>
-                                    <option value="personal">Personal</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Featured Image</label>
-                                <div class="file-input-wrapper">
-                                    <input type="file" class="file-input" id="post-image-file" accept="image/*" onchange="handlePostImageUpload()">
-                                    <label for="post-image-file" class="file-input-label">
-                                        <i>🖼️</i>
-                                        Choose featured image...
-                                    </label>
-                                </div>
-                                <div id="image-preview" style="margin-top: 12px; display: none;">
-                                    <img id="preview-img" style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 1px solid #ddd;" alt="Preview">
-                                </div>
-                            </div>
-                            <div class="form-group" style="grid-column: 1 / -1;">
-                                <label class="form-label">Post Content</label>
-                                <textarea class="form-input form-textarea" id="post-content" placeholder="Write your blog post content here... You can include HTML tags for formatting." style="min-height: 300px;"></textarea>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Tags (comma-separated)</label>
-                                <input type="text" class="form-input" id="post-tags" placeholder="javascript, web-development, tutorial">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Publish Status</label>
-                                <select class="form-input" id="post-status">
-                                    <option value="draft">Draft</option>
-                                    <option value="published">Published</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 32px; display: flex; gap: 12px;">
-                            <button class="btn-modern" onclick="saveNewPost()">
-                                <i>📝</i>
-                                Save Post
-                            </button>
-                            <button class="btn-modern secondary" onclick="previewPost()">
-                                <i>👁️</i>
-                                Preview
-                            </button>
-                            <button class="btn-modern sm secondary" onclick="clearPostForm()">
-                                <i>🗑️</i>
-                                Clear
-                            </button>
-                        </div>
-                    </div>
-
                     <!-- General Settings Panel -->
                     <div id="general-panel" class="settings-panel active">
                         <div class="panel-header">
@@ -1710,26 +1640,21 @@
             }
         }
 
-        // Initialize when settings section is shown
-        function showSettingsSection() {
-            const settingsSection = document.getElementById('settings-section');
-            if (settingsSection.style.display === 'block') {
-                settingsSection.style.display = 'none';
-            } else {
-                settingsSection.style.display = 'block';
-                settingsSection.scrollIntoView({ behavior: 'smooth' });
-
-                // Initialize navigation and password toggle
-                initSettingsNavigation();
-                initPasswordToggle();
-            }
-        }
+        // Expose functions globally for settings module
+        window.initSettingsNavigation = initSettingsNavigation;
+        window.initPasswordToggle = initPasswordToggle;
 
         // Initialize settings navigation on page load
         document.addEventListener('DOMContentLoaded', function() {
             initSettingsNavigation();
             initPasswordToggle();
         });
+
+        // Also initialize immediately if DOM is already loaded
+        if (document.readyState !== 'loading') {
+            initSettingsNavigation();
+            initPasswordToggle();
+        }
 
         // Create Post Section
         function showCreatePostSection() {
