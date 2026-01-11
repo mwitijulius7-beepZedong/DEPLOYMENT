@@ -1,127 +1,13 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personal Blog & Admin</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Google Identity Services (replace CLIENT_ID below with your real client ID) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
-        :root {
-            /* Modern Color Palette with Enhanced Accessibility */
-            --primary-color: #6366f1;
-            --primary-hover: #4f46e5;
-            --primary-light: #e0e7ff;
-            --primary-dark: #4338ca;
-            --accent-color: #06b6d4;
-            --accent-hover: #0891b2;
-            --accent-light: #cffafe;
-            --accent-dark: #0e7490;
-
-            /* Background Colors */
-            --bg-color: #ffffff;
-            --bg-secondary: #f8fafc;
-            --bg-tertiary: #f1f5f9;
-            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%, #f8fafc 100%);
-            --bg-gradient-subtle: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.9) 50%, rgba(241,245,249,0.8) 100%);
-            --bg-gradient-radial: radial-gradient(circle at 30% 40%, rgba(99, 102, 241, 0.05) 0%, transparent 50%), radial-gradient(circle at 70% 60%, rgba(6, 182, 212, 0.05) 0%, transparent 50%);
-            --bg-gradient-mesh: linear-gradient(45deg, rgba(99, 102, 241, 0.03) 0%, rgba(6, 182, 212, 0.03) 50%, rgba(139, 92, 246, 0.03) 100%);
-
-            /* Card and Surface Colors */
-            --card-bg: #ffffff;
-            --card-bg-hover: #fafbfc;
-            --surface-bg: #f8fafc;
-            --surface-border: #e2e8f0;
-
-            /* Text Colors with High Contrast */
-            --text-dark: #0f172a;
-            --text-medium: #475569;
-            --text-light: #64748b;
-            --text-muted: #94a3b8;
-            --text-inverse: #ffffff;
-
-            /* Border Colors */
-            --border-color: #e2e8f0;
-            --border-light: #f1f5f9;
-            --border-medium: #cbd5e1;
-            --border-dark: #94a3b8;
-
-            /* Shadow System */
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
-            --shadow-glow-accent: 0 0 20px rgba(6, 182, 212, 0.15);
-
-            /* Border Radius System */
-            --border-radius: 16px;
-            --border-radius-sm: 8px;
-            --border-radius-lg: 24px;
-            --border-radius-xl: 32px;
-
-            /* Transition System */
-            --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-
-            /* Typography System */
-            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            --font-family-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            --font-family-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
-
-            /* Font Sizes */
-            --font-size-xs: 0.75rem;
-            --font-size-sm: 0.875rem;
-            --font-size-base: 1.125rem;
-            --font-size-lg: 1.25rem;
-            --font-size-xl: 1.5rem;
-            --font-size-2xl: 1.75rem;
-            --font-size-3xl: 2rem;
-            --font-size-4xl: 2.5rem;
-            --font-size-5xl: 3.5rem;
-
-            /* Font Weights */
-            --font-weight-normal: 400;
-            --font-weight-medium: 500;
-            --font-weight-semibold: 600;
-            --font-weight-bold: 700;
-            --font-weight-extrabold: 800;
-
-            /* Line Heights */
-            --line-height-tight: 1.25;
-            --line-height-snug: 1.375;
-            --line-height-normal: 1.6;
-            --line-height-relaxed: 1.625;
-            --line-height-loose: 2;
-
-            /* Spacing Scale */
-            --space-1: 0.25rem;
-            --space-2: 0.5rem;
-            --space-3: 0.75rem;
-            --space-4: 1rem;
-            --space-5: 1.25rem;
-            --space-6: 1.5rem;
-            --space-8: 2rem;
-            --space-10: 2.5rem;
-            --space-12: 3rem;
-            --space-16: 4rem;
-            --space-20: 5rem;
-            --space-24: 6rem;
-
-            /* Z-Index Scale */
-            --z-dropdown: 1000;
-            --z-sticky: 1020;
-            --z-fixed: 1030;
-            --z-modal-backdrop: 1040;
-            --z-modal: 1050;
-            --z-popover: 1060;
-            --z-tooltip: 1070;
-        }
-
         * {
             margin: 0;
             padding: 0;
@@ -129,14 +15,10 @@
         }
 
         body {
-            font-family: var(--font-family);
-            font-size: var(--font-size-base);
-            line-height: var(--line-height-normal);
-            color: var(--text-dark);
-            background: var(--bg-gradient);
-            min-height: 100vh;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
         }
 
         #app {
@@ -184,11 +66,6 @@
 
         .nav button:hover {
             background: rgba(255,255,255,0.2);
-            transform: translateY(-1px);
-        }
-
-        .nav button:active {
-            transform: translateY(0);
         }
 
         .nav button.active {
@@ -287,231 +164,85 @@
 
         /* Container */
         .container {
-            max-width: 1400px;
-            margin: 3rem auto;
-            padding: 0 3rem;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
         }
 
         /* Blog Posts */
         .posts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-            gap: 3rem;
-            margin-top: 4rem;
-            padding: 0 1rem;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
         }
 
         .post-card {
             background: white;
-            border-radius: 24px;
-            padding: 3rem;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
             cursor: pointer;
-            border: 1px solid rgba(255,255,255,0.9);
-            position: relative;
-            overflow: hidden;
-            backdrop-filter: blur(10px);
-        }
-
-        .post-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 6px;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            transform: scaleX(0);
-            transition: transform 0.4s ease;
-            border-radius: 24px 24px 0 0;
-        }
-
-        .post-card::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
-            transform: scaleX(0);
-            transition: transform 0.4s ease 0.1s;
-        }
-
-        .post-card:hover::before {
-            transform: scaleX(1);
-        }
-
-        .post-card:hover::after {
-            transform: scaleX(1);
         }
 
         .post-card:hover {
-            transform: translateY(-12px) scale(1.02);
-            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
-            border-color: rgba(102, 126, 234, 0.2);
+            transform: translateY(-5px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
         }
 
         .post-title {
-            font-size: 2rem;
-            font-weight: 800;
-            margin-bottom: 1.25rem;
-            color: #1f2937;
-            line-height: 1.2;
-            transition: all 0.3s ease;
-            letter-spacing: -0.02em;
-        }
-
-        .post-card:hover .post-title {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
             color: #667eea;
-            transform: translateX(4px);
         }
 
         .post-meta {
-            color: #6b7280;
-            font-size: 1rem;
-            margin-bottom: 1.75rem;
-            display: flex;
-            align-items: center;
-            gap: 1.25rem;
-            flex-wrap: wrap;
-            font-weight: 500;
-        }
-
-        .post-meta::before {
-            content: '📅';
-            margin-right: 0.5rem;
-            font-size: 1.1rem;
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
         }
 
         .post-excerpt {
-            color: #4b5563;
+            color: #555;
             line-height: 1.8;
-            font-size: 1.1rem;
-            margin-bottom: 2rem;
-            font-weight: 400;
         }
 
         .post-tags {
-            margin-top: 2rem;
+            margin-top: 1rem;
             display: flex;
             flex-wrap: wrap;
-            gap: 0.875rem;
+            gap: 0.5rem;
         }
 
         .tag {
-            background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-            color: #3730a3;
-            padding: 0.625rem 1.25rem;
-            border-radius: 25px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            border: 1px solid rgba(120, 113, 108, 0.15);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .tag::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .tag:hover::before {
-            left: 100%;
-        }
-
-        .tag:hover {
-            background: linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%);
-            transform: translateY(-3px) scale(1.05);
-            box-shadow: 0 4px 12px rgba(55, 48, 163, 0.3);
+            background: #e0e7ff;
+            color: #667eea;
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.85rem;
         }
 
         /* Single Post View */
         .post-detail {
             background: white;
-            border-radius: 20px;
-            padding: 4rem;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            max-width: 900px;
+            border-radius: 12px;
+            padding: 3rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            max-width: 800px;
             margin: 0 auto;
-            border: 1px solid rgba(255,255,255,0.8);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .post-detail::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 6px;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
         }
 
         .post-detail .post-title {
-            font-size: 3rem;
-            font-weight: 800;
-            margin-bottom: 1.5rem;
-            color: #1f2937;
-            line-height: 1.2;
-            letter-spacing: -0.025em;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
         }
 
         .post-content {
-            font-size: 1.125rem;
+            font-size: 1.1rem;
             line-height: 1.8;
-            color: #374151;
+            color: #444;
             white-space: pre-wrap;
-            margin-top: 2rem;
-        }
-
-        .post-detail .post-meta {
-            color: #6b7280;
-            font-size: 1rem;
-            margin-bottom: 2rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .post-detail .post-meta::before {
-            content: '📅';
-            margin-right: 0.25rem;
-        }
-
-        .post-detail .post-tags {
-            margin: 2rem 0 3rem 0;
-        }
-
-        .post-detail .post-tags .tag {
-            background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-            color: #3730a3;
-            padding: 0.75rem 1.25rem;
-            border-radius: 25px;
-            font-size: 0.95rem;
-            font-weight: 500;
-            border: 1px solid rgba(120, 113, 108, 0.1);
-            transition: all 0.2s ease;
-            margin-right: 0.75rem;
-            margin-bottom: 0.5rem;
-            display: inline-block;
-        }
-
-        .post-detail .post-tags .tag:hover {
-            background: linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%);
-            transform: translateY(-2px);
         }
 
         .back-button {
@@ -679,349 +410,19 @@
             border-radius: 8px;
             margin-bottom: 1rem;
         }
-
-        /* Loading Animation */
-        .loading-spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #e5e7eb;
-            border-radius: 50%;
-            border-top-color: #667eea;
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading-skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s infinite;
-            border-radius: 8px;
-        }
-
-        @keyframes loading {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
-        .post-card-loading {
-            height: 300px;
-            margin-bottom: 2rem;
-        }
-
-        /* Enhanced Button Animations */
-        .btn {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: width 0.3s, height 0.3s;
-        }
-
-        .btn:active::before {
-            width: 300px;
-            height: 300px;
-        }
-
-        /* Micro-interactions */
-        .post-card {
-            animation: fadeInUp 0.6s ease-out forwards;
-            opacity: 0;
-            transform: translateY(20px);
-        }
-
-        .post-card:nth-child(1) { animation-delay: 0.1s; }
-        .post-card:nth-child(2) { animation-delay: 0.2s; }
-        .post-card:nth-child(3) { animation-delay: 0.3s; }
-        .post-card:nth-child(4) { animation-delay: 0.4s; }
-        .post-card:nth-child(5) { animation-delay: 0.5s; }
-        .post-card:nth-child(6) { animation-delay: 0.6s; }
-
-        @keyframes fadeInUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Loading skeleton animation */
-        .loading-skeleton {
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.5;
-            }
-        }
-
-        /* Hover micro-interactions */
-        .category-filter button {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .category-filter button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .category-filter button:active {
-            transform: translateY(0);
-            transition-duration: 0.1s;
-        }
-
-        /* Search input focus animation */
-        .search-input {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .search-input:focus {
-            transform: scale(1.02);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        }
-
-        /* Tag hover effects */
-        .tag {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .tag:hover {
-            transform: translateY(-3px) scale(1.05);
-            box-shadow: 0 8px 25px rgba(55, 48, 163, 0.3);
-        }
-
-        /* Navigation hover effects */
-        .nav button {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .nav button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Form input animations */
-        .form-group input, .form-group textarea {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .form-group input:focus, .form-group textarea:focus {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15);
-        }
-
-        /* Form Input Focus Animation */
-        .form-group input:focus,
-        .form-group textarea:focus {
-            transform: scale(1.02);
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        /* Category Filter Button Animation */
-        .category-filter button {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .category-filter button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .category-filter button:hover::before {
-            left: 100%;
-        }
-
-        /* Analytics Styles */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-bottom: 3rem;
-        }
-
-        .stat-card {
-            background: white;
-            border-radius: 16px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border: 1px solid rgba(255,255,255,0.8);
-            text-align: center;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-
-        .stat-number {
-            font-size: 3rem;
-            font-weight: 800;
-            color: #667eea;
-            margin-bottom: 0.5rem;
-            line-height: 1;
-        }
-
-        .stat-label {
-            color: #6b7280;
-            font-size: 1rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .chart-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 2rem;
-        }
-
-        .action-card {
-            background: white;
-            border-radius: 16px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border: 1px solid rgba(255,255,255,0.8);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .action-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-
-        .action-card h3 {
-            color: #374151;
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
-
-        .chart-container {
-            position: relative;
-            height: 300px;
-            width: 100%;
-        }
-
-        /* Birthday Banner */
-        .birthday-banner {
-            background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
-            color: white;
-            padding: 1rem 2rem;
-            text-align: center;
-            position: relative;
-            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
-            animation: slideDown 0.5s ease-out;
-            z-index: 1000;
-        }
-
-        .birthday-content {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .birthday-icon {
-            font-size: 2rem;
-            animation: bounce 1s infinite;
-        }
-
-        .birthday-text {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin: 0;
-        }
-
-        .birthday-close {
-            position: absolute;
-            top: 0.5rem;
-            right: 1rem;
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0.25rem;
-            border-radius: 50%;
-            transition: background 0.2s;
-        }
-
-        .birthday-close:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        @keyframes slideDown {
-            from {
-                transform: translateY(-100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% {
-                transform: translateY(0);
-            }
-            40% {
-                transform: translateY(-10px);
-            }
-            60% {
-                transform: translateY(-5px);
-            }
-        }
     </style>
 </head>
 <body>
-        <div id="app">
-            <!-- Birthday Banner -->
-            <div v-if="birthdayMessage" class="birthday-banner">
-                <div class="birthday-content">
-                    <span class="birthday-icon">🎉</span>
-                    <span class="birthday-text">{{ birthdayMessage }}</span>
-                    <button @click="dismissBirthday" class="birthday-close">&times;</button>
-                </div>
+    <div id="app">
+        <div class="header">
+            <div class="header-content">
+                <div class="logo">{{ blogTitle }}</div>
+                <nav class="nav">
+                    <button @click="currentView = 'blog'" :class="{ active: currentView === 'blog' }">Blog</button>
+                    <button @click="currentView = 'admin'" :class="{ active: currentView === 'admin' }">Admin</button>
+                </nav>
             </div>
-
-            <div class="header">
-                <div class="header-content">
-                    <div class="logo">{{ blogTitle }}</div>
-                    <nav class="nav">
-                        <button @click="currentView = 'blog'" :class="{ active: currentView === 'blog' }">Blog</button>
-                        <button @click="currentView = 'admin'" :class="{ active: currentView === 'admin' }" title="Admin Panel">⚙️</button>
-                        <button v-if="isLoggedIn" @click="currentView = 'analytics'" :class="{ active: currentView === 'analytics' }">Analytics</button>
-                    </nav>
-                </div>
-            </div>
+        </div>
 
         <div class="container">
             <!-- Blog View -->
@@ -1086,92 +487,6 @@
                         <span v-for="tag in selectedPost.tags" :key="tag" class="tag">{{ tag }}</span>
                     </div>
                     <div class="post-content">{{ selectedPost.content }}</div>
-
-                    <!-- Like/Dislike and Social Sharing Section -->
-                    <div class="post-interactions" style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #e5e7eb;">
-                        <!-- Like/Dislike Buttons -->
-                        <div class="like-dislike-section" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;">
-                            <button @click="likePost(selectedPost.id)" class="interaction-btn like-btn" :class="{ active: postLikes[selectedPost.id] }">
-                                👍 Like ({{ postLikes[selectedPost.id] || 0 }})
-                            </button>
-                            <button @click="dislikePost(selectedPost.id)" class="interaction-btn dislike-btn" :class="{ active: postDislikes[selectedPost.id] }">
-                                👎 Dislike ({{ postDislikes[selectedPost.id] || 0 }})
-                            </button>
-                        </div>
-
-                        <!-- Social Sharing Buttons -->
-                        <div class="social-sharing" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-                            <span style="font-weight: 600; color: #374151; margin-right: 0.5rem;">Share:</span>
-                            <button @click="shareOnFacebook(selectedPost)" class="share-btn facebook-btn" title="Share on Facebook">
-                                📘 Facebook
-                            </button>
-                            <button @click="shareOnTwitter(selectedPost)" class="share-btn twitter-btn" title="Share on Twitter">
-                                🐦 Twitter
-                            </button>
-                            <button @click="shareOnLinkedIn(selectedPost)" class="share-btn linkedin-btn" title="Share on LinkedIn">
-                                💼 LinkedIn
-                            </button>
-                            <button @click="copyLink(selectedPost)" class="share-btn copy-btn" title="Copy Link">
-                                🔗 Copy Link
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Analytics View -->
-            <div v-if="currentView === 'analytics'">
-                <div class="admin-panel">
-                    <div class="admin-header">
-                        <h2>Analytics Dashboard</h2>
-                        <button class="btn" @click="currentView = 'admin'">Back to Admin</button>
-                    </div>
-
-                    <div class="stats-grid" style="margin-bottom: 2rem;">
-                        <div class="stat-card">
-                            <div class="stat-number">{{ totalPageViews }}</div>
-                            <div class="stat-label">Total Page Views</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number">{{ uniqueVisitors }}</div>
-                            <div class="stat-label">Unique Visitors</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number">{{ averageSessionDuration }}</div>
-                            <div class="stat-label">Avg. Session (min)</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number">{{ bounceRate }}%</div>
-                            <div class="stat-label">Bounce Rate</div>
-                        </div>
-                    </div>
-
-                    <div class="chart-grid">
-                        <div class="action-card">
-                            <h3>Page Views Over Time</h3>
-                            <div class="chart-container">
-                                <canvas id="pageViewsChart"></canvas>
-                            </div>
-                        </div>
-                        <div class="action-card">
-                            <h3>Top Posts</h3>
-                            <div class="chart-container">
-                                <canvas id="topPostsChart"></canvas>
-                            </div>
-                        </div>
-                        <div class="action-card">
-                            <h3>Traffic Sources</h3>
-                            <div class="chart-container">
-                                <canvas id="trafficSourcesChart"></canvas>
-                            </div>
-                        </div>
-                        <div class="action-card">
-                            <h3>Device Types</h3>
-                            <div class="chart-container">
-                                <canvas id="deviceTypesChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -1322,6 +637,7 @@
     <script>
     // OAuth 2.0 Web Client ID from Google Cloud
     const GOOGLE_CLIENT_ID = '338774598801-1pj8tukietpiupfpt89lucjt17odm2hj.apps.googleusercontent.com';
+    const GOOGLE_CLIENT_ID = '338774598801-rmbjl0aprte0l23ja5u3t3fm222jkbq1.apps.googleusercontent.com';
 
         // Minimal JWT decoder for client-side ID token parsing (no signature verification)
         function decodeJwt (token) {
@@ -1350,8 +666,6 @@
                     selectedTag: '',
                     selectedArchive: '',
                     isLoggedIn: false,
-                    postLikes: {},
-                    postDislikes: {},
                     entryKey: '',
                     entryKeyVerified: false,
                     showEntryKey: false,
@@ -1373,26 +687,12 @@
                         content: '',
                         categoryId: '',
                         tags: ''
-                    },
-                    // Birthday banner
-                    birthdayMessage: null,
-                    birthdayDate: '1990-01-01', // Replace with actual birthday in YYYY-MM-DD format
-                    // Analytics data
-                    totalPageViews: 0,
-                    uniqueVisitors: 0,
-                    averageSessionDuration: 0,
-                    bounceRate: 0,
-                    pageViewsData: {},
-                    topPostsData: {},
-                    trafficSourcesData: {},
-                    deviceTypesData: {}
+                    }
                 };
             },
             mounted() {
                 this.loadPosts();
                 this.loadCategories();
-                // Load likes and dislikes from localStorage
-                this.loadLikesFromStorage();
                 // Initialize Google Identity after mount
                 this.initGoogleIdentity();
                 // Check server session status
@@ -1407,10 +707,6 @@
                         this.currentView = 'admin';
                     }
                 });
-                // Initialize analytics data
-                this.initializeAnalyticsData();
-                // Check for birthday
-                this.checkBirthday();
             },
             watch: {
                 isLoggedIn(newVal) {
@@ -1790,185 +1086,6 @@
                 },
                 getExcerpt(content) {
                     return content.length > 150 ? content.substring(0, 150) + '...' : content;
-                },
-
-                likePost(postId) {
-                    if (!this.postLikes[postId]) {
-                        this.postLikes[postId] = 0;
-                    }
-                    this.postLikes[postId]++;
-                    this.saveLikesToStorage();
-                },
-
-                dislikePost(postId) {
-                    if (!this.postDislikes[postId]) {
-                        this.postDislikes[postId] = 0;
-                    }
-                    this.postDislikes[postId]++;
-                    this.saveLikesToStorage();
-                },
-
-                saveLikesToStorage() {
-                    localStorage.setItem('postLikes', JSON.stringify(this.postLikes));
-                    localStorage.setItem('postDislikes', JSON.stringify(this.postDislikes));
-                },
-
-                loadLikesFromStorage() {
-                    const likes = localStorage.getItem('postLikes');
-                    const dislikes = localStorage.getItem('postDislikes');
-                    if (likes) {
-                        this.postLikes = JSON.parse(likes);
-                    }
-                    if (dislikes) {
-                        this.postDislikes = JSON.parse(dislikes);
-                    }
-                },
-
-                shareOnFacebook(post) {
-                    const url = encodeURIComponent(window.location.href + '?post=' + post.id);
-                    const text = encodeURIComponent(`Check out this post: ${post.title}`);
-                    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank');
-                },
-
-                shareOnTwitter(post) {
-                    const url = encodeURIComponent(window.location.href + '?post=' + post.id);
-                    const text = encodeURIComponent(`Check out this post: ${post.title}`);
-                    window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank');
-                },
-
-                shareOnLinkedIn(post) {
-                    const url = encodeURIComponent(window.location.href + '?post=' + post.id);
-                    const title = encodeURIComponent(post.title);
-                    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}&title=${title}`, '_blank');
-                },
-
-                async copyLink(post) {
-                    const url = window.location.href + '?post=' + post.id;
-                    try {
-                        await navigator.clipboard.writeText(url);
-                        alert('Link copied to clipboard!');
-                    } catch (err) {
-                        // Fallback for older browsers
-                        const textArea = document.createElement('textarea');
-                        textArea.value = url;
-                        document.body.appendChild(textArea);
-                        textArea.select();
-                        document.execCommand('copy');
-                        document.body.removeChild(textArea);
-                        alert('Link copied to clipboard!');
-                    }
-                },
-
-                initializeAnalyticsData() {
-                    // Set sample analytics data
-                    this.totalPageViews = 15420;
-                    this.uniqueVisitors = 8920;
-                    this.averageSessionDuration = 4.5;
-                    this.bounceRate = 32;
-
-                    // Sample data for charts
-                    this.pageViewsData = {
-                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                        datasets: [{
-                            label: 'Page Views',
-                            data: [1200, 1900, 3000, 5000, 2000, 3000],
-                            borderColor: '#667eea',
-                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                            tension: 0.4
-                        }]
-                    };
-
-                    this.topPostsData = {
-                        labels: ['Post 1', 'Post 2', 'Post 3', 'Post 4', 'Post 5'],
-                        datasets: [{
-                            label: 'Views',
-                            data: [1200, 950, 800, 600, 400],
-                            backgroundColor: '#667eea'
-                        }]
-                    };
-
-                    this.trafficSourcesData = {
-                        labels: ['Direct', 'Search', 'Social', 'Referral', 'Email'],
-                        datasets: [{
-                            data: [40, 30, 15, 10, 5],
-                            backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe']
-                        }]
-                    };
-
-                    this.deviceTypesData = {
-                        labels: ['Desktop', 'Mobile', 'Tablet'],
-                        datasets: [{
-                            data: [60, 35, 5],
-                            backgroundColor: ['#667eea', '#764ba2', '#f093fb']
-                        }]
-                    };
-
-                    // Initialize charts
-                    this.$nextTick(() => {
-                        // Page Views Chart
-                        const pageViewsCtx = document.getElementById('pageViewsChart');
-                        if (pageViewsCtx) {
-                            new Chart(pageViewsCtx, {
-                                type: 'line',
-                                data: this.pageViewsData,
-                                options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false
-                                }
-                            });
-                        }
-
-                        // Top Posts Chart
-                        const topPostsCtx = document.getElementById('topPostsChart');
-                        if (topPostsCtx) {
-                            new Chart(topPostsCtx, {
-                                type: 'bar',
-                                data: this.topPostsData,
-                                options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false
-                                }
-                            });
-                        }
-
-                        // Traffic Sources Chart
-                        const trafficSourcesCtx = document.getElementById('trafficSourcesChart');
-                        if (trafficSourcesCtx) {
-                            new Chart(trafficSourcesCtx, {
-                                type: 'pie',
-                                data: this.trafficSourcesData,
-                                options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false
-                                }
-                            });
-                        }
-
-                        // Device Types Chart
-                        const deviceTypesCtx = document.getElementById('deviceTypesChart');
-                        if (deviceTypesCtx) {
-                            new Chart(deviceTypesCtx, {
-                                type: 'doughnut',
-                                data: this.deviceTypesData,
-                                options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false
-                                }
-                            });
-                        }
-                    });
-                },
-
-                checkBirthday() {
-                    const today = new Date();
-                    const birthday = new Date(this.birthdayDate);
-                    if (today.getMonth() === birthday.getMonth() && today.getDate() === birthday.getDate()) {
-                        this.birthdayMessage = "Happy Birthday! 🎉";
-                    }
-                },
-
-                dismissBirthday() {
-                    this.birthdayMessage = null;
                 }
             }
         }).mount('#app');
