@@ -2072,92 +2072,71 @@
 
     <script type="module" src="/public/js/main.js"></script>
     <script type="module">
-        import { 
-            addCategory, 
-            loadCategories, 
-            deleteCategory, 
-            editCategory,
-            toggleSelectAllCategories, 
-            updateSelectedCategoriesCount, 
-            deleteSelectedCategories,
-            saveAuthorInfo,
-            saveSecuritySettings,
-            viewCurrentKey,
-            clearKey,
-            saveNotificationSettings,
-            saveContentSettings,
-            handleProfilePictureUpload
-        } from '/public/js/settings.js';
+        // Import and expose all required functions
+        try {
+            const settingsModule = await import('/public/js/settings.js');
+            const customizeModule = await import('/public/js/customize.js');
+            const postsModule = await import('/public/js/posts.js');
+            const analyticsModule = await import('/public/js/analytics.js');
+            const authModule = await import('/public/js/auth.js');
 
-        import {
-            saveThemeSettings,
-            saveBackgroundSettings,
-            handleBackgroundUpload
-        } from '/public/js/customize.js';
+            // Expose settings functions to window
+            window.addCategory = settingsModule.addCategory;
+            window.loadCategories = settingsModule.loadCategories;
+            window.deleteCategory = settingsModule.deleteCategory;
+            window.editCategory = settingsModule.editCategory;
+            window.toggleSelectAllCategories = settingsModule.toggleSelectAllCategories;
+            window.updateSelectedCategoriesCount = settingsModule.updateSelectedCategoriesCount;
+            window.deleteSelectedCategories = settingsModule.deleteSelectedCategories;
+            window.saveAuthorInfo = settingsModule.saveAuthorInfo;
+            window.saveSecuritySettings = settingsModule.saveSecuritySettings;
+            window.viewCurrentKey = settingsModule.viewCurrentKey;
+            window.clearKey = settingsModule.clearKey;
+            window.saveNotificationSettings = settingsModule.saveNotificationSettings;
+            window.saveContentSettings = settingsModule.saveContentSettings;
+            window.handleProfilePictureUpload = settingsModule.handleProfilePictureUpload;
 
-        import {
-            togglePostsList,
-            loadPostsList,
-            saveNewPost,
-            previewPost,
-            clearPostForm,
-            handlePostImageUpload,
-            toggleSelectAllPosts,
-            updateSelectedCount,
-            deleteSelectedPosts,
-            editPost,
-            deletePost
-        } from '/public/js/posts.js';
+            // Expose customize functions
+            window.saveThemeSettings = customizeModule.saveThemeSettings;
+            window.saveBackgroundSettings = customizeModule.saveBackgroundSettings;
+            window.handleBackgroundUpload = customizeModule.handleBackgroundUpload;
 
-        import {
-            refreshAnalytics,
-            viewEngagementDetails,
-            exportAnalytics,
-            loadTimeAnalytics
-        } from '/public/js/analytics.js';
+            // Expose posts functions
+            window.togglePostsList = postsModule.togglePostsList;
+            window.loadPostsList = postsModule.loadPostsList;
+            window.saveNewPost = postsModule.saveNewPost;
+            window.previewPost = postsModule.previewPost;
+            window.clearPostForm = postsModule.clearPostForm;
+            window.handlePostImageUpload = postsModule.handlePostImageUpload;
+            window.toggleSelectAllPosts = postsModule.toggleSelectAllPosts;
+            window.updateSelectedCount = postsModule.updateSelectedCount;
+            window.deleteSelectedPosts = postsModule.deleteSelectedPosts;
+            window.editPost = postsModule.editPost;
+            window.deletePost = postsModule.deletePost;
 
-        import { logout } from '/public/js/auth.js';
+            // Expose analytics functions
+            window.refreshAnalytics = analyticsModule.refreshAnalytics;
+            window.viewEngagementDetails = analyticsModule.viewEngagementDetails;
+            window.exportAnalytics = analyticsModule.exportAnalytics;
+            window.loadTimeAnalytics = analyticsModule.loadTimeAnalytics;
 
-        // Expose settings functions to window
-        window.addCategory = addCategory;
-        window.loadCategories = loadCategories;
-        window.deleteCategory = deleteCategory;
-        window.editCategory = editCategory;
-        window.toggleSelectAllCategories = toggleSelectAllCategories;
-        window.updateSelectedCategoriesCount = updateSelectedCategoriesCount;
-        window.deleteSelectedCategories = deleteSelectedCategories;
-        window.saveAuthorInfo = saveAuthorInfo;
-        window.saveSecuritySettings = saveSecuritySettings;
-        window.viewCurrentKey = viewCurrentKey;
-        window.clearKey = clearKey;
-        window.saveNotificationSettings = saveNotificationSettings;
-        window.saveContentSettings = saveContentSettings;
-        window.handleProfilePictureUpload = handleProfilePictureUpload;
-        window.saveThemeSettings = saveThemeSettings;
-        window.saveBackgroundSettings = saveBackgroundSettings;
-        window.handleBackgroundUpload = handleBackgroundUpload;
+            // Expose auth functions
+            window.logout = authModule.logout;
 
-        // Expose posts functions
-        window.togglePostsList = togglePostsList;
-        window.loadPostsList = loadPostsList;
-        window.saveNewPost = saveNewPost;
-        window.previewPost = previewPost;
-        window.clearPostForm = clearPostForm;
-        window.handlePostImageUpload = handlePostImageUpload;
-        window.toggleSelectAllPosts = toggleSelectAllPosts;
-        window.updateSelectedCount = updateSelectedCount;
-        window.deleteSelectedPosts = deleteSelectedPosts;
-        window.editPost = editPost;
-        window.deletePost = deletePost;
-
-        // Expose analytics functions
-        window.refreshAnalytics = refreshAnalytics;
-        window.viewEngagementDetails = viewEngagementDetails;
-        window.exportAnalytics = exportAnalytics;
-        window.loadTimeAnalytics = loadTimeAnalytics;
-
-        // Expose auth functions
-        window.logout = logout;
+            console.log('All admin functions loaded successfully');
+        } catch (error) {
+            console.error('Failed to load admin functions:', error);
+            // Define fallback functions
+            window.addCategory = () => console.log('addCategory not available');
+            window.loadCategories = () => console.log('loadCategories not available');
+            window.saveAuthorInfo = () => console.log('saveAuthorInfo not available');
+            window.handleProfilePictureUpload = () => console.log('handleProfilePictureUpload not available');
+            window.saveNewPost = () => console.log('saveNewPost not available');
+            window.refreshAnalytics = () => console.log('refreshAnalytics not available');
+            window.logout = () => console.log('logout not available');
+            window.toggleSidebar = () => console.log('toggleSidebar not available');
+            window.togglePostsList = () => console.log('togglePostsList not available');
+        }
 
         // Sidebar toggle
         window.toggleSidebar = function() {
