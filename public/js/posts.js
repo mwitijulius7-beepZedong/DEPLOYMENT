@@ -1,14 +1,17 @@
 // Posts module
 export function showPostsSection() {
+    // Hide other sections
+    const sections = ['dashboard', 'settings-section', 'analytics-section', 'customize-section', 'create-post-section'];
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
     const postsSection = document.getElementById('posts-section');
-    if (postsSection.style.display === 'block') {
-        postsSection.style.display = 'none';
-    } else {
-        postsSection.style.display = 'block';
-        postsSection.scrollIntoView({ behavior: 'smooth' });
-        // Load posts data
-        loadPostsList();
-    }
+    postsSection.style.display = 'block';
+    postsSection.scrollIntoView({ behavior: 'smooth' });
+    // Load posts data
+    loadPostsList();
 }
 
 export function togglePostsList() {

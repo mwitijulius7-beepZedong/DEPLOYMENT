@@ -97,7 +97,7 @@ async function testProductionModernization() {
 
             return {
                 containerMaxWidth: container ? window.getComputedStyle(container).maxWidth : 'N/A',
-                hasModernSpacing: container ? window.getComputedStyle(container).padding.includes('rem') : false,
+                hasModernSpacing: container ? window.getComputedStyle(container).padding !== '0px' : false,
                 cardShadows: Array.from(cards).some(card => {
                     const style = window.getComputedStyle(card);
                     return style.boxShadow && style.boxShadow !== 'none';

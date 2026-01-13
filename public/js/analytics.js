@@ -1,16 +1,19 @@
 // Analytics module
 export function showAnalyticsSection() {
+    // Hide other sections
+    const sections = ['dashboard', 'posts-section', 'settings-section', 'customize-section', 'create-post-section'];
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
     const analyticsSection = document.getElementById('analytics-section');
-    if (analyticsSection.style.display === 'block') {
-        analyticsSection.style.display = 'none';
-    } else {
-        analyticsSection.style.display = 'block';
-        analyticsSection.scrollIntoView({ behavior: 'smooth' });
-        // Load initial analytics data
-        refreshAnalytics();
-        // Initialize charts
-        initializeCharts();
-    }
+    analyticsSection.style.display = 'block';
+    analyticsSection.scrollIntoView({ behavior: 'smooth' });
+    // Load initial analytics data
+    refreshAnalytics();
+    // Initialize charts
+    initializeCharts();
 }
 
 export async function refreshAnalytics() {
