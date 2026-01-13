@@ -1288,6 +1288,7 @@
 
             <!-- Content Area -->
             <div class="content-area">
+                <div id="dashboard">
                 <!-- Dashboard Header -->
                 <div class="dashboard-header">
                     <h2 class="dashboard-title">Welcome back, zedong254ke!</h2>
@@ -1357,6 +1358,7 @@
                         </div>
                         <p>Configure your blog appearance, author details, and security preferences.</p>
                     </div>
+                </div>
                 </div>
 
                 <!-- Posts Section -->
@@ -1855,7 +1857,6 @@
 
 
     <script type="module" src="/public/js/main.js"></script>
-    <script src="test-button-responsiveness.js"></script>
     <script>
         // Modern Settings Navigation
         function initSettingsNavigation() {
@@ -1946,24 +1947,6 @@
 
         // Make functions globally available
         window.showCreatePostSection = showCreatePostSection;
-
-        // Import and make post functions globally available
-        import('./js/posts.js').then(module => {
-            window.createNewPost = module.createNewPost;
-            window.handlePostImageUpload = module.handlePostImageUpload;
-            window.saveNewPost = module.saveNewPost;
-            window.previewPost = module.previewPost;
-            window.clearPostForm = module.clearPostForm;
-            window.showPostsSection = module.showPostsSection;
-            window.togglePostsList = module.togglePostsList;
-            window.loadPostsList = module.loadPostsList;
-            window.editPost = module.editPost;
-            window.deletePost = module.deletePost;
-            window.viewPostStats = module.viewPostStats;
-            window.toggleSelectAllPosts = module.toggleSelectAllPosts;
-            window.updateSelectedCount = module.updateSelectedCount;
-            window.deleteSelectedPosts = module.deleteSelectedPosts;
-        });
     </script>
 
 </body>

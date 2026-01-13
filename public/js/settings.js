@@ -1,19 +1,22 @@
 // Settings module
 export function showSettingsSection() {
-    const settingsSection = document.getElementById('settings-section');
-    if (settingsSection.style.display === 'block') {
-        settingsSection.style.display = 'none';
-    } else {
-        settingsSection.style.display = 'block';
-        settingsSection.scrollIntoView({ behavior: 'smooth' });
+    // Hide other sections
+    const sections = ['dashboard', 'posts-section', 'analytics-section', 'customize-section', 'create-post-section'];
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
 
-        // Initialize navigation and password toggle when settings section is shown
-        if (typeof initSettingsNavigation === 'function') {
-            initSettingsNavigation();
-        }
-        if (typeof initPasswordToggle === 'function') {
-            initPasswordToggle();
-        }
+    const settingsSection = document.getElementById('settings-section');
+    settingsSection.style.display = 'block';
+    settingsSection.scrollIntoView({ behavior: 'smooth' });
+
+    // Initialize navigation and password toggle when settings section is shown
+    if (typeof initSettingsNavigation === 'function') {
+        initSettingsNavigation();
+    }
+    if (typeof initPasswordToggle === 'function') {
+        initPasswordToggle();
     }
 }
 
