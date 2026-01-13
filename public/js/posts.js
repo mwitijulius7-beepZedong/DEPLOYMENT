@@ -10,8 +10,15 @@ export function showPostsSection() {
     const postsSection = document.getElementById('posts-section');
     postsSection.style.display = 'block';
     postsSection.scrollIntoView({ behavior: 'smooth' });
-    // Load posts data
-    loadPostsList();
+
+    // Load posts data with improved error handling
+    loadPostsList().catch(error => {
+        console.error('Failed to load posts in showPostsSection:', error);
+        const postsList = document.getElementById('posts-list');
+        if (postsList) {
+            postsList.innerHTML = '<p style="color: #dc2626; text-align: center; padding: 20px;">Failed to load posts. Please try again.</p>';
+        }
+    });
 }
 
 export function togglePostsList() {
