@@ -40,17 +40,24 @@ export async function loadPostsList() {
 
         if (data.posts && data.posts.length > 0) {
             postsList.innerHTML = data.posts.map(post => `
-                <div class="post-item" style="padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; background: #f9f9f9;">
-                    <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
-                        <input type="checkbox" class="post-checkbox" data-post-id="${post.id}" onchange="updateSelectedCount()">
-                        <div style="flex: 1;">
-                            <h4 style="margin: 0 0 8px 0; font-size: 16px;">${post.title}</h4>
-                            <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">${post.content ? post.content.substring(0, 100) + '...' : 'No content'}</p>
+                <div class="post-item">
+                    <div class="post-item-header">
+                        <h4 class="post-item-title">${post.title}</h4>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn-modern sm secondary" onclick="editPost('${post.id}')">Edit</button>
+                            <button class="btn-modern sm" style="background-color: #dc2626;" onclick="deletePost('${post.id}')">Delete</button>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="action-btn" style="padding: 6px 12px; font-size: 12px;" onclick="editPost('${post.id}')">Edit</button>
-                        <button class="action-btn secondary" style="padding: 6px 12px; font-size: 12px;" onclick="deletePost('${post.id}')">Delete</button>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                        <p style="color: var(--text-medium); font-size: 14px; margin: 0;">
+                            ${new Date(post.date).toLocaleDateString()} · ${post.author || 'Admin'}
+                        </p>
+                        <span style="font-size:12px; padding:4px 8px; background:${post.isDraft ? '#fef3c7' : '#dcfce7'}; color:${post.isDraft ? '#d97706' : '#166534'}; border-radius:12px;">
+                            ${post.isDraft ? 'Draft' : 'Published'}
+                        </span>
+                    </div>
+                    <div class="post-meta-tags" style="margin-top:12px;">
+                        ${(post.tags || []).map(tag => `<span class="post-tag-badge">${tag}</span>`).join('')}
                     </div>
                 </div>
             `).join('');
@@ -60,7 +67,8 @@ export async function loadPostsList() {
             totalPosts.textContent = '0';
         }
         // Reset select all checkbox and selected count
-        document.getElementById('select-all-posts').checked = false;
+        const selectAll = document.getElementById('select-all-posts');
+        if (selectAll) selectAll.checked = false;
         updateSelectedCount();
     } catch (error) {
         console.error('Failed to load posts:', error);
