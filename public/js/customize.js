@@ -1,12 +1,15 @@
 // Customize module
 export function showCustomizeSection() {
+    // Hide other sections
+    const sections = ['dashboard', 'posts-section', 'settings-section', 'analytics-section', 'create-post-section'];
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
     const customizeSection = document.getElementById('customize-section');
-    if (customizeSection.style.display === 'block') {
-        customizeSection.style.display = 'none';
-    } else {
-        customizeSection.style.display = 'block';
-        customizeSection.scrollIntoView({ behavior: 'smooth' });
-    }
+    customizeSection.style.display = 'block';
+    customizeSection.scrollIntoView({ behavior: 'smooth' });
 }
 
 export function showPrimaryOkButton() {

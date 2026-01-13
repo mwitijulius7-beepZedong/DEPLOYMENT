@@ -31,7 +31,7 @@ try {
 } catch (error) {
     console.error('Failed to load auth.js:', error);
     checkAuth = () => {};
-    logout = () => {};
+    logout = undefined;
 }
 
 try {
@@ -40,8 +40,8 @@ try {
     showDashboard = dashboardModule.showDashboard;
 } catch (error) {
     console.error('Failed to load dashboard.js:', error);
-    loadDashboardStats = () => {};
-    showDashboard = () => {};
+    loadDashboardStats = undefined;
+    showDashboard = undefined;
 }
 
 try {
@@ -58,16 +58,16 @@ try {
     deleteSelectedPosts = postsModule.deleteSelectedPosts;
 } catch (error) {
     console.error('Failed to load posts.js:', error);
-    showPostsSection = () => {};
-    togglePostsList = () => {};
-    loadPostsList = () => {};
-    createNewPost = () => {};
-    editPost = () => {};
-    deletePost = () => {};
-    viewPostStats = () => {};
-    toggleSelectAllPosts = () => {};
-    updateSelectedCount = () => {};
-    deleteSelectedPosts = () => {};
+    showPostsSection = undefined;
+    togglePostsList = undefined;
+    loadPostsList = undefined;
+    createNewPost = undefined;
+    editPost = undefined;
+    deletePost = undefined;
+    viewPostStats = undefined;
+    toggleSelectAllPosts = undefined;
+    updateSelectedCount = undefined;
+    deleteSelectedPosts = undefined;
 }
 
 try {
@@ -79,11 +79,11 @@ try {
     loadTimeAnalytics = analyticsModule.loadTimeAnalytics;
 } catch (error) {
     console.error('Failed to load analytics.js:', error);
-    showAnalyticsSection = () => {};
-    refreshAnalytics = () => {};
-    viewEngagementDetails = () => {};
-    exportAnalytics = () => {};
-    loadTimeAnalytics = () => {};
+    showAnalyticsSection = undefined;
+    refreshAnalytics = undefined;
+    viewEngagementDetails = undefined;
+    exportAnalytics = undefined;
+    loadTimeAnalytics = undefined;
 }
 
 try {
@@ -106,22 +106,22 @@ try {
     handleProfilePictureUpload = settingsModule.handleProfilePictureUpload;
 } catch (error) {
     console.error('Failed to load settings.js:', error);
-    showSettingsSection = () => {};
-    toggleCategoriesList = () => {};
-    loadCategories = () => {};
-    addCategory = () => {};
-    editCategory = () => {};
-    deleteCategory = () => {};
-    toggleSelectAllCategories = () => {};
-    updateSelectedCategoriesCount = () => {};
-    deleteSelectedCategories = () => {};
-    saveAuthorInfo = () => {};
-    saveSecuritySettings = () => {};
-    viewCurrentKey = () => {};
-    clearKey = () => {};
-    saveNotificationSettings = () => {};
-    saveContentSettings = () => {};
-    handleProfilePictureUpload = () => {};
+    showSettingsSection = undefined;
+    toggleCategoriesList = undefined;
+    loadCategories = undefined;
+    addCategory = undefined;
+    editCategory = undefined;
+    deleteCategory = undefined;
+    toggleSelectAllCategories = undefined;
+    updateSelectedCategoriesCount = undefined;
+    deleteSelectedCategories = undefined;
+    saveAuthorInfo = undefined;
+    saveSecuritySettings = undefined;
+    viewCurrentKey = undefined;
+    clearKey = undefined;
+    saveNotificationSettings = undefined;
+    saveContentSettings = undefined;
+    handleProfilePictureUpload = undefined;
 }
 
 try {
@@ -142,20 +142,20 @@ try {
     selectPattern = customizeModule.selectPattern;
 } catch (error) {
     console.error('Failed to load customize.js:', error);
-    showCustomizeSection = () => {};
-    showPrimaryOkButton = () => {};
-    showAccentOkButton = () => {};
-    confirmPrimaryColor = () => {};
-    confirmAccentColor = () => {};
-    saveThemeSettings = () => {};
-    saveBlogInfo = () => {};
-    handleBackgroundUpload = () => {};
-    saveBackgroundSettings = () => {};
-    previewChanges = () => {};
-    applyChanges = () => {};
-    previewColorBackground = () => {};
-    applyColorBackground = () => {};
-    selectPattern = () => {};
+    showCustomizeSection = undefined;
+    showPrimaryOkButton = undefined;
+    showAccentOkButton = undefined;
+    confirmPrimaryColor = undefined;
+    confirmAccentColor = undefined;
+    saveThemeSettings = undefined;
+    saveBlogInfo = undefined;
+    handleBackgroundUpload = undefined;
+    saveBackgroundSettings = undefined;
+    previewChanges = undefined;
+    applyChanges = undefined;
+    previewColorBackground = undefined;
+    applyColorBackground = undefined;
+    selectPattern = undefined;
 }
 
 try {
@@ -175,13 +175,43 @@ window.showAnalyticsSection = showAnalyticsSection;
 window.showCustomizeSection = showCustomizeSection;
 
 // Ensure critical functions are always available
+window.logout = window.logout || function() {
+    console.log('logout called (fallback)');
+    window.location.href = '/login.html';
+};
+
+window.showDashboard = window.showDashboard || function() {
+    console.log('showDashboard called (fallback)');
+    const dashboard = document.getElementById('dashboard');
+    if (dashboard) {
+        // Hide all other sections first
+        const sections = ['settings-section', 'analytics-section', 'customize-section', 'posts-section', 'create-post-section'];
+        sections.forEach(id => {
+            const section = document.getElementById(id);
+            if (section) section.style.display = 'none';
+        });
+
+        // Show dashboard
+        dashboard.style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+        console.error('dashboard element not found');
+    }
+};
+
 window.showSettingsSection = window.showSettingsSection || function() {
     console.log('showSettingsSection called (fallback)');
     const settingsSection = document.getElementById('settings-section');
     if (settingsSection) {
-        if (settingsSection.style.display === 'block') {
-            settingsSection.style.display = 'none';
-        } else {
+        // Hide all other sections first
+        const sections = ['posts-section', 'analytics-section', 'customize-section', 'dashboard', 'create-post-section'];
+        sections.forEach(id => {
+            const section = document.getElementById(id);
+            if (section) section.style.display = 'none';
+        });
+
+        // Show settings section
+        if (settingsSection.style.display !== 'block') {
             settingsSection.style.display = 'block';
             settingsSection.scrollIntoView({ behavior: 'smooth' });
         }
@@ -195,7 +225,7 @@ window.showPostsSection = window.showPostsSection || function() {
     const postsSection = document.getElementById('posts-section');
     if (postsSection) {
         // Hide all other sections first
-        const sections = ['settings-section', 'analytics-section', 'customize-section'];
+        const sections = ['settings-section', 'analytics-section', 'customize-section', 'dashboard', 'create-post-section'];
         sections.forEach(id => {
             const section = document.getElementById(id);
             if (section) section.style.display = 'none';
@@ -214,7 +244,7 @@ window.showAnalyticsSection = window.showAnalyticsSection || function() {
     const analyticsSection = document.getElementById('analytics-section');
     if (analyticsSection) {
         // Hide all other sections first
-        const sections = ['settings-section', 'posts-section', 'customize-section'];
+        const sections = ['settings-section', 'posts-section', 'customize-section', 'dashboard', 'create-post-section'];
         sections.forEach(id => {
             const section = document.getElementById(id);
             if (section) section.style.display = 'none';
@@ -233,7 +263,7 @@ window.showCustomizeSection = window.showCustomizeSection || function() {
     const customizeSection = document.getElementById('customize-section');
     if (customizeSection) {
         // Hide all other sections first
-        const sections = ['settings-section', 'posts-section', 'analytics-section'];
+        const sections = ['settings-section', 'posts-section', 'analytics-section', 'dashboard', 'create-post-section'];
         sections.forEach(id => {
             const section = document.getElementById(id);
             if (section) section.style.display = 'none';
