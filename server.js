@@ -2029,6 +2029,31 @@ app.get('/api/birthday', (req, res) => {
   return res.json({ message: 'Happy Birthday! Wishing you a fantastic year ahead!' });
 });
 
+// Temporary admin endpoint to delete all posts (for production cleanup)
+app.delete('/api/admin/delete-all-posts', requireAdmin, async (req, res) => {
+  try {
+    console.log('Admin requested to delete all posts');
+
+    // Delete all posts
+    await savePosts([]);
+
+    // Delete all comments
+    await saveComments([]);
+
+    // Delete all subscriptions
+    await saveSubscriptions([]);
+
+    console.log('All posts, comments, and subscriptions deleted successfully');
+    return res.json({
+      success: true,
+      message: 'All posts, comments, and subscriptions have been deleted'
+    });
+  } catch (error) {
+    console.error('Error deleting all posts:', error);
+    return res.status(500).json({ error: 'Failed to delete posts' });
+  }
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
