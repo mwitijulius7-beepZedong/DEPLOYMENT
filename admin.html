@@ -2072,6 +2072,99 @@
 
     <script type="module" src="/public/js/main.js"></script>
     <script type="module">
+        import { 
+            addCategory, 
+            loadCategories, 
+            deleteCategory, 
+            editCategory,
+            toggleSelectAllCategories, 
+            updateSelectedCategoriesCount, 
+            deleteSelectedCategories,
+            saveAuthorInfo,
+            saveSecuritySettings,
+            viewCurrentKey,
+            clearKey,
+            saveNotificationSettings,
+            saveContentSettings,
+            handleProfilePictureUpload
+        } from '/public/js/settings.js';
+
+        import {
+            saveThemeSettings,
+            saveBackgroundSettings,
+            handleBackgroundUpload
+        } from '/public/js/customize.js';
+
+        import {
+            togglePostsList,
+            loadPostsList,
+            saveNewPost,
+            previewPost,
+            clearPostForm,
+            handlePostImageUpload,
+            toggleSelectAllPosts,
+            updateSelectedCount,
+            deleteSelectedPosts,
+            editPost,
+            deletePost
+        } from '/public/js/posts.js';
+
+        import {
+            refreshAnalytics,
+            viewEngagementDetails,
+            exportAnalytics,
+            loadTimeAnalytics
+        } from '/public/js/analytics.js';
+
+        import { logout } from '/public/js/auth.js';
+
+        // Expose settings functions to window
+        window.addCategory = addCategory;
+        window.loadCategories = loadCategories;
+        window.deleteCategory = deleteCategory;
+        window.editCategory = editCategory;
+        window.toggleSelectAllCategories = toggleSelectAllCategories;
+        window.updateSelectedCategoriesCount = updateSelectedCategoriesCount;
+        window.deleteSelectedCategories = deleteSelectedCategories;
+        window.saveAuthorInfo = saveAuthorInfo;
+        window.saveSecuritySettings = saveSecuritySettings;
+        window.viewCurrentKey = viewCurrentKey;
+        window.clearKey = clearKey;
+        window.saveNotificationSettings = saveNotificationSettings;
+        window.saveContentSettings = saveContentSettings;
+        window.handleProfilePictureUpload = handleProfilePictureUpload;
+        window.saveThemeSettings = saveThemeSettings;
+        window.saveBackgroundSettings = saveBackgroundSettings;
+        window.handleBackgroundUpload = handleBackgroundUpload;
+
+        // Expose posts functions
+        window.togglePostsList = togglePostsList;
+        window.loadPostsList = loadPostsList;
+        window.saveNewPost = saveNewPost;
+        window.previewPost = previewPost;
+        window.clearPostForm = clearPostForm;
+        window.handlePostImageUpload = handlePostImageUpload;
+        window.toggleSelectAllPosts = toggleSelectAllPosts;
+        window.updateSelectedCount = updateSelectedCount;
+        window.deleteSelectedPosts = deleteSelectedPosts;
+        window.editPost = editPost;
+        window.deletePost = deletePost;
+
+        // Expose analytics functions
+        window.refreshAnalytics = refreshAnalytics;
+        window.viewEngagementDetails = viewEngagementDetails;
+        window.exportAnalytics = exportAnalytics;
+        window.loadTimeAnalytics = loadTimeAnalytics;
+
+        // Expose auth functions
+        window.logout = logout;
+
+        // Sidebar toggle
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) sidebar.classList.toggle('collapsed');
+        };
+
         // Modern Settings Navigation
         function initSettingsNavigation() {
             const navButtons = document.querySelectorAll('.settings-nav-btn');
