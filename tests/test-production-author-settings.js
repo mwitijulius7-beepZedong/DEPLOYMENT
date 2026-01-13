@@ -1,6 +1,6 @@
 const fetch = require('node-fetch');
 
-const BASE_URL = 'https://peronal-blog-hh0dt912e-juliusmwiti-solutechcos-projects.vercel.app';
+const BASE_URL = 'https://peronal-blog-4kr30kccz-juliusmwiti-solutechcos-projects.vercel.app';
 const ADMIN_USERNAME = 'Mwitijulius7';
 const ADMIN_PASSWORD = 'Mwitijulius7@Jm';
 

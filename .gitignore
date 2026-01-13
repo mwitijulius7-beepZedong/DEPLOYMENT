@@ -5,3 +5,32 @@ npm-debug.log
 .DS_Store
 dist/
 .vscode/
+
+# Logs
+*.log
+server.log
+smoke-output.txt
+security_logs.json
+
+# Temporary files
+temp_*.html
+*_dec30.html
+*.dec30
+headers.txt
+test_image.png
+anthropic.claude-code-*.vsix
+
+# Cookie files
+cookies*.txt
+
+# Commit tracking (should use git)
+commit_*.txt
+all_commits.txt
+
+# Build artifacts
+output.css
+.vue.js
+
+# Test artifacts
+test.html
+.vercel
