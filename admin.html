@@ -2071,7 +2071,7 @@
 
 
     <script type="module" src="/public/js/main.js"></script>
-    <script>
+    <script type="module">
         // Modern Settings Navigation
         function initSettingsNavigation() {
             const navButtons = document.querySelectorAll('.settings-nav-btn');
@@ -2232,11 +2232,12 @@
         window.showPostsSection = showPostsSection;
         window.showAnalyticsSection = showAnalyticsSection;
         window.showSettingsSection = showSettingsSection;
+        window.createNewPost = showCreatePostSection; // Alias for quick action button
+        window.viewPostStats = showAnalyticsSection; // Alias for view stats button
 
         // Admin Key Verification Logic
         async function checkSecurityOnLoad() {
             // Bypass for localhost to prevent prompt
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             const hostname = window.location.hostname;
             if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
                 console.log('Localhost/Local network detected, bypassing admin key check');

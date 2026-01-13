@@ -81,6 +81,15 @@ async function verifyAdminResponsiveness() {
             
             if (postsVisible) {
                 console.log('✅ "Manage Posts" works: Posts section shown');
+                
+                // Verify content loading
+                const contentLoaded = await page.evaluate(() => {
+                    const list = document.getElementById('posts-list');
+                    return list && (list.children.length > 0 || list.innerText.includes('Loading') || list.innerText.includes('No posts'));
+                });
+                
+                if (contentLoaded) console.log('   ✅ Posts content is loading/loaded');
+                else console.error('   ❌ Posts list is empty (loadAndRenderPosts might not have run)');
             } else {
                 console.error('❌ Posts section NOT visible after click');
                 // Try calling function directly as fallback fix verification
@@ -150,6 +159,51 @@ async function verifyAdminResponsiveness() {
             console.log(`   Settings section visible: ${settingsVisible ? '✅' : '❌'}`);
         } else {
             console.log('   ⚠️ Settings button not found');
+        }
+
+        // 7. Test Side Menu Navigation
+        console.log('\nSidebar Navigation Testing...');
+        const sections = [
+            { name: 'Create Post', selector: 'a[href="#create-post"]', targetId: 'create-post-section' },
+            { name: 'Analytics', selector: 'a[href="#analytics"]', targetId: 'analytics-section' },
+            { name: 'Settings', selector: 'a[href="#settings"]', targetId: 'settings-section' }
+        ];
+
+        for (const section of sections) {
+            console.log(`   Testing sidebar link: ${section.name}...`);
+            const link = await page.$(section.selector);
+            if (link) {
+                await link.click();
+                await new Promise(r => setTimeout(r, 800));
+                const isVisible = await page.evaluate((id) => {
+                    const el = document.getElementById(id);
+                    return el && el.style.display !== 'none';
+                }, section.targetId);
+                
+                if (isVisible) console.log(`   ✅ ${section.name} section visible`);
+                else console.error(`   ❌ ${section.name} section NOT visible`);
+            } else {
+                console.log(`   ⚠️ Sidebar link for ${section.name} not found`);
+            }
+        }
+
+        // 8. Test "Create Post" Quick Action
+        console.log('\n✏️ Testing "Create Post" Quick Action...');
+        // Go back to dashboard first
+        await page.evaluate(() => window.showDashboard());
+        await new Promise(r => setTimeout(r, 500));
+
+        const createPostBtn = await page.$('button[onclick*="createNewPost"]') || await page.$('button[onclick*="showCreatePostSection"]');
+        if (createPostBtn) {
+            await createPostBtn.click();
+            await new Promise(r => setTimeout(r, 1000));
+            const createVisible = await page.evaluate(() => {
+                const el = document.getElementById('create-post-section');
+                return el && el.style.display !== 'none';
+            });
+            console.log(`   Create Post section visible: ${createVisible ? '✅' : '❌'}`);
+        } else {
+            console.log('   ⚠️ Create Post button not found in quick actions');
         }
 
         console.log('\n🎉 Verification Completed!');
