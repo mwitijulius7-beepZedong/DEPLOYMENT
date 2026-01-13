@@ -8,14 +8,14 @@ async function testForgotPassword() {
 
   try {
     console.log('=== Testing Forgot Password Request ===');
-    const response = await fetch(`${BASE_URL}/auth/forgot-password`, {
+    const response = await fetch(`${BASE_URL}/auth/forgot`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: TEST_EMAIL })
     });
 
     const data = await response.json();
-    console.log(`POST /auth/forgot-password: ${response.status}`, data);
+    console.log(`POST /auth/forgot: ${response.status}`, data);
 
     if (response.ok && data.success) {
       console.log('✅ Forgot password request successful');

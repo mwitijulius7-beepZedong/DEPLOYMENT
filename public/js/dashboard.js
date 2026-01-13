@@ -23,10 +23,15 @@ export async function loadDashboardStats() {
 
 export function showDashboard() {
     // Hide all sections
-    const sections = ['posts-section', 'settings-section', 'analytics-section', 'customize-section'];
+    const sections = ['posts-section', 'settings-section', 'analytics-section', 'customize-section', 'create-post-section'];
     sections.forEach(sectionId => {
-        document.getElementById(sectionId).style.display = 'none';
+        const el = document.getElementById(sectionId);
+        if (el) el.style.display = 'none';
     });
+
+    // Show dashboard content
+    const dashboard = document.getElementById('dashboard');
+    if (dashboard) dashboard.style.display = 'block';
 
     // Remove active class from all nav links
     const navLinks = document.querySelectorAll('.nav-link');

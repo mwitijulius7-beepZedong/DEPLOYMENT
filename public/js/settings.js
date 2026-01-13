@@ -1,11 +1,22 @@
 // Settings module
 export function showSettingsSection() {
+    // Hide other sections
+    const sections = ['dashboard', 'posts-section', 'analytics-section', 'customize-section', 'create-post-section'];
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
     const settingsSection = document.getElementById('settings-section');
-    if (settingsSection.style.display === 'block') {
-        settingsSection.style.display = 'none';
-    } else {
-        settingsSection.style.display = 'block';
-        settingsSection.scrollIntoView({ behavior: 'smooth' });
+    settingsSection.style.display = 'block';
+    settingsSection.scrollIntoView({ behavior: 'smooth' });
+
+    // Initialize navigation and password toggle when settings section is shown
+    if (typeof initSettingsNavigation === 'function') {
+        initSettingsNavigation();
+    }
+    if (typeof initPasswordToggle === 'function') {
+        initPasswordToggle();
     }
 }
 
@@ -56,10 +67,17 @@ export async function loadCategories() {
 export async function addCategory() {
     const categoryName = document.getElementById('category-name').value.trim();
     const categoryDescription = document.getElementById('category-description').value.trim();
+    const addButton = document.getElementById('btn-add-category') || document.querySelector('[onclick="addCategory()"]');
 
     if (!categoryName) {
         alert('Please enter a category name.');
         return;
+    }
+
+    // Disable button and show loading state
+    if (addButton) {
+        addButton.disabled = true;
+        addButton.textContent = 'Adding...';
     }
 
     try {
@@ -70,17 +88,26 @@ export async function addCategory() {
             body: JSON.stringify({ name: categoryName, description: categoryDescription })
         });
 
+        const data = await response.json();
+
         if (response.ok) {
             alert('Category added successfully!');
             document.getElementById('category-name').value = '';
             document.getElementById('category-description').value = '';
-            loadCategories(); // Refresh the list
+            await loadCategories(); // Refresh the list
         } else {
-            alert('Failed to add category.');
+            const errorMessage = data.error || data.message || 'Failed to add category.';
+            alert(`Error: ${errorMessage}`);
         }
     } catch (error) {
         console.error('Error adding category:', error);
-        alert('Error adding category.');
+        alert('Network error: Failed to add category. Please check your connection and try again.');
+    } finally {
+        // Re-enable button and restore text
+        if (addButton) {
+            addButton.disabled = false;
+            addButton.textContent = 'Add Category';
+        }
     }
 }
 
@@ -89,22 +116,40 @@ export function editCategory(categoryId) {
 }
 
 export async function deleteCategory(categoryId) {
-    if (confirm('Are you sure you want to delete this category?')) {
+    if (confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
+        const deleteButton = event?.target;
+        const originalText = deleteButton?.textContent;
+
+        // Disable button and show loading state
+        if (deleteButton) {
+            deleteButton.disabled = true;
+            deleteButton.textContent = 'Deleting...';
+        }
+
         try {
             const response = await fetch(`/api/categories/${categoryId}`, {
                 method: 'DELETE',
                 credentials: 'include'
             });
 
+            const data = await response.json();
+
             if (response.ok) {
                 alert('Category deleted successfully!');
-                loadCategories(); // Refresh the list
+                await loadCategories(); // Refresh the list
             } else {
-                alert('Failed to delete category.');
+                const errorMessage = data.error || data.message || 'Failed to delete category.';
+                alert(`Error: ${errorMessage}`);
             }
         } catch (error) {
             console.error('Error deleting category:', error);
-            alert('Error deleting category.');
+            alert('Network error: Failed to delete category. Please check your connection and try again.');
+        } finally {
+            // Re-enable button and restore text
+            if (deleteButton) {
+                deleteButton.disabled = false;
+                deleteButton.textContent = originalText || 'Delete';
+            }
         }
     }
 }

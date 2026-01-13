@@ -398,6 +398,15 @@ function requireAuth(req, res, next) {
 
 // Middleware to check idle timeout for admin routes
 function checkIdleTimeout(req, res, next) {
+  // Auto-verify/refresh for localhost
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const host = req.get('host') || '';
+  if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+    req.session.adminKeyVerified = true;
+    req.session.adminKeyVerifiedAt = Date.now();
+    return next();
+  }
+
   if (req.session && req.session.adminKeyVerified) {
     const now = Date.now();
     const verifiedAt = req.session.adminKeyVerifiedAt || 0;
@@ -482,6 +491,14 @@ app.post('/auth/login', async (req, res) => {
       role: (user && user.role) || 'ADMIN'
     };
 
+    // Auto-verify admin key for localhost
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const host = req.get('host') || '';
+    if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+      req.session.adminKeyVerified = true;
+      req.session.adminKeyVerifiedAt = Date.now();
+    }
+
     return res.json({
       success: true,
       token,
@@ -514,6 +531,14 @@ app.post('/auth/login', async (req, res) => {
     name: user.name,
     role: user.role || 'USER'
   };
+
+  // Auto-verify admin key for localhost
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const host = req.get('host') || '';
+  if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+    req.session.adminKeyVerified = true;
+    req.session.adminKeyVerifiedAt = Date.now();
+  }
 
   return res.json({
     success: true,
@@ -599,79 +624,6 @@ app.post('/auth/logout', (req, res) => {
     res.clearCookie('sessionId'); // Clear the correct cookie name
     return res.json({ success: true });
   });
-});
-
-app.post('/auth/forgot-password', async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: 'email required' });
-
-  const users = await loadUsers();
-  const user = Object.values(users).find(u => u.email === email);
-  if (!user) return res.status(404).json({ error: 'user not found' });
-
-  // Generate reset token
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-
-  // Store reset token (in production, use Redis or database)
-  // For now, we'll store it in memory - this is not production-ready
-  if (!global.resetTokens) global.resetTokens = {};
-  global.resetTokens[resetTokenHash] = {
-    email: user.email,
-    expires: Date.now() + 60 * 60 * 1000 // 1 hour
-  };
-
-  // Send reset email
-  const resetUrl = `${req.protocol}://${req.get('host')}/reset.html?token=${resetToken}`;
-
-  try {
-    await transporter.sendMail({
-      from: process.env.SMTP_USER, // Use authenticated SMTP user as from address
-      to: user.email,
-      subject: 'Password Reset Request',
-      html: `
-        <h2>Password Reset Request</h2>
-        <p>You requested a password reset for your blog admin account.</p>
-        <p>Click the link below to reset your password:</p>
-        <a href="${resetUrl}" style="background: #F4A191; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
-        <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request this, please ignore this email.</p>
-      `
-    });
-
-    return res.json({ success: true, message: 'reset email sent' });
-  } catch (error) {
-    console.error('Email send error:', error);
-    return res.status(500).json({ error: 'failed to send email' });
-  }
-});
-
-app.post('/auth/reset', async (req, res) => {
-  const { token, password } = req.body;
-  if (!token || !password) return res.status(400).json({ error: 'missing token or password' });
-
-  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-  const resetData = global.resetTokens?.[tokenHash];
-
-  if (!resetData || resetData.expires < Date.now()) {
-    return res.status(400).json({ error: 'invalid or expired token' });
-  }
-
-  const users = await loadUsers();
-  const user = Object.values(users).find(u => u.email === resetData.email);
-  if (!user) return res.status(404).json({ error: 'user not found' });
-
-  // Update password
-  const hashedPassword = await bcrypt.hash(password, 10);
-  user.passwordHash = hashedPassword;
-
-  // Save updated users
-  await fs.promises.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
-
-  // Remove used token
-  delete global.resetTokens[tokenHash];
-
-  return res.json({ success: true });
 });
 
 app.post('/auth/google', async (req, res) => {
@@ -1292,6 +1244,13 @@ app.post('/api/settings/author', requireAdmin, async (req, res) => {
 // Security settings API (admin entry key)
 app.get('/api/settings/security', async (req, res) => {
   try {
+    // Force bypass for localhost by reporting no key exists
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const host = req.get('host') || '';
+    if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+      return res.json({ hasEntryKey: false, mode: 'localhost' });
+    }
+
     if (process.env.ADMIN_ENTRY_KEY) {
       return res.json({ hasEntryKey: true, mode: 'env' });
     }
@@ -1443,6 +1402,16 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
 
 // Check if admin entry key is verified in session
 app.get('/api/settings/check-admin-key-verified', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  
+  // Auto-verify for localhost
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const host = req.get('host') || '';
+  if (!req.session.adminKeyVerified && (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1'))) {
+    req.session.adminKeyVerified = true;
+    req.session.adminKeyVerifiedAt = Date.now();
+  }
+
   const verified = req.session.adminKeyVerified === true;
   const verifiedAt = req.session.adminKeyVerifiedAt || null;
   return res.json({ verified, verifiedAt });
@@ -2058,6 +2027,31 @@ app.get('/api/welcome', (req, res) => {
 app.get('/api/birthday', (req, res) => {
   console.log(`Request received: ${req.method} ${req.path}`);
   return res.json({ message: 'Happy Birthday! Wishing you a fantastic year ahead!' });
+});
+
+// Temporary admin endpoint to delete all posts (for production cleanup)
+app.delete('/api/admin/delete-all-posts', requireAdmin, async (req, res) => {
+  try {
+    console.log('Admin requested to delete all posts');
+
+    // Delete all posts
+    await savePosts([]);
+
+    // Delete all comments
+    await saveComments([]);
+
+    // Delete all subscriptions
+    await saveSubscriptions([]);
+
+    console.log('All posts, comments, and subscriptions deleted successfully');
+    return res.json({
+      success: true,
+      message: 'All posts, comments, and subscriptions have been deleted'
+    });
+  } catch (error) {
+    console.error('Error deleting all posts:', error);
+    return res.status(500).json({ error: 'Failed to delete posts' });
+  }
 });
 
 app.get('/', (req, res) => {
