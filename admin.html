@@ -2012,7 +2012,7 @@
                         </div>
 
                         <div style="margin-top: 24px; display: flex; gap: 12px;">
-                            <button class="btn-modern secondary" onclick="addCategory()">
+                            <button id="btn-add-category" class="btn-modern secondary" type="button" onclick="addCategory()">
                                 <i>➕</i>
                                 Add Category
                             </button>
@@ -2072,6 +2072,78 @@
 
     <script type="module" src="/public/js/main.js"></script>
     <script type="module">
+        // Import and expose all required functions
+        try {
+            const settingsModule = await import('/public/js/settings.js');
+            const customizeModule = await import('/public/js/customize.js');
+            const postsModule = await import('/public/js/posts.js');
+            const analyticsModule = await import('/public/js/analytics.js');
+            const authModule = await import('/public/js/auth.js');
+
+            // Expose settings functions to window
+            window.addCategory = settingsModule.addCategory;
+            window.loadCategories = settingsModule.loadCategories;
+            window.deleteCategory = settingsModule.deleteCategory;
+            window.editCategory = settingsModule.editCategory;
+            window.toggleSelectAllCategories = settingsModule.toggleSelectAllCategories;
+            window.updateSelectedCategoriesCount = settingsModule.updateSelectedCategoriesCount;
+            window.deleteSelectedCategories = settingsModule.deleteSelectedCategories;
+            window.saveAuthorInfo = settingsModule.saveAuthorInfo;
+            window.saveSecuritySettings = settingsModule.saveSecuritySettings;
+            window.viewCurrentKey = settingsModule.viewCurrentKey;
+            window.clearKey = settingsModule.clearKey;
+            window.saveNotificationSettings = settingsModule.saveNotificationSettings;
+            window.saveContentSettings = settingsModule.saveContentSettings;
+            window.handleProfilePictureUpload = settingsModule.handleProfilePictureUpload;
+
+            // Expose customize functions
+            window.saveThemeSettings = customizeModule.saveThemeSettings;
+            window.saveBackgroundSettings = customizeModule.saveBackgroundSettings;
+            window.handleBackgroundUpload = customizeModule.handleBackgroundUpload;
+
+            // Expose posts functions
+            window.togglePostsList = postsModule.togglePostsList;
+            window.loadPostsList = postsModule.loadPostsList;
+            window.saveNewPost = postsModule.saveNewPost;
+            window.previewPost = postsModule.previewPost;
+            window.clearPostForm = postsModule.clearPostForm;
+            window.handlePostImageUpload = postsModule.handlePostImageUpload;
+            window.toggleSelectAllPosts = postsModule.toggleSelectAllPosts;
+            window.updateSelectedCount = postsModule.updateSelectedCount;
+            window.deleteSelectedPosts = postsModule.deleteSelectedPosts;
+            window.editPost = postsModule.editPost;
+            window.deletePost = postsModule.deletePost;
+
+            // Expose analytics functions
+            window.refreshAnalytics = analyticsModule.refreshAnalytics;
+            window.viewEngagementDetails = analyticsModule.viewEngagementDetails;
+            window.exportAnalytics = analyticsModule.exportAnalytics;
+            window.loadTimeAnalytics = analyticsModule.loadTimeAnalytics;
+
+            // Expose auth functions
+            window.logout = authModule.logout;
+
+            console.log('All admin functions loaded successfully');
+        } catch (error) {
+            console.error('Failed to load admin functions:', error);
+            // Define fallback functions
+            window.addCategory = () => console.log('addCategory not available');
+            window.loadCategories = () => console.log('loadCategories not available');
+            window.saveAuthorInfo = () => console.log('saveAuthorInfo not available');
+            window.handleProfilePictureUpload = () => console.log('handleProfilePictureUpload not available');
+            window.saveNewPost = () => console.log('saveNewPost not available');
+            window.refreshAnalytics = () => console.log('refreshAnalytics not available');
+            window.logout = () => console.log('logout not available');
+            window.toggleSidebar = () => console.log('toggleSidebar not available');
+            window.togglePostsList = () => console.log('togglePostsList not available');
+        }
+
+        // Sidebar toggle
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) sidebar.classList.toggle('collapsed');
+        };
+
         // Modern Settings Navigation
         function initSettingsNavigation() {
             const navButtons = document.querySelectorAll('.settings-nav-btn');
@@ -2088,6 +2160,11 @@
                     // Add active class to clicked button and corresponding panel
                     button.classList.add('active');
                     document.getElementById(`${targetPanel}-panel`).classList.add('active');
+
+                    // Auto-load data for specific panels
+                    if (targetPanel === 'categories' && typeof window.loadCategories === 'function') {
+                        window.loadCategories();
+                    }
                 });
             });
         }
@@ -2177,8 +2254,7 @@
                         <div class="post-item-header">
                             <h4 class="post-item-title">${post.title}</h4>
                             <div style="display:flex; gap:8px;">
-                                <button class="btn-modern sm secondary" onclick="window.editPost && window.editPost(${post.id})">Edit</button>
-                                <button class="btn-modern sm" style="background-color: #dc2626;" onclick="window.deletePost && window.deletePost(${post.id})">Delete</button>
+                                <button class="btn-modern sm" style="background-color: #dc2626;" onclick="window.deletePost && window.deletePost('${post.id}')">Delete</button>
                             </div>
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
@@ -2211,11 +2287,36 @@
 
         function showCreatePostSection() {
             showSection('create-post-section', 'Create Post', 'showCreatePostSection');
+            
+            // Populate categories dropdown
+            const categorySelect = document.getElementById('post-category');
+            if (categorySelect) {
+                fetch('/api/categories')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.categories && data.categories.length > 0) {
+                            const currentVal = categorySelect.value;
+                            categorySelect.innerHTML = '<option value="">Select a category</option>';
+                            data.categories.forEach(cat => {
+                                const option = document.createElement('option');
+                                option.value = cat.slug || cat.name.toLowerCase();
+                                option.textContent = cat.name;
+                                categorySelect.appendChild(option);
+                            });
+                            if (currentVal) categorySelect.value = currentVal;
+                        }
+                    })
+                    .catch(e => console.error('Error loading categories:', e));
+            }
         }
 
         function showPostsSection() {
             showSection('posts-section', 'Manage Posts', 'showPostsSection');
-            loadAndRenderPosts();
+            if (window.loadPostsList) {
+                window.loadPostsList();
+            } else {
+                loadAndRenderPosts();
+            }
         }
 
         function showAnalyticsSection() {
