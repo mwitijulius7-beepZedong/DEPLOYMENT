@@ -67,7 +67,7 @@ export async function loadCategories() {
 export async function addCategory() {
     const categoryName = document.getElementById('category-name').value.trim();
     const categoryDescription = document.getElementById('category-description').value.trim();
-    const addButton = document.querySelector('[onclick="addCategory()"]');
+    const addButton = document.getElementById('btn-add-category') || document.querySelector('[onclick="addCategory()"]');
 
     if (!categoryName) {
         alert('Please enter a category name.');
