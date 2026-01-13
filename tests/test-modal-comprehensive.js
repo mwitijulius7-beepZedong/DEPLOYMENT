@@ -28,10 +28,10 @@ async function testModalFunctions() {
 
         // Test each modal function
         const sections = [
-            { name: 'Settings', buttonSelector: 'button[onclick="showSettingsSection()"]', sectionId: 'settings-section' },
-            { name: 'Posts', buttonSelector: 'button[onclick="showPostsSection()"]', sectionId: 'posts-section' },
-            { name: 'Analytics', buttonSelector: 'button[onclick="showAnalyticsSection()"]', sectionId: 'analytics-section' },
-            { name: 'Customize', buttonSelector: 'button[onclick="showCustomizeSection()"]', sectionId: 'customize-section' }
+            { name: 'Settings', buttonSelector: '[onclick*="showSettingsSection"]', sectionId: 'settings-section' },
+            { name: 'Posts', buttonSelector: '[onclick*="showPostsSection"]', sectionId: 'posts-section' },
+            { name: 'Analytics', buttonSelector: '[onclick*="showAnalyticsSection"]', sectionId: 'analytics-section' },
+            { name: 'Customize', buttonSelector: '[onclick*="showCustomizeSection"]', sectionId: 'customize-section' }
         ];
 
         for (const section of sections) {

@@ -4,7 +4,7 @@ async function testForgotPassword() {
   try {
     console.log('Testing forgot password with mock email...');
 
-    const response = await fetch('http://localhost:3000/auth/forgot-password', {
+    const response = await fetch('http://localhost:3000/auth/forgot', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

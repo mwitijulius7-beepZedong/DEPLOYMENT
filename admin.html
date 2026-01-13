@@ -28,6 +28,22 @@
             --sidebar-collapsed: 72px;
         }
 
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -153,6 +169,12 @@
 
         .sidebar.collapsed .nav-link span {
             display: none;
+        }
+
+        /* Focus States for Accessibility */
+        a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
         }
 
         /* Main Content */
@@ -326,15 +348,15 @@
         /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
-            margin-bottom: 32px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
         }
 
         .stat-card {
             background: var(--bg-secondary);
-            padding: 24px;
-            border-radius: var(--border-radius-lg);
+            padding: 20px;
+            border-radius: var(--border-radius);
             box-shadow: var(--shadow-sm);
             border: 1px solid var(--border-color);
             transition: var(--transition);
@@ -364,13 +386,13 @@
         }
 
         .stat-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 18px;
             flex-shrink: 0;
         }
 
@@ -394,7 +416,7 @@
         }
 
         .stat-number {
-            font-size: 32px;
+            font-size: 24px;
             font-weight: 700;
             color: var(--text-dark);
             margin-bottom: 4px;
@@ -412,9 +434,9 @@
         /* Quick Actions Grid */
         .quick-actions-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 32px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
         }
 
         .action-card {
@@ -425,6 +447,9 @@
             border: 1px solid var(--border-color);
             transition: var(--transition);
             cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
         .action-card:hover {
@@ -441,13 +466,13 @@
         }
 
         .action-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
+            font-size: 16px;
             flex-shrink: 0;
         }
 
@@ -467,7 +492,7 @@
         }
 
         .action-card h3 {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
             color: var(--text-dark);
             margin: 0;
@@ -478,6 +503,7 @@
             font-size: 14px;
             line-height: 1.5;
             margin: 0;
+            flex-grow: 1;
         }
 
         /* Section Content */
@@ -530,7 +556,7 @@
         }
 
         .section-body {
-            padding: 32px;
+            padding: 24px;
         }
 
         /* Modern Settings Layout */
@@ -668,7 +694,7 @@
             background: white;
             border-radius: var(--border-radius);
             box-shadow: var(--shadow-sm);
-            padding: 32px;
+            padding: 24px;
         }
 
         .settings-panel {
@@ -883,10 +909,59 @@
             color: var(--text-dark);
         }
 
+        /* Post List Item Styling (Blog Card Layout) */
+        .post-item {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+        }
+
+        .post-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+            z-index: 1;
+        }
+
+        .post-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .post-item-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin: 0;
+        }
+
+        .post-meta-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .post-tag-badge {
+            background: #f1f5f9;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: var(--text-medium);
+            font-weight: 500;
+        }
+
         /* Chart Styles */
         .chart-container {
             position: relative;
-            height: 300px;
+            height: 240px;
             margin-top: 16px;
         }
 
@@ -899,6 +974,20 @@
 
         /* Responsive */
         @media (max-width: 768px) {
+            .sidebar {
+                width: 0;
+                overflow: hidden;
+                border-right: none;
+            }
+            .sidebar.collapsed {
+                width: 280px;
+                box-shadow: 0 0 20px rgba(0,0,0,0.15);
+                border-right: 1px solid var(--border-color);
+            }
+            .main-content {
+                margin-left: 0 !important;
+            }
+
             .header-content {
                 flex-direction: column;
                 gap: 16px;
@@ -1213,6 +1302,79 @@
             .panel-title {
                 font-size: 22px;
             }
+        }
+
+        /* Admin Key Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-card {
+            background: white;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            width: 90%;
+            max-width: 420px;
+            text-align: center;
+            transform: translateY(0);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .admin-key-input {
+            text-align: center;
+            letter-spacing: 4px;
+            font-size: 24px;
+            font-weight: 600;
+            padding: 16px;
+            margin: 24px 0;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        .admin-key-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+            outline: none;
+        }
+
+        .modal-error {
+            background-color: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            text-align: left;
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
         }
     </style>
 </head>
@@ -1622,6 +1784,34 @@
                                 <textarea class="form-input form-textarea" id="blog-description" placeholder="Enter blog description">Discover insights, tutorials, and thoughts on web development, programming, and technology.</textarea>
                             </div>
                             <div class="form-group">
+                                <label class="form-label">Website URL</label>
+                                <input type="url" class="form-input" id="author-website" placeholder="https://yourwebsite.com">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Twitter Profile</label>
+                                <input type="url" class="form-input" id="author-twitter" placeholder="https://twitter.com/username">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Facebook Profile</label>
+                                <input type="url" class="form-input" id="author-facebook" placeholder="https://facebook.com/username">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">LinkedIn Profile</label>
+                                <input type="url" class="form-input" id="author-linkedin" placeholder="https://linkedin.com/in/username">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Instagram Profile</label>
+                                <input type="url" class="form-input" id="author-instagram" placeholder="https://instagram.com/username">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Phone Number</label>
+                                <input type="tel" class="form-input" id="author-phone" placeholder="+1 234 567 8900">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">WhatsApp Number</label>
+                                <input type="tel" class="form-input" id="author-whatsapp" placeholder="+1 234 567 8900">
+                            </div>
+                            <div class="form-group">
                                 <label class="form-label">Profile Picture</label>
                                 <div class="file-input-wrapper">
                                     <input type="file" class="file-input" id="profile-picture-file" accept="image/*" onchange="handleProfilePictureUpload()">
@@ -1855,6 +2045,30 @@
 
     </div>
 
+    <!-- Admin Key Prompt Modal -->
+    <div id="admin-key-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div style="margin-bottom: 24px; font-size: 56px;">🔒</div>
+            <h2 style="margin-bottom: 12px; font-size: 24px; font-weight: 700; color: var(--text-dark);">Security Check</h2>
+            <p style="color: var(--text-medium); margin-bottom: 24px; font-size: 15px;">This area is protected. Please enter your Admin Entry Key.</p>
+            
+            <div id="modal-error" class="modal-error">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>Invalid admin entry key. Access denied.</span>
+            </div>
+            
+            <input type="password" id="modal-admin-key" class="admin-key-input" placeholder="••••••" maxlength="20" autocomplete="off">
+            
+            <button class="btn-modern" onclick="verifyAdminKeyModal()" style="width: 100%; justify-content: center; padding: 16px; font-size: 16px;">
+                Unlock Admin Panel
+            </button>
+        </div>
+    </div>
+
 
     <script type="module" src="/public/js/main.js"></script>
     <script>
@@ -1915,38 +2129,183 @@
             initPasswordToggle();
         }
 
-        // Create Post Section
-        function showCreatePostSection() {
-            // Hide all sections
+        // Navigation Helper
+        function hideAllSections() {
             const sections = ['dashboard', 'posts-section', 'analytics-section', 'create-post-section', 'settings-section'];
             sections.forEach(sectionId => {
                 const section = document.getElementById(sectionId);
-                if (section) {
-                    section.style.display = 'none';
-                }
+                if (section) section.style.display = 'none';
             });
+            document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => link.classList.remove('active'));
+        }
 
-            // Remove active class from all nav links
-            const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
-            navLinks.forEach(link => link.classList.remove('active'));
-
-            // Show create post section
-            const createPostSection = document.getElementById('create-post-section');
-            createPostSection.style.display = 'block';
-            createPostSection.scrollIntoView({ behavior: 'smooth' });
-
-            // Add active class to create post nav link
-            const createPostLink = document.querySelector('[onclick="showCreatePostSection()"]');
-            if (createPostLink) {
-                createPostLink.classList.add('active');
+        function showSection(sectionId, title, linkOnClick) {
+            hideAllSections();
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.style.display = 'block';
+                section.scrollIntoView({ behavior: 'smooth' });
             }
+            
+            const link = document.querySelector(`[onclick="${linkOnClick}()"]`);
+            if (link) link.classList.add('active');
+            
+            const titleEl = document.getElementById('page-title');
+            if (titleEl) titleEl.textContent = title;
+        }
 
-            // Update page title
-            document.getElementById('page-title').textContent = 'Create Post';
+        // Enhanced Post Rendering for Modern UI
+        async function loadAndRenderPosts() {
+            const container = document.getElementById('posts-list');
+            if (!container) return;
+            
+            // Show loading state
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">Loading posts...</div>';
+
+            try {
+                const response = await fetch('/api/posts');
+                const data = await response.json();
+                const posts = data.posts || [];
+
+                if (posts.length === 0) {
+                    container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">No posts found. Create one to get started!</div>';
+                    return;
+                }
+
+                container.innerHTML = posts.map(post => `
+                    <div class="post-item">
+                        <div class="post-item-header">
+                            <h4 class="post-item-title">${post.title}</h4>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn-modern sm secondary" onclick="window.editPost && window.editPost(${post.id})">Edit</button>
+                                <button class="btn-modern sm" style="background-color: #dc2626;" onclick="window.deletePost && window.deletePost(${post.id})">Delete</button>
+                            </div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                            <p style="color: var(--text-medium); font-size: 14px; margin: 0;">
+                                ${new Date(post.date).toLocaleDateString()} · ${post.author || 'Admin'}
+                            </p>
+                            <span style="font-size:12px; padding:4px 8px; background:${post.isDraft ? '#fef3c7' : '#dcfce7'}; color:${post.isDraft ? '#d97706' : '#166534'}; border-radius:12px;">
+                                ${post.isDraft ? 'Draft' : 'Published'}
+                            </span>
+                        </div>
+                        <div class="post-meta-tags" style="margin-top:12px;">
+                            ${(post.tags || []).map(tag => `<span class="post-tag-badge">${tag}</span>`).join('')}
+                        </div>
+                    </div>
+                `).join('');
+                
+                const listContainer = document.getElementById('posts-list-container');
+                if (listContainer) listContainer.style.display = 'block';
+                
+            } catch (e) {
+                console.error('Error rendering posts:', e);
+                container.innerHTML = '<div style="text-align:center; color:#dc2626;">Failed to load posts.</div>';
+            }
+        }
+
+        // Navigation Functions
+        function showDashboard() {
+            showSection('dashboard', 'Dashboard', 'showDashboard');
+        }
+
+        function showCreatePostSection() {
+            showSection('create-post-section', 'Create Post', 'showCreatePostSection');
+        }
+
+        function showPostsSection() {
+            showSection('posts-section', 'Manage Posts', 'showPostsSection');
+            loadAndRenderPosts();
+        }
+
+        function showAnalyticsSection() {
+            showSection('analytics-section', 'Analytics', 'showAnalyticsSection');
+        }
+
+        function showSettingsSection() {
+            showSection('settings-section', 'Settings', 'showSettingsSection');
         }
 
         // Make functions globally available
         window.showCreatePostSection = showCreatePostSection;
+        window.showDashboard = showDashboard;
+        window.showPostsSection = showPostsSection;
+        window.showAnalyticsSection = showAnalyticsSection;
+        window.showSettingsSection = showSettingsSection;
+
+        // Admin Key Verification Logic
+        async function checkSecurityOnLoad() {
+            // Bypass for localhost to prevent prompt
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            const hostname = window.location.hostname;
+            if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
+                console.log('Localhost/Local network detected, bypassing admin key check');
+                return;
+            }
+
+            try {
+                // First check if a key is even configured
+                const secRes = await fetch('/api/settings/security');
+                const sec = await secRes.json();
+                
+                if (sec.hasEntryKey) {
+                    // If configured, check if we are verified
+                    const verRes = await fetch('/api/settings/check-admin-key-verified');
+                    const ver = await verRes.json();
+                    
+                    if (!ver.verified) {
+                        document.getElementById('admin-key-modal').style.display = 'flex';
+                        document.getElementById('modal-admin-key').focus();
+                    }
+                }
+            } catch(e) { console.error('Security check failed:', e); }
+        }
+
+        async function verifyAdminKeyModal() {
+            const keyInput = document.getElementById('modal-admin-key');
+            const errorEl = document.getElementById('modal-error');
+            const key = keyInput.value;
+            
+            // Reset error state
+            errorEl.style.display = 'none';
+            keyInput.style.borderColor = '#e2e8f0';
+            
+            if (!key) return;
+
+            try {
+                const res = await fetch('/api/settings/verify-entry-key', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ adminEntryKey: key })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    const modal = document.getElementById('admin-key-modal');
+                    modal.style.opacity = '0';
+                    setTimeout(() => modal.style.display = 'none', 300);
+                } else {
+                    keyInput.style.borderColor = '#ef4444';
+                    keyInput.value = '';
+                    errorEl.style.display = 'flex';
+                    // Trigger reflow for animation restart
+                    errorEl.style.animation = 'none';
+                    errorEl.offsetHeight; 
+                    errorEl.style.animation = 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both';
+                }
+            } catch(e) {
+                console.error(e);
+                alert('Verification failed. Please try again.');
+            }
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('modal-admin-key').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') verifyAdminKeyModal();
+        });
+
+        // Run check immediately
+        checkSecurityOnLoad();
     </script>
 
 </body>

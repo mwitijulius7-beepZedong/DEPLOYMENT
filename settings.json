@@ -27,7 +27,7 @@
     "description": "A test blog description"
   },
   "security": {
-    "adminEntryKeyHash": "$2a$10$uL.pfDWf2aF0L5N7bm1GIumR820O9TGvKXLBKjaMclvBKbFPpWksW",
-    "adminEntryKeyEnc": "MaDGm7LyJbiFCIZeA7QmoeqFg2g7Nf1c3uEhJuetcNTEPmCNURnebg=="
+    "adminEntryKeyHash": "",
+    "adminEntryKeyEnc": ""
   }
 }
