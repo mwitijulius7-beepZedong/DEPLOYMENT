@@ -42,7 +42,10 @@ export async function loadPostsList() {
             postsList.innerHTML = data.posts.map(post => `
                 <div class="post-item">
                     <div class="post-item-header">
-                        <h4 class="post-item-title">${post.title}</h4>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" class="post-checkbox" data-post-id="${post.id}" onchange="updateSelectedCount()">
+                            <h4 class="post-item-title" style="margin: 0;">${post.title}</h4>
+                        </div>
                         <div style="display:flex; gap:8px;">
                             <button class="btn-modern sm secondary" onclick="editPost('${post.id}')">Edit</button>
                             <button class="btn-modern sm" style="background-color: #dc2626;" onclick="deletePost('${post.id}')">Delete</button>
@@ -76,22 +79,43 @@ export async function loadPostsList() {
     }
 }
 
-export function createNewPost() {
-    // Show the settings section and navigate to new post panel
-    const settingsSection = document.getElementById('settings-section');
-    settingsSection.style.display = 'block';
-    settingsSection.scrollIntoView({ behavior: 'smooth' });
+export async function showCreatePostSection() {
+    // Hide other sections
+    const sections = ['dashboard', 'settings-section', 'analytics-section', 'customize-section', 'posts-section'];
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
 
-    // Navigate to new post panel
-    const navButtons = document.querySelectorAll('.settings-nav-btn');
-    const panels = document.querySelectorAll('.settings-panel');
+    const createPostSection = document.getElementById('create-post-section');
+    if (createPostSection) {
+        createPostSection.style.display = 'block';
+        createPostSection.scrollIntoView({ behavior: 'smooth' });
+    }
 
-    navButtons.forEach(btn => btn.classList.remove('active'));
-    panels.forEach(panel => panel.classList.remove('active'));
-
-    document.querySelector('[data-panel="new-post"]').classList.add('active');
-    document.getElementById('new-post-panel').classList.add('active');
+    // Populate categories
+    const categorySelect = document.getElementById('post-category');
+    if (categorySelect) {
+        try {
+            const response = await fetch('/api/categories');
+            const data = await response.json();
+            if (data.categories) {
+                categorySelect.innerHTML = '<option value="">Select a category</option>';
+                data.categories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.id;
+                    option.textContent = cat.name;
+                    categorySelect.appendChild(option);
+                });
+            }
+        } catch (e) {
+            console.error('Error loading categories for post creation:', e);
+        }
+    }
 }
+
+// Alias for backward compatibility
+export const createNewPost = showCreatePostSection;
 
 export function editPost(postId) {
     alert(`Edit post functionality - This would open a form to edit post with ID: ${postId}`);
@@ -242,7 +266,7 @@ export async function saveNewPost() {
     try {
         const formData = new FormData();
         formData.append('title', title);
-        formData.append('category', category);
+        formData.append('categoryId', category);
         formData.append('content', content);
         formData.append('tags', tags);
         formData.append('status', status);

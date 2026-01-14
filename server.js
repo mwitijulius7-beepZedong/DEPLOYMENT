@@ -399,9 +399,10 @@ function requireAuth(req, res, next) {
 // Middleware to check idle timeout for admin routes
 function checkIdleTimeout(req, res, next) {
   // Auto-verify/refresh for localhost
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
   const host = req.get('host') || '';
-  if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+  const isLocalhost = ip.includes('127.0.0.1') || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1') || host.includes('::1');
+  if (isLocalhost) {
     req.session.adminKeyVerified = true;
     req.session.adminKeyVerifiedAt = Date.now();
     return next();

@@ -1,6 +1,6 @@
 // Main application entry point
 let initIdleTracking, resetIdleTimer, checkAuth, logout, loadDashboardStats, showDashboard;
-let showPostsSection, togglePostsList, loadPostsList, createNewPost, editPost, deletePost, viewPostStats, toggleSelectAllPosts, updateSelectedCount, deleteSelectedPosts;
+let showPostsSection, togglePostsList, loadPostsList, createNewPost, showCreatePostSection, editPost, deletePost, viewPostStats, toggleSelectAllPosts, updateSelectedCount, deleteSelectedPosts;
 let showAnalyticsSection, refreshAnalytics, viewEngagementDetails, exportAnalytics, loadTimeAnalytics;
 let showSettingsSection, toggleCategoriesList, loadCategories, addCategory, editCategory, deleteCategory, toggleSelectAllCategories, updateSelectedCategoriesCount, deleteSelectedCategories, saveAuthorInfo, saveSecuritySettings, viewCurrentKey, clearKey, saveNotificationSettings, saveContentSettings, handleProfilePictureUpload;
 let showCustomizeSection, showPrimaryOkButton, showAccentOkButton, confirmPrimaryColor, confirmAccentColor, saveThemeSettings, saveBlogInfo, handleBackgroundUpload, saveBackgroundSettings, previewChanges, applyChanges, previewColorBackground, applyColorBackground, selectPattern;
@@ -50,6 +50,7 @@ try {
     togglePostsList = postsModule.togglePostsList;
     loadPostsList = postsModule.loadPostsList;
     createNewPost = postsModule.createNewPost;
+    showCreatePostSection = postsModule.showCreatePostSection;
     editPost = postsModule.editPost;
     deletePost = postsModule.deletePost;
     viewPostStats = postsModule.viewPostStats;
@@ -62,6 +63,7 @@ try {
     togglePostsList = undefined;
     loadPostsList = undefined;
     createNewPost = undefined;
+    showCreatePostSection = undefined;
     editPost = undefined;
     deletePost = undefined;
     viewPostStats = undefined;
@@ -279,6 +281,7 @@ window.showCustomizeSection = window.showCustomizeSection || function() {
 window.togglePostsList = togglePostsList;
 window.loadPostsList = loadPostsList;
 window.createNewPost = createNewPost;
+window.showCreatePostSection = showCreatePostSection;
 window.editPost = editPost;
 window.deletePost = deletePost;
 window.viewPostStats = viewPostStats;
