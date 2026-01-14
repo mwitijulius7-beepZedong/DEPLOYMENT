@@ -1454,16 +1454,6 @@
                 <!-- Dashboard Header -->
                 <div class="dashboard-header">
                     <h2 class="dashboard-title">Welcome back, zedong254ke!</h2>
-                    <div class="quick-actions">
-                        <button class="quick-action-btn" onclick="createNewPost()">
-                            <i>✏️</i>
-                            New Post
-                        </button>
-                        <button class="quick-action-btn secondary" onclick="showSettingsSection()">
-                            <i>⚙️</i>
-                            Settings
-                        </button>
-                    </div>
                 </div>
 
                 <!-- Stats Grid -->
@@ -1512,13 +1502,6 @@
                             <h3>View Analytics</h3>
                         </div>
                         <p>Track your blog's performance with detailed analytics and insights.</p>
-                    </div>
-                    <div class="action-card action-settings" onclick="showSettingsSection()">
-                        <div class="action-card-header">
-                            <div class="action-icon">⚙️</div>
-                            <h3>Blog Settings</h3>
-                        </div>
-                        <p>Configure your blog appearance, author details, and security preferences.</p>
                     </div>
                 </div>
                 </div>
@@ -2012,11 +1995,11 @@
                         </div>
 
                         <div style="margin-top: 24px; display: flex; gap: 12px;">
-                            <button id="btn-add-category" class="btn-modern secondary" type="button" onclick="addCategory()">
+                            <button id="btn-add-category" class="btn-modern secondary" type="button" onclick="window.addCategory()">
                                 <i>➕</i>
                                 Add Category
                             </button>
-                            <button class="btn-modern sm" onclick="loadCategories()">
+                            <button class="btn-modern sm" onclick="window.loadCategories()">
                                 <i>🔄</i>
                                 Refresh
                             </button>
@@ -2028,7 +2011,7 @@
                                     <input type="checkbox" id="select-all-categories" onchange="toggleSelectAllCategories()">
                                     <span style="font-size: 14px;">Select All</span>
                                 </label>
-                                <button class="btn-modern sm" id="delete-selected-categories" style="display: none; background: #dc3545;" onclick="deleteSelectedCategories()">
+                                <button class="btn-modern sm" id="delete-selected-categories" style="display: none; background: #dc2626;" onclick="deleteSelectedCategories()">
                                     <i>🗑️</i>
                                     Delete Selected (<span id="selected-categories-count">0</span>)
                                 </button>
@@ -2124,6 +2107,18 @@
             window.logout = authModule.logout;
 
             console.log('All admin functions loaded successfully');
+
+            // Load blog info for sidebar
+            fetch('/api/settings/blog-info')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.blogInfo && data.blogInfo.title) {
+                        const sidebarTitle = document.querySelector('.sidebar-logo h2');
+                        if (sidebarTitle) sidebarTitle.textContent = data.blogInfo.title;
+                        document.title = `Admin Panel - ${data.blogInfo.title}`;
+                    }
+                })
+                .catch(err => console.error('Error loading blog info:', err));
         } catch (error) {
             console.error('Failed to load admin functions:', error);
             // Define fallback functions
@@ -2285,31 +2280,6 @@
             showSection('dashboard', 'Dashboard', 'showDashboard');
         }
 
-        function showCreatePostSection() {
-            showSection('create-post-section', 'Create Post', 'showCreatePostSection');
-            
-            // Populate categories dropdown
-            const categorySelect = document.getElementById('post-category');
-            if (categorySelect) {
-                fetch('/api/categories')
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.categories && data.categories.length > 0) {
-                            const currentVal = categorySelect.value;
-                            categorySelect.innerHTML = '<option value="">Select a category</option>';
-                            data.categories.forEach(cat => {
-                                const option = document.createElement('option');
-                                option.value = cat.slug || cat.name.toLowerCase();
-                                option.textContent = cat.name;
-                                categorySelect.appendChild(option);
-                            });
-                            if (currentVal) categorySelect.value = currentVal;
-                        }
-                    })
-                    .catch(e => console.error('Error loading categories:', e));
-            }
-        }
-
         function showPostsSection() {
             showSection('posts-section', 'Manage Posts', 'showPostsSection');
             if (window.loadPostsList) {
@@ -2328,12 +2298,10 @@
         }
 
         // Make functions globally available
-        window.showCreatePostSection = showCreatePostSection;
         window.showDashboard = showDashboard;
         window.showPostsSection = showPostsSection;
         window.showAnalyticsSection = showAnalyticsSection;
         window.showSettingsSection = showSettingsSection;
-        window.createNewPost = showCreatePostSection; // Alias for quick action button
         window.viewPostStats = showAnalyticsSection; // Alias for view stats button
 
         // Admin Key Verification Logic
