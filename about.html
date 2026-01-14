@@ -655,6 +655,17 @@
         window.onclick = function(event) {
             // Modal functionality can be added later if needed
         }
+
+        // Load blog info
+        fetch('/api/settings/blog-info')
+            .then(response => response.json())
+            .then(data => {
+                if (data.blogInfo && data.blogInfo.title) {
+                    document.querySelector('.logo h1').textContent = data.blogInfo.title;
+                    document.title = `About - ${data.blogInfo.title}`;
+                }
+            })
+            .catch(error => console.error('Error loading blog info:', error));
     </script>
 </body>
 </html>
