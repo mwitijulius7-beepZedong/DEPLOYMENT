@@ -18,6 +18,12 @@ export function showSettingsSection() {
     if (typeof initPasswordToggle === 'function') {
         initPasswordToggle();
     }
+
+    // Load categories if the categories panel is visible
+    const categoriesContainer = document.getElementById('categories-list-container');
+    if (categoriesContainer && categoriesContainer.style.display !== 'none') {
+        loadCategories();
+    }
 }
 
 export function toggleCategoriesList() {
