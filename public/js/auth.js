@@ -1,4 +1,6 @@
 // Authentication module
+import { loadDashboardStats } from './dashboard.js';
+
 export async function checkAuth() {
     console.log('Checking authentication status...');
     try {

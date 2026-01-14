@@ -62,7 +62,10 @@ export async function loadCategories() {
             categoriesList.innerHTML = '<p>No categories found.</p>';
         }
         // Reset select all checkbox and selected count
-        document.getElementById('select-all-categories').checked = false;
+        const selectAllCheckbox = document.getElementById('select-all-categories');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+        }
         updateSelectedCategoriesCount();
     } catch (error) {
         console.error('Failed to load categories:', error);
@@ -73,7 +76,8 @@ export async function loadCategories() {
 export async function addCategory() {
     const categoryName = document.getElementById('category-name').value.trim();
     const categoryDescription = document.getElementById('category-description').value.trim();
-    const addButton = document.getElementById('btn-add-category') || document.querySelector('[onclick="addCategory()"]');
+    const addButton = document.getElementById('btn-add-category');
+    let originalContent;
 
     if (!categoryName) {
         alert('Please enter a category name.');
@@ -82,6 +86,7 @@ export async function addCategory() {
 
     // Disable button and show loading state
     if (addButton) {
+        originalContent = addButton.innerHTML;
         addButton.disabled = true;
         addButton.textContent = 'Adding...';
     }
@@ -112,7 +117,7 @@ export async function addCategory() {
         // Re-enable button and restore text
         if (addButton) {
             addButton.disabled = false;
-            addButton.textContent = 'Add Category';
+            addButton.innerHTML = originalContent || '<i>➕</i> Add Category';
         }
     }
 }
