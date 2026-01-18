@@ -13,7 +13,45 @@ const jwt = require('jsonwebtoken');
 const { put } = require('@vercel/blob');
 const { MongoClient } = require('mongodb');
 const cloudinary = require('cloudinary').v2;
-// const { kv } = require('@vercel/kv'); // Only for Vercel deployment
+const { kv } = require('@vercel/kv'); // For Vercel deployment data persistence
+
+// Session store for Vercel KV
+class VercelKVStore {
+  constructor() {
+    this.prefix = 'session:';
+  }
+
+  async get(sid, callback) {
+    try {
+      const data = await kv.get(this.prefix + sid);
+      if (data) {
+        callback(null, JSON.parse(data));
+      } else {
+        callback(null, null);
+      }
+    } catch (err) {
+      callback(err);
+    }
+  }
+
+  async set(sid, session, callback) {
+    try {
+      await kv.set(this.prefix + sid, JSON.stringify(session), { ex: 86400 }); // 24 hours
+      callback(null);
+    } catch (err) {
+      callback(err);
+    }
+  }
+
+  async destroy(sid, callback) {
+    try {
+      await kv.del(this.prefix + sid);
+      callback(null);
+    } catch (err) {
+      callback(err);
+    }
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -117,7 +155,8 @@ app.use(session({
     sameSite: 'lax', // Use 'lax' for better compatibility across environments
     maxAge: 24 * 60 * 60 * 1000
   },
-  name: 'sessionId'
+  name: 'sessionId',
+  store: process.env.VERCEL ? new VercelKVStore() : undefined
 }));
 
 app.use(fileUpload({
