@@ -150,7 +150,6 @@ async function saveUsers(users) {
       }
       return;
     }
-    if (process.env.VERCEL) return;
     fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
   } catch (e) {
     console.error('Save users error:', e);
@@ -178,7 +177,6 @@ async function savePosts(posts) {
       }
       return;
     }
-    if (process.env.VERCEL) return;
     fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
   } catch (e) {
     console.error('Save posts error:', e);
@@ -214,7 +212,6 @@ async function saveCategories(categories) {
       return;
     }
     console.log('Saving to file system');
-    if (process.env.VERCEL) return;
     fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
   } catch (e) {
     console.error('Save categories error:', e);
@@ -244,7 +241,6 @@ async function saveAnalytics(analytics) {
       );
       return;
     }
-    if (process.env.VERCEL) return;
     fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(analytics, null, 2));
   } catch (e) {
     console.error('Save analytics error:', e);
@@ -301,7 +297,6 @@ async function saveComments(comments) {
       }
       return;
     }
-    if (process.env.VERCEL) return;
     fs.writeFileSync(COMMENTS_FILE, JSON.stringify(comments, null, 2));
   } catch (e) {
     console.error('Save comments error:', e);
@@ -993,7 +988,6 @@ function readSettings() {
 // Helper function to write settings
 function writeSettings(settings) {
   try {
-    if (process.env.VERCEL) return; // skip writes on Vercel
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
   } catch (error) {
     console.error('Error writing settings:', error);
@@ -1031,7 +1025,6 @@ app.get('/api/settings/backgrounds', (req, res) => {
 
 app.post('/api/settings/backgrounds', requireAdmin, (req, res) => {
   try {
-    if (process.env.VERCEL) return res.status(501).json({ error: 'not_supported_on_serverless' });
     const { backgrounds } = req.body || {};
     if (!Array.isArray(backgrounds)) return res.status(400).json({ error: 'backgrounds_must_be_array' });
     const urls = backgrounds.map(u => String(u)).filter(u => u.length > 0);

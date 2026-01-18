@@ -2053,15 +2053,23 @@
     </div>
 
 
-    <script type="module" src="/public/js/main.js"></script>
     <script type="module">
         // Import and expose all required functions
+        async function loadModule(path) {
+            try {
+                return await import(`/public/js/${path}`);
+            } catch (e) {
+                return await import(`/js/${path}`);
+            }
+        }
+
         try {
-            const settingsModule = await import('/public/js/settings.js');
-            const customizeModule = await import('/public/js/customize.js');
-            const postsModule = await import('/public/js/posts.js');
-            const analyticsModule = await import('/public/js/analytics.js');
-            const authModule = await import('/public/js/auth.js');
+            await loadModule('main.js');
+            const settingsModule = await loadModule('settings.js');
+            const customizeModule = await loadModule('customize.js');
+            const postsModule = await loadModule('posts.js');
+            const analyticsModule = await loadModule('analytics.js');
+            const authModule = await loadModule('auth.js');
 
             // Expose settings functions to window
             window.addCategory = settingsModule.addCategory;
@@ -2131,6 +2139,9 @@
             window.logout = () => console.log('logout not available');
             window.toggleSidebar = () => console.log('toggleSidebar not available');
             window.togglePostsList = () => console.log('togglePostsList not available');
+            window.toggleSelectAllCategories = () => console.log('toggleSelectAllCategories not available');
+            window.updateSelectedCategoriesCount = () => console.log('updateSelectedCategoriesCount not available');
+            window.deleteSelectedCategories = () => console.log('deleteSelectedCategories not available');
         }
 
         // Sidebar toggle
