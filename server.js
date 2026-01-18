@@ -173,6 +173,10 @@ async function loadUsers() {
       users.forEach(u => result[u.username] = u);
       return result;
     }
+    if (process.env.VERCEL && kv) {
+      const data = await kv.get('users');
+      return data ? JSON.parse(data) : {};
+    }
     return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
   } catch (e) {
     return {};
@@ -189,6 +193,10 @@ async function saveUsers(users) {
       }
       return;
     }
+    if (process.env.VERCEL && kv) {
+      await kv.set('users', JSON.stringify(users));
+      return;
+    }
     fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
   } catch (e) {
     console.error('Save users error:', e);
@@ -200,6 +208,10 @@ async function loadPosts() {
     if (db) {
       const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
       return posts.map(p => ({ ...p, id: p._id || p.id }));
+    }
+    if (process.env.VERCEL && kv) {
+      const data = await kv.get('posts');
+      return data ? JSON.parse(data) : [];
     }
     return JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
   } catch (e) {
@@ -214,6 +226,10 @@ async function savePosts(posts) {
       if (posts.length > 0) {
         await db.collection('posts').insertMany(posts.map(p => ({ ...p, _id: p.id })));
       }
+      return;
+    }
+    if (process.env.VERCEL && kv) {
+      await kv.set('posts', JSON.stringify(posts));
       return;
     }
     fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
@@ -248,6 +264,10 @@ async function saveCategories(categories) {
         const result = await db.collection('categories').insertMany(categories.map(c => ({ ...c, _id: c.id })));
         console.log('MongoDB save result:', result.insertedCount);
       }
+      return;
+    }
+    if (process.env.VERCEL && kv) {
+      await kv.set('categories', JSON.stringify(categories));
       return;
     }
     console.log('Saving to file system');
@@ -336,6 +356,10 @@ async function saveComments(comments) {
       }
       return;
     }
+    if (process.env.VERCEL && kv) {
+      await kv.set('comments', JSON.stringify(comments));
+      return;
+    }
     fs.writeFileSync(COMMENTS_FILE, JSON.stringify(comments, null, 2));
   } catch (e) {
     console.error('Save comments error:', e);
@@ -361,6 +385,10 @@ async function saveSubscriptions(subscriptions) {
       if (subscriptions.length > 0) {
         await db.collection('subscriptions').insertMany(subscriptions.map(s => ({ ...s, _id: s.id })));
       }
+      return;
+    }
+    if (process.env.VERCEL && kv) {
+      await kv.set('subscriptions', JSON.stringify(subscriptions));
       return;
     }
     fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptions, null, 2));
