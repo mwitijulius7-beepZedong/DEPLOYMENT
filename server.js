@@ -17,7 +17,6 @@ const { kv } = require('@vercel/kv'); // For Vercel deployment data persistence
 
 // Session store for Vercel KV with fallback
 const { EventEmitter } = require('events');
-const session = require('express-session');
 
 class VercelKVStore extends EventEmitter {
   constructor(options = {}) {
