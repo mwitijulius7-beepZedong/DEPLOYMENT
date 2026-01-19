@@ -15,16 +15,31 @@ const { MongoClient } = require('mongodb');
 const cloudinary = require('cloudinary').v2;
 const { kv } = require('@vercel/kv'); // For Vercel deployment data persistence
 
-// Session store for Vercel KV
+// Session store for Vercel KV with fallback
 const { EventEmitter } = require('events');
+const session = require('express-session');
 
 class VercelKVStore extends EventEmitter {
   constructor(options = {}) {
     super();
     this.prefix = options.prefix || 'session:';
+    this.kvAvailable = false;
+
+    // Test KV availability
+    try {
+      if (kv && typeof kv.get === 'function') {
+        this.kvAvailable = true;
+      }
+    } catch (e) {
+      console.warn('Vercel KV not available, using memory store fallback');
+    }
   }
 
   async get(sid, callback) {
+    if (!this.kvAvailable) {
+      return callback(null, null);
+    }
+
     try {
       const data = await kv.get(this.prefix + sid);
       if (data) {
@@ -33,29 +48,36 @@ class VercelKVStore extends EventEmitter {
         callback(null, null);
       }
     } catch (err) {
-      // On KV error, return null to avoid crashing
       console.error('VercelKVStore get error:', err.message);
+      // Fallback to null on error
       callback(null, null);
     }
   }
 
   async set(sid, session, callback) {
+    if (!this.kvAvailable) {
+      return callback(null);
+    }
+
     try {
       await kv.set(this.prefix + sid, JSON.stringify(session), { ex: 86400 }); // 24 hours
       callback(null);
     } catch (err) {
-      // On KV error, just callback without saving to avoid crashing
       console.error('VercelKVStore set error:', err.message);
+      // Don't fail the session save
       callback(null);
     }
   }
 
   async destroy(sid, callback) {
+    if (!this.kvAvailable) {
+      return callback(null);
+    }
+
     try {
       await kv.del(this.prefix + sid);
       callback(null);
     } catch (err) {
-      // On KV error, just callback to avoid crashing
       console.error('VercelKVStore destroy error:', err.message);
       callback(null);
     }
@@ -63,24 +85,33 @@ class VercelKVStore extends EventEmitter {
 
   // Required methods for express-session compatibility
   touch(sid, session, callback) {
-    // For Vercel KV, we can just call set to update the expiration
     this.set(sid, session, callback);
   }
 
   all(callback) {
-    // Not implemented for Vercel KV - return empty array
     callback(null, []);
   }
 
   length(callback) {
-    // Not implemented for Vercel KV - return 0
     callback(null, 0);
   }
 
   clear(callback) {
-    // Not implemented for Vercel KV - just callback
     callback(null);
   }
+}
+
+// Create session store with fallback
+function createSessionStore() {
+  if (process.env.VERCEL) {
+    try {
+      return new VercelKVStore();
+    } catch (e) {
+      console.warn('Failed to create VercelKVStore, falling back to memory store:', e.message);
+    }
+  }
+  // Default to memory store for development
+  return new session.MemoryStore();
 }
 
 const app = express();
@@ -192,7 +223,7 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000
   },
   name: 'sessionId',
-  store: process.env.VERCEL ? new VercelKVStore() : undefined
+  store: createSessionStore()
 }));
 
 app.use(fileUpload({
