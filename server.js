@@ -13,20 +13,125 @@ const jwt = require('jsonwebtoken');
 const { put } = require('@vercel/blob');
 const { MongoClient } = require('mongodb');
 const cloudinary = require('cloudinary').v2;
-// const { kv } = require('@vercel/kv'); // Only for Vercel deployment
+const { kv } = require('@vercel/kv'); // For Vercel deployment data persistence
+
+// Session store for Vercel KV with fallback
+const { EventEmitter } = require('events');
+const session = require('express-session');
+
+class VercelKVStore extends EventEmitter {
+  constructor(options = {}) {
+    super();
+    this.prefix = options.prefix || 'session:';
+    this.kvAvailable = false;
+
+    // Test KV availability
+    try {
+      if (kv && typeof kv.get === 'function') {
+        this.kvAvailable = true;
+      }
+    } catch (e) {
+      console.warn('Vercel KV not available, using memory store fallback');
+    }
+  }
+
+  async get(sid, callback) {
+    if (!this.kvAvailable) {
+      return callback(null, null);
+    }
+
+    try {
+      const data = await kv.get(this.prefix + sid);
+      if (data) {
+        callback(null, JSON.parse(data));
+      } else {
+        callback(null, null);
+      }
+    } catch (err) {
+      console.error('VercelKVStore get error:', err.message);
+      // Fallback to null on error
+      callback(null, null);
+    }
+  }
+
+  async set(sid, session, callback) {
+    if (!this.kvAvailable) {
+      return callback(null);
+    }
+
+    try {
+      await kv.set(this.prefix + sid, JSON.stringify(session), { ex: 86400 }); // 24 hours
+      callback(null);
+    } catch (err) {
+      console.error('VercelKVStore set error:', err.message);
+      // Don't fail the session save
+      callback(null);
+    }
+  }
+
+  async destroy(sid, callback) {
+    if (!this.kvAvailable) {
+      return callback(null);
+    }
+
+    try {
+      await kv.del(this.prefix + sid);
+      callback(null);
+    } catch (err) {
+      console.error('VercelKVStore destroy error:', err.message);
+      callback(null);
+    }
+  }
+
+  // Required methods for express-session compatibility
+  touch(sid, session, callback) {
+    this.set(sid, session, callback);
+  }
+
+  all(callback) {
+    callback(null, []);
+  }
+
+  length(callback) {
+    callback(null, 0);
+  }
+
+  clear(callback) {
+    callback(null);
+  }
+}
+
+// Create session store with fallback
+function createSessionStore() {
+  if (process.env.VERCEL) {
+    try {
+      return new VercelKVStore();
+    } catch (e) {
+      console.warn('Failed to create VercelKVStore, falling back to memory store:', e.message);
+    }
+  }
+  // Default to memory store for development
+  return new session.MemoryStore();
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// MongoDB connection
+// MongoDB connection - lazy loaded for serverless
 let db;
-if (process.env.MONGODB_URI) {
-  MongoClient.connect(process.env.MONGODB_URI)
-    .then(client => {
-      console.log('Connected to MongoDB');
-      db = client.db('blog');
-    })
-    .catch(error => console.error('MongoDB connection error:', error));
+async function getMongoDB() {
+  if (db) return db;
+  if (!process.env.MONGODB_URI) return null;
+
+  try {
+    const client = await MongoClient.connect(process.env.MONGODB_URI);
+    console.log('Connected to MongoDB');
+    db = client.db('blog');
+    return db;
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    return null;
+  }
 }
 
 // Cloudinary configuration
@@ -117,7 +222,8 @@ app.use(session({
     sameSite: 'lax', // Use 'lax' for better compatibility across environments
     maxAge: 24 * 60 * 60 * 1000
   },
-  name: 'sessionId'
+  name: 'sessionId',
+  store: createSessionStore()
 }));
 
 app.use(fileUpload({
@@ -128,11 +234,16 @@ app.use(fileUpload({
 
 async function loadUsers() {
   try {
+    const db = await getMongoDB();
     if (db) {
       const users = await db.collection('users').find({}).toArray();
       const result = {};
       users.forEach(u => result[u.username] = u);
       return result;
+    }
+    if (process.env.VERCEL && kv) {
+      const data = await kv.get('users');
+      return data ? JSON.parse(data) : {};
     }
     return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
   } catch (e) {
@@ -150,6 +261,10 @@ async function saveUsers(users) {
       }
       return;
     }
+    if (process.env.VERCEL && kv) {
+      await kv.set('users', JSON.stringify(users));
+      return;
+    }
     fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
   } catch (e) {
     console.error('Save users error:', e);
@@ -158,9 +273,14 @@ async function saveUsers(users) {
 
 async function loadPosts() {
   try {
+    const db = await getMongoDB();
     if (db) {
       const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
       return posts.map(p => ({ ...p, id: p._id || p.id }));
+    }
+    if (process.env.VERCEL && kv) {
+      const data = await kv.get('posts');
+      return data ? JSON.parse(data) : [];
     }
     return JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
   } catch (e) {
@@ -177,6 +297,10 @@ async function savePosts(posts) {
       }
       return;
     }
+    if (process.env.VERCEL && kv) {
+      await kv.set('posts', JSON.stringify(posts));
+      return;
+    }
     fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
   } catch (e) {
     console.error('Save posts error:', e);
@@ -185,6 +309,7 @@ async function savePosts(posts) {
 
 async function loadCategories() {
   try {
+    const db = await getMongoDB();
     if (db) {
       console.log('Loading from MongoDB');
       const categories = await db.collection('categories').find({}).toArray();
@@ -211,6 +336,10 @@ async function saveCategories(categories) {
       }
       return;
     }
+    if (process.env.VERCEL && kv) {
+      await kv.set('categories', JSON.stringify(categories));
+      return;
+    }
     console.log('Saving to file system');
     fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
   } catch (e) {
@@ -221,6 +350,7 @@ async function saveCategories(categories) {
 
 async function loadAnalytics() {
   try {
+    const db = await getMongoDB();
     if (db) {
       const result = await db.collection('analytics').findOne({ type: 'data' });
       return result?.data || { pageViews: [], postViews: [], interactions: [] };
@@ -249,6 +379,7 @@ async function saveAnalytics(analytics) {
 
 async function loadSecurityLogs() {
   try {
+    const db = await getMongoDB();
     if (db) {
       const result = await db.collection('security').findOne({ type: 'logs' });
       return result?.logs || [];
@@ -278,6 +409,7 @@ async function saveSecurityLogs(logs) {
 
 async function loadComments() {
   try {
+    const db = await getMongoDB();
     if (db) {
       const comments = await db.collection('comments').find({}).toArray();
       return comments.map(c => ({ ...c, id: c._id || c.id }));
@@ -297,6 +429,10 @@ async function saveComments(comments) {
       }
       return;
     }
+    if (process.env.VERCEL && kv) {
+      await kv.set('comments', JSON.stringify(comments));
+      return;
+    }
     fs.writeFileSync(COMMENTS_FILE, JSON.stringify(comments, null, 2));
   } catch (e) {
     console.error('Save comments error:', e);
@@ -305,6 +441,7 @@ async function saveComments(comments) {
 
 async function loadSubscriptions() {
   try {
+    const db = await getMongoDB();
     if (db) {
       const subscriptions = await db.collection('subscriptions').find({}).toArray();
       return subscriptions.map(s => ({ ...s, id: s._id || s.id }));
@@ -322,6 +459,10 @@ async function saveSubscriptions(subscriptions) {
       if (subscriptions.length > 0) {
         await db.collection('subscriptions').insertMany(subscriptions.map(s => ({ ...s, _id: s.id })));
       }
+      return;
+    }
+    if (process.env.VERCEL && kv) {
+      await kv.set('subscriptions', JSON.stringify(subscriptions));
       return;
     }
     fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptions, null, 2));
