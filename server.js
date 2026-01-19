@@ -16,9 +16,12 @@ const cloudinary = require('cloudinary').v2;
 const { kv } = require('@vercel/kv'); // For Vercel deployment data persistence
 
 // Session store for Vercel KV
-class VercelKVStore {
-  constructor() {
-    this.prefix = 'session:';
+const { EventEmitter } = require('events');
+
+class VercelKVStore extends EventEmitter {
+  constructor(options = {}) {
+    super();
+    this.prefix = options.prefix || 'session:';
   }
 
   async get(sid, callback) {
@@ -30,7 +33,9 @@ class VercelKVStore {
         callback(null, null);
       }
     } catch (err) {
-      callback(err);
+      // On KV error, return null to avoid crashing
+      console.error('VercelKVStore get error:', err.message);
+      callback(null, null);
     }
   }
 
@@ -39,7 +44,9 @@ class VercelKVStore {
       await kv.set(this.prefix + sid, JSON.stringify(session), { ex: 86400 }); // 24 hours
       callback(null);
     } catch (err) {
-      callback(err);
+      // On KV error, just callback without saving to avoid crashing
+      console.error('VercelKVStore set error:', err.message);
+      callback(null);
     }
   }
 
@@ -48,23 +55,52 @@ class VercelKVStore {
       await kv.del(this.prefix + sid);
       callback(null);
     } catch (err) {
-      callback(err);
+      // On KV error, just callback to avoid crashing
+      console.error('VercelKVStore destroy error:', err.message);
+      callback(null);
     }
+  }
+
+  // Required methods for express-session compatibility
+  touch(sid, session, callback) {
+    // For Vercel KV, we can just call set to update the expiration
+    this.set(sid, session, callback);
+  }
+
+  all(callback) {
+    // Not implemented for Vercel KV - return empty array
+    callback(null, []);
+  }
+
+  length(callback) {
+    // Not implemented for Vercel KV - return 0
+    callback(null, 0);
+  }
+
+  clear(callback) {
+    // Not implemented for Vercel KV - just callback
+    callback(null);
   }
 }
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// MongoDB connection
+// MongoDB connection - lazy loaded for serverless
 let db;
-if (process.env.MONGODB_URI) {
-  MongoClient.connect(process.env.MONGODB_URI)
-    .then(client => {
-      console.log('Connected to MongoDB');
-      db = client.db('blog');
-    })
-    .catch(error => console.error('MongoDB connection error:', error));
+async function getMongoDB() {
+  if (db) return db;
+  if (!process.env.MONGODB_URI) return null;
+
+  try {
+    const client = await MongoClient.connect(process.env.MONGODB_URI);
+    console.log('Connected to MongoDB');
+    db = client.db('blog');
+    return db;
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    return null;
+  }
 }
 
 // Cloudinary configuration
@@ -167,6 +203,7 @@ app.use(fileUpload({
 
 async function loadUsers() {
   try {
+    const db = await getMongoDB();
     if (db) {
       const users = await db.collection('users').find({}).toArray();
       const result = {};
@@ -205,6 +242,7 @@ async function saveUsers(users) {
 
 async function loadPosts() {
   try {
+    const db = await getMongoDB();
     if (db) {
       const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
       return posts.map(p => ({ ...p, id: p._id || p.id }));
@@ -240,6 +278,7 @@ async function savePosts(posts) {
 
 async function loadCategories() {
   try {
+    const db = await getMongoDB();
     if (db) {
       console.log('Loading from MongoDB');
       const categories = await db.collection('categories').find({}).toArray();
@@ -280,6 +319,7 @@ async function saveCategories(categories) {
 
 async function loadAnalytics() {
   try {
+    const db = await getMongoDB();
     if (db) {
       const result = await db.collection('analytics').findOne({ type: 'data' });
       return result?.data || { pageViews: [], postViews: [], interactions: [] };
@@ -308,6 +348,7 @@ async function saveAnalytics(analytics) {
 
 async function loadSecurityLogs() {
   try {
+    const db = await getMongoDB();
     if (db) {
       const result = await db.collection('security').findOne({ type: 'logs' });
       return result?.logs || [];
@@ -337,6 +378,7 @@ async function saveSecurityLogs(logs) {
 
 async function loadComments() {
   try {
+    const db = await getMongoDB();
     if (db) {
       const comments = await db.collection('comments').find({}).toArray();
       return comments.map(c => ({ ...c, id: c._id || c.id }));
@@ -368,6 +410,7 @@ async function saveComments(comments) {
 
 async function loadSubscriptions() {
   try {
+    const db = await getMongoDB();
     if (db) {
       const subscriptions = await db.collection('subscriptions').find({}).toArray();
       return subscriptions.map(s => ({ ...s, id: s._id || s.id }));
