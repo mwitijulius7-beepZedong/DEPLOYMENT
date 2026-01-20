@@ -624,6 +624,9 @@ app.post('/auth/login', async (req, res) => {
   const isDevAuth = (isDev && username === 'admin' && password === devPwd);
   const isEnvAuth = (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD);
 
+  // Temporary fallback: allow Mwitijulius7 login with Mwitijulius7@Jm if no users exist in production
+  const isTempAuth = (username === 'Mwitijulius7' && password === 'Mwitijulius7@Jm' && Object.keys(users).length === 0 && process.env.VERCEL);
+
   if (isDevAuth || isEnvAuth) {
     // Generate JWT token for dev admin
     const token = jwt.sign({
@@ -650,6 +653,31 @@ app.post('/auth/login', async (req, res) => {
       req.session.adminKeyVerified = true;
       req.session.adminKeyVerifiedAt = Date.now();
     }
+
+    return res.json({
+      success: true,
+      token,
+      user: req.session.user
+    });
+  }
+
+  if (isTempAuth) {
+    // Temporary login for Mwitijulius7
+    const token = jwt.sign({
+      username: 'Mwitijulius7',
+      email: 'admin@example.com',
+      name: 'Admin',
+      role: 'ADMIN'
+    }, JWT_SECRET, { expiresIn: '24h' });
+
+    console.log('Temporary login successful for Mwitijulius7');
+
+    req.session.user = {
+      username: 'Mwitijulius7',
+      email: 'admin@example.com',
+      name: 'Admin',
+      role: 'ADMIN'
+    };
 
     return res.json({
       success: true,
