@@ -593,6 +593,22 @@ const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
         }
     );
 
+// Temporary migration endpoint - REMOVE AFTER USE
+app.post('/migrate-users', async (req, res) => {
+  try {
+    // Only allow in development or with admin auth
+    if (process.env.NODE_ENV === 'production' && !req.session?.user?.role === 'ADMIN') {
+      return res.status(403).json({ error: 'not authorized' });
+    }
+
+    const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    await saveUsers(users);
+    return res.json({ success: true, migrated: Object.keys(users) });
+  } catch (e) {
+    return res.status(500).json({ error: 'migration failed', details: e.message });
+  }
+});
+
 // Auth routes
 app.post('/auth/login', async (req, res) => {
   const { username, password } = req.body;
