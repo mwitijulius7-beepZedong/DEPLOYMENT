@@ -151,6 +151,28 @@ const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 app.use(limiter);
 app.use(errorHandler);
 
+// Dev seed bootstrap: create a default admin in non-prod when requested
+async function seedAdminIfNeeded() {
+  try {
+    if (process.env.NODE_ENV === 'production') return;
+    if (process.env.DEV_ADMIN_SEED !== 'true') return;
+    const users = await loadUsers();
+    const exists = users && (Object.prototype.hasOwnProperty.call(users, 'admin') || Object.prototype.hasOwnProperty.call(users, 'Admin'));
+    if (exists) {
+      console.log('Dev seed: admin user already exists');
+      return;
+    }
+    const seedPwd = process.env.DEV_ADMIN_PASSWORD || 'admin123';
+    const hash = await bcrypt.hash(seedPwd, 10);
+    const updated = Object.assign({}, users || {}, { admin: { name: 'Admin', email: 'admin@example.com', passwordHash: hash, active: true, role: 'ADMIN' } });
+    await saveUsers(updated);
+    console.log('Dev seed: admin user created (admin/admin)');
+  } catch (err) {
+    console.error('Dev seed admin error:', err);
+  }
+}
+seedAdminIfNeeded();
+
 // Vercel serverless function export
 module.exports = app;
 
