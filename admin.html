@@ -1391,9 +1391,15 @@
 
             <nav class="sidebar-nav">
                 <div class="nav-item">
-                    <a href="#dashboard" class="nav-link active" onclick="showDashboard()">
+                    <a id="nav-dashboard" href="#dashboard" class="nav-link active">
                         <i>📊</i>
                         <span>Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#users" class="nav-link" onclick="showUsersSection()">
+                        <i>👥</i>
+                        <span>Users</span>
                     </a>
                 </div>
                 <div class="nav-item">
@@ -1403,19 +1409,25 @@
                     </a>
                 </div>
                 <div class="nav-item">
-                    <a href="#posts" class="nav-link" onclick="showPostsSection()">
+                    <a id="nav-posts" href="#posts" class="nav-link">
                         <i>📝</i>
                         <span>Manage Posts</span>
                     </a>
                 </div>
                 <div class="nav-item">
-                    <a href="#analytics" class="nav-link" onclick="showAnalyticsSection()">
+                    <a id="nav-analytics" href="#analytics" class="nav-link">
                         <i>📈</i>
                         <span>Analytics</span>
                     </a>
                 </div>
                 <div class="nav-item">
-                    <a href="#settings" class="nav-link" onclick="showSettingsSection()">
+                    <a id="nav-users" href="#users" class="nav-link">
+                        <i>👥</i>
+                        <span>Users</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a id="nav-settings" href="#settings" class="nav-link">
                         <i>⚙️</i>
                         <span>Settings</span>
                     </a>
@@ -1546,6 +1558,60 @@
                                 <div class="stat-number" id="total-posts">0</div>
                                 <div class="stat-label">Total Posts</div>
                                 <button class="btn-modern secondary" onclick="viewPostStats()">View Stats</button>
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+
+                <!-- Users Section -->
+                <div id="users-section" class="section-content" style="display: none;">
+                    <div class="section-header">
+                        <h3 class="section-title">👥 User Management</h3>
+                        <p class="section-description">Create and manage user accounts for your blog.</p>
+                    </div>
+
+                    <div class="section-body">
+                        <div class="customize-grid">
+                            <div class="action-card">
+                                <h3>➕ Create New User</h3>
+                                <p>Create a new user account with custom credentials.</p>
+                                <form id="create-user-form" class="form-grid">
+                                    <div class="form-group">
+                                        <label for="new-username">Username</label>
+                                        <input type="text" id="new-username" class="form-input" placeholder="Enter username" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="new-password">Password</label>
+                                        <input type="password" id="new-password" class="form-input" placeholder="Enter password" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="new-name">Full Name</label>
+                                        <input type="text" id="new-name" class="form-input" placeholder="Enter full name" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="new-email">Email</label>
+                                        <input type="email" id="new-email" class="form-input" placeholder="Enter email address" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="new-role">Role</label>
+                                        <select id="new-role" class="form-input">
+                                            <option value="USER">User</option>
+                                            <option value="ADMIN">Admin</option>
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="btn-modern primary">
+                                        <i>👤</i>
+                                        Create User
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div class="action-card">
+                                <h3>📋 User List</h3>
+                                <p>View and manage existing users.</p>
+                                <div id="users-list" class="users-list">
+                                    <div class="loading">Loading users...</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2214,7 +2280,7 @@
 
         // Navigation Helper
         function hideAllSections() {
-            const sections = ['dashboard', 'posts-section', 'analytics-section', 'create-post-section', 'settings-section'];
+            const sections = ['dashboard', 'posts-section', 'users-section', 'analytics-section', 'create-post-section', 'settings-section'];
             sections.forEach(sectionId => {
                 const section = document.getElementById(sectionId);
                 if (section) section.style.display = 'none';
@@ -2286,7 +2352,73 @@
             }
         }
 
+        async function loadUsers() {
+            const container = document.getElementById('users-list');
+            if (!container) return;
+
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">Loading users...</div>';
+
+            try {
+                // For now, we'll show a placeholder since there's no GET /api/users endpoint
+                // In a real implementation, you'd fetch from /api/users
+                container.innerHTML = `
+                    <div style="text-align:center; padding:20px; color:var(--text-medium);">
+                        User management functionality added.<br>
+                        Users are managed through the backend API.<br>
+                        <small style="color: var(--text-light);">Note: Full user list requires additional API endpoints</small>
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Error loading users:', e);
+                container.innerHTML = '<div style="text-align:center; color:#dc2626;">Failed to load users.</div>';
+            }
+        }
+
+        async function handleCreateUser(event) {
+            event.preventDefault();
+
+            const username = document.getElementById('new-username').value.trim();
+            const password = document.getElementById('new-password').value.trim();
+            const name = document.getElementById('new-name').value.trim();
+            const email = document.getElementById('new-email').value.trim();
+            const role = document.getElementById('new-role').value;
+
+            if (!username || !password || !name || !email) {
+                alert('All fields are required');
+                return;
+            }
+
+            try {
+                const response = await fetch('/auth/setup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password, name, email })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('User created successfully!');
+                    document.getElementById('create-user-form').reset();
+                    loadUsers(); // Refresh the list
+                } else {
+                    alert('Failed to create user: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) {
+                console.error('Error creating user:', e);
+                alert('Failed to create user. Check console for details.');
+            }
+        }
+
         // Navigation Functions
+        // Fallback bindings in case inline onclicks fail
+        if (typeof showSettingsSection !== 'function') {
+            window.showSettingsSection = function() {
+                showSection('settings-section', 'Settings', 'showSettingsSection');
+            };
+        }
         function showDashboard() {
             showSection('dashboard', 'Dashboard', 'showDashboard');
         }
@@ -2304,14 +2436,19 @@
             showSection('analytics-section', 'Analytics', 'showAnalyticsSection');
         }
 
+        function showUsersSection() {
+            showSection('users-section', 'Users', 'showUsersSection');
+            loadUsers();
+        }
+
         function showSettingsSection() {
             showSection('settings-section', 'Settings', 'showSettingsSection');
         }
 
-        // Make functions globally available
-        window.showDashboard = showDashboard;
         window.showPostsSection = showPostsSection;
         window.showAnalyticsSection = showAnalyticsSection;
+        window.showCreatePostSection = showCreatePostSection;
+        window.showUsersSection = showUsersSection;
         window.showSettingsSection = showSettingsSection;
         window.viewPostStats = showAnalyticsSection; // Alias for view stats button
 
@@ -2380,6 +2517,76 @@
             }
         }
 
+        // Create user form handler (redundant safety binding)
+        const createUserForm = document.getElementById('create-user-form');
+        if (createUserForm) {
+            if (typeof createUserForm.addEventListener === 'function') {
+                createUserForm.addEventListener('submit', handleCreateUser);
+            }
+        }
+
+        // Users: load and create
+        async function loadUsers() {
+            const container = document.getElementById('users-list');
+            if (!container) return;
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">Loading users...</div>';
+            try {
+                const resp = await fetch('/api/users', { credentials: 'include' });
+                const data = await resp.json();
+                const users = data.users || [];
+                if (users.length === 0) {
+                    container.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-medium);">No users found.</div>';
+                    return;
+                }
+                container.innerHTML = users.map(u => `
+                    <div class="user-row" style="margin:6px 0; padding:6px; border-bottom:1px solid var(--border-color);">
+                        <strong>${u.username}</strong> - ${u.name} - ${u.email} - ${u.role}
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Error loading users:', e);
+                container.innerHTML = '<div style="text-align:center; color:#c0392b;">Failed to load users.</div>';
+            }
+        }
+
+        async function handleCreateUser(event) {
+            event.preventDefault();
+            const username = document.getElementById('new-username').value.trim();
+            const password = document.getElementById('new-password').value.trim();
+            const name = document.getElementById('new-name').value.trim();
+            const email = document.getElementById('new-email').value.trim();
+            const role = document.getElementById('new-role').value;
+            if (!username || !password || !name || !email) {
+                alert('All fields are required');
+                return;
+            }
+            try {
+                const res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, name, email, role })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('User created successfully!');
+                    document.getElementById('create-user-form').reset();
+                    loadUsers();
+                } else {
+                    alert('Failed to create user: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Error creating user:', err);
+                alert('Failed to create user. Check console for details.');
+            }
+        }
+
+        // Wire up on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('create-user-form');
+            if (form) form.addEventListener('submit', handleCreateUser);
+            loadUsers();
+        });
+
         // Allow Enter key to submit
         document.getElementById('modal-admin-key').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') verifyAdminKeyModal();
@@ -2389,5 +2596,27 @@
         checkSecurityOnLoad();
     </script>
 
+<script>
+(function(){
+  function bind(sel, fn){
+    const el = document.querySelector(sel);
+    if (!el) return;
+    el.addEventListener('click', function(e){
+      e.preventDefault();
+      fn();
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    bind('#nav-dashboard', showDashboard);
+    bind('#nav-create-post', showCreatePostSection);
+    bind('#nav-posts', showPostsSection);
+    bind('#nav-analytics', showAnalyticsSection);
+    bind('#nav-users', showUsersSection);
+    bind('#nav-settings', showSettingsSection);
+    const form = document.getElementById('create-user-form');
+    if (form) form.addEventListener('submit', handleCreateUser);
+  });
+})();
+</script>
 </body>
 </html>
