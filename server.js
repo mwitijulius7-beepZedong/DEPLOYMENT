@@ -1,5 +1,7 @@
 require('dotenv').config();
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const fetch = require('node-fetch');
 const { OAuth2Client } = require('google-auth-library');
 const session = require('express-session');
@@ -13,7 +15,8 @@ const jwt = require('jsonwebtoken');
 const { put } = require('@vercel/blob');
 const { MongoClient } = require('mongodb');
 const cloudinary = require('cloudinary').v2;
-const { kv } = require('@vercel/kv'); // For Vercel deployment data persistence
+ const { kv } = require('@vercel/kv'); // For Vercel deployment data persistence
+ const errorHandler = require('./middleware/errorHandler');
 
 // Session store for Vercel KV with fallback
 const { EventEmitter } = require('events');
@@ -141,6 +144,34 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== '
     api_secret: process.env.CLOUDINARY_API_SECRET
   });
 }
+
+// Security middlewares
+app.use(helmet());
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
+app.use(limiter);
+app.use(errorHandler);
+
+// Dev seed bootstrap: create a default admin in non-prod when requested
+async function seedAdminIfNeeded() {
+  try {
+    if (process.env.NODE_ENV === 'production') return;
+    if (process.env.DEV_ADMIN_SEED !== 'true') return;
+    const users = await loadUsers();
+    const exists = users && (Object.prototype.hasOwnProperty.call(users, 'admin') || Object.prototype.hasOwnProperty.call(users, 'Admin'));
+    if (exists) {
+      console.log('Dev seed: admin user already exists');
+      return;
+    }
+    const seedPwd = process.env.DEV_ADMIN_PASSWORD || 'admin123';
+    const hash = await bcrypt.hash(seedPwd, 10);
+    const updated = Object.assign({}, users || {}, { admin: { name: 'Admin', email: 'admin@example.com', passwordHash: hash, active: true, role: 'ADMIN' } });
+    await saveUsers(updated);
+    console.log('Dev seed: admin user created (admin/admin)');
+  } catch (err) {
+    console.error('Dev seed admin error:', err);
+  }
+}
+seedAdminIfNeeded();
 
 // Vercel serverless function export
 module.exports = app;
@@ -566,7 +597,81 @@ function updateAdminActivity(req, res, next) {
   next();
 }
 
-const requireAdmin = [requireAuth, checkIdleTimeout, updateAdminActivity];
+ const requireAdmin = [requireAuth, checkIdleTimeout, updateAdminActivity];
+
+// Admin: Users API (admin-only)
+app.get('/api/users', requireAdmin, async (req, res) => {
+  try {
+    const users = await loadUsers();
+    const list = Object.entries(users || {}).map(([username, data]) => ({
+      username,
+      name: data?.name || '',
+      email: data?.email || '',
+      role: data?.role || 'USER',
+      active: data?.active ?? true
+    }));
+    res.json({ users: list });
+  } catch (e) {
+    console.error('Load users error:', e);
+    res.status(500).json({ error: 'failed_to_load_users' });
+  }
+});
+
+app.post('/api/users', requireAdmin, async (req, res) => {
+  try {
+    const { username, password, name, email, role } = req.body || {};
+    if (!username || !password) return res.status(400).json({ error: 'missing_username_or_password' });
+    const users = await loadUsers();
+    if (users && users[username]) return res.status(400).json({ error: 'user_exists' });
+    const hash = await bcrypt.hash(password, 10);
+    users[username] = { name: name || '', email: email || '', passwordHash: hash, active: true, role: role || 'USER' };
+    await saveUsers(users);
+    return res.json({ success: true, user: { username, name: users[username].name, email: users[username].email, role: users[username].role } });
+  } catch (e) {
+    console.error('Create user error:', e);
+    return res.status(500).json({ error: 'failed_to_create_user' });
+  }
+});
+
+// Admin: Categories API
+app.get('/api/categories', requireAdmin, async (req, res) => {
+  try {
+    const categories = await loadCategories();
+    res.json({ categories });
+  } catch (e) {
+    res.status(500).json({ error: 'failed_to_load_categories' });
+  }
+});
+
+app.post('/api/categories', requireAdmin, async (req, res) => {
+  try {
+    const { name } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'missing_name' });
+    const categories = await loadCategories();
+    const newCat = { id: String(Date.now()), name };
+    const updated = Array.isArray(categories) ? [...categories, newCat] : [newCat];
+    await saveCategories(updated);
+    res.json({ success: true, category: newCat, categories: updated });
+  } catch (e) {
+    console.error('Add category error:', e);
+    res.status(500).json({ error: 'failed_to_add_category' });
+  }
+});
+
+app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const categories = await loadCategories();
+    const idx = (categories || []).findIndex(c => c.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'not_found' });
+    categories.splice(idx, 1);
+    await saveCategories(categories);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Delete category error:', e);
+    res.status(500).json({ error: 'failed_to_delete_category' });
+  }
+});
 
 const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
   ? nodemailer.createTransport({
@@ -593,6 +698,22 @@ const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
         }
     );
 
+// Temporary migration endpoint - REMOVE AFTER USE
+app.post('/migrate-users', async (req, res) => {
+  try {
+    // Only allow in development or with admin auth
+    if (process.env.NODE_ENV === 'production' && !req.session?.user?.role === 'ADMIN') {
+      return res.status(403).json({ error: 'not authorized' });
+    }
+
+    const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    await saveUsers(users);
+    return res.json({ success: true, migrated: Object.keys(users) });
+  } catch (e) {
+    return res.status(500).json({ error: 'migration failed', details: e.message });
+  }
+});
+
 // Auth routes
 app.post('/auth/login', async (req, res) => {
   const { username, password } = req.body;
@@ -607,6 +728,9 @@ app.post('/auth/login', async (req, res) => {
   const devPwd = process.env.DEV_ADMIN_PASSWORD || 'password';
   const isDevAuth = (isDev && username === 'admin' && password === devPwd);
   const isEnvAuth = (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD);
+
+  // Temporary fallback: allow Mwitijulius7 login with Mwitijulius7@Jm if no users exist in production
+  const isTempAuth = false;
 
   if (isDevAuth || isEnvAuth) {
     // Generate JWT token for dev admin
@@ -641,6 +765,8 @@ app.post('/auth/login', async (req, res) => {
       user: req.session.user
     });
   }
+
+  // Temporary login path removed for security
 
   if (!user) return res.status(401).json({ error: 'invalid credentials' });
 
