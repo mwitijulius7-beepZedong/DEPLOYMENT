@@ -19,7 +19,7 @@
     <div v-else class="posts-grid">
       <div v-for="post in filteredPosts" :key="post.id" class="post-card" @click="viewPost(post)">
         <h2 class="post-title">{{ post.title }}</h2>
-        <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }}</div>
+        <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }} · {{ getReadingTime(post.content) }}</div>
         <p class="post-excerpt">{{ getExcerpt(post.content) }}</p>
         <div class="post-tags">
           <span v-for="tag in post.tags" :key="tag" class="tag">{{ tag }}</span>
@@ -35,43 +35,13 @@ export default {
   data() {
     return {
       selectedCategory: '', // Default to 'all' (empty string)
-      categories: [
-        { id: 'tech', name: 'Technology' },
-        { id: 'lifestyle', name: 'Lifestyle' },
-        { id: 'travel', name: 'Travel' },
-        { id: 'food', name: 'Food' }
-      ], // Example categories; replace with your actual categories
-      posts: [
-        // Example posts; replace with your actual posts data
-        {
-          id: 1,
-          title: 'Tech Post',
-          author: 'Author1',
-          date: '2023-10-01',
-          content: 'This is a tech post content...',
-          categoryId: 'tech',
-          tags: ['tech', 'coding']
-        },
-        {
-          id: 2,
-          title: 'Lifestyle Post',
-          author: 'Author2',
-          date: '2023-10-02',
-          content: 'This is a lifestyle post content...',
-          categoryId: 'lifestyle',
-          tags: ['lifestyle', 'health']
-        },
-        {
-          id: 3,
-          title: 'Travel Post',
-          author: 'Author3',
-          date: '2023-10-03',
-          content: 'This is a travel post content...',
-          categoryId: 'travel',
-          tags: ['travel', 'adventure']
-        }
-      ]
+      posts: [],
+      categories: []
     };
+  },
+  mounted() {
+    this.loadPosts();
+    this.loadCategories();
   },
   computed: {
     allCategories() {
@@ -110,6 +80,32 @@ export default {
     },
     getExcerpt(content) {
       return content.length > 150 ? content.substring(0, 150) + '...' : content;
+    },
+    async loadPosts() {
+      try {
+        const resp = await fetch('/api/posts');
+        const data = await resp.json();
+        this.posts = data.posts || [];
+      } catch (e) {
+        console.error('Failed to load posts:', e);
+        this.posts = [];
+      }
+    },
+    async loadCategories() {
+      try {
+        const resp = await fetch('/api/categories');
+        const data = await resp.json();
+        this.categories = data.categories || [];
+      } catch (e) {
+        console.error('Failed to load categories:', e);
+        this.categories = [];
+      }
+    },
+    getReadingTime(content) {
+      const wordsPerMinute = 200;
+      const words = content.trim().split(/\s+/).length;
+      const minutes = Math.ceil(words / wordsPerMinute);
+      return `${minutes} min read`;
     }
   }
 };
