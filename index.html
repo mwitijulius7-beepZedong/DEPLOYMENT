@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personal Blog & Admin</title>
-    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
     <style>
+        [v-cloak] { display: none; }
+        
         :root {
             /* Modern Color Palette with Enhanced Accessibility */
             --primary-color: #6366f1;
@@ -280,6 +281,8 @@
 </head>
 <body>
     <div id="app">
+        <!-- Debug: Basic content to check if HTML renders -->
+        <p style="color: red; font-size: 24px;">If you see this, HTML is loading!</p>
         <div class="header">
             <div class="header-content">
                 <div class="logo">{{ blogTitle }}</div>
@@ -346,10 +349,18 @@
         </div>
     </div>
 
+    <script src="/public/js/vue.global.js"></script>
     <script>
-        const { createApp } = Vue;
+        // Wait for Vue to be available, then initialize
+        function initVue() {
+            if (typeof Vue === 'undefined') {
+                setTimeout(initVue, 50);
+                return;
+            }
 
-        createApp({
+            const { createApp } = Vue;
+
+            createApp({
             data() {
                 return {
                     blogTitle: 'My Personal Blog',
@@ -369,7 +380,6 @@
                 filteredPosts() {
                     let filtered = this.posts;
 
-                    // Search filter
                     if (this.searchQuery) {
                         const query = this.searchQuery.toLowerCase();
                         filtered = filtered.filter(post =>
@@ -379,17 +389,14 @@
                         );
                     }
 
-                    // Category filter
                     if (this.selectedCategory) {
                         filtered = filtered.filter(post => post.categoryId === this.selectedCategory);
                     }
 
-                    // Tag filter
                     if (this.selectedTag) {
                         filtered = filtered.filter(post => post.tags.includes(this.selectedTag));
                     }
 
-                    // Archive filter
                     if (this.selectedArchive) {
                         const archiveDate = new Date(this.selectedArchive);
                         filtered = filtered.filter(post => {
@@ -480,7 +487,15 @@
                     return content.length > 150 ? content.substring(0, 150) + '...' : content;
                 }
             }
-        }).mount('#app');
+            }).mount('#app');
+        }
+        
+        // Initialize Vue when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initVue);
+        } else {
+            initVue();
+        }
     </script>
 </body>
 </html>
