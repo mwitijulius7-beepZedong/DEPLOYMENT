@@ -12,17 +12,20 @@
     </div>
 
     <!-- Filtered posts display -->
-    <div v-if="filteredPosts.length === 0" class="empty-state">
+    <div v-if="loading" class="empty-state">
+      <p>Loading posts...</p>
+    </div>
+    <div v-else-if="filteredPosts.length === 0" class="empty-state">
       <h3>No posts match the selected category</h3>
       <p>Try selecting a different category.</p>
     </div>
     <div v-else class="posts-grid">
       <div v-for="post in filteredPosts" :key="post.id" class="post-card" @click="viewPost(post)">
-        <h2 class="post-title">{{ post.title }}</h2>
-        <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }} · {{ getReadingTime(post.content) }}</div>
+        <h2 class="post-title">{{ post.title || 'Untitled' }}</h2>
+        <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author || 'Unknown' }} · {{ getReadingTime(post.content) }}</div>
         <p class="post-excerpt">{{ getExcerpt(post.content) }}</p>
         <div class="post-tags">
-          <span v-for="tag in post.tags" :key="tag" class="tag">{{ tag }}</span>
+          <span v-for="(tag, index) in (post.tags || [])" :key="index" class="tag">{{ tag }}</span>
         </div>
       </div>
     </div>
@@ -36,7 +39,8 @@ export default {
     return {
       selectedCategory: '', // Default to 'all' (empty string)
       posts: [],
-      categories: []
+      categories: [],
+      loading: true
     };
   },
   mounted() {
@@ -52,9 +56,9 @@ export default {
     },
     filteredPosts() {
       if (this.selectedCategory === '' || this.selectedCategory === 'all') {
-        return this.posts; // Show all posts
+        return this.posts.filter(post => post); // Show all valid posts
       }
-      return this.posts.filter(post => post.categoryId === this.selectedCategory);
+      return this.posts.filter(post => post && post.categoryId === this.selectedCategory);
     }
   },
   methods: {
@@ -71,7 +75,9 @@ export default {
       // You can emit an event or use router here
     },
     formatDate(dateString) {
+      if (!dateString) return '';
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
@@ -79,16 +85,20 @@ export default {
       });
     },
     getExcerpt(content) {
+      if (!content || typeof content !== 'string') return '';
       return content.length > 150 ? content.substring(0, 150) + '...' : content;
     },
     async loadPosts() {
+      this.loading = true;
       try {
         const resp = await fetch('/api/posts');
         const data = await resp.json();
-        this.posts = data.posts || [];
+        this.posts = (data.posts || []).filter(post => post);
       } catch (e) {
         console.error('Failed to load posts:', e);
         this.posts = [];
+      } finally {
+        this.loading = false;
       }
     },
     async loadCategories() {
@@ -102,6 +112,7 @@ export default {
       }
     },
     getReadingTime(content) {
+      if (!content || typeof content !== 'string') return '0 min read';
       const wordsPerMinute = 200;
       const words = content.trim().split(/\s+/).length;
       const minutes = Math.ceil(words / wordsPerMinute);

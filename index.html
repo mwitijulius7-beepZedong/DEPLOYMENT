@@ -280,7 +280,7 @@
     </style>
 </head>
 <body>
-    <div id="app">
+    <div id="app" v-cloak>
         <!-- Debug: Basic content to check if HTML renders -->
         <p style="color: red; font-size: 24px;">If you see this, HTML is loading!</p>
         <div class="header">
@@ -337,11 +337,11 @@
                 </div>
                 <div v-else class="posts-grid">
                     <a v-for="post in filteredPosts" :key="post.id" :href="'/post.html?id=' + post.id" class="post-card">
-                        <h2 class="post-title">{{ post.title }}</h2>
-                        <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author }} · {{ getReadingTime(post.content) }}</div>
+                        <h2 class="post-title">{{ post.title || 'Untitled' }}</h2>
+                        <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author || 'Unknown' }} · {{ getReadingTime(post.content) }}</div>
                         <p class="post-excerpt">{{ getExcerpt(post.content) }}</p>
                         <div class="post-tags">
-                            <span v-for="tag in post.tags" :key="tag" class="tag">{{ tag }}</span>
+                            <span v-for="tag in (post.tags || [])" :key="tag" class="tag">{{ tag }}</span>
                         </div>
                     </a>
                 </div>
@@ -350,152 +350,5 @@
     </div>
 
     <script src="/public/js/vue.global.js"></script>
-    <script>
-        // Wait for Vue to be available, then initialize
-        function initVue() {
-            if (typeof Vue === 'undefined') {
-                setTimeout(initVue, 50);
-                return;
-            }
-
-            const { createApp } = Vue;
-
-            createApp({
-            data() {
-                return {
-                    blogTitle: 'My Personal Blog',
-                    posts: [],
-                    categories: [],
-                    searchQuery: '',
-                    selectedCategory: '',
-                    selectedTag: '',
-                    selectedArchive: ''
-                };
-            },
-            mounted() {
-                this.loadPosts();
-                this.loadCategories();
-            },
-            computed: {
-                filteredPosts() {
-                    let filtered = this.posts;
-
-                    if (this.searchQuery) {
-                        const query = this.searchQuery.toLowerCase();
-                        filtered = filtered.filter(post =>
-                            post.title.toLowerCase().includes(query) ||
-                            post.content.toLowerCase().includes(query) ||
-                            post.tags.some(tag => tag.toLowerCase().includes(query))
-                        );
-                    }
-
-                    if (this.selectedCategory) {
-                        filtered = filtered.filter(post => post.categoryId === this.selectedCategory);
-                    }
-
-                    if (this.selectedTag) {
-                        filtered = filtered.filter(post => post.tags.includes(this.selectedTag));
-                    }
-
-                    if (this.selectedArchive) {
-                        const archiveDate = new Date(this.selectedArchive);
-                        filtered = filtered.filter(post => {
-                            const postDate = new Date(post.date);
-                            return postDate.getFullYear() === archiveDate.getFullYear() &&
-                                   postDate.getMonth() === archiveDate.getMonth();
-                        });
-                    }
-
-                    return filtered;
-                },
-                allTags() {
-                    const tags = new Set();
-                    this.posts.forEach(post => {
-                        post.tags.forEach(tag => tags.add(tag));
-                    });
-                    return Array.from(tags).sort();
-                },
-                archives() {
-                    const archiveMap = new Map();
-                    this.posts.forEach(post => {
-                        const date = new Date(post.date);
-                        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                        const label = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-                        archiveMap.set(key, label);
-                    });
-                    return Array.from(archiveMap.entries()).map(([key, label]) => ({ key, label })).sort((a, b) => b.key.localeCompare(a.key));
-                },
-                allCategories() {
-                    return [
-                        { id: 'all', name: 'All' },
-                        ...this.categories
-                    ];
-                },
-                hasFilters() {
-                    return this.searchQuery || this.selectedCategory || this.selectedTag || this.selectedArchive;
-                }
-            },
-            methods: {
-                async loadPosts() {
-                    try {
-                        const resp = await fetch('/api/posts');
-                        const data = await resp.json();
-                        this.posts = data.posts || [];
-                    } catch (e) {
-                        console.error('Failed to load posts:', e);
-                        this.posts = [];
-                    }
-                },
-                async loadCategories() {
-                    try {
-                        const resp = await fetch('/api/categories');
-                        const data = await resp.json();
-                        this.categories = data.categories || [];
-                    } catch (e) {
-                        console.error('Failed to load categories:', e);
-                        this.categories = [];
-                    }
-                },
-                clearFilters() {
-                    this.searchQuery = '';
-                    this.selectedCategory = '';
-                    this.selectedTag = '';
-                    this.selectedArchive = '';
-                },
-                toggleCategory(categoryId) {
-                    if (categoryId === 'all') {
-                        this.selectedCategory = '';
-                    } else {
-                        this.selectedCategory = categoryId;
-                    }
-                },
-                getReadingTime(content) {
-                    const wordsPerMinute = 200;
-                    const words = content.trim().split(/\s+/).length;
-                    const minutes = Math.ceil(words / wordsPerMinute);
-                    return `${minutes} min read`;
-                },
-                formatDate(dateString) {
-                    const date = new Date(dateString);
-                    return date.toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                    });
-                },
-                getExcerpt(content) {
-                    return content.length > 150 ? content.substring(0, 150) + '...' : content;
-                }
-            }
-            }).mount('#app');
-        }
-        
-        // Initialize Vue when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initVue);
-        } else {
-            initVue();
-        }
-    </script>
 </body>
 </html>
