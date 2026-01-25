@@ -14,7 +14,12 @@ async function migrateUsers() {
   let client;
   try {
     console.log('Connecting to MongoDB...');
-    client = await MongoClient.connect(MONGODB_URI);
+    client = await MongoClient.connect(MONGODB_URI, {
+      ssl: true,
+      tls: true,
+      tlsAllowInvalidCertificates: false,
+      tlsAllowInvalidHostnames: false
+    });
     const db = client.db('blog');
 
     // Check if users already exist in MongoDB
