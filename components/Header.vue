@@ -2,31 +2,31 @@
   <header class="header">
     <div class="header-content">
       <div class="header-left">
-        <div class="profile-photo" :style="{ backgroundImage: profilePhoto ? 'url(' + profilePhoto + ')' : '' }" @click="handleProfileClick" :title="profileTitle">
+        <div class="profile-photo" :style="{ backgroundImage: profilePhoto ? `url('${profilePhoto}')` : '' }" @click="handleProfileClick" :title="profileTitle">
           <div v-if="!profilePhoto" class="profile-placeholder">👤</div>
         </div>
         <div class="logo">{{ blogTitle }}</div>
       </div>
       <nav class="nav">
-        <button @click="handleBlogClick" :class="{ active: currentView === 'blog' }">Blog</button>
+        <button type="button" @click="handleBlogClick" :class="{ active: currentView === 'blog' }">Blog</button>
         <template v-if="currentView === 'admin' && isLoggedIn">
-          <button @click="createNewPost">+ New Post</button>
-          <button @click="toggleAnalytics">Analytics</button>
+          <button type="button" @click="createNewPost">+ New Post</button>
+          <button type="button" @click="toggleAnalytics">Analytics</button>
         </template>
-        <button class="theme-toggle" @click="toggleTheme" :title="themeTitle">
+        <button type="button" class="theme-toggle" @click="toggleTheme" :title="themeTitle">
           {{ isDarkMode ? '☀️' : '🌙' }}
         </button>
         <template v-if="currentView === 'admin' && isLoggedIn">
           <div class="settings-dropdown">
-            <button @click="showSettingsMenu = !showSettingsMenu">Settings ▼</button>
+            <button type="button" @click="toggleSettingsMenu">Settings ▼</button>
             <div v-if="showSettingsMenu" class="dropdown-menu" @click.stop>
-              <button @click="openSettings('general')">General</button>
-              <button @click="openSettings('background')">Background</button>
-              <button @click="openSettings('social')">Social Links</button>
-              <button @click="openSettings('email')">Email Config</button>
-              <button @click="openCategories">Categories</button>
-              <button @click="openSettings('profile')">Profile Photo</button>
-              <button @click="logout" class="logout-btn">Logout</button>
+              <button type="button" @click="openSettings('general')">General</button>
+              <button type="button" @click="openSettings('background')">Background</button>
+              <button type="button" @click="openSettings('social')">Social Links</button>
+              <button type="button" @click="openSettings('email')">Email Config</button>
+              <button type="button" @click="openCategories">Categories</button>
+              <button type="button" @click="openSettings('profile')">Profile Photo</button>
+              <button type="button" @click="logout" class="logout-btn">Logout</button>
             </div>
           </div>
         </template>
@@ -72,6 +72,9 @@ export default {
     },
     toggleTheme() {
       this.$emit('toggle-theme');
+    },
+    toggleSettingsMenu() {
+      this.$emit('toggle-settings-menu');
     },
     openSettings(tab) {
       this.$emit('open-settings', tab);

@@ -1,5 +1,5 @@
-// Settings module
-export function showSettingsSection() {
+// Settings module - Non-modular version for direct HTML access
+function showSettingsSection() {
     // Hide other sections
     const sections = ['dashboard', 'posts-section', 'analytics-section', 'customize-section', 'create-post-section'];
     sections.forEach(id => {
@@ -8,13 +8,11 @@ export function showSettingsSection() {
     });
 
     const settingsSection = document.getElementById('settings-section');
-    settingsSection.style.display = 'block';
-    settingsSection.scrollIntoView({ behavior: 'smooth' });
-
-    // Initialize navigation and password toggle when settings section is shown
-    if (typeof initSettingsNavigation === 'function') {
-        initSettingsNavigation();
+    if (settingsSection) {
+        settingsSection.style.display = 'block';
+        settingsSection.scrollIntoView({ behavior: 'smooth' });
     }
+
     if (typeof initPasswordToggle === 'function') {
         initPasswordToggle();
     }
@@ -26,7 +24,7 @@ export function showSettingsSection() {
     }
 }
 
-export function toggleCategoriesList() {
+function toggleCategoriesList() {
     const categoriesListContainer = document.getElementById('categories-list-container');
     if (categoriesListContainer.style.display === 'none') {
         categoriesListContainer.style.display = 'block';
@@ -36,7 +34,7 @@ export function toggleCategoriesList() {
     }
 }
 
-export async function loadCategories() {
+async function loadCategories() {
     try {
         const response = await fetch('/api/categories');
         const data = await response.json();
@@ -73,7 +71,7 @@ export async function loadCategories() {
     }
 }
 
-export async function addCategory() {
+async function addCategory() {
     const categoryName = document.getElementById('category-name').value.trim();
     const categoryDescription = document.getElementById('category-description').value.trim();
     const addButton = document.getElementById('btn-add-category');
@@ -122,11 +120,11 @@ export async function addCategory() {
     }
 }
 
-export function editCategory(categoryId) {
+function editCategory(categoryId) {
     alert(`Edit category functionality - This would open a form to edit category with ID: ${categoryId}`);
 }
 
-export async function deleteCategory(categoryId) {
+async function deleteCategory(categoryId) {
     if (confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
         const deleteButton = event?.target;
         const originalText = deleteButton?.textContent;
@@ -165,7 +163,7 @@ export async function deleteCategory(categoryId) {
     }
 }
 
-export function toggleSelectAllCategories() {
+function toggleSelectAllCategories() {
     const selectAllCheckbox = document.getElementById('select-all-categories');
     const categoryCheckboxes = document.querySelectorAll('.category-checkbox');
     categoryCheckboxes.forEach(checkbox => {
@@ -174,7 +172,7 @@ export function toggleSelectAllCategories() {
     updateSelectedCategoriesCount();
 }
 
-export function updateSelectedCategoriesCount() {
+function updateSelectedCategoriesCount() {
     const categoryCheckboxes = document.querySelectorAll('.category-checkbox');
     const checkedCount = Array.from(categoryCheckboxes).filter(cb => cb.checked).length;
     const deleteButton = document.getElementById('delete-selected-categories');
@@ -184,7 +182,7 @@ export function updateSelectedCategoriesCount() {
     deleteButton.style.display = checkedCount > 0 ? 'inline-block' : 'none';
 }
 
-export async function deleteSelectedCategories() {
+async function deleteSelectedCategories() {
     const categoryCheckboxes = document.querySelectorAll('.category-checkbox:checked');
     const selectedIds = Array.from(categoryCheckboxes).map(cb => cb.getAttribute('data-category-id'));
 
@@ -228,7 +226,7 @@ export async function deleteSelectedCategories() {
     }
 }
 
-export async function saveAuthorInfo() {
+async function saveAuthorInfo() {
     const authorName = document.getElementById('author-name').value;
     const authorEmail = document.getElementById('author-email').value;
     const authorBio = document.getElementById('author-bio').value;
@@ -270,7 +268,7 @@ export async function saveAuthorInfo() {
     }
 }
 
-export async function saveSecuritySettings() {
+async function saveSecuritySettings() {
     const adminEntryKey = document.getElementById('admin-entry-key').value;
     const sessionTimeout = document.getElementById('session-timeout').value;
 
@@ -293,7 +291,7 @@ export async function saveSecuritySettings() {
     }
 }
 
-export async function viewCurrentKey() {
+async function viewCurrentKey() {
     const password = prompt('Enter your admin password to view the current key:');
     if (!password) return;
 
@@ -318,7 +316,7 @@ export async function viewCurrentKey() {
     }
 }
 
-export async function clearKey() {
+async function clearKey() {
     if (!confirm('Are you sure you want to clear the admin entry key? This will remove the current key.')) {
         return;
     }
@@ -327,7 +325,7 @@ export async function clearKey() {
     await saveSecuritySettings();
 }
 
-export async function saveNotificationSettings() {
+async function saveNotificationSettings() {
     const emailNotifications = document.getElementById('email-notifications').checked;
     const commentNotifications = document.getElementById('comment-notifications').checked;
     const systemAlerts = document.getElementById('system-alerts').checked;
@@ -351,7 +349,7 @@ export async function saveNotificationSettings() {
     }
 }
 
-export async function saveContentSettings() {
+async function saveContentSettings() {
     const postsPerPage = document.getElementById('posts-per-page').value;
     const autoPublish = document.getElementById('auto-publish').checked;
     const enableComments = document.getElementById('enable-comments').checked;
@@ -375,7 +373,7 @@ export async function saveContentSettings() {
     }
 }
 
-export async function handleProfilePictureUpload() {
+async function handleProfilePictureUpload() {
     const fileInput = document.getElementById('profile-picture-file');
     const file = fileInput.files[0];
 
