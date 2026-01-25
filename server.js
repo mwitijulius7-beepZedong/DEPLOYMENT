@@ -146,7 +146,17 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== '
 }
 
 // Security middlewares
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+    },
+  },
+}));
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 app.use(limiter);
 app.use(errorHandler);
@@ -633,6 +643,128 @@ app.post('/api/users', requireAdmin, async (req, res) => {
   }
 });
 
+// PUT /api/users/:username - Update user status (super admin only)
+app.put('/api/users/:username', requireAdmin, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { active, role } = req.body || {};
+    
+    // Check if requester is super admin (admin user)
+    const requestUser = req.session?.user || req.user;
+    if (!requestUser || requestUser.username !== 'admin') {
+      return res.status(403).json({ error: 'only_super_admin_can_manage_users' });
+    }
+    
+    // Prevent deactivating the only super admin
+    if (username === 'admin' && active === false) {
+      return res.status(400).json({ error: 'cannot_deactivate_super_admin' });
+    }
+    
+    const users = await loadUsers();
+    if (!users || !users[username]) {
+      return res.status(404).json({ error: 'user_not_found' });
+    }
+    
+    // Update user properties
+    if (active !== undefined) {
+      users[username].active = active;
+    }
+    if (role !== undefined && role !== 'ADMIN') {
+      // Only allow changing roles if not the super admin
+      users[username].role = role;
+    }
+    
+    await saveUsers(users);
+    return res.json({ 
+      success: true, 
+      user: { 
+        username, 
+        name: users[username].name, 
+        email: users[username].email, 
+        role: users[username].role,
+        active: users[username].active
+      } 
+    });
+  } catch (e) {
+    console.error('Update user error:', e);
+    return res.status(500).json({ error: 'failed_to_update_user' });
+  }
+});
+
+// POST /api/users/:username/admin-key - Set user's admin key (user can set their own or admin can set for others)
+app.post('/api/users/:username/admin-key', async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { adminKey } = req.body || {};
+    
+    if (!adminKey || String(adminKey).length === 0) {
+      return res.status(400).json({ error: 'admin_key_required' });
+    }
+    
+    // Check if user is setting their own key or if requester is admin
+    const requestUser = req.session?.user || req.user;
+    if (!requestUser || (requestUser.username !== username && requestUser.username !== 'admin')) {
+      return res.status(403).json({ error: 'cannot_set_other_users_admin_key' });
+    }
+    
+    const users = await loadUsers();
+    if (!users || !users[username]) {
+      return res.status(404).json({ error: 'user_not_found' });
+    }
+    
+    // Hash the admin key
+    const keyHash = await bcrypt.hash(String(adminKey), 10);
+    users[username].adminKeyHash = keyHash;
+    users[username].adminKeySet = true;
+    
+    await saveUsers(users);
+    return res.json({ success: true, message: 'Admin key set successfully' });
+  } catch (e) {
+    console.error('Error setting admin key:', e);
+    return res.status(500).json({ error: 'failed_to_set_admin_key' });
+  }
+});
+
+// POST /api/users/:username/verify-admin-key - Verify user's admin key
+app.post('/api/users/:username/verify-admin-key', async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { adminKey } = req.body || {};
+    
+    if (!adminKey) {
+      return res.status(400).json({ error: 'admin_key_required' });
+    }
+    
+    const users = await loadUsers();
+    if (!users || !users[username]) {
+      return res.status(404).json({ error: 'user_not_found' });
+    }
+    
+    const user = users[username];
+    
+    // Check if user has admin key set
+    if (!user.adminKeyHash) {
+      return res.status(400).json({ error: 'user_has_no_admin_key' });
+    }
+    
+    // Verify admin key
+    const keyMatches = await bcrypt.compare(String(adminKey), user.adminKeyHash);
+    if (!keyMatches) {
+      return res.status(401).json({ error: 'invalid_admin_key' });
+    }
+    
+    // Set admin key verification in session
+    req.session.adminKeyVerified = true;
+    req.session.adminKeyVerifiedAt = Date.now();
+    req.session.adminKeyVerifiedUsername = username;
+    
+    return res.json({ success: true, message: 'Admin key verified' });
+  } catch (e) {
+    console.error('Error verifying admin key:', e);
+    return res.status(500).json({ error: 'failed_to_verify_admin_key' });
+  }
+});
+
 // Admin: Categories API
 app.get('/api/categories', requireAdmin, async (req, res) => {
   try {
@@ -826,7 +958,24 @@ app.post('/auth/setup', async (req, res) => {
   const users = await loadUsers();
   const hasAny = Object.keys(users || {}).length > 0;
 
-  if (hasAny && !(req.session && req.session.user)) {
+  // Check authentication: either session-based OR JWT token
+  let isAuthenticated = false;
+  
+  if (req.session && req.session.user) {
+    isAuthenticated = true;
+  } else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    // Verify JWT token
+    const token = req.headers.authorization.substring(7);
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      isAuthenticated = true;
+      console.log('JWT token verified for setup:', decoded.username);
+    } catch (e) {
+      console.error('JWT verification failed:', e.message);
+    }
+  }
+
+  if (hasAny && !isAuthenticated) {
     return res.status(401).json({ error: 'not authenticated' });
   }
 
@@ -1532,28 +1681,13 @@ app.get('/api/settings/security', async (req, res) => {
 
 app.post('/api/settings/security', requireAdmin, async (req, res) => {
   try {
-    if (process.env.VERCEL || process.env.ADMIN_ENTRY_KEY) {
-      return res.status(501).json({ error: 'not_supported_on_serverless_or_env_managed' });
-    }
-    
-    const { adminEntryKey } = req.body || {};
-    const settings = readSettings();
-    settings.security = settings.security || {};
-    
-    if (!adminEntryKey || String(adminEntryKey).length === 0) {
-      settings.security.adminEntryKeyHash = '';
-      settings.security.adminEntryKeyEnc = '';
-      writeSettings(settings);
-      return res.json({ success: true, hasEntryKey: false });
-    }
-    
-    const plain = String(adminEntryKey);
-    const hash = await bcrypt.hash(plain, 10);
-    settings.security.adminEntryKeyHash = hash;
-    settings.security.adminEntryKeyEnc = encryptText(plain);
-    writeSettings(settings);
-    
-    return res.json({ success: true, hasEntryKey: true });
+    // Admin entry keys are now managed per-user in the User Management section
+    // Return informational response instead of error
+    return res.json({ 
+      success: true, 
+      message: 'Admin keys are now managed per-user in the User Management section',
+      info: 'Use the "🔑 Set Key" button in User List to assign admin keys to users'
+    });
   } catch (e) {
     console.error('Error saving security settings:', e);
     return res.status(500).json({ error: 'internal' });
