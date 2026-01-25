@@ -5,7 +5,980 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - Blog</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script>
+        // Define navigation functions IMMEDIATELY in <head> so inline onclick handlers can find them
+        function hideAllSections() {
+            const sections = ['dashboard', 'posts-section', 'users-section', 'analytics-section', 'create-post-section', 'settings-section'];
+            sections.forEach(sectionId => {
+                const section = document.getElementById(sectionId);
+                if (section) section.style.display = 'none';
+            });
+            document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => link.classList.remove('active'));
+        }
+        
+        function showSection(sectionId, title, linkOnClick) {
+            hideAllSections();
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.style.display = 'block';
+                section.scrollIntoView({ behavior: 'smooth' });
+            }
+            const link = document.querySelector(`[onclick="${linkOnClick}()"]`);
+            if (link) link.classList.add('active');
+            const titleEl = document.getElementById('page-title');
+            if (titleEl) titleEl.textContent = title;
+        }
+        
+        function showDashboard() {
+            showSection('dashboard', 'Dashboard', 'showDashboard');
+        }
+        
+        function showCreatePostSection() {
+            showSection('create-post-section', 'Create New Post', 'showCreatePostSection');
+        }
+
+        function showPostsSection() {
+            showSection('posts-section', 'Manage Posts', 'showPostsSection');
+            if (window.loadPostsList) {
+                window.loadPostsList();
+            } else if (typeof loadAndRenderPosts === 'function') {
+                loadAndRenderPosts();
+            }
+        }
+
+        function showAnalyticsSection() {
+            showSection('analytics-section', 'Analytics', 'showAnalyticsSection');
+        }
+
+        function showUsersSection() {
+            showSection('users-section', 'Users', 'showUsersSection');
+            if (typeof loadUsers === 'function') {
+                loadUsers();
+            }
+        }
+
+        function showSettingsSection() {
+            showSection('settings-section', 'Settings', 'showSettingsSection');
+        }
+
+        function switchSettingsPanel(panelName) {
+            console.log('switchSettingsPanel called with:', panelName);
+            
+            const settingsSection = document.getElementById('settings-section');
+            if (!settingsSection) {
+                console.error('Settings section not found');
+                return;
+            }
+
+            const allButtons = settingsSection.querySelectorAll('.settings-nav-btn');
+            const allPanels = settingsSection.querySelectorAll('.settings-panel');
+
+            console.log('Found', allButtons.length, 'buttons and', allPanels.length, 'panels');
+
+            // Remove active class from all buttons and panels
+            allButtons.forEach(btn => btn.classList.remove('active'));
+            allPanels.forEach(panel => panel.classList.remove('active'));
+
+            // Find and activate the clicked button
+            const targetButton = settingsSection.querySelector(`[data-panel="${panelName}"]`);
+            if (targetButton) {
+                targetButton.classList.add('active');
+                console.log('Activated button for:', panelName);
+            }
+
+            // Show corresponding panel
+            const targetPanelElement = document.getElementById(`${panelName}-panel`);
+            if (targetPanelElement) {
+                targetPanelElement.classList.add('active');
+                console.log('Activated panel:', panelName);
+            } else {
+                console.error('Panel not found:', `${panelName}-panel`);
+            }
+
+            // Auto-load categories if needed
+            if (panelName === 'categories' && typeof window.loadCategories === 'function') {
+                window.loadCategories();
+            }
+        }
+
+        // Helper function to get auth headers
+        function getAuthHeaders() {
+            const token = localStorage.getItem('authToken');
+            const headers = { 
+                'Content-Type': 'application/json'
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            return headers;
+        }
+
+        // Category management functions - defined directly in head for immediate availability
+        async function addCategory() {
+            const categoryName = document.getElementById('category-name').value.trim();
+            const categoryDescription = document.getElementById('category-description').value.trim();
+            const addButton = document.getElementById('btn-add-category');
+            let originalContent;
+
+            console.log('addCategory called with:', categoryName, categoryDescription);
+
+            if (!categoryName) {
+                alert('Please enter a category name.');
+                return;
+            }
+
+            if (addButton) {
+                originalContent = addButton.innerHTML;
+                addButton.disabled = true;
+                addButton.textContent = 'Adding...';
+            }
+
+            try {
+                const headers = getAuthHeaders();
+                console.log('Request headers:', headers);
+                
+                const response = await fetch('/api/categories', {
+                    method: 'POST',
+                    headers: headers,
+                    credentials: 'include',
+                    body: JSON.stringify({ name: categoryName, description: categoryDescription })
+                });
+
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                if (response.ok) {
+                    alert('Category added successfully!');
+                    document.getElementById('category-name').value = '';
+                    document.getElementById('category-description').value = '';
+                    console.log('Calling loadCategories...');
+                    if (typeof loadCategories === 'function') {
+                        await loadCategories();
+                    }
+                } else {
+                    const errorMessage = data.error || data.message || 'Failed to add category.';
+                    console.error('Error response:', errorMessage);
+                    alert(`Error: ${errorMessage}`);
+                }
+            } catch (error) {
+                console.error('Error adding category:', error);
+                alert('Network error: Failed to add category.');
+            } finally {
+                if (addButton) {
+                    addButton.disabled = false;
+                    addButton.innerHTML = originalContent || '<i>➕</i> Add Category';
+                }
+            }
+        }
+
+        async function loadCategories() {
+            console.log('loadCategories called');
+            try {
+                const headers = getAuthHeaders();
+                const response = await fetch('/api/categories', {
+                    headers: headers,
+                    credentials: 'include'
+                });
+                
+                console.log('loadCategories response status:', response.status);
+                const data = await response.json();
+                console.log('Categories data:', data);
+                
+                const categoriesList = document.getElementById('categories-list');
+                if (!categoriesList) {
+                    console.error('categories-list element not found!');
+                    return;
+                }
+
+                if (data.categories && data.categories.length > 0) {
+                    console.log('Rendering', data.categories.length, 'categories');
+                    categoriesList.innerHTML = data.categories.map(category => `
+                        <div class="category-item" style="padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; background: #f9f9f9;">
+                            <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+                                <input type="checkbox" class="category-checkbox" data-category-id="${category.id}" onchange="updateSelectedCategoriesCount()">
+                                <div style="flex: 1;">
+                                    <h4 style="margin: 0 0 8px 0; font-size: 16px;">${category.name}</h4>
+                                    <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">${category.description || 'No description'}</p>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="action-btn" style="padding: 6px 12px; font-size: 12px;" onclick="editCategory('${category.id}')">Edit</button>
+                                <button class="action-btn secondary" style="padding: 6px 12px; font-size: 12px;" onclick="deleteCategory('${category.id}')">Delete</button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    console.log('No categories found');
+                    categoriesList.innerHTML = '<p>No categories found.</p>';
+                }
+                const selectAllCheckbox = document.getElementById('select-all-categories');
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = false;
+                }
+                updateSelectedCategoriesCount();
+            } catch (error) {
+                console.error('Failed to load categories:', error);
+                document.getElementById('categories-list').innerHTML = '<p>Error loading categories.</p>';
+            }
+        }
+
+        function editCategory(categoryId) {
+            alert(`Edit category functionality - This would open a form to edit category with ID: ${categoryId}`);
+        }
+
+        async function deleteCategory(categoryId) {
+            console.log('deleteCategory called with id:', categoryId);
+            if (confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
+                const deleteButton = event?.target;
+                const originalText = deleteButton?.textContent;
+
+                if (deleteButton) {
+                    deleteButton.disabled = true;
+                    deleteButton.textContent = 'Deleting...';
+                }
+
+                try {
+                    const headers = getAuthHeaders();
+                    console.log('Delete request headers:', headers);
+                    
+                    const response = await fetch(`/api/categories/${categoryId}`, {
+                        method: 'DELETE',
+                        headers: headers,
+                        credentials: 'include'
+                    });
+
+                    console.log('Delete response status:', response.status);
+                    const data = await response.json();
+                    console.log('Delete response data:', data);
+
+                    if (response.ok) {
+                        alert('Category deleted successfully!');
+                        await loadCategories();
+                    } else {
+                        const errorMessage = data.error || data.message || 'Failed to delete category.';
+                        alert(`Error: ${errorMessage}`);
+                    }
+                } catch (error) {
+                    console.error('Error deleting category:', error);
+                    alert('Network error: Failed to delete category.');
+                } finally {
+                    if (deleteButton) {
+                        deleteButton.disabled = false;
+                        deleteButton.textContent = originalText || 'Delete';
+                    }
+                }
+            }
+        }
+
+        function updateSelectedCategoriesCount() {
+            const categoryCheckboxes = document.querySelectorAll('.category-checkbox');
+            const checkedCount = Array.from(categoryCheckboxes).filter(cb => cb.checked).length;
+            const deleteButton = document.getElementById('delete-selected-categories');
+            const countSpan = document.getElementById('selected-categories-count');
+
+            if (deleteButton) deleteButton.style.display = checkedCount > 0 ? 'inline-block' : 'none';
+            if (countSpan) countSpan.textContent = checkedCount;
+        }
+
+        function toggleSelectAllCategories() {
+            console.log('toggleSelectAllCategories called');
+            const selectAllCheckbox = document.getElementById('select-all-categories');
+            const categoryCheckboxes = document.querySelectorAll('.category-checkbox');
+            
+            if (selectAllCheckbox) {
+                const isChecked = selectAllCheckbox.checked;
+                console.log('Select all checked:', isChecked);
+                
+                categoryCheckboxes.forEach(checkbox => {
+                    checkbox.checked = isChecked;
+                });
+                
+                console.log('Updated', categoryCheckboxes.length, 'checkboxes to', isChecked);
+            }
+            
+            updateSelectedCategoriesCount();
+        }
+
+        async function deleteSelectedCategories() {
+            console.log('deleteSelectedCategories called');
+            const categoryCheckboxes = document.querySelectorAll('.category-checkbox:checked');
+            const selectedIds = Array.from(categoryCheckboxes).map(cb => cb.getAttribute('data-category-id'));
+
+            console.log('Selected category IDs:', selectedIds);
+
+            if (selectedIds.length === 0) {
+                alert('No categories selected.');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete ${selectedIds.length} selected categor(y/ies)?`)) {
+                return;
+            }
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const categoryId of selectedIds) {
+                try {
+                    const headers = getAuthHeaders();
+                    console.log(`Deleting category ${categoryId}...`);
+                    
+                    const response = await fetch(`/api/categories/${categoryId}`, {
+                        method: 'DELETE',
+                        headers: headers,
+                        credentials: 'include'
+                    });
+
+                    console.log(`Delete response for ${categoryId}:`, response.status);
+
+                    if (response.ok) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error('Error deleting category:', error);
+                    errorCount++;
+                }
+            }
+
+            if (successCount > 0) {
+                alert(`${successCount} categor(y/ies) deleted successfully!`);
+                await loadCategories();
+            }
+
+            if (errorCount > 0) {
+                alert(`Failed to delete ${errorCount} categor(y/ies).`);
+            }
+        }
+
+        // Post Management Functions
+        function togglePostsList() {
+            console.log('togglePostsList called');
+            const postsListContainer = document.getElementById('posts-list-container');
+            if (postsListContainer.style.display === 'none') {
+                postsListContainer.style.display = 'block';
+                loadPostsList();
+            } else {
+                postsListContainer.style.display = 'none';
+            }
+        }
+
+        async function loadPostsList() {
+            console.log('loadPostsList called');
+            try {
+                const response = await fetch('/api/posts');
+                const data = await response.json();
+                const postsList = document.getElementById('posts-list');
+                const totalPosts = document.getElementById('total-posts');
+
+                console.log('Posts data:', data);
+
+                if (data.posts && data.posts.length > 0) {
+                    postsList.innerHTML = data.posts.map(post => `
+                        <div class="post-item">
+                            <div class="post-item-header">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" class="post-checkbox" data-post-id="${post.id}" onchange="updateSelectedCount()">
+                                    <h4 class="post-item-title" style="margin: 0;">${post.title}</h4>
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn-modern sm secondary" onclick="editPost('${post.id}')">Edit</button>
+                                    <button class="btn-modern sm" style="background-color: #dc2626;" onclick="deletePost('${post.id}')">Delete</button>
+                                </div>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                                <p style="color: var(--text-medium); font-size: 14px; margin: 0;">
+                                    ${new Date(post.date).toLocaleDateString()} · ${post.author || 'Admin'}
+                                </p>
+                                <span style="font-size:12px; padding:4px 8px; background:${post.isDraft ? '#fef3c7' : '#dcfce7'}; color:${post.isDraft ? '#d97706' : '#166534'}; border-radius:12px;">
+                                    ${post.isDraft ? 'Draft' : 'Published'}
+                                </span>
+                            </div>
+                            <div class="post-meta-tags" style="margin-top:12px;">
+                                ${(post.tags || []).map(tag => `<span class="post-tag-badge">${tag}</span>`).join('')}
+                            </div>
+                        </div>
+                    `).join('');
+                    if (totalPosts) totalPosts.textContent = data.posts.length;
+                } else {
+                    postsList.innerHTML = '<p>No posts found.</p>';
+                    if (totalPosts) totalPosts.textContent = '0';
+                }
+                
+                const selectAll = document.getElementById('select-all-posts');
+                if (selectAll) selectAll.checked = false;
+                updateSelectedCount();
+            } catch (error) {
+                console.error('Failed to load posts:', error);
+                const postsList = document.getElementById('posts-list');
+                if (postsList) postsList.innerHTML = '<p>Error loading posts.</p>';
+            }
+        }
+
+        function editPost(postId) {
+            console.log('editPost called with ID:', postId);
+            alert(`Edit post functionality - This would open a form to edit post with ID: ${postId}`);
+        }
+
+        async function deletePost(postId) {
+            console.log('deletePost called with ID:', postId);
+            if (confirm('Are you sure you want to delete this post?')) {
+                try {
+                    const headers = getAuthHeaders();
+                    const response = await fetch(`/api/posts/${postId}`, {
+                        method: 'DELETE',
+                        headers: headers,
+                        credentials: 'include'
+                    });
+
+                    console.log('Delete post response status:', response.status);
+
+                    if (response.ok) {
+                        alert('Post deleted successfully!');
+                        await loadPostsList();
+                    } else {
+                        alert('Failed to delete post.');
+                    }
+                } catch (error) {
+                    console.error('Error deleting post:', error);
+                    alert('Error deleting post.');
+                }
+            }
+        }
+
+        function toggleSelectAllPosts() {
+            console.log('toggleSelectAllPosts called');
+            const selectAllCheckbox = document.getElementById('select-all-posts');
+            const postCheckboxes = document.querySelectorAll('.post-checkbox');
+            
+            if (selectAllCheckbox) {
+                const isChecked = selectAllCheckbox.checked;
+                console.log('Select all posts checked:', isChecked);
+                
+                postCheckboxes.forEach(checkbox => {
+                    checkbox.checked = isChecked;
+                });
+                
+                console.log('Updated', postCheckboxes.length, 'post checkboxes to', isChecked);
+            }
+            
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const postCheckboxes = document.querySelectorAll('.post-checkbox');
+            const checkedCount = Array.from(postCheckboxes).filter(cb => cb.checked).length;
+            const deleteButton = document.getElementById('delete-selected-posts');
+            const countSpan = document.getElementById('selected-posts-count');
+
+            if (deleteButton) deleteButton.style.display = checkedCount > 0 ? 'inline-block' : 'none';
+            if (countSpan) countSpan.textContent = checkedCount;
+        }
+
+        async function deleteSelectedPosts() {
+            console.log('deleteSelectedPosts called');
+            const postCheckboxes = document.querySelectorAll('.post-checkbox:checked');
+            const selectedIds = Array.from(postCheckboxes).map(cb => cb.getAttribute('data-post-id'));
+
+            console.log('Selected post IDs:', selectedIds);
+
+            if (selectedIds.length === 0) {
+                alert('No posts selected.');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete ${selectedIds.length} selected post(s)?`)) {
+                return;
+            }
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const postId of selectedIds) {
+                try {
+                    const headers = getAuthHeaders();
+                    console.log(`Deleting post ${postId}...`);
+                    
+                    const response = await fetch(`/api/posts/${postId}`, {
+                        method: 'DELETE',
+                        headers: headers,
+                        credentials: 'include'
+                    });
+
+                    console.log(`Delete response for ${postId}:`, response.status);
+
+                    if (response.ok) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error('Error deleting post:', error);
+                    errorCount++;
+                }
+            }
+
+            if (successCount > 0) {
+                alert(`${successCount} post(s) deleted successfully!`);
+                await loadPostsList();
+            }
+
+            if (errorCount > 0) {
+                alert(`Failed to delete ${errorCount} post(s).`);
+            }
+        }
+
+        async function saveNewPost() {
+            const title = document.getElementById('post-title').value.trim();
+            const content = document.getElementById('post-content').value.trim();
+            const category = document.getElementById('post-category').value;
+            const tags = document.getElementById('post-tags').value.trim();
+            const status = document.getElementById('post-status').value;
+            const imageFile = document.getElementById('post-image-file').files[0];
+
+            console.log('saveNewPost called with:', { title, content, category, tags, status });
+
+            if (!title || !content) {
+                alert('Please enter both a title and content for the post.');
+                return;
+            }
+
+            try {
+                let imageUrl = '';
+
+                // Upload image if provided
+                if (imageFile) {
+                    const formData = new FormData();
+                    formData.append('image', imageFile);
+
+                    // Get auth token and add to headers
+                    const token = localStorage.getItem('authToken');
+                    const headers = {};
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+
+                    const uploadResponse = await fetch('/api/upload', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: headers,
+                        body: formData
+                    });
+
+                    const uploadData = await uploadResponse.json();
+                    if (uploadResponse.ok && uploadData.url) {
+                        imageUrl = uploadData.url;
+                    }
+                }
+
+                // Create post
+                const response = await fetch('/api/posts', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        title,
+                        content,
+                        tags: tags.split(',').map(t => t.trim()).filter(t => t),
+                        image: imageUrl,
+                        isDraft: status === 'draft',
+                        categoryId: category || null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Post saved successfully!');
+                    // Clear form
+                    document.getElementById('post-title').value = '';
+                    document.getElementById('post-content').value = '';
+                    document.getElementById('post-tags').value = '';
+                    document.getElementById('post-category').value = '';
+                    document.getElementById('post-status').value = 'draft';
+                    document.getElementById('post-image-file').value = '';
+                    document.getElementById('image-preview').style.display = 'none';
+                    
+                    // Reload posts list if available
+                    if (typeof loadPostsList === 'function') {
+                        await loadPostsList();
+                    }
+                } else {
+                    alert('Failed to save post: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) {
+                console.error('Error saving post:', e);
+                alert('Error saving post. Check console for details.');
+            }
+        }
+
+        function previewPost() {
+            const title = document.getElementById('post-title').value.trim();
+            const content = document.getElementById('post-content').value.trim();
+            const imagePreview = document.getElementById('preview-img').src;
+
+            if (!title || !content) {
+                alert('Please enter both a title and content to preview.');
+                return;
+            }
+
+            // Open preview in new window or modal
+            const previewWindow = window.open('', 'postPreview', 'width=900,height=700');
+            previewWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Post Preview - ${title}</title>
+                    <style>
+                        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+                        .preview { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+                        h1 { color: #333; margin-bottom: 20px; }
+                        .featured-image { max-width: 100%; height: auto; border-radius: 8px; margin-bottom: 20px; }
+                        .content { color: #666; line-height: 1.8; }
+                    </style>
+                </head>
+                <body>
+                    <div class="preview">
+                        <h1>${title}</h1>
+                        ${imagePreview ? `<img src="${imagePreview}" class="featured-image" alt="Featured image">` : ''}
+                        <div class="content">${content}</div>
+                    </div>
+                </body>
+                </html>
+            `);
+            previewWindow.document.close();
+        }
+
+        function clearPostForm() {
+            if (!confirm('Clear all post form fields?')) return;
+
+            document.getElementById('post-title').value = '';
+            document.getElementById('post-content').value = '';
+            document.getElementById('post-tags').value = '';
+            document.getElementById('post-category').value = '';
+            document.getElementById('post-status').value = 'draft';
+            document.getElementById('post-image-file').value = '';
+            document.getElementById('image-preview').style.display = 'none';
+            document.getElementById('preview-img').src = '';
+        }
+
+        async function saveAuthorInfo() {
+            const authorName = document.getElementById('author-name').value;
+            const authorEmail = document.getElementById('author-email').value;
+            const authorBio = document.getElementById('author-bio').value;
+            const authorPhone = document.getElementById('author-phone').value;
+            const authorWhatsapp = document.getElementById('author-whatsapp').value;
+            const authorTwitter = document.getElementById('author-twitter').value;
+            const authorFacebook = document.getElementById('author-facebook').value;
+            const authorLinkedin = document.getElementById('author-linkedin').value;
+            const authorInstagram = document.getElementById('author-instagram').value;
+            const authorWebsite = document.getElementById('author-website').value;
+
+            try {
+                const response = await fetch('/api/settings/author', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        name: authorName,
+                        email: authorEmail,
+                        bio: authorBio,
+                        phone: authorPhone,
+                        whatsapp: authorWhatsapp,
+                        twitter: authorTwitter,
+                        facebook: authorFacebook,
+                        linkedin: authorLinkedin,
+                        instagram: authorInstagram,
+                        website: authorWebsite
+                    })
+                });
+
+                if (response.ok) {
+                    alert('Author information saved successfully!');
+                } else {
+                    alert('Failed to save author information.');
+                }
+            } catch (error) {
+                console.error('Error saving author information:', error);
+                alert('Error saving author information.');
+            }
+        }
+
+        async function saveSecuritySettings() {
+            const adminEntryKey = document.getElementById('admin-entry-key').value;
+            const sessionTimeout = document.getElementById('session-timeout').value;
+
+            try {
+                const response = await fetch('/api/settings/security', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({ adminEntryKey, sessionTimeout: parseInt(sessionTimeout) })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    console.log('Security settings response:', data);
+                    
+                    if (data.message) {
+                        // New per-user admin key system
+                        alert(data.message + '\n\n' + data.info);
+                        // Clear the form
+                        document.getElementById('admin-entry-key').value = '';
+                    } else {
+                        alert('Security settings saved successfully!');
+                    }
+                } else {
+                    alert('Failed to save security settings: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving security settings:', error);
+                alert('Error saving security settings.');
+            }
+        }
+
+        async function saveNotificationSettings() {
+            const emailNotifications = document.getElementById('email-notifications').checked;
+            const commentNotifications = document.getElementById('comment-notifications').checked;
+            const systemAlerts = document.getElementById('system-alerts').checked;
+
+            try {
+                const response = await fetch('/api/settings/notifications', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({ emailNotifications, commentNotifications, systemAlerts })
+                });
+
+                if (response.ok) {
+                    alert('Notification settings saved successfully!');
+                } else {
+                    alert('Failed to save notification settings.');
+                }
+            } catch (error) {
+                console.error('Error saving notification settings:', error);
+                alert('Error saving notification settings.');
+            }
+        }
+
+        async function saveContentSettings() {
+            const postsPerPage = document.getElementById('posts-per-page').value;
+            const autoPublish = document.getElementById('auto-publish').checked;
+            const enableComments = document.getElementById('enable-comments').checked;
+
+            try {
+                const response = await fetch('/api/settings/content', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({ postsPerPage: parseInt(postsPerPage), autoPublish, enableComments })
+                });
+
+                if (response.ok) {
+                    alert('Content settings saved successfully!');
+                } else {
+                    alert('Failed to save content settings.');
+                }
+            } catch (error) {
+                console.error('Error saving content settings:', error);
+                alert('Error saving content settings.');
+            }
+        }
+
+        // Wrapper functions for settings functions to handle async loading
+        function addCategoryWrapper() {
+            addCategory();
+        }
+
+        function saveAuthorInfoWrapper() {
+            saveAuthorInfo();
+        }
+
+        async function saveThemeSettings() {
+            const primaryColor = document.getElementById('primary-color').value;
+            const accentColor = document.getElementById('accent-color').value;
+
+            try {
+                console.log('Saving theme settings:', { primaryColor, accentColor });
+
+                const response = await fetch('/api/settings/theme', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        primaryColor,
+                        accentColor
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Theme settings saved successfully!');
+                    // Apply theme colors immediately
+                    document.documentElement.style.setProperty('--primary-color', primaryColor);
+                    document.documentElement.style.setProperty('--accent-color', accentColor);
+                    console.log('Theme colors applied');
+                } else {
+                    alert('Failed to save theme settings: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving theme settings:', error);
+                alert('Error saving theme settings.');
+            }
+        }
+
+        async function saveBackgroundSettings() {
+            const backgroundColor = document.getElementById('background-color').value;
+            const backgroundUrl = document.getElementById('background-url').value;
+            const backgroundFile = document.getElementById('background-file').files[0];
+
+            try {
+                console.log('Saving background settings:', { backgroundColor, backgroundUrl });
+
+                let finalBackgroundUrl = backgroundUrl;
+
+                // If file is uploaded, upload it first
+                if (backgroundFile) {
+                    const formData = new FormData();
+                    formData.append('image', backgroundFile);
+
+                    // Get auth token and add to headers
+                    const token = localStorage.getItem('authToken');
+                    const headers = {};
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+
+                    const uploadResponse = await fetch('/api/upload', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: headers,
+                        body: formData
+                    });
+
+                    const uploadData = await uploadResponse.json();
+                    if (uploadResponse.ok && uploadData.url) {
+                        finalBackgroundUrl = uploadData.url;
+                        console.log('Background image uploaded:', finalBackgroundUrl);
+                    } else {
+                        alert('Failed to upload background image');
+                        return;
+                    }
+                }
+
+                // Save background settings
+                if (finalBackgroundUrl) {
+                    const response = await fetch('/api/settings/background', {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            backgroundUrl: finalBackgroundUrl
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        alert('Failed to save background settings: ' + (data.error || 'Unknown error'));
+                        return;
+                    }
+                }
+
+                alert('Background settings saved successfully!');
+                // Apply background immediately
+                document.body.style.backgroundColor = backgroundColor;
+                if (finalBackgroundUrl) {
+                    document.body.style.backgroundImage = `url('${finalBackgroundUrl}')`;
+                    document.body.style.backgroundSize = 'cover';
+                    document.body.style.backgroundAttachment = 'fixed';
+                }
+                console.log('Background applied');
+            } catch (error) {
+                console.error('Error saving background settings:', error);
+                alert('Error saving background settings.');
+            }
+        }
+
+        async function handleBackgroundUpload() {
+            const fileInput = document.getElementById('background-file');
+            const file = fileInput.files[0];
+
+            if (!file) return;
+
+            console.log('Background file selected:', file.name);
+
+            // Preview the image
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                document.body.style.backgroundImage = `url('${e.target.result}')`;
+                document.body.style.backgroundSize = 'cover';
+                document.body.style.backgroundAttachment = 'fixed';
+                console.log('Background preview applied');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function saveThemeSettingsWrapper() {
+            if (typeof window.saveThemeSettings === 'function') {
+                window.saveThemeSettings();
+            }
+        }
+
+        function saveBackgroundSettingsWrapper() {
+            if (typeof window.saveBackgroundSettings === 'function') {
+                window.saveBackgroundSettings();
+            }
+        }
+
+        function saveSecuritySettingsWrapper() {
+            saveSecuritySettings();
+        }
+
+        function saveNotificationSettingsWrapper() {
+            saveNotificationSettings();
+        }
+
+        function saveContentSettingsWrapper() {
+            saveContentSettings();
+        }
+
+        function loadCategoriesWrapper() {
+            loadCategories();
+        }
+
+        function deleteSelectedCategoriesWrapper() {
+            deleteSelectedCategories();
+        }
+
+        // Export to global scope
+        window.hideAllSections = hideAllSections;
+        window.showSection = showSection;
+        window.showDashboard = showDashboard;
+        window.showCreatePostSection = showCreatePostSection;
+        window.showPostsSection = showPostsSection;
+        window.showAnalyticsSection = showAnalyticsSection;
+        window.showUsersSection = showUsersSection;
+        window.showSettingsSection = showSettingsSection;
+        window.switchSettingsPanel = switchSettingsPanel;
+        window.addCategoryWrapper = addCategoryWrapper;
+        window.saveAuthorInfoWrapper = saveAuthorInfoWrapper;
+        window.saveThemeSettingsWrapper = saveThemeSettingsWrapper;
+        window.saveBackgroundSettingsWrapper = saveBackgroundSettingsWrapper;
+        window.saveSecuritySettingsWrapper = saveSecuritySettingsWrapper;
+        window.saveNotificationSettingsWrapper = saveNotificationSettingsWrapper;
+        window.saveContentSettingsWrapper = saveContentSettingsWrapper;
+        window.loadCategoriesWrapper = loadCategoriesWrapper;
+        window.deleteSelectedCategoriesWrapper = deleteSelectedCategoriesWrapper;
+    </script>
+    <!-- Settings.js not needed - all functions are in head script -->
     <style>
         :root {
             --primary-color: #6366f1;
@@ -1764,37 +2737,37 @@
                 <div class="settings-sidebar">
                     <ul class="settings-nav">
                         <li class="settings-nav-item">
-                            <button type="button" class="settings-nav-btn active" data-panel="general">
+                            <button type="button" class="settings-nav-btn active" data-panel="general" onclick="switchSettingsPanel('general')">
                                 <i>👤</i>
                                 General
                             </button>
                         </li>
                         <li class="settings-nav-item">
-                            <button type="button" class="settings-nav-btn" data-panel="appearance">
+                            <button type="button" class="settings-nav-btn" data-panel="appearance" onclick="switchSettingsPanel('appearance')">
                                 <i>🎨</i>
                                 Appearance
                             </button>
                         </li>
                         <li class="settings-nav-item">
-                            <button type="button" class="settings-nav-btn" data-panel="security">
+                            <button type="button" class="settings-nav-btn" data-panel="security" onclick="switchSettingsPanel('security')">
                                 <i>🔒</i>
                                 Security
                             </button>
                         </li>
                         <li class="settings-nav-item">
-                            <button type="button" class="settings-nav-btn" data-panel="notifications">
+                            <button type="button" class="settings-nav-btn" data-panel="notifications" onclick="switchSettingsPanel('notifications')">
                                 <i>📧</i>
                                 Notifications
                             </button>
                         </li>
                         <li class="settings-nav-item">
-                            <button type="button" class="settings-nav-btn" data-panel="content">
+                            <button type="button" class="settings-nav-btn" data-panel="content" onclick="switchSettingsPanel('content')">
                                 <i>🗂️</i>
                                 Content
                             </button>
                         </li>
                         <li class="settings-nav-item">
-                            <button type="button" class="settings-nav-btn" data-panel="categories">
+                            <button type="button" class="settings-nav-btn" data-panel="categories" onclick="switchSettingsPanel('categories')">
                                 <i>📂</i>
                                 Categories
                             </button>
@@ -1873,7 +2846,7 @@
                         </div>
 
                         <div style="margin-top: 32px;">
-                            <button class="btn-modern" onclick="saveAuthorInfo()">
+                            <button class="btn-modern" onclick="saveAuthorInfoWrapper()">
                                 <i>💾</i>
                                 Save General Settings
                             </button>
@@ -1948,7 +2921,7 @@
                             <div class="form-group">
                                 <label class="form-label">Admin Entry Key</label>
                                 <div style="position: relative;">
-                                    <input type="password" class="form-input" id="admin-entry-key" placeholder="Enter new admin entry key">
+                                    <input type="password" class="form-input" id="admin-entry-key" placeholder="Admin keys are now managed per-user" disabled>
                                     <button type="button" id="admin-key-toggle" class="password-toggle" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%);">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -1956,6 +2929,7 @@
                                         </svg>
                                     </button>
                                 </div>
+                                <small style="color: var(--text-light); margin-top: 6px; display: block;">✓ Admin keys are now managed per-user in the <strong>User Management</strong> section</small>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Session Timeout (minutes)</label>
@@ -1964,7 +2938,7 @@
                         </div>
 
                         <div style="margin-top: 32px; display: flex; gap: 12px;">
-                            <button class="btn-modern secondary" onclick="saveSecuritySettings()">
+                            <button class="btn-modern secondary" onclick="saveSecuritySettingsWrapper()">
                                 <i>🔒</i>
                                 Save Security
                             </button>
@@ -2002,7 +2976,7 @@
                         </div>
 
                         <div style="margin-top: 32px;">
-                            <button class="btn-modern" onclick="saveNotificationSettings()">
+                            <button class="btn-modern" onclick="saveNotificationSettingsWrapper()">
                                 <i>📧</i>
                                 Save Notifications
                             </button>
@@ -2035,7 +3009,7 @@
                         </div>
 
                         <div style="margin-top: 32px;">
-                            <button class="btn-modern secondary" onclick="saveContentSettings()">
+                            <button class="btn-modern secondary" onclick="saveContentSettingsWrapper()">
                                 <i>🗂️</i>
                                 Save Content Settings
                             </button>
@@ -2061,11 +3035,11 @@
                         </div>
 
                         <div style="margin-top: 24px; display: flex; gap: 12px;">
-                            <button id="btn-add-category" class="btn-modern secondary" type="button" onclick="window.addCategory()">
+                            <button id="btn-add-category" class="btn-modern secondary" type="button" onclick="addCategoryWrapper()">
                                 <i>➕</i>
                                 Add Category
                             </button>
-                            <button class="btn-modern sm" onclick="window.loadCategories()">
+                            <button class="btn-modern sm" onclick="loadCategoriesWrapper()">
                                 <i>🔄</i>
                                 Refresh
                             </button>
@@ -2077,7 +3051,7 @@
                                     <input type="checkbox" id="select-all-categories" onchange="toggleSelectAllCategories()">
                                     <span style="font-size: 14px;">Select All</span>
                                 </label>
-                                <button class="btn-modern sm" id="delete-selected-categories" style="display: none; background: #dc2626;" onclick="deleteSelectedCategories()">
+                                <button class="btn-modern sm" id="delete-selected-categories" style="display: none; background: #dc2626;" onclick="deleteSelectedCategoriesWrapper()">
                                     <i>🗑️</i>
                                     Delete Selected (<span id="selected-categories-count">0</span>)
                                 </button>
@@ -2119,96 +3093,145 @@
     </div>
 
 
-    <script type="module">
-        // Import and expose all required functions
-        async function loadModule(path) {
+    <script>
+        // Expose functions to window for onclick handlers
+        window.addCategory = addCategory;
+        window.loadCategories = loadCategories;
+        window.deleteCategory = deleteCategory;
+        window.editCategory = editCategory;
+        window.toggleSelectAllCategories = toggleSelectAllCategories;
+        window.updateSelectedCategoriesCount = updateSelectedCategoriesCount;
+        window.deleteSelectedCategories = deleteSelectedCategories;
+        window.saveAuthorInfo = () => console.log('saveAuthorInfo not available');
+        window.saveSecuritySettings = saveSecuritySettings;
+        window.viewCurrentKey = () => console.log('viewCurrentKey not available');
+        window.clearKey = () => console.log('clearKey not available');
+        window.saveNotificationSettings = saveNotificationSettings;
+        window.setUserAdminKey = setUserAdminKey;
+        window.verifyUserAdminKey = verifyUserAdminKey;
+        window.saveContentSettings = () => console.log('saveContentSettings not available');
+        window.handleProfilePictureUpload = () => console.log('handleProfilePictureUpload not available');
+        window.saveThemeSettings = saveThemeSettings;
+        window.saveBackgroundSettings = saveBackgroundSettings;
+        window.handleBackgroundUpload = handleBackgroundUpload;
+        window.togglePostsList = togglePostsList;
+        window.loadPostsList = loadPostsList;
+        window.saveNewPost = saveNewPost;
+        window.previewPost = previewPost;
+        window.clearPostForm = clearPostForm;
+        window.handlePostImageUpload = () => console.log('handlePostImageUpload not available');
+        window.toggleSelectAllPosts = toggleSelectAllPosts;
+        window.updateSelectedCount = updateSelectedCount;
+        window.deleteSelectedPosts = deleteSelectedPosts;
+        window.editPost = editPost;
+        window.deletePost = deletePost;
+        window.refreshAnalytics = () => console.log('refreshAnalytics not available');
+        window.viewEngagementDetails = () => console.log('viewEngagementDetails not available');
+        window.exportAnalytics = () => console.log('exportAnalytics not available');
+        window.loadTimeAnalytics = () => console.log('loadTimeAnalytics not available');
+        
+        window.logout = async function() {
             try {
-                return await import(`/public/js/${path}`);
-            } catch (e) {
-                return await import(`/js/${path}`);
+                console.log('Logout initiated');
+                
+                // Call server logout endpoint to destroy session
+                const response = await fetch('/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Logout response status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Logout successful:', data);
+                    
+                    // Clear JWT token from localStorage
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    
+                    // Clear session storage
+                    sessionStorage.clear();
+                    
+                    // Small delay to ensure cleanup is complete
+                    setTimeout(() => {
+                        console.log('Redirecting to login page');
+                        window.location.href = '/login.html';
+                    }, 500);
+                } else {
+                    console.error('Logout failed with status:', response.status);
+                    alert('Logout failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Error during logout. Please try again.');
+            }
+        };
+        
+        window.toggleSidebar = () => console.log('toggleSidebar not available');
+
+        // Auto-login for localhost development
+        async function autoLoginForLocalhost() {
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username: 'admin', password: 'password' })
+                });
+                
+                const data = await response.json();
+                if (data.success && data.token) {
+                    // Store JWT token in localStorage for API requests
+                    localStorage.setItem('authToken', data.token);
+                    console.log('Auto-login successful for localhost');
+                }
+            } catch (error) {
+                console.error('Auto-login failed:', error);
             }
         }
 
-        try {
-            await loadModule('main.js');
-            const settingsModule = await loadModule('settings.js');
-            const customizeModule = await loadModule('customize.js');
-            const postsModule = await loadModule('posts.js');
-            const analyticsModule = await loadModule('analytics.js');
-            const authModule = await loadModule('auth.js');
-
-            // Expose settings functions to window
-            window.addCategory = settingsModule.addCategory;
-            window.loadCategories = settingsModule.loadCategories;
-            window.deleteCategory = settingsModule.deleteCategory;
-            window.editCategory = settingsModule.editCategory;
-            window.toggleSelectAllCategories = settingsModule.toggleSelectAllCategories;
-            window.updateSelectedCategoriesCount = settingsModule.updateSelectedCategoriesCount;
-            window.deleteSelectedCategories = settingsModule.deleteSelectedCategories;
-            window.saveAuthorInfo = settingsModule.saveAuthorInfo;
-            window.saveSecuritySettings = settingsModule.saveSecuritySettings;
-            window.viewCurrentKey = settingsModule.viewCurrentKey;
-            window.clearKey = settingsModule.clearKey;
-            window.saveNotificationSettings = settingsModule.saveNotificationSettings;
-            window.saveContentSettings = settingsModule.saveContentSettings;
-            window.handleProfilePictureUpload = settingsModule.handleProfilePictureUpload;
-
-            // Expose customize functions
-            window.saveThemeSettings = customizeModule.saveThemeSettings;
-            window.saveBackgroundSettings = customizeModule.saveBackgroundSettings;
-            window.handleBackgroundUpload = customizeModule.handleBackgroundUpload;
-
-            // Expose posts functions
-            window.togglePostsList = postsModule.togglePostsList;
-            window.loadPostsList = postsModule.loadPostsList;
-            window.saveNewPost = postsModule.saveNewPost;
-            window.previewPost = postsModule.previewPost;
-            window.clearPostForm = postsModule.clearPostForm;
-            window.handlePostImageUpload = postsModule.handlePostImageUpload;
-            window.toggleSelectAllPosts = postsModule.toggleSelectAllPosts;
-            window.updateSelectedCount = postsModule.updateSelectedCount;
-            window.deleteSelectedPosts = postsModule.deleteSelectedPosts;
-            window.editPost = postsModule.editPost;
-            window.deletePost = postsModule.deletePost;
-
-            // Expose analytics functions
-            window.refreshAnalytics = analyticsModule.refreshAnalytics;
-            window.viewEngagementDetails = analyticsModule.viewEngagementDetails;
-            window.exportAnalytics = analyticsModule.exportAnalytics;
-            window.loadTimeAnalytics = analyticsModule.loadTimeAnalytics;
-
-            // Expose auth functions
-            window.logout = authModule.logout;
-
-            console.log('All admin functions loaded successfully');
-
-            // Load blog info for sidebar
-            fetch('/api/settings/blog-info')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.blogInfo && data.blogInfo.title) {
-                        const sidebarTitle = document.querySelector('.sidebar-logo h2');
-                        if (sidebarTitle) sidebarTitle.textContent = data.blogInfo.title;
-                        document.title = `Admin Panel - ${data.blogInfo.title}`;
-                    }
-                })
-                .catch(err => console.error('Error loading blog info:', err));
-        } catch (error) {
-            console.error('Failed to load admin functions:', error);
-            // Define fallback functions
-            window.addCategory = () => console.log('addCategory not available');
-            window.loadCategories = () => console.log('loadCategories not available');
-            window.saveAuthorInfo = () => console.log('saveAuthorInfo not available');
-            window.handleProfilePictureUpload = () => console.log('handleProfilePictureUpload not available');
-            window.saveNewPost = () => console.log('saveNewPost not available');
-            window.refreshAnalytics = () => console.log('refreshAnalytics not available');
-            window.logout = () => console.log('logout not available');
-            window.toggleSidebar = () => console.log('toggleSidebar not available');
-            window.togglePostsList = () => console.log('togglePostsList not available');
-            window.toggleSelectAllCategories = () => console.log('toggleSelectAllCategories not available');
-            window.updateSelectedCategoriesCount = () => console.log('updateSelectedCategoriesCount not available');
-            window.deleteSelectedCategories = () => console.log('deleteSelectedCategories not available');
+        // Run auto-login on page load
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            document.addEventListener('DOMContentLoaded', autoLoginForLocalhost);
+            // Also try immediately in case DOM is already loaded
+            autoLoginForLocalhost();
         }
+
+        // Load blog info for sidebar
+        fetch('/api/settings/blog-info')
+            .then(res => res.json())
+            .then(data => {
+                if (data.blogInfo && data.blogInfo.title) {
+                    const sidebarTitle = document.querySelector('.sidebar-logo h2');
+                    if (sidebarTitle) sidebarTitle.textContent = data.blogInfo.title;
+                    document.title = `Admin Panel - ${data.blogInfo.title}`;
+                }
+            })
+            .catch(err => console.error('Error loading blog info:', err));
+
+        // Function aliases for posts
+        window.createNewPost = function() {
+            console.log('createNewPost called');
+            const createPostSection = document.getElementById('create-post-section');
+            const sections = ['dashboard', 'posts-section', 'settings-section', 'analytics-section', 'customize-section'];
+            sections.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            if (createPostSection) {
+                createPostSection.style.display = 'block';
+                createPostSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        };
+
+        window.viewPostStats = function() {
+            console.log('viewPostStats called');
+            showAnalyticsSection();
+        };
 
         // Sidebar toggle
         window.toggleSidebar = function() {
@@ -2217,28 +3240,48 @@
         };
 
         // Modern Settings Navigation
+        let settingsNavigationInitialized = false;
+
         function initSettingsNavigation() {
-            const navButtons = document.querySelectorAll('.settings-nav-btn');
-            const panels = document.querySelectorAll('.settings-panel');
+            // Prevent multiple initializations
+            if (settingsNavigationInitialized) {
+                console.log('Settings navigation already initialized, skipping');
+                return;
+            }
+            
+            console.log('initSettingsNavigation called');
+            const settingsSection = document.getElementById('settings-section');
+            if (!settingsSection) {
+                console.error('Settings section not found');
+                return;
+            }
 
-            navButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const targetPanel = button.getAttribute('data-panel');
+            const settingsSidebar = settingsSection.querySelector('.settings-sidebar');
+            if (!settingsSidebar) {
+                console.error('Settings sidebar not found');
+                return;
+            }
 
-                    // Remove active class from all buttons and panels
-                    navButtons.forEach(btn => btn.classList.remove('active'));
-                    panels.forEach(panel => panel.classList.remove('active'));
+            console.log('Found sidebar, attaching click handlers');
 
-                    // Add active class to clicked button and corresponding panel
-                    button.classList.add('active');
-                    document.getElementById(`${targetPanel}-panel`).classList.add('active');
+            // Add click listener to sidebar using event delegation
+            settingsSidebar.addEventListener('click', (event) => {
+                const button = event.target.closest('.settings-nav-btn');
+                if (!button) {
+                    return;
+                }
 
-                    // Auto-load data for specific panels
-                    if (targetPanel === 'categories' && typeof window.loadCategories === 'function') {
-                        window.loadCategories();
-                    }
-                });
+                event.preventDefault();
+                event.stopPropagation();
+
+                const targetPanel = button.getAttribute('data-panel');
+                console.log('Button clicked, switching to panel:', targetPanel);
+                
+                switchSettingsPanel(targetPanel);
             });
+
+            settingsNavigationInitialized = true;
+            console.log('Settings navigation initialized successfully');
         }
 
         // Password toggle functionality
@@ -2265,6 +3308,7 @@
         // Expose functions globally for settings module
         window.initSettingsNavigation = initSettingsNavigation;
         window.initPasswordToggle = initPasswordToggle;
+        window.switchSettingsPanel = switchSettingsPanel;
 
         // Initialize settings navigation on page load
         document.addEventListener('DOMContentLoaded', function() {
@@ -2287,6 +3331,7 @@
             });
             document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => link.classList.remove('active'));
         }
+        window.hideAllSections = hideAllSections;
 
         function showSection(sectionId, title, linkOnClick) {
             hideAllSections();
@@ -2302,6 +3347,7 @@
             const titleEl = document.getElementById('page-title');
             if (titleEl) titleEl.textContent = title;
         }
+        window.showSection = showSection;
 
         // Enhanced Post Rendering for Modern UI
         async function loadAndRenderPosts() {
@@ -2352,29 +3398,9 @@
             }
         }
 
-        async function loadUsers() {
-            const container = document.getElementById('users-list');
-            if (!container) return;
 
-            container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">Loading users...</div>';
 
-            try {
-                // For now, we'll show a placeholder since there's no GET /api/users endpoint
-                // In a real implementation, you'd fetch from /api/users
-                container.innerHTML = `
-                    <div style="text-align:center; padding:20px; color:var(--text-medium);">
-                        User management functionality added.<br>
-                        Users are managed through the backend API.<br>
-                        <small style="color: var(--text-light);">Note: Full user list requires additional API endpoints</small>
-                    </div>
-                `;
-            } catch (e) {
-                console.error('Error loading users:', e);
-                container.innerHTML = '<div style="text-align:center; color:#dc2626;">Failed to load users.</div>';
-            }
-        }
-
-        async function handleCreateUser(event) {
+        window.handleCreateUser = async function(event) {
             event.preventDefault();
 
             const username = document.getElementById('new-username').value.trim();
@@ -2389,14 +3415,19 @@
             }
 
             try {
+                const headers = getAuthHeaders();
+                const token = localStorage.getItem('authToken');
+                console.log('Creating user with token:', token ? 'Token found' : 'No token found');
+                console.log('Request headers:', headers);
+
                 const response = await fetch('/auth/setup', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: headers,
+                    credentials: 'include',
                     body: JSON.stringify({ username, password, name, email })
                 });
 
+                console.log('Response status:', response.status);
                 const data = await response.json();
 
                 if (data.success) {
@@ -2410,17 +3441,16 @@
                 console.error('Error creating user:', e);
                 alert('Failed to create user. Check console for details.');
             }
-        }
+        };
 
-        // Navigation Functions
-        // Fallback bindings in case inline onclicks fail
-        if (typeof showSettingsSection !== 'function') {
-            window.showSettingsSection = function() {
-                showSection('settings-section', 'Settings', 'showSettingsSection');
-            };
-        }
+        // Navigation Functions - Define all before any onclick handlers can fire
+        
         function showDashboard() {
             showSection('dashboard', 'Dashboard', 'showDashboard');
+        }
+        
+        function showCreatePostSection() {
+            showSection('create-post-section', 'Create New Post', 'showCreatePostSection');
         }
 
         function showPostsSection() {
@@ -2445,9 +3475,11 @@
             showSection('settings-section', 'Settings', 'showSettingsSection');
         }
 
+        // Export to global scope immediately
+        window.showDashboard = showDashboard;
+        window.showCreatePostSection = showCreatePostSection;
         window.showPostsSection = showPostsSection;
         window.showAnalyticsSection = showAnalyticsSection;
-        window.showCreatePostSection = showCreatePostSection;
         window.showUsersSection = showUsersSection;
         window.showSettingsSection = showSettingsSection;
         window.viewPostStats = showAnalyticsSection; // Alias for view stats button
@@ -2531,61 +3563,170 @@
             if (!container) return;
             container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">Loading users...</div>';
             try {
-                const resp = await fetch('/api/users', { credentials: 'include' });
+                const resp = await fetch('/api/users', {
+                    credentials: 'include',
+                    headers: getAuthHeaders()
+                });
+                
+                console.log('Users API response status:', resp.status);
                 const data = await resp.json();
+                
+                if (!resp.ok) {
+                    console.error('Failed to load users:', data.error);
+                    container.innerHTML = '<div style="text-align:center; color:#c0392b;">Failed to load users: ' + (data.error || 'Unknown error') + '</div>';
+                    return;
+                }
+                
                 const users = data.users || [];
                 if (users.length === 0) {
                     container.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-medium);">No users found.</div>';
                     return;
                 }
-                container.innerHTML = users.map(u => `
-                    <div class="user-row" style="margin:6px 0; padding:6px; border-bottom:1px solid var(--border-color);">
-                        <strong>${u.username}</strong> - ${u.name} - ${u.email} - ${u.role}
-                    </div>
-                `).join('');
+                container.innerHTML = users.map(u => {
+                    const statusColor = u.active ? '#27ae60' : '#c0392b';
+                    const statusText = u.active ? 'Active' : 'Inactive';
+                    const actionButtonText = u.active ? 'Deactivate' : 'Activate';
+                    const actionButtonColor = u.active ? '#e74c3c' : '#27ae60';
+                    
+                    // Only show action buttons for non-admin users (super admin cannot be deactivated)
+                    const actionButtons = u.username === 'admin' ? 
+                        '<span style="color:var(--text-light); font-size:0.9em;">(Super Admin)</span>' :
+                        `<button onclick="window.toggleUserStatus('${u.username}', ${!u.active})" style="margin-left:10px; padding:4px 8px; background:${actionButtonColor}; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.9em;">${actionButtonText}</button>`;
+                    
+                    // Admin key button
+                    const adminKeyButton = `<button onclick="window.setUserAdminKey('${u.username}')" style="margin-left:8px; padding:4px 8px; background:#3498db; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.9em;">🔑 Set Key</button>`;
+                    
+                    return `
+                        <div class="user-row" style="margin:10px 0; padding:10px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <strong>${u.username}</strong> - ${u.name} - ${u.email} - <span style="font-weight:500;">${u.role}</span>
+                                <div style="margin-top:4px; color:${statusColor}; font-weight:500;">● ${statusText}</div>
+                            </div>
+                            <div>
+                                ${adminKeyButton}
+                                ${actionButtons}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
             } catch (e) {
                 console.error('Error loading users:', e);
                 container.innerHTML = '<div style="text-align:center; color:#c0392b;">Failed to load users.</div>';
             }
         }
-
-        async function handleCreateUser(event) {
-            event.preventDefault();
-            const username = document.getElementById('new-username').value.trim();
-            const password = document.getElementById('new-password').value.trim();
-            const name = document.getElementById('new-name').value.trim();
-            const email = document.getElementById('new-email').value.trim();
-            const role = document.getElementById('new-role').value;
-            if (!username || !password || !name || !email) {
-                alert('All fields are required');
-                return;
-            }
+        
+        window.toggleUserStatus = async function(username, newStatus) {
             try {
-                const res = await fetch('/api/users', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password, name, email, role })
+                console.log('Toggling user status:', username, 'to', newStatus);
+                
+                const response = await fetch(`/api/users/${username}`, {
+                    method: 'PUT',
+                    credentials: 'include',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ active: newStatus })
                 });
-                const data = await res.json();
-                if (data.success) {
-                    alert('User created successfully!');
-                    document.getElementById('create-user-form').reset();
-                    loadUsers();
-                } else {
-                    alert('Failed to create user: ' + (data.error || 'Unknown error'));
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    console.error('Failed to update user status:', data.error);
+                    alert('Failed to update user: ' + (data.error || 'Unknown error'));
+                    return;
                 }
-            } catch (err) {
-                console.error('Error creating user:', err);
-                alert('Failed to create user. Check console for details.');
+                
+                console.log('User status updated successfully:', data);
+                alert('User status updated successfully!');
+                loadUsers(); // Refresh the list
+            } catch (e) {
+                console.error('Error updating user status:', e);
+                alert('Error updating user status');
+            }
+        };
+        
+        async function setUserAdminKey(username) {
+            const adminKey = prompt(`Enter admin key for user ${username}:`);
+            if (!adminKey) return;
+            
+            try {
+                console.log('Setting admin key for user:', username);
+                
+                const response = await fetch(`/api/users/${username}/admin-key`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ adminKey })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    console.error('Failed to set admin key:', data.error);
+                    alert('Failed to set admin key: ' + (data.error || 'Unknown error'));
+                    return;
+                }
+                
+                console.log('Admin key set successfully');
+                alert('Admin key set successfully for ' + username);
+            } catch (e) {
+                console.error('Error setting admin key:', e);
+                alert('Error setting admin key');
+            }
+        }
+        
+        async function verifyUserAdminKey(username) {
+            const adminKey = prompt(`Enter admin key for ${username}:`);
+            if (!adminKey) return false;
+            
+            try {
+                console.log('Verifying admin key for user:', username);
+                
+                const response = await fetch(`/api/users/${username}/verify-admin-key`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ adminKey })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    console.error('Failed to verify admin key:', data.error);
+                    alert('Invalid admin key. Access denied.');
+                    return false;
+                }
+                
+                console.log('Admin key verified');
+                alert('Admin key verified. Redirecting to login...');
+                window.location.href = '/login.html';
+                return true;
+            } catch (e) {
+                console.error('Error verifying admin key:', e);
+                alert('Error verifying admin key');
+                return false;
             }
         }
 
-        // Wire up on load
-        document.addEventListener('DOMContentLoaded', () => {
-            const form = document.getElementById('create-user-form');
-            if (form) form.addEventListener('submit', handleCreateUser);
-            loadUsers();
-        });
+        // Navigation Functions - Define all before any onclick handlers can fire
+        function handleHashRoute() {
+            const hash = window.location.hash.slice(1) || 'dashboard'; // Remove # and default to dashboard
+            
+            const routeMap = {
+                'dashboard': () => showDashboard(),
+                'create-post': () => showCreatePostSection(),
+                'posts': () => showPostsSection(),
+                'analytics': () => showAnalyticsSection(),
+                'users': () => showUsersSection(),
+                'settings': () => showSettingsSection()
+            };
+            
+            const handler = routeMap[hash];
+            if (handler) {
+                handler();
+            }
+        }
+        window.handleHashRoute = handleHashRoute;
 
         // Allow Enter key to submit
         document.getElementById('modal-admin-key').addEventListener('keypress', function(e) {
