@@ -149,7 +149,7 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== '
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://apis.google.com"],
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
       imgSrc: ["'self'", "data:", "https:"],
