@@ -2147,7 +2147,7 @@ app.post('/api/categories', requireAdmin, async (req, res) => {
     console.error('Category creation error:', error);
     return res.status(500).json({ error: error.message || 'failed to create category' });
   }
-}
+});
 
 app.put('/api/categories/:id', requireAdmin, async (req, res) => {
   const id = req.params.id;
