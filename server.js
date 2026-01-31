@@ -410,7 +410,7 @@ async function loadCategories() {
     if (db) {
       try {
         const categories = await db.collection('categories').find({}).toArray();
-        if (categories && categories.length > 0) {
+        if (categories && Array.isArray(categories) && categories.length > 0) {
           console.log('Loaded categories from MongoDB:', categories.length);
           return categories.map(c => ({ ...c, id: String(c._id || c.id) }));
         }
@@ -425,8 +425,10 @@ async function loadCategories() {
         const data = await kv.get('categories');
         if (data) {
           const parsed = JSON.parse(data);
-          console.log('Loaded categories from Vercel KV:', parsed.length);
-          return parsed;
+          if (Array.isArray(parsed)) {
+            console.log('Loaded categories from Vercel KV:', parsed.length);
+            return parsed.map(c => ({ ...c, id: String(c.id) }));
+          }
         }
       } catch (kvErr) {
         console.warn('Vercel KV categories error:', kvErr.message);
@@ -435,9 +437,15 @@ async function loadCategories() {
     
     // Fall back to local file
     try {
-      const cats = JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
-      console.log('Loaded categories from local file:', cats.length);
-      return cats.map(c => ({ ...c, id: String(c.id) }));
+      const data = fs.readFileSync(CATEGORIES_FILE, 'utf8');
+      const cats = JSON.parse(data) || [];
+      if (Array.isArray(cats) && cats.length > 0) {
+        console.log('Loaded categories from local file:', cats.length);
+        return cats.map(c => ({ ...c, id: String(c.id) }));
+      } else {
+        console.log('No categories in local file');
+        return [];
+      }
     } catch (fileErr) {
       console.warn('Local categories file error:', fileErr.message);
       return [];
@@ -450,20 +458,27 @@ async function loadCategories() {
 
 async function saveCategories(categories) {
   try {
+    if (!Array.isArray(categories)) {
+      console.error('saveCategories: categories is not an array', typeof categories);
+      throw new Error('categories must be an array');
+    }
+    
     if (db) {
       console.log('Saving to MongoDB:', categories.length);
       await db.collection('categories').deleteMany({});
       if (categories.length > 0) {
-        const result = await db.collection('categories').insertMany(categories.map(c => ({ ...c, _id: c.id })));
+        const docsToInsert = categories.map(c => ({ ...c, _id: c.id }));
+        const result = await db.collection('categories').insertMany(docsToInsert);
         console.log('MongoDB save result:', result.insertedCount);
       }
       return;
     }
     if (process.env.VERCEL && kv) {
+      console.log('Saving to Vercel KV:', categories.length);
       await kv.set('categories', JSON.stringify(categories));
       return;
     }
-    console.log('Saving to file system');
+    console.log('Saving to file system:', categories.length);
     fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
   } catch (e) {
     console.error('Save categories error:', e);
@@ -849,30 +864,7 @@ app.post('/api/users/:username/verify-admin-key', async (req, res) => {
 });
 
 // Admin: Categories API
-app.get('/api/categories', requireAdmin, async (req, res) => {
-  try {
-    const categories = await loadCategories();
-    res.json({ categories });
-  } catch (e) {
-    res.status(500).json({ error: 'failed_to_load_categories' });
-  }
-});
-
 // Delete category endpoint
-app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const categories = await loadCategories();
-    const idx = (categories || []).findIndex(c => c.id.toString() === id.toString());
-    if (idx === -1) return res.status(404).json({ error: 'not_found' });
-    categories.splice(idx, 1);
-    await saveCategories(categories);
-    res.json({ success: true });
-  } catch (e) {
-    console.error('Delete category error:', e);
-    res.status(500).json({ error: 'failed_to_delete_category' });
-  }
-});
 
 const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
   ? nodemailer.createTransport({
@@ -2128,10 +2120,15 @@ app.post('/api/categories', requireAdmin, async (req, res) => {
   try {
     console.log('Creating category - DB connected:', !!db, 'Body:', req.body);
     const { name, description } = req.body;
-    if (!name) return res.status(400).json({ error: 'missing name' });
+    if (!name || !name.trim()) return res.status(400).json({ error: 'missing name' });
     
     const categories = await loadCategories();
-    const id = Date.now();
+    if (!Array.isArray(categories)) {
+      console.error('loadCategories did not return an array:', categories);
+      return res.status(500).json({ error: 'invalid categories format' });
+    }
+    
+    const id = String(Date.now());
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     
     const category = {
@@ -2142,15 +2139,15 @@ app.post('/api/categories', requireAdmin, async (req, res) => {
     };
     
     categories.push(category);
-    console.log('Saving categories:', categories.length);
+    console.log('Saving categories:', categories.length, 'New category:', category);
     await saveCategories(categories);
     console.log('Category saved successfully');
-    return res.json({ success: true, category, debug: { dbConnected: !!db } });
+    return res.json({ success: true, category, categories });
   } catch (error) {
     console.error('Category creation error:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message || 'failed to create category' });
   }
-});
+}
 
 app.put('/api/categories/:id', requireAdmin, async (req, res) => {
   const id = req.params.id;
