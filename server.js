@@ -1038,11 +1038,14 @@ app.post('/auth/logout', (req, res) => {
 });
 
 app.post('/auth/google', async (req, res) => {
-  const { id_token } = req.body;
-  if (!id_token) return res.status(400).json({ error: 'missing id_token' });
+  const { credential, id_token } = req.body;
+  const token = credential || id_token; // Support both new and old formats
+  
+  if (!token) return res.status(400).json({ error: 'missing token' });
 
   try {
-    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${id_token}`);
+    // Verify the token with Google's tokeninfo endpoint
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
     const payload = await response.json();
 
     if (!response.ok || payload.error) {
@@ -1127,7 +1130,12 @@ app.post('/auth/forgot', async (req, res) => {
           <p>No action is required. If this was unexpected, you may review security logs in the admin panel.</p>
         `
       };
-      try { await transporter.sendMail(mailOptions); } catch (_) {}
+      try { 
+        await transporter.sendMail(mailOptions); 
+        console.log('Admin notification email sent for unknown email:', email);
+      } catch (err) {
+        console.error('Failed to send admin notification:', err.message);
+      }
       return res.json({ success: true, message: 'If an account exists, a reset email has been sent.' });
     }
 
@@ -1172,6 +1180,7 @@ app.post('/auth/forgot', async (req, res) => {
     };
 
     await transporter.sendMail(mailOptions);
+    console.log('Password reset email sent to:', adminEmail);
     return res.json({ success: true, message: 'Reset email sent' });
   } catch (e) {
     console.error('Forgot password error:', e);
