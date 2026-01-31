@@ -858,26 +858,12 @@ app.get('/api/categories', requireAdmin, async (req, res) => {
   }
 });
 
-app.post('/api/categories', requireAdmin, async (req, res) => {
-  try {
-    const { name } = req.body || {};
-    if (!name) return res.status(400).json({ error: 'missing_name' });
-    const categories = await loadCategories();
-    const newCat = { id: String(Date.now()), name };
-    const updated = Array.isArray(categories) ? [...categories, newCat] : [newCat];
-    await saveCategories(updated);
-    res.json({ success: true, category: newCat, categories: updated });
-  } catch (e) {
-    console.error('Add category error:', e);
-    res.status(500).json({ error: 'failed_to_add_category' });
-  }
-});
-
+// Delete category endpoint
 app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
   try {
     const id = req.params.id;
     const categories = await loadCategories();
-    const idx = (categories || []).findIndex(c => c.id === id);
+    const idx = (categories || []).findIndex(c => c.id.toString() === id.toString());
     if (idx === -1) return res.status(404).json({ error: 'not_found' });
     categories.splice(idx, 1);
     await saveCategories(categories);
