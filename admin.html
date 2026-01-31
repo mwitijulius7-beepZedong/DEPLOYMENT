@@ -3347,33 +3347,6 @@
             initPasswordToggle();
         }
 
-        // Navigation Helper
-        function hideAllSections() {
-            const sections = ['dashboard', 'posts-section', 'users-section', 'analytics-section', 'create-post-section', 'settings-section'];
-            sections.forEach(sectionId => {
-                const section = document.getElementById(sectionId);
-                if (section) section.style.display = 'none';
-            });
-            document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => link.classList.remove('active'));
-        }
-        window.hideAllSections = hideAllSections;
-
-        function showSection(sectionId, title, linkOnClick) {
-            hideAllSections();
-            const section = document.getElementById(sectionId);
-            if (section) {
-                section.style.display = 'block';
-                section.scrollIntoView({ behavior: 'smooth' });
-            }
-            
-            const link = document.querySelector(`[onclick="${linkOnClick}()"]`);
-            if (link) link.classList.add('active');
-            
-            const titleEl = document.getElementById('page-title');
-            if (titleEl) titleEl.textContent = title;
-        }
-        window.showSection = showSection;
-
         // Enhanced Post Rendering for Modern UI
         async function loadAndRenderPosts() {
             const container = document.getElementById('posts-list');
