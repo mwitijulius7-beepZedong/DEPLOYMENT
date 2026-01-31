@@ -274,19 +274,47 @@ app.use(fileUpload({
 
 async function loadUsers() {
   try {
+    // Try MongoDB first if available
     const db = await getMongoDB();
     if (db) {
-      const users = await db.collection('users').find({}).toArray();
-      const result = {};
-      users.forEach(u => result[u.username] = u);
-      return result;
+      try {
+        const users = await db.collection('users').find({}).toArray();
+        if (users && users.length > 0) {
+          const result = {};
+          users.forEach(u => result[u.username] = u);
+          console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
+          return result;
+        }
+      } catch (mongoErr) {
+        console.warn('MongoDB query error:', mongoErr.message);
+      }
     }
+    
+    // Try Vercel KV if available
     if (process.env.VERCEL && kv) {
-      const data = await kv.get('users');
-      return data ? JSON.parse(data) : {};
+      try {
+        const data = await kv.get('users');
+        if (data) {
+          const parsed = JSON.parse(data);
+          console.log('Loaded users from Vercel KV:', Object.keys(parsed).length, 'users');
+          return parsed;
+        }
+      } catch (kvErr) {
+        console.warn('Vercel KV error:', kvErr.message);
+      }
     }
-    return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    
+    // Fall back to local file
+    try {
+      const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+      console.log('Loaded users from local file:', Object.keys(data).length, 'users');
+      return data;
+    } catch (fileErr) {
+      console.warn('Local users file error:', fileErr.message);
+      return {};
+    }
   } catch (e) {
+    console.error('Fatal error in loadUsers:', e);
     return {};
   }
 }
@@ -313,17 +341,45 @@ async function saveUsers(users) {
 
 async function loadPosts() {
   try {
+    // Try MongoDB first if available
     const db = await getMongoDB();
     if (db) {
-      const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
-      return posts.map(p => ({ ...p, id: p._id || p.id }));
+      try {
+        const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
+        if (posts && posts.length > 0) {
+          console.log('Loaded posts from MongoDB:', posts.length, 'posts');
+          return posts.map(p => ({ ...p, id: p._id || p.id }));
+        }
+      } catch (mongoErr) {
+        console.warn('MongoDB posts query error:', mongoErr.message);
+      }
     }
+    
+    // Try Vercel KV if available
     if (process.env.VERCEL && kv) {
-      const data = await kv.get('posts');
-      return data ? JSON.parse(data) : [];
+      try {
+        const data = await kv.get('posts');
+        if (data) {
+          const parsed = JSON.parse(data);
+          console.log('Loaded posts from Vercel KV:', parsed.length, 'posts');
+          return parsed;
+        }
+      } catch (kvErr) {
+        console.warn('Vercel KV posts error:', kvErr.message);
+      }
     }
-    return JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
+    
+    // Fall back to local file
+    try {
+      const data = JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
+      console.log('Loaded posts from local file:', data.length, 'posts');
+      return data;
+    } catch (fileErr) {
+      console.warn('Local posts file error:', fileErr.message);
+      return [];
+    }
   } catch (e) {
+    console.error('Fatal error in loadPosts:', e);
     return [];
   }
 }
@@ -349,18 +405,45 @@ async function savePosts(posts) {
 
 async function loadCategories() {
   try {
+    // Try MongoDB first if available
     const db = await getMongoDB();
     if (db) {
-      console.log('Loading from MongoDB');
-      const categories = await db.collection('categories').find({}).toArray();
-      console.log('MongoDB categories:', categories.length);
-      return categories.map(c => ({ ...c, id: String(c._id || c.id) }));
+      try {
+        const categories = await db.collection('categories').find({}).toArray();
+        if (categories && categories.length > 0) {
+          console.log('Loaded categories from MongoDB:', categories.length);
+          return categories.map(c => ({ ...c, id: String(c._id || c.id) }));
+        }
+      } catch (mongoErr) {
+        console.warn('MongoDB categories query error:', mongoErr.message);
+      }
     }
-    console.log('Loading from file system');
-    const cats = JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
-    return cats.map(c => ({ ...c, id: String(c.id) }));
+    
+    // Try Vercel KV if available
+    if (process.env.VERCEL && kv) {
+      try {
+        const data = await kv.get('categories');
+        if (data) {
+          const parsed = JSON.parse(data);
+          console.log('Loaded categories from Vercel KV:', parsed.length);
+          return parsed;
+        }
+      } catch (kvErr) {
+        console.warn('Vercel KV categories error:', kvErr.message);
+      }
+    }
+    
+    // Fall back to local file
+    try {
+      const cats = JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
+      console.log('Loaded categories from local file:', cats.length);
+      return cats.map(c => ({ ...c, id: String(c.id) }));
+    } catch (fileErr) {
+      console.warn('Local categories file error:', fileErr.message);
+      return [];
+    }
   } catch (e) {
-    console.error('Load categories error:', e);
+    console.error('Fatal error in loadCategories:', e);
     return [];
   }
 }
@@ -1038,11 +1121,14 @@ app.post('/auth/logout', (req, res) => {
 });
 
 app.post('/auth/google', async (req, res) => {
-  const { id_token } = req.body;
-  if (!id_token) return res.status(400).json({ error: 'missing id_token' });
+  const { credential, id_token } = req.body;
+  const token = credential || id_token; // Support both new and old formats
+  
+  if (!token) return res.status(400).json({ error: 'missing token' });
 
   try {
-    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${id_token}`);
+    // Verify the token with Google's tokeninfo endpoint
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
     const payload = await response.json();
 
     if (!response.ok || payload.error) {
@@ -1127,7 +1213,12 @@ app.post('/auth/forgot', async (req, res) => {
           <p>No action is required. If this was unexpected, you may review security logs in the admin panel.</p>
         `
       };
-      try { await transporter.sendMail(mailOptions); } catch (_) {}
+      try { 
+        await transporter.sendMail(mailOptions); 
+        console.log('Admin notification email sent for unknown email:', email);
+      } catch (err) {
+        console.error('Failed to send admin notification:', err.message);
+      }
       return res.json({ success: true, message: 'If an account exists, a reset email has been sent.' });
     }
 
@@ -1172,6 +1263,7 @@ app.post('/auth/forgot', async (req, res) => {
     };
 
     await transporter.sendMail(mailOptions);
+    console.log('Password reset email sent to:', adminEmail);
     return res.json({ success: true, message: 'Reset email sent' });
   } catch (e) {
     console.error('Forgot password error:', e);
