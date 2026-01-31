@@ -44,7 +44,7 @@ async function login() {
     console.log('\n=== LOGGING IN ===');
     const result = await makeRequest('POST', '/auth/login', {
         username: 'admin',
-        password: 'password'
+        password: 'Mwitijulius7@Jm'
     });
 
     if (result.ok && result.data.token) {
