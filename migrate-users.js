@@ -24,8 +24,26 @@ async function migrateUsers() {
 
     // Check if users already exist in MongoDB
     const existingUsers = await db.collection('users').find({}).toArray();
+    console.log(`Found ${existingUsers.length} existing users in MongoDB.`);
+
+    // Always ensure admin user exists
+    const adminExists = existingUsers.some(user => user.username === 'admin');
+    if (!adminExists) {
+      console.log('Admin user not found. Adding admin user...');
+      const adminHash = '$2a$10$VSwYYQgioyCp7imuGVpSLeubxsg8oejEwkaE1Ot/BI51lwb0XnOVi'; // hash for 'password'
+      await db.collection('users').insertOne({
+        username: 'admin',
+        name: 'Admin',
+        email: 'admin@example.com',
+        passwordHash: adminHash
+      });
+      console.log('Admin user added.');
+    } else {
+      console.log('Admin user already exists.');
+    }
+
     if (existingUsers.length > 0) {
-      console.log(`Found ${existingUsers.length} existing users in MongoDB. Skipping migration.`);
+      console.log('Skipping full migration as users already exist.');
       return;
     }
 
