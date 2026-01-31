@@ -36,6 +36,10 @@
         
         function showCreatePostSection() {
             showSection('create-post-section', 'Create New Post', 'showCreatePostSection');
+            // Populate category dropdown when navigating to create post
+            if (typeof populatePostCategoryDropdown === 'function') {
+                populatePostCategoryDropdown().catch(err => console.error('Failed to load categories:', err));
+            }
         }
 
         function showPostsSection() {
@@ -218,9 +222,6 @@
                     selectAllCheckbox.checked = false;
                 }
                 updateSelectedCategoriesCount();
-                
-                // Also update the post creation category dropdown
-                await populatePostCategoryDropdown();
             } catch (error) {
                 console.error('Failed to load categories:', error);
                 document.getElementById('categories-list').innerHTML = '<p>Error loading categories.</p>';
@@ -230,7 +231,6 @@
         async function populatePostCategoryDropdown() {
             try {
                 const response = await fetch('/api/categories', {
-                    headers: getAuthHeaders(),
                     credentials: 'include'
                 });
                 const data = await response.json();
@@ -238,7 +238,7 @@
                 const selectElement = document.getElementById('post-category');
                 if (!selectElement) return;
                 
-                if (data.categories && data.categories.length > 0) {
+                if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
                     selectElement.innerHTML = '<option value="">Select a category</option>' +
                         data.categories.map(cat => 
                             `<option value="${cat.id}">${cat.name}</option>`
@@ -248,6 +248,12 @@
                 }
             } catch (error) {
                 console.error('Failed to populate category dropdown:', error);
+                const selectElement = document.getElementById('post-category');
+                if (selectElement) {
+                    selectElement.innerHTML = '<option value="">Error loading categories</option>';
+                }
+            }
+        }
             }
         }
         }
@@ -3461,47 +3467,6 @@
                 alert('Failed to create user. Check console for details.');
             }
         };
-
-        // Navigation Functions - Define all before any onclick handlers can fire
-        
-        function showDashboard() {
-            showSection('dashboard', 'Dashboard', 'showDashboard');
-        }
-        
-        function showCreatePostSection() {
-            showSection('create-post-section', 'Create New Post', 'showCreatePostSection');
-        }
-
-        function showPostsSection() {
-            showSection('posts-section', 'Manage Posts', 'showPostsSection');
-            if (window.loadPostsList) {
-                window.loadPostsList();
-            } else {
-                loadAndRenderPosts();
-            }
-        }
-
-        function showAnalyticsSection() {
-            showSection('analytics-section', 'Analytics', 'showAnalyticsSection');
-        }
-
-        function showUsersSection() {
-            showSection('users-section', 'Users', 'showUsersSection');
-            loadUsers();
-        }
-
-        function showSettingsSection() {
-            showSection('settings-section', 'Settings', 'showSettingsSection');
-        }
-
-        // Export to global scope immediately
-        window.showDashboard = showDashboard;
-        window.showCreatePostSection = showCreatePostSection;
-        window.showPostsSection = showPostsSection;
-        window.showAnalyticsSection = showAnalyticsSection;
-        window.showUsersSection = showUsersSection;
-        window.showSettingsSection = showSettingsSection;
-        window.viewPostStats = showAnalyticsSection; // Alias for view stats button
 
         // Admin Key Verification Logic
         async function checkSecurityOnLoad() {
