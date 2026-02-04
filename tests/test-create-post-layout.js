@@ -83,9 +83,18 @@ async function testCreatePostLayout() {
         console.log('3. Testing form interactions...');
         await page.setViewport({ width: 1200, height: 800 }); // Back to desktop
 
+        // Get the first available category from the dropdown
+        const firstCategoryValue = await page.evaluate(() => {
+            const categorySelect = document.getElementById('post-category');
+            if (categorySelect && categorySelect.options.length > 1) {
+                return categorySelect.options[1].value; // Use index 1 to skip "Select Category"
+            }
+            return null;
+        });
+
         // Fill form fields
         await page.type('#post-title', 'Test Post Title');
-        await page.select('#post-category', 'technology');
+        if (firstCategoryValue) await page.select('#post-category', firstCategoryValue);
         await page.type('#post-content', 'This is test content for the post.');
 
         // Check if values are set
