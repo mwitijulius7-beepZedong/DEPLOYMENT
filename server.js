@@ -136,6 +136,11 @@ async function getMongoDB() {
   }
 }
 
+// Simple in-memory cache for users to avoid repeated database calls
+let usersCache = null;
+let usersCacheTime = 0;
+const USERS_CACHE_TTL = 30000; // 30 seconds cache
+
 // Cloudinary configuration
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
   cloudinary.config({
@@ -274,45 +279,83 @@ app.use(fileUpload({
 
 async function loadUsers() {
   try {
-    // Try MongoDB first if available
-    const db = await getMongoDB();
-    if (db) {
-      try {
-        const users = await db.collection('users').find({}).toArray();
-        if (users && users.length > 0) {
-          const result = {};
-          users.forEach(u => result[u.username] = u);
-          console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
-          return result;
+    // Check cache first
+    const now = Date.now();
+    if (usersCache && (now - usersCacheTime) < USERS_CACHE_TTL) {
+      console.log('Loaded users from cache:', Object.keys(usersCache).length, 'users');
+      return usersCache;
+    }
+
+    // Load from all sources in parallel for better performance
+    const loadPromises = [];
+
+    // MongoDB loader
+    loadPromises.push(
+      (async () => {
+        try {
+          const db = await getMongoDB();
+          if (db) {
+            const users = await db.collection('users').find({}).toArray();
+            if (users && users.length > 0) {
+              const result = {};
+              users.forEach(u => result[u.username] = u);
+              console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
+              return { source: 'mongodb', data: result };
+            }
+          }
+        } catch (mongoErr) {
+          console.warn('MongoDB query error:', mongoErr.message);
         }
-      } catch (mongoErr) {
-        console.warn('MongoDB query error:', mongoErr.message);
+        return null;
+      })()
+    );
+
+    // Vercel KV loader
+    loadPromises.push(
+      (async () => {
+        try {
+          if (process.env.VERCEL && kv) {
+            const data = await kv.get('users');
+            if (data) {
+              const parsed = JSON.parse(data);
+              console.log('Loaded users from Vercel KV:', Object.keys(parsed).length, 'users');
+              return { source: 'kv', data: parsed };
+            }
+          }
+        } catch (kvErr) {
+          console.warn('Vercel KV error:', kvErr.message);
+        }
+        return null;
+      })()
+    );
+
+    // Local file loader
+    loadPromises.push(
+      (async () => {
+        try {
+          const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+          console.log('Loaded users from local file:', Object.keys(data).length, 'users');
+          return { source: 'file', data };
+        } catch (fileErr) {
+          console.warn('Local users file error:', fileErr.message);
+          return null;
+        }
+      })()
+    );
+
+    // Wait for the first successful load
+    const results = await Promise.allSettled(loadPromises);
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        usersCache = result.value.data;
+        usersCacheTime = now;
+        return result.value.data;
       }
     }
-    
-    // Try Vercel KV if available
-    if (process.env.VERCEL && kv) {
-      try {
-        const data = await kv.get('users');
-        if (data) {
-          const parsed = JSON.parse(data);
-          console.log('Loaded users from Vercel KV:', Object.keys(parsed).length, 'users');
-          return parsed;
-        }
-      } catch (kvErr) {
-        console.warn('Vercel KV error:', kvErr.message);
-      }
-    }
-    
-    // Fall back to local file
-    try {
-      const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-      console.log('Loaded users from local file:', Object.keys(data).length, 'users');
-      return data;
-    } catch (fileErr) {
-      console.warn('Local users file error:', fileErr.message);
-      return {};
-    }
+
+    // If no source worked, return empty object
+    console.log('No users data found in any source');
+    return {};
   } catch (e) {
     console.error('Fatal error in loadUsers:', e);
     return {};
@@ -321,11 +364,12 @@ async function loadUsers() {
 
 async function saveUsers(users) {
   try {
-    if (db) {
-      await db.collection('users').deleteMany({});
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('users').deleteMany({});
       const userArray = Object.entries(users).map(([username, data]) => ({ username, ...data }));
       if (userArray.length > 0) {
-        await db.collection('users').insertMany(userArray);
+        await mongoDb.collection('users').insertMany(userArray);
       }
       return;
     }
@@ -336,6 +380,10 @@ async function saveUsers(users) {
     fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
   } catch (e) {
     console.error('Save users error:', e);
+  } finally {
+    // Clear cache after save to ensure fresh data on next load
+    usersCache = null;
+    usersCacheTime = 0;
   }
 }
 
@@ -386,10 +434,11 @@ async function loadPosts() {
 
 async function savePosts(posts) {
   try {
-    if (db) {
-      await db.collection('posts').deleteMany({});
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('posts').deleteMany({});
       if (posts.length > 0) {
-        await db.collection('posts').insertMany(posts.map(p => ({ ...p, _id: p.id })));
+        await mongoDb.collection('posts').insertMany(posts.map(p => ({ ...p, _id: p.id })));
       }
       return;
     }
@@ -463,12 +512,13 @@ async function saveCategories(categories) {
       throw new Error('categories must be an array');
     }
     
-    if (db) {
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
       console.log('Saving to MongoDB:', categories.length);
-      await db.collection('categories').deleteMany({});
+      await mongoDb.collection('categories').deleteMany({});
       if (categories.length > 0) {
         const docsToInsert = categories.map(c => ({ ...c, _id: c.id }));
-        const result = await db.collection('categories').insertMany(docsToInsert);
+        const result = await mongoDb.collection('categories').insertMany(docsToInsert);
         console.log('MongoDB save result:', result.insertedCount);
       }
       return;
@@ -501,8 +551,9 @@ async function loadAnalytics() {
 
 async function saveAnalytics(analytics) {
   try {
-    if (db) {
-      await db.collection('analytics').updateOne(
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('analytics').updateOne(
         { type: 'data' },
         { $set: { data: analytics, updatedAt: new Date() } },
         { upsert: true }
@@ -530,8 +581,9 @@ async function loadSecurityLogs() {
 
 async function saveSecurityLogs(logs) {
   try {
-    if (db) {
-      await db.collection('security').updateOne(
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('security').updateOne(
         { type: 'logs' },
         { $set: { logs, updatedAt: new Date() } },
         { upsert: true }
@@ -560,10 +612,11 @@ async function loadComments() {
 
 async function saveComments(comments) {
   try {
-    if (db) {
-      await db.collection('comments').deleteMany({});
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('comments').deleteMany({});
       if (comments.length > 0) {
-        await db.collection('comments').insertMany(comments.map(c => ({ ...c, _id: c.id })));
+        await mongoDb.collection('comments').insertMany(comments.map(c => ({ ...c, _id: c.id })));
       }
       return;
     }
@@ -592,10 +645,11 @@ async function loadSubscriptions() {
 
 async function saveSubscriptions(subscriptions) {
   try {
-    if (db) {
-      await db.collection('subscriptions').deleteMany({});
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('subscriptions').deleteMany({});
       if (subscriptions.length > 0) {
-        await db.collection('subscriptions').insertMany(subscriptions.map(s => ({ ...s, _id: s.id })));
+        await mongoDb.collection('subscriptions').insertMany(subscriptions.map(s => ({ ...s, _id: s.id })));
       }
       return;
     }
