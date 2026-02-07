@@ -26,10 +26,18 @@ async function testCreatePostFunctionality() {
             return section && section.style.display !== 'none';
         });
 
+        // Get the first available category from the dropdown
+        const firstCategoryValue = await page.evaluate(() => {
+            const categorySelect = document.getElementById('post-category');
+            if (categorySelect && categorySelect.options.length > 1) {
+                return categorySelect.options[1].value; // Use index 1 to skip "Select Category"
+            }
+            return null;
+        });
+
         // Fill out the form
         const testData = {
             title: 'Test Post - ' + Date.now(),
-            category: 'technology',
             content: 'This is a comprehensive test post content.\n\nIt includes multiple paragraphs and various formatting.\n\nTesting the functionality thoroughly.',
             tags: 'test, automation, puppeteer',
             status: 'draft'
@@ -37,7 +45,9 @@ async function testCreatePostFunctionality() {
 
         console.log('2. Filling form with test data...');
         await page.type('#post-title', testData.title);
-        await page.select('#post-category', testData.category);
+        if (firstCategoryValue) {
+            await page.select('#post-category', firstCategoryValue);
+        }
         await page.type('#post-content', testData.content);
         await page.type('#post-tags', testData.tags);
         await page.select('#post-status', testData.status);
