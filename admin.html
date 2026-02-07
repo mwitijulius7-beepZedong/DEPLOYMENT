@@ -36,6 +36,10 @@
         
         function showCreatePostSection() {
             showSection('create-post-section', 'Create New Post', 'showCreatePostSection');
+            // Populate category dropdown when navigating to create post
+            if (typeof populatePostCategoryDropdown === 'function') {
+                populatePostCategoryDropdown().catch(err => console.error('Failed to load categories:', err));
+            }
         }
 
         function showPostsSection() {
@@ -224,8 +228,31 @@
             }
         }
 
-        function editCategory(categoryId) {
-            alert(`Edit category functionality - This would open a form to edit category with ID: ${categoryId}`);
+        async function populatePostCategoryDropdown() {
+            try {
+                const response = await fetch('/api/categories', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                const selectElement = document.getElementById('post-category');
+                if (!selectElement) return;
+                
+                if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
+                    selectElement.innerHTML = '<option value="">Select a category</option>' +
+                        data.categories.map(cat => 
+                            `<option value="${cat.id}">${cat.name}</option>`
+                        ).join('');
+                } else {
+                    selectElement.innerHTML = '<option value="">No categories available</option>';
+                }
+            } catch (error) {
+                console.error('Failed to populate category dropdown:', error);
+                const selectElement = document.getElementById('post-category');
+                if (selectElement) {
+                    selectElement.innerHTML = '<option value="">Error loading categories</option>';
+                }
+            }
         }
 
         async function deleteCategory(categoryId) {
@@ -2667,13 +2694,7 @@
                                 <div class="form-group">
                                     <label class="form-label">Category</label>
                                     <select class="form-input" id="post-category">
-                                        <option value="">Select a category</option>
-                                        <option value="technology">Technology</option>
-                                        <option value="programming">Programming</option>
-                                        <option value="web-development">Web Development</option>
-                                        <option value="tutorials">Tutorials</option>
-                                        <option value="news">News</option>
-                                        <option value="personal">Personal</option>
+                                        <option value="">Loading categories...</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -3097,6 +3118,7 @@
         // Expose functions to window for onclick handlers
         window.addCategory = addCategory;
         window.loadCategories = loadCategories;
+        window.populatePostCategoryDropdown = populatePostCategoryDropdown;
         window.deleteCategory = deleteCategory;
         window.editCategory = editCategory;
         window.toggleSelectAllCategories = toggleSelectAllCategories;
@@ -3322,33 +3344,6 @@
             initPasswordToggle();
         }
 
-        // Navigation Helper
-        function hideAllSections() {
-            const sections = ['dashboard', 'posts-section', 'users-section', 'analytics-section', 'create-post-section', 'settings-section'];
-            sections.forEach(sectionId => {
-                const section = document.getElementById(sectionId);
-                if (section) section.style.display = 'none';
-            });
-            document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => link.classList.remove('active'));
-        }
-        window.hideAllSections = hideAllSections;
-
-        function showSection(sectionId, title, linkOnClick) {
-            hideAllSections();
-            const section = document.getElementById(sectionId);
-            if (section) {
-                section.style.display = 'block';
-                section.scrollIntoView({ behavior: 'smooth' });
-            }
-            
-            const link = document.querySelector(`[onclick="${linkOnClick}()"]`);
-            if (link) link.classList.add('active');
-            
-            const titleEl = document.getElementById('page-title');
-            if (titleEl) titleEl.textContent = title;
-        }
-        window.showSection = showSection;
-
         // Enhanced Post Rendering for Modern UI
         async function loadAndRenderPosts() {
             const container = document.getElementById('posts-list');
@@ -3442,47 +3437,6 @@
                 alert('Failed to create user. Check console for details.');
             }
         };
-
-        // Navigation Functions - Define all before any onclick handlers can fire
-        
-        function showDashboard() {
-            showSection('dashboard', 'Dashboard', 'showDashboard');
-        }
-        
-        function showCreatePostSection() {
-            showSection('create-post-section', 'Create New Post', 'showCreatePostSection');
-        }
-
-        function showPostsSection() {
-            showSection('posts-section', 'Manage Posts', 'showPostsSection');
-            if (window.loadPostsList) {
-                window.loadPostsList();
-            } else {
-                loadAndRenderPosts();
-            }
-        }
-
-        function showAnalyticsSection() {
-            showSection('analytics-section', 'Analytics', 'showAnalyticsSection');
-        }
-
-        function showUsersSection() {
-            showSection('users-section', 'Users', 'showUsersSection');
-            loadUsers();
-        }
-
-        function showSettingsSection() {
-            showSection('settings-section', 'Settings', 'showSettingsSection');
-        }
-
-        // Export to global scope immediately
-        window.showDashboard = showDashboard;
-        window.showCreatePostSection = showCreatePostSection;
-        window.showPostsSection = showPostsSection;
-        window.showAnalyticsSection = showAnalyticsSection;
-        window.showUsersSection = showUsersSection;
-        window.showSettingsSection = showSettingsSection;
-        window.viewPostStats = showAnalyticsSection; // Alias for view stats button
 
         // Admin Key Verification Logic
         async function checkSecurityOnLoad() {
@@ -3756,6 +3710,11 @@
     bind('#nav-settings', showSettingsSection);
     const form = document.getElementById('create-user-form');
     if (form) form.addEventListener('submit', handleCreateUser);
+    
+    // Populate category dropdown on page load
+    if (typeof populatePostCategoryDropdown === 'function') {
+        populatePostCategoryDropdown().catch(err => console.error('Failed to populate categories:', err));
+    }
   });
 })();
 </script>
