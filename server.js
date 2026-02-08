@@ -29,11 +29,11 @@ class VercelKVStore extends EventEmitter {
 
     // Test KV availability
     try {
-      if (kv && typeof kv.get === 'function') {
+      if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN && kv && typeof kv.get === 'function') {
         this.kvAvailable = true;
       }
     } catch (e) {
-      console.warn('Vercel KV not available, using memory store fallback');
+      console.warn('Vercel KV not available:', e.message);
     }
   }
 
