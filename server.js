@@ -1254,7 +1254,7 @@ app.post('/auth/forgot', async (req, res) => {
       return res.json({ success: true, message: 'If an account exists, a reset email has been sent.' });
     }
 
-    // Generate reset token (username + timestamp + random)
+                                                                                                               // Generate reset token (username + timestamp + random)
     const resetToken = crypto.randomBytes(32).toString('hex');
     const tokenData = `${targetUser.username}|${Date.now()}|${resetToken}`;
     const encryptedToken = encryptText(tokenData);
