@@ -2389,7 +2389,7 @@
                 </a>
             </div>
 
-            <nav class="sidebar-nav">
+            <nav class="sidebar-nav" aria-label="Admin sidebar navigation">
                 <div class="nav-item">
                     <a id="nav-dashboard" href="#dashboard" class="nav-link active">
                         <i>📊</i>
@@ -2501,14 +2501,16 @@
 
                 <!-- Quick Actions Grid -->
                 <div class="quick-actions-grid">
-                    <div class="action-card action-posts" onclick="showPostsSection()">
+                    <!-- accessibility-fix: issue-149 - Interactive div needs keyboard accessibility -->
+                    <div class="action-card action-posts" role="button" tabindex="0" onclick="showPostsSection()" onkeydown="if(event.key==='Enter'||event.key===' ') showPostsSection()">
                         <div class="action-card-header">
                             <div class="action-icon">📝</div>
                             <h3>Manage Posts</h3>
                         </div>
                         <p>Create, edit, and organize your blog posts. Keep your content fresh and engaging.</p>
                     </div>
-                    <div class="action-card action-analytics" onclick="showAnalyticsSection()">
+                    <!-- accessibility-fix: issue-149 - Interactive div needs keyboard accessibility -->
+                    <div class="action-card action-analytics" role="button" tabindex="0" onclick="showAnalyticsSection()" onkeydown="if(event.key==='Enter'||event.key===' ') showAnalyticsSection()">
                         <div class="action-card-header">
                             <div class="action-icon">📊</div>
                             <h3>View Analytics</h3>
