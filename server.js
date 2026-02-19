@@ -126,7 +126,10 @@ async function getMongoDB() {
   if (!process.env.MONGODB_URI) return null;
 
   try {
-    const client = await MongoClient.connect(process.env.MONGODB_URI);
+    const client = await MongoClient.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000
+    });
     console.log('Connected to MongoDB');
     db = client.db('blog');
     return db;
