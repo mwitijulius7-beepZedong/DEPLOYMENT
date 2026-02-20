@@ -7,8 +7,26 @@
       "userAgent": "curl/8.14.1",
       "ip": "::1",
       "timestamp": "2025-10-27T19:57:46.805Z"
+    },
+    {
+      "id": 1771588217828,
+      "page": "/test-page",
+      "referrer": "http://localhost:3000/",
+      "userAgent": "Test User Agent",
+      "ip": "::1",
+      "timestamp": "2026-02-20T11:50:17.828Z"
     }
   ],
   "postViews": [],
-  "interactions": []
+  "interactions": [
+    {
+      "id": 1771588217840,
+      "type": "click",
+      "target": "test-button",
+      "value": "test-value",
+      "ip": "::1",
+      "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+      "timestamp": "2026-02-20T11:50:17.840Z"
+    }
+  ]
 }
