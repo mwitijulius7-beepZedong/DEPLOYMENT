@@ -139,6 +139,11 @@ async function getMongoDB() {
   }
 }
 
+// Simple in-memory cache for posts to avoid repeated database calls
+let postsCache = null;
+let postsCacheTime = 0;
+const POSTS_CACHE_TTL = 10000; // 10 seconds cache for posts
+
 // Simple in-memory cache for users to avoid repeated database calls
 let usersCache = null;
 let usersCacheTime = 0;
@@ -1143,14 +1148,37 @@ app.get('/auth/status', (req, res) => {
 });
 
 app.post('/auth/logout', (req, res) => {
-  console.log('Logout requested - Session before destroy:', !!req.session, 'User:', !!req.session?.user);
+  console.log('Logout requested - Session exists:', !!req.session, 'User:', req.session?.user?.username || 'none');
+  
+  // Check if session exists and has user data
+  if (!req.session || !req.session.user) {
+    console.log('No active session or user, clearing any existing cookies and returning success');
+    res.clearCookie('sessionId');
+    return res.json({ success: true, message: 'already logged out' });
+  }
+  
+  const username = req.session.user.username;
+  
   req.session.destroy(err => {
     if (err) {
       console.error('Session destroy error:', err);
-      return res.status(500).json({ error: 'failed to logout' });
+      // Still try to clear cookie and respond
+      res.clearCookie('sessionId');
+      return res.status(500).json({ error: 'failed to logout', details: err.message });
     }
-    console.log('Session destroyed successfully');
-    res.clearCookie('sessionId'); // Clear the correct cookie name
+    
+    console.log('Session destroyed successfully for user:', username);
+    
+    // Clear the session cookie
+    res.clearCookie('sessionId', {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax'
+    });
+    
+    // Optionally regenerate session to ensure clean state
+    req.session = null;
+    
     return res.json({ success: true });
   });
 });
