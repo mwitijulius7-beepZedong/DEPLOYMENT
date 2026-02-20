@@ -3684,6 +3684,11 @@
             try {
                 console.log('Logout initiated from event listener');
                 
+                // Always clear local storage first (even if server call fails)
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('user');
+                sessionStorage.clear();
+                
                 // Call server logout endpoint to destroy session
                 const response = await fetch('/auth/logout', {
                     method: 'POST',
@@ -3693,21 +3698,14 @@
                 
                 console.log('Logout response status:', response.status);
                 
-                if (response.ok) {
-                    // Clear auth token and user info from localStorage
-                    localStorage.removeItem('authToken');
-                    localStorage.removeItem('user');
-                    sessionStorage.clear();
-                    
-                    console.log('Logout successful. Redirecting to login page.');
-                    window.location.href = '/login.html';
-                } else {
-                    console.error('Logout failed with status:', response.status);
-                    alert('Logout failed. Please try again.');
-                }
+                // Regardless of server response, redirect to login
+                // This ensures user is logged out even if server call fails
+                console.log('Logout complete. Redirecting to login page.');
+                window.location.href = '/login.html';
             } catch (error) {
                 console.error('Logout error:', error);
-                alert('An error occurred during logout. Please try again.');
+                // Even on error, redirect to login to ensure user is logged out
+                window.location.href = '/login.html';
             }
         });
     }
