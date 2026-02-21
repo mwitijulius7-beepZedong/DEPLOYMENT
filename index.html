@@ -407,7 +407,7 @@
                 mounted() {
                     this.loadPosts();
                     this.loadCategories();
-                    this.loadBackgroundSettings();
+                    this.loadSettings();
                 },
                 computed: {
                     filteredPosts() {
@@ -489,14 +489,15 @@
                             this.categories = [];
                         }
                     },
-                    async loadBackgroundSettings() {
+                    async loadSettings() {
                         try {
-                            const resp = await fetch('/api/settings/background');
-                            const data = await resp.json();
-                            if (data.backgroundUrl) {
+                            // Load background settings
+                            const bgResp = await fetch('/api/settings/background');
+                            const bgData = await bgResp.json();
+                            if (bgData.backgroundUrl) {
                                 const appElement = document.getElementById('app');
                                 if (appElement) {
-                                    appElement.style.backgroundImage = `url('${data.backgroundUrl}')`;
+                                    appElement.style.backgroundImage = `url('${bgData.backgroundUrl}')`;
                                     appElement.style.backgroundSize = 'cover';
                                     appElement.style.backgroundPosition = 'center';
                                     appElement.style.backgroundAttachment = 'fixed';
@@ -504,6 +505,17 @@
                             }
                         } catch (e) {
                             console.error('Failed to load background settings:', e);
+                        }
+                        
+                        // Load blog info settings (title)
+                        try {
+                            const blogResp = await fetch('/api/settings/blog-info');
+                            const blogData = await blogResp.json();
+                            if (blogData.blogInfo && blogData.blogInfo.title) {
+                                this.blogTitle = blogData.blogInfo.title;
+                            }
+                        } catch (e) {
+                            console.error('Failed to load blog info settings:', e);
                         }
                     },
                     clearFilters() {
