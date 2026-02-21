@@ -5,7 +5,11 @@
     "author": "John Doe",
     "content": "Vue.js is a progressive JavaScript framework for building user interfaces. It is designed to be incrementally adoptable, meaning you can use as little or as much of it as you need. Vue.js is also perfectly capable of powering sophisticated Single-Page Applications when used in combination with modern tooling and supporting libraries.",
     "date": "2023-11-15T00:00:00.000Z",
-    "tags": ["vue", "javascript", "frontend"],
+    "tags": [
+      "vue",
+      "javascript",
+      "frontend"
+    ],
     "image": "",
     "featured": false,
     "isDraft": false,
@@ -17,7 +21,12 @@
     "author": "Jane Smith",
     "content": "CSS Grid Layout is a two-dimensional layout method for the web. It lets you lay content out in rows and columns, and has many features that make building complex layouts straightforward. This article covers advanced techniques for creating responsive grid layouts that work across all devices.",
     "date": "2023-11-14T00:00:00.000Z",
-    "tags": ["css", "grid", "layout", "responsive"],
+    "tags": [
+      "css",
+      "grid",
+      "layout",
+      "responsive"
+    ],
     "image": "",
     "featured": false,
     "isDraft": false,
@@ -29,7 +38,12 @@
     "author": "Mike Johnson",
     "content": "Node.js has become one of the most popular platforms for building REST APIs. In this comprehensive guide, we'll explore how to create robust, scalable APIs using Express.js, implement proper error handling, add authentication, and ensure your API follows RESTful conventions.",
     "date": "2023-11-13T00:00:00.000Z",
-    "tags": ["nodejs", "api", "express", "backend"],
+    "tags": [
+      "nodejs",
+      "api",
+      "express",
+      "backend"
+    ],
     "image": "",
     "featured": true,
     "isDraft": false,
@@ -41,7 +55,11 @@
     "author": "Sarah Wilson",
     "content": "TypeScript is a programming language developed and maintained by Microsoft. It is a strict syntactical superset of JavaScript and adds optional static typing to the language. TypeScript is designed for the development of large applications and can be used to develop JavaScript applications for both client-side and server-side execution.",
     "date": "2023-11-12T00:00:00.000Z",
-    "tags": ["typescript", "javascript", "types"],
+    "tags": [
+      "typescript",
+      "javascript",
+      "types"
+    ],
     "image": "",
     "featured": false,
     "isDraft": false,
@@ -53,7 +71,12 @@
     "author": "David Brown",
     "content": "React Hooks are functions that let you use state and other React features in functional components. They were introduced in React 16.8 as a way to use stateful logic without writing a class component. This guide covers all the built-in hooks and how to create custom hooks.",
     "date": "2023-11-11T00:00:00.000Z",
-    "tags": ["react", "hooks", "javascript", "frontend"],
+    "tags": [
+      "react",
+      "hooks",
+      "javascript",
+      "frontend"
+    ],
     "image": "",
     "featured": false,
     "isDraft": false,
@@ -65,7 +88,12 @@
     "author": "Lisa Davis",
     "content": "Good database design is crucial for building scalable and maintainable applications. This article covers the fundamental principles of database design, including normalization, indexing strategies, and best practices for data modeling. We'll also discuss common pitfalls to avoid and how to design databases that can evolve with your application.",
     "date": "2023-11-10T00:00:00.000Z",
-    "tags": ["database", "design", "sql", "backend"],
+    "tags": [
+      "database",
+      "design",
+      "sql",
+      "backend"
+    ],
     "image": "",
     "featured": false,
     "isDraft": false,
