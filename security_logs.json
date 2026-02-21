@@ -697,5 +697,14 @@
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
     "result": "success",
     "mode": "local"
+  },
+  {
+    "id": 1771688022617,
+    "timestamp": "2026-02-21T15:33:42.617Z",
+    "keyHash": "6fd42221d1f65a2dca6cc3a267ae7f9d12f3391c7c0104a0e8ae7444512c3f81",
+    "ip": "::1",
+    "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+    "result": "localhost_skip",
+    "mode": "localhost"
   }
 ]
