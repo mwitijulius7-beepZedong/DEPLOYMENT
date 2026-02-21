@@ -7,14 +7,25 @@ export async function loadDashboardStats() {
         const postsData = await postsResponse.json();
         document.getElementById('posts-count').textContent = postsData.posts.length;
 
-        // Load analytics (simplified)
+        // Load analytics (page views count)
         const token2 = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : '';
         const analyticsResponse = await fetch('/api/analytics', { headers: token2 ? { 'Authorization': `Bearer ${token2}` } : {} });
         const analyticsData = await analyticsResponse.json();
         document.getElementById('views-count').textContent = analyticsData.pageViews?.length || 0;
 
-        // For subscribers, we could add a counter later
-        document.getElementById('subscribers-count').textContent = '0';
+        // Load subscribers count from subscriptions endpoint
+        try {
+            const subsResponse = await fetch('/api/subscriptions', { headers: token2 ? { 'Authorization': `Bearer ${token2}` } : {} });
+            if (subsResponse.ok) {
+                const subsData = await subsResponse.json();
+                document.getElementById('subscribers-count').textContent = subsData.count || 0;
+            } else {
+                document.getElementById('subscribers-count').textContent = '0';
+            }
+        } catch (subsError) {
+            console.warn('Could not load subscribers:', subsError);
+            document.getElementById('subscribers-count').textContent = '0';
+        }
 
     } catch (error) {
         console.error('Failed to load dashboard stats:', error);
