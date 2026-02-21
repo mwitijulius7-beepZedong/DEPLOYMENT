@@ -397,6 +397,13 @@ async function saveUsers(users) {
 
 async function loadPosts() {
   try {
+    // Check cache first
+    const now = Date.now();
+    if (postsCache && (now - postsCacheTime) < POSTS_CACHE_TTL) {
+      console.log('Loaded posts from cache:', postsCache.length, 'posts');
+      return postsCache;
+    }
+    
     // Try MongoDB first if available
     const db = await getMongoDB();
     if (db) {
@@ -404,7 +411,9 @@ async function loadPosts() {
         const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
         if (posts && posts.length > 0) {
           console.log('Loaded posts from MongoDB:', posts.length, 'posts');
-          return posts.map(p => ({ ...p, id: p._id || p.id }));
+          postsCache = posts.map(p => ({ ...p, id: p._id || p.id }));
+          postsCacheTime = now;
+          return postsCache;
         }
       } catch (mongoErr) {
         console.warn('MongoDB posts query error:', mongoErr.message);
@@ -418,7 +427,9 @@ async function loadPosts() {
         if (data) {
           const parsed = JSON.parse(data);
           console.log('Loaded posts from Vercel KV:', parsed.length, 'posts');
-          return parsed;
+          postsCache = parsed;
+          postsCacheTime = now;
+          return postsCache;
         }
       } catch (kvErr) {
         console.warn('Vercel KV posts error:', kvErr.message);
@@ -429,6 +440,8 @@ async function loadPosts() {
     try {
       const data = JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
       console.log('Loaded posts from local file:', data.length, 'posts');
+      postsCache = data;
+      postsCacheTime = now;
       return data;
     } catch (fileErr) {
       console.warn('Local posts file error:', fileErr.message);
@@ -457,6 +470,10 @@ async function savePosts(posts) {
     fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
   } catch (e) {
     console.error('Save posts error:', e);
+  } finally {
+    // Clear cache after save to ensure fresh data on next load
+    postsCache = null;
+    postsCacheTime = 0;
   }
 }
 
@@ -1153,33 +1170,33 @@ app.post('/auth/logout', (req, res) => {
   // Check if session exists and has user data
   if (!req.session || !req.session.user) {
     console.log('No active session or user, clearing any existing cookies and returning success');
-    res.clearCookie('sessionId');
+    res.clearCookie('sessionId', { path: '/', httpOnly: true, sameSite: 'lax', secure: false });
     return res.json({ success: true, message: 'already logged out' });
   }
   
   const username = req.session.user.username;
   
-  req.session.destroy(err => {
+  // Destroy the session
+  req.session.destroy((err) => {
     if (err) {
       console.error('Session destroy error:', err);
-      // Still try to clear cookie and respond
-      res.clearCookie('sessionId');
-      return res.status(500).json({ error: 'failed to logout', details: err.message });
     }
     
-    console.log('Session destroyed successfully for user:', username);
+    // Always clear the cookie and send response, regardless of destroy success
+    console.log('Session destroy completed for user:', username);
     
-    // Clear the session cookie
+    // Clear the session cookie with all required options
     res.clearCookie('sessionId', {
       path: '/',
       httpOnly: true,
-      sameSite: 'lax'
+      sameSite: 'lax',
+      secure: false
     });
     
-    // Optionally regenerate session to ensure clean state
-    req.session = null;
+    console.log('Logout completed successfully, sending response');
     
-    return res.json({ success: true });
+    // Send success response
+    return res.json({ success: true, message: 'logged out successfully' });
   });
 });
 
@@ -1671,21 +1688,32 @@ app.post('/api/settings/theme', requireAdmin, async (req, res) => {
 // Author settings API
 app.get('/api/settings/author', async (req, res) => {
   try {
-    // For Vercel, use MongoDB if available
+    // For Vercel with MongoDB, check if data exists in MongoDB
     if (process.env.VERCEL && db) {
       const result = await db.collection('settings').findOne({ type: 'author' });
-      const author = result?.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
-      return res.json({ author });
+      // If MongoDB has valid author data with at least some fields populated, use it
+      if (result?.author && (result.author.name || result.author.email || result.author.phone || result.author.bio)) {
+        const author = result.author;
+        return res.json({ author });
+      }
+      // Otherwise fall through to local file
     }
 
-    // Local development
+    // Local development - always read from local file
     const settings = readSettings();
     const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
     return res.json({ author });
   } catch (e) {
     console.error('Error reading author settings:', e);
-    const author = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
-    return res.json({ author });
+    // Fall back to local file on error
+    try {
+      const settings = readSettings();
+      const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+      return res.json({ author });
+    } catch (innerErr) {
+      const author = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+      return res.json({ author });
+    }
   }
 });
 
@@ -2355,6 +2383,17 @@ app.post('/api/subscribe', async (req, res) => {
   } catch (e) {
     console.error('Subscription error:', e);
     return res.status(500).json({ error: 'Failed to subscribe' });
+  }
+});
+
+// Get all subscriptions (admin only)
+app.get('/api/subscriptions', requireAdmin, async (req, res) => {
+  try {
+    const subscriptions = await loadSubscriptions();
+    return res.json({ subscriptions, count: subscriptions.length });
+  } catch (e) {
+    console.error('Load subscriptions error:', e);
+    return res.status(500).json({ error: 'Failed to load subscriptions' });
   }
 });
 
