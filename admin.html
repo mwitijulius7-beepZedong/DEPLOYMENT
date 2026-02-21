@@ -36,6 +36,10 @@
         
         function showCreatePostSection() {
             showSection('create-post-section', 'Create New Post', 'showCreatePostSection');
+            // Populate category dropdown when navigating to create post
+            if (typeof populatePostCategoryDropdown === 'function') {
+                populatePostCategoryDropdown().catch(err => console.error('Failed to load categories:', err));
+            }
         }
 
         function showPostsSection() {
@@ -224,8 +228,31 @@
             }
         }
 
-        function editCategory(categoryId) {
-            alert(`Edit category functionality - This would open a form to edit category with ID: ${categoryId}`);
+        async function populatePostCategoryDropdown() {
+            try {
+                const response = await fetch('/api/categories', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                const selectElement = document.getElementById('post-category');
+                if (!selectElement) return;
+                
+                if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
+                    selectElement.innerHTML = '<option value="">Select a category</option>' +
+                        data.categories.map(cat => 
+                            `<option value="${cat.id}">${cat.name}</option>`
+                        ).join('');
+                } else {
+                    selectElement.innerHTML = '<option value="">No categories available</option>';
+                }
+            } catch (error) {
+                console.error('Failed to populate category dropdown:', error);
+                const selectElement = document.getElementById('post-category');
+                if (selectElement) {
+                    selectElement.innerHTML = '<option value="">Error loading categories</option>';
+                }
+            }
         }
 
         async function deleteCategory(categoryId) {
@@ -668,6 +695,10 @@
         }
 
         async function saveAuthorInfo() {
+            console.log('saveAuthorInfo called');
+            
+            const blogTitle = document.getElementById('blog-title').value;
+            const blogDescription = document.getElementById('blog-description').value;
             const authorName = document.getElementById('author-name').value;
             const authorEmail = document.getElementById('author-email').value;
             const authorBio = document.getElementById('author-bio').value;
@@ -679,10 +710,31 @@
             const authorInstagram = document.getElementById('author-instagram').value;
             const authorWebsite = document.getElementById('author-website').value;
 
+            console.log('Saving general settings with:', { blogTitle, authorName, authorEmail });
+
             try {
-                const response = await fetch('/api/settings/author', {
+                // Get auth headers
+                const headers = getAuthHeaders();
+                console.log('Auth headers:', headers);
+
+                // Save blog info (title and description) to /api/settings/blog-info
+                const blogResponse = await fetch('/api/settings/blog-info', {
                     method: 'POST',
-                    headers: getAuthHeaders(),
+                    headers: headers,
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        title: blogTitle,
+                        description: blogDescription
+                    })
+                });
+
+                const blogData = await blogResponse.json();
+                console.log('Blog info response:', blogResponse.status, blogData);
+
+                // Save author info to /api/settings/author
+                const authorResponse = await fetch('/api/settings/author', {
+                    method: 'POST',
+                    headers: headers,
                     credentials: 'include',
                     body: JSON.stringify({
                         name: authorName,
@@ -690,22 +742,44 @@
                         bio: authorBio,
                         phone: authorPhone,
                         whatsapp: authorWhatsapp,
-                        twitter: authorTwitter,
-                        facebook: authorFacebook,
-                        linkedin: authorLinkedin,
-                        instagram: authorInstagram,
-                        website: authorWebsite
+                        social: {
+                            twitter: authorTwitter,
+                            facebook: authorFacebook,
+                            linkedin: authorLinkedin,
+                            instagram: authorInstagram,
+                            website: authorWebsite
+                        }
                     })
                 });
 
-                if (response.ok) {
-                    alert('Author information saved successfully!');
+                const authorData = await authorResponse.json();
+                console.log('Author info response:', authorResponse.status, authorData);
+
+                // Check both responses
+                if (blogResponse.ok && authorResponse.ok) {
+                    alert('General settings saved successfully!');
+                    
+                    // Update sidebar title immediately
+                    const sidebarTitle = document.querySelector('.sidebar-logo h2');
+                    if (sidebarTitle) sidebarTitle.textContent = blogTitle;
+                    document.title = `Admin Panel - ${blogTitle}`;
+                    
+                    console.log('Settings saved successfully');
                 } else {
-                    alert('Failed to save author information.');
+                    // Show specific error messages
+                    let errorMsg = 'Failed to save some general settings.\n\n';
+                    if (!blogResponse.ok) {
+                        errorMsg += `Blog Info: ${blogData.error || 'Unknown error'}\n`;
+                    }
+                    if (!authorResponse.ok) {
+                        errorMsg += `Author Info: ${authorData.error || 'Unknown error'}`;
+                    }
+                    alert(errorMsg);
+                    console.error('Save failed:', { blogData, authorData });
                 }
             } catch (error) {
-                console.error('Error saving author information:', error);
-                alert('Error saving author information.');
+                console.error('Error saving general settings:', error);
+                alert('Error saving general settings. Check console for details.');
             }
         }
 
@@ -2362,7 +2436,7 @@
                 </a>
             </div>
 
-            <nav class="sidebar-nav">
+            <nav class="sidebar-nav" aria-label="Admin sidebar navigation">
                 <div class="nav-item">
                     <a id="nav-dashboard" href="#dashboard" class="nav-link active">
                         <i>📊</i>
@@ -2429,7 +2503,7 @@
                             <span class="user-role">Administrator</span>
                         </div>
                     </div>
-                    <button class="logout-btn" onclick="logout()">Logout</button>
+                    <button id="logout-btn" class="logout-btn">Logout</button>
                 </div>
             </header>
 
@@ -2474,14 +2548,16 @@
 
                 <!-- Quick Actions Grid -->
                 <div class="quick-actions-grid">
-                    <div class="action-card action-posts" onclick="showPostsSection()">
+                    <!-- accessibility-fix: issue-149 - Interactive div needs keyboard accessibility -->
+                    <div class="action-card action-posts" role="button" tabindex="0" onclick="showPostsSection()" onkeydown="if(event.key==='Enter'||event.key===' ') showPostsSection()">
                         <div class="action-card-header">
                             <div class="action-icon">📝</div>
                             <h3>Manage Posts</h3>
                         </div>
                         <p>Create, edit, and organize your blog posts. Keep your content fresh and engaging.</p>
                     </div>
-                    <div class="action-card action-analytics" onclick="showAnalyticsSection()">
+                    <!-- accessibility-fix: issue-149 - Interactive div needs keyboard accessibility -->
+                    <div class="action-card action-analytics" role="button" tabindex="0" onclick="showAnalyticsSection()" onkeydown="if(event.key==='Enter'||event.key===' ') showAnalyticsSection()">
                         <div class="action-card-header">
                             <div class="action-icon">📊</div>
                             <h3>View Analytics</h3>
@@ -2519,11 +2595,7 @@
                                 </div>
                             </div>
 
-                            <div class="action-card">
-                                <h3>➕ Create New Post</h3>
-                                <p>Add a new blog post to your collection.</p>
-                                <button class="btn-modern" onclick="createNewPost()">Create Post</button>
-                            </div>
+                            <!-- Create Post functionality is available in the sidebar -->
 
                             <div class="action-card">
                                 <h3>📊 Post Statistics</h3>
@@ -2667,13 +2739,7 @@
                                 <div class="form-group">
                                     <label class="form-label">Category</label>
                                     <select class="form-input" id="post-category">
-                                        <option value="">Select a category</option>
-                                        <option value="technology">Technology</option>
-                                        <option value="programming">Programming</option>
-                                        <option value="web-development">Web Development</option>
-                                        <option value="tutorials">Tutorials</option>
-                                        <option value="news">News</option>
-                                        <option value="personal">Personal</option>
+                                        <option value="">Loading categories...</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -3097,20 +3163,21 @@
         // Expose functions to window for onclick handlers
         window.addCategory = addCategory;
         window.loadCategories = loadCategories;
+        window.populatePostCategoryDropdown = populatePostCategoryDropdown;
         window.deleteCategory = deleteCategory;
         window.editCategory = editCategory;
         window.toggleSelectAllCategories = toggleSelectAllCategories;
         window.updateSelectedCategoriesCount = updateSelectedCategoriesCount;
         window.deleteSelectedCategories = deleteSelectedCategories;
-        window.saveAuthorInfo = () => console.log('saveAuthorInfo not available');
+        window.saveAuthorInfo = saveAuthorInfo;
         window.saveSecuritySettings = saveSecuritySettings;
         window.viewCurrentKey = () => console.log('viewCurrentKey not available');
         window.clearKey = () => console.log('clearKey not available');
         window.saveNotificationSettings = saveNotificationSettings;
         window.setUserAdminKey = setUserAdminKey;
         window.verifyUserAdminKey = verifyUserAdminKey;
-        window.saveContentSettings = () => console.log('saveContentSettings not available');
-        window.handleProfilePictureUpload = () => console.log('handleProfilePictureUpload not available');
+        window.saveContentSettings = saveContentSettings;
+        window.handleProfilePictureUpload = handleProfilePictureUpload;
         window.saveThemeSettings = saveThemeSettings;
         window.saveBackgroundSettings = saveBackgroundSettings;
         window.handleBackgroundUpload = handleBackgroundUpload;
@@ -3129,47 +3196,6 @@
         window.viewEngagementDetails = () => console.log('viewEngagementDetails not available');
         window.exportAnalytics = () => console.log('exportAnalytics not available');
         window.loadTimeAnalytics = () => console.log('loadTimeAnalytics not available');
-        
-        window.logout = async function() {
-            try {
-                console.log('Logout initiated');
-                
-                // Call server logout endpoint to destroy session
-                const response = await fetch('/auth/logout', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                console.log('Logout response status:', response.status);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('Logout successful:', data);
-                    
-                    // Clear JWT token from localStorage
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    
-                    // Clear session storage
-                    sessionStorage.clear();
-                    
-                    // Small delay to ensure cleanup is complete
-                    setTimeout(() => {
-                        console.log('Redirecting to login page');
-                        window.location.href = '/login.html';
-                    }, 500);
-                } else {
-                    console.error('Logout failed with status:', response.status);
-                    alert('Logout failed. Please try again.');
-                }
-            } catch (error) {
-                console.error('Logout error:', error);
-                alert('Error during logout. Please try again.');
-            }
-        };
         
         window.toggleSidebar = () => console.log('toggleSidebar not available');
 
@@ -3212,6 +3238,51 @@
                 }
             })
             .catch(err => console.error('Error loading blog info:', err));
+
+        // Load both blog-info and author settings to populate form fields
+        Promise.all([
+            fetch('/api/settings/blog-info').then(res => res.json()),
+            fetch('/api/settings/author').then(res => res.json())
+        ])
+            .then(([blogInfoData, authorData]) => {
+                console.log('Loading saved settings:', { blogInfo: blogInfoData.blogInfo, author: authorData.author });
+                
+                const blogInfo = blogInfoData.blogInfo || {};
+                const author = authorData.author || {};
+
+                // Populate form fields with saved values
+                const blogTitle = document.getElementById('blog-title');
+                const blogDescription = document.getElementById('blog-description');
+                const authorName = document.getElementById('author-name');
+                const authorEmail = document.getElementById('author-email');
+                const authorBio = document.getElementById('author-bio');
+                const authorPhone = document.getElementById('author-phone');
+                const authorWhatsapp = document.getElementById('author-whatsapp');
+                const authorTwitter = document.getElementById('author-twitter');
+                const authorFacebook = document.getElementById('author-facebook');
+                const authorLinkedin = document.getElementById('author-linkedin');
+                const authorInstagram = document.getElementById('author-instagram');
+                const authorWebsite = document.getElementById('author-website');
+
+                // Blog info fields - from blog-info endpoint
+                if (blogTitle) blogTitle.value = blogInfo.title || 'zedong254ke';
+                if (blogDescription) blogDescription.value = blogInfo.description || 'Discover insights, tutorials, and thoughts on web development, programming, and technology.';
+                
+                // Author fields - from author endpoint
+                if (authorName) authorName.value = author.name || 'zedong254ke';
+                if (authorEmail) authorEmail.value = author.email || '';
+                if (authorBio) authorBio.value = author.bio || 'Passionate developer and blogger sharing insights on technology and programming.';
+                if (authorPhone) authorPhone.value = author.phone || '';
+                if (authorWhatsapp) authorWhatsapp.value = author.whatsapp || '';
+                if (authorTwitter) authorTwitter.value = author.social?.twitter || '';
+                if (authorFacebook) authorFacebook.value = author.social?.facebook || '';
+                if (authorLinkedin) authorLinkedin.value = author.social?.linkedin || '';
+                if (authorInstagram) authorInstagram.value = author.social?.instagram || '';
+                if (authorWebsite) authorWebsite.value = author.social?.website || '';
+
+                console.log('Settings loaded and form populated successfully');
+            })
+            .catch(err => console.error('Error loading settings:', err));
 
         // Function aliases for posts
         window.createNewPost = function() {
@@ -3322,33 +3393,6 @@
             initPasswordToggle();
         }
 
-        // Navigation Helper
-        function hideAllSections() {
-            const sections = ['dashboard', 'posts-section', 'users-section', 'analytics-section', 'create-post-section', 'settings-section'];
-            sections.forEach(sectionId => {
-                const section = document.getElementById(sectionId);
-                if (section) section.style.display = 'none';
-            });
-            document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => link.classList.remove('active'));
-        }
-        window.hideAllSections = hideAllSections;
-
-        function showSection(sectionId, title, linkOnClick) {
-            hideAllSections();
-            const section = document.getElementById(sectionId);
-            if (section) {
-                section.style.display = 'block';
-                section.scrollIntoView({ behavior: 'smooth' });
-            }
-            
-            const link = document.querySelector(`[onclick="${linkOnClick}()"]`);
-            if (link) link.classList.add('active');
-            
-            const titleEl = document.getElementById('page-title');
-            if (titleEl) titleEl.textContent = title;
-        }
-        window.showSection = showSection;
-
         // Enhanced Post Rendering for Modern UI
         async function loadAndRenderPosts() {
             const container = document.getElementById('posts-list');
@@ -3442,47 +3486,6 @@
                 alert('Failed to create user. Check console for details.');
             }
         };
-
-        // Navigation Functions - Define all before any onclick handlers can fire
-        
-        function showDashboard() {
-            showSection('dashboard', 'Dashboard', 'showDashboard');
-        }
-        
-        function showCreatePostSection() {
-            showSection('create-post-section', 'Create New Post', 'showCreatePostSection');
-        }
-
-        function showPostsSection() {
-            showSection('posts-section', 'Manage Posts', 'showPostsSection');
-            if (window.loadPostsList) {
-                window.loadPostsList();
-            } else {
-                loadAndRenderPosts();
-            }
-        }
-
-        function showAnalyticsSection() {
-            showSection('analytics-section', 'Analytics', 'showAnalyticsSection');
-        }
-
-        function showUsersSection() {
-            showSection('users-section', 'Users', 'showUsersSection');
-            loadUsers();
-        }
-
-        function showSettingsSection() {
-            showSection('settings-section', 'Settings', 'showSettingsSection');
-        }
-
-        // Export to global scope immediately
-        window.showDashboard = showDashboard;
-        window.showCreatePostSection = showCreatePostSection;
-        window.showPostsSection = showPostsSection;
-        window.showAnalyticsSection = showAnalyticsSection;
-        window.showUsersSection = showUsersSection;
-        window.showSettingsSection = showSettingsSection;
-        window.viewPostStats = showAnalyticsSection; // Alias for view stats button
 
         // Admin Key Verification Logic
         async function checkSecurityOnLoad() {
@@ -3710,23 +3713,108 @@
 
         // Navigation Functions - Define all before any onclick handlers can fire
         function handleHashRoute() {
-            const hash = window.location.hash.slice(1) || 'dashboard'; // Remove # and default to dashboard
+            // First check if there's a saved section in localStorage
+            const savedSection = localStorage.getItem('adminCurrentSection');
+            const hash = window.location.hash.slice(1);
             
-            const routeMap = {
-                'dashboard': () => showDashboard(),
-                'create-post': () => showCreatePostSection(),
-                'posts': () => showPostsSection(),
-                'analytics': () => showAnalyticsSection(),
-                'users': () => showUsersSection(),
-                'settings': () => showSettingsSection()
-            };
-            
-            const handler = routeMap[hash];
-            if (handler) {
-                handler();
+            // If hash is provided in URL, use it (has priority)
+            if (hash) {
+                const routeMap = {
+                    'dashboard': () => showDashboard(),
+                    'create-post': () => showCreatePostSection(),
+                    'posts': () => showPostsSection(),
+                    'analytics': () => showAnalyticsSection(),
+                    'users': () => showUsersSection(),
+                    'settings': () => showSettingsSection()
+                };
+                
+                const handler = routeMap[hash];
+                if (handler) {
+                    handler();
+                }
+            } else if (savedSection) {
+                // Restore saved section from localStorage
+                console.log('Restoring saved section:', savedSection);
+                switch (savedSection) {
+                    case 'dashboard':
+                        showDashboard();
+                        break;
+                    case 'create-post':
+                        showCreatePostSection();
+                        break;
+                    case 'posts':
+                        showPostsSection();
+                        break;
+                    case 'analytics':
+                        showAnalyticsSection();
+                        break;
+                    case 'users':
+                        showUsersSection();
+                        break;
+                    case 'settings':
+                        showSettingsSection();
+                        break;
+                    default:
+                        showDashboard();
+                }
+            } else {
+                // Default to dashboard
+                showDashboard();
             }
         }
         window.handleHashRoute = handleHashRoute;
+
+        // Save current section to localStorage when navigating
+        function saveCurrentSection(section) {
+            try {
+                localStorage.setItem('adminCurrentSection', section);
+                console.log('Saved current section:', section);
+            } catch (e) {
+                console.warn('Could not save section to localStorage:', e);
+            }
+        }
+
+        // Override showDashboard to save section
+        const originalShowDashboard = showDashboard;
+        showDashboard = function() {
+            originalShowDashboard();
+            saveCurrentSection('dashboard');
+        };
+
+        // Override showCreatePostSection to save section
+        const originalShowCreatePostSection = showCreatePostSection;
+        showCreatePostSection = function() {
+            originalShowCreatePostSection();
+            saveCurrentSection('create-post');
+        };
+
+        // Override showPostsSection to save section
+        const originalShowPostsSection = showPostsSection;
+        showPostsSection = function() {
+            originalShowPostsSection();
+            saveCurrentSection('posts');
+        };
+
+        // Override showAnalyticsSection to save section
+        const originalShowAnalyticsSection = showAnalyticsSection;
+        showAnalyticsSection = function() {
+            originalShowAnalyticsSection();
+            saveCurrentSection('analytics');
+        };
+
+        // Override showUsersSection to save section
+        const originalShowUsersSection = showUsersSection;
+        showUsersSection = function() {
+            originalShowUsersSection();
+            saveCurrentSection('users');
+        };
+
+        // Override showSettingsSection to save section
+        const originalShowSettingsSection = showSettingsSection;
+        showSettingsSection = function() {
+            originalShowSettingsSection();
+            saveCurrentSection('settings');
+        };
 
         // Allow Enter key to submit
         document.getElementById('modal-admin-key').addEventListener('keypress', function(e) {
@@ -3735,6 +3823,9 @@
 
         // Run check immediately
         checkSecurityOnLoad();
+        
+        // Restore saved section on page load
+        handleHashRoute();
     </script>
 
 <script>
@@ -3756,6 +3847,49 @@
     bind('#nav-settings', showSettingsSection);
     const form = document.getElementById('create-user-form');
     if (form) form.addEventListener('submit', handleCreateUser);
+    
+    // Populate category dropdown on page load
+    if (typeof populatePostCategoryDropdown === 'function') {
+        populatePostCategoryDropdown().catch(err => console.error('Failed to populate categories:', err));
+    }
+
+    // Add event listener for the logout button
+    const logoutButton = document.getElementById('logout-btn');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', async () => {
+            try {
+                console.log('Logout initiated from event listener');
+                
+                // Always clear local storage first (even if server call fails)
+                try {
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('user');
+                } catch (e) {
+                    console.warn('Could not clear localStorage:', e);
+                }
+                sessionStorage.clear();
+                
+                // Call server logout endpoint to destroy session
+                const response = await fetch('/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' }
+                }).catch(err => {
+                    console.warn('Logout fetch failed:', err);
+                    return { ok: true }; // Treat network errors as success for logout
+                });
+                
+                console.log('Logout completed successfully');
+                
+                // Redirect to login page
+                window.location.href = '/login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Even on error, redirect to login to ensure user is logged out
+                window.location.href = '/login.html';
+            }
+        });
+    }
   });
 })();
 </script>

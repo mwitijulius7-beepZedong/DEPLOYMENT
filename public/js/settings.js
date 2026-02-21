@@ -1,4 +1,13 @@
 // Settings module - Non-modular version for direct HTML access
+function getAuthHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
+    const token = localStorage.getItem('token');
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+}
+
 function showSettingsSection() {
     // Hide other sections
     const sections = ['dashboard', 'posts-section', 'analytics-section', 'customize-section', 'create-post-section'];
@@ -36,7 +45,9 @@ function toggleCategoriesList() {
 
 async function loadCategories() {
     try {
-        const response = await fetch('/api/categories');
+        const response = await fetch('/api/categories', {
+            headers: getAuthHeaders()
+        });
         const data = await response.json();
         const categoriesList = document.getElementById('categories-list');
 
@@ -92,7 +103,7 @@ async function addCategory() {
     try {
         const response = await fetch('/api/categories', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             credentials: 'include',
             body: JSON.stringify({ name: categoryName, description: categoryDescription })
         });
@@ -138,6 +149,7 @@ async function deleteCategory(categoryId) {
         try {
             const response = await fetch(`/api/categories/${categoryId}`, {
                 method: 'DELETE',
+                headers: getAuthHeaders(),
                 credentials: 'include'
             });
 
@@ -202,6 +214,7 @@ async function deleteSelectedCategories() {
         try {
             const response = await fetch(`/api/categories/${categoryId}`, {
                 method: 'DELETE',
+                headers: getAuthHeaders(),
                 credentials: 'include'
             });
 
@@ -241,7 +254,7 @@ async function saveAuthorInfo() {
     try {
         const response = await fetch('/api/settings/author', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             credentials: 'include',
             body: JSON.stringify({
                 name: authorName,
@@ -275,7 +288,7 @@ async function saveSecuritySettings() {
     try {
         const response = await fetch('/api/settings/security', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             credentials: 'include',
             body: JSON.stringify({ adminEntryKey, sessionTimeout: parseInt(sessionTimeout) })
         });
@@ -298,7 +311,7 @@ async function viewCurrentKey() {
     try {
         const response = await fetch('/api/settings/security/key-view', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             credentials: 'include',
             body: JSON.stringify({ username: 'admin', password })
         });
@@ -333,7 +346,7 @@ async function saveNotificationSettings() {
     try {
         const response = await fetch('/api/settings/notifications', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             credentials: 'include',
             body: JSON.stringify({ emailNotifications, commentNotifications, systemAlerts })
         });
@@ -357,7 +370,7 @@ async function saveContentSettings() {
     try {
         const response = await fetch('/api/settings/content', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             credentials: 'include',
             body: JSON.stringify({ postsPerPage: parseInt(postsPerPage), autoPublish, enableComments })
         });
@@ -397,9 +410,16 @@ async function handleProfilePictureUpload() {
     const formData = new FormData();
     formData.append('profilePicture', file);
 
+    const token = localStorage.getItem('token');
+    const headers = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     try {
         const response = await fetch('/api/settings/author/profile-picture', {
             method: 'POST',
+            headers: headers,
             credentials: 'include',
             body: formData
         });

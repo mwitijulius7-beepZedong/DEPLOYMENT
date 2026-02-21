@@ -29,11 +29,11 @@ class VercelKVStore extends EventEmitter {
 
     // Test KV availability
     try {
-      if (kv && typeof kv.get === 'function') {
+      if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN && kv && typeof kv.get === 'function') {
         this.kvAvailable = true;
       }
     } catch (e) {
-      console.warn('Vercel KV not available, using memory store fallback');
+      console.warn('Vercel KV not available:', e.message);
     }
   }
 
@@ -126,7 +126,10 @@ async function getMongoDB() {
   if (!process.env.MONGODB_URI) return null;
 
   try {
-    const client = await MongoClient.connect(process.env.MONGODB_URI);
+    const client = await MongoClient.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000
+    });
     console.log('Connected to MongoDB');
     db = client.db('blog');
     return db;
@@ -135,6 +138,16 @@ async function getMongoDB() {
     return null;
   }
 }
+
+// Simple in-memory cache for posts to avoid repeated database calls
+let postsCache = null;
+let postsCacheTime = 0;
+const POSTS_CACHE_TTL = 10000; // 10 seconds cache for posts
+
+// Simple in-memory cache for users to avoid repeated database calls
+let usersCache = null;
+let usersCacheTime = 0;
+const USERS_CACHE_TTL = 30000; // 30 seconds cache
 
 // Cloudinary configuration
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
@@ -274,45 +287,83 @@ app.use(fileUpload({
 
 async function loadUsers() {
   try {
-    // Try MongoDB first if available
-    const db = await getMongoDB();
-    if (db) {
-      try {
-        const users = await db.collection('users').find({}).toArray();
-        if (users && users.length > 0) {
-          const result = {};
-          users.forEach(u => result[u.username] = u);
-          console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
-          return result;
+    // Check cache first
+    const now = Date.now();
+    if (usersCache && (now - usersCacheTime) < USERS_CACHE_TTL) {
+      console.log('Loaded users from cache:', Object.keys(usersCache).length, 'users');
+      return usersCache;
+    }
+
+    // Load from all sources in parallel for better performance
+    const loadPromises = [];
+
+    // MongoDB loader
+    loadPromises.push(
+      (async () => {
+        try {
+          const db = await getMongoDB();
+          if (db) {
+            const users = await db.collection('users').find({}).toArray();
+            if (users && users.length > 0) {
+              const result = {};
+              users.forEach(u => result[u.username] = u);
+              console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
+              return { source: 'mongodb', data: result };
+            }
+          }
+        } catch (mongoErr) {
+          console.warn('MongoDB query error:', mongoErr.message);
         }
-      } catch (mongoErr) {
-        console.warn('MongoDB query error:', mongoErr.message);
+        return null;
+      })()
+    );
+
+    // Vercel KV loader
+    loadPromises.push(
+      (async () => {
+        try {
+          if (process.env.VERCEL && kv) {
+            const data = await kv.get('users');
+            if (data) {
+              const parsed = JSON.parse(data);
+              console.log('Loaded users from Vercel KV:', Object.keys(parsed).length, 'users');
+              return { source: 'kv', data: parsed };
+            }
+          }
+        } catch (kvErr) {
+          console.warn('Vercel KV error:', kvErr.message);
+        }
+        return null;
+      })()
+    );
+
+    // Local file loader
+    loadPromises.push(
+      (async () => {
+        try {
+          const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+          console.log('Loaded users from local file:', Object.keys(data).length, 'users');
+          return { source: 'file', data };
+        } catch (fileErr) {
+          console.warn('Local users file error:', fileErr.message);
+          return null;
+        }
+      })()
+    );
+
+    // Wait for the first successful load
+    const results = await Promise.allSettled(loadPromises);
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        usersCache = result.value.data;
+        usersCacheTime = now;
+        return result.value.data;
       }
     }
-    
-    // Try Vercel KV if available
-    if (process.env.VERCEL && kv) {
-      try {
-        const data = await kv.get('users');
-        if (data) {
-          const parsed = JSON.parse(data);
-          console.log('Loaded users from Vercel KV:', Object.keys(parsed).length, 'users');
-          return parsed;
-        }
-      } catch (kvErr) {
-        console.warn('Vercel KV error:', kvErr.message);
-      }
-    }
-    
-    // Fall back to local file
-    try {
-      const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-      console.log('Loaded users from local file:', Object.keys(data).length, 'users');
-      return data;
-    } catch (fileErr) {
-      console.warn('Local users file error:', fileErr.message);
-      return {};
-    }
+
+    // If no source worked, return empty object
+    console.log('No users data found in any source');
+    return {};
   } catch (e) {
     console.error('Fatal error in loadUsers:', e);
     return {};
@@ -321,11 +372,12 @@ async function loadUsers() {
 
 async function saveUsers(users) {
   try {
-    if (db) {
-      await db.collection('users').deleteMany({});
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('users').deleteMany({});
       const userArray = Object.entries(users).map(([username, data]) => ({ username, ...data }));
       if (userArray.length > 0) {
-        await db.collection('users').insertMany(userArray);
+        await mongoDb.collection('users').insertMany(userArray);
       }
       return;
     }
@@ -336,11 +388,22 @@ async function saveUsers(users) {
     fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
   } catch (e) {
     console.error('Save users error:', e);
+  } finally {
+    // Clear cache after save to ensure fresh data on next load
+    usersCache = null;
+    usersCacheTime = 0;
   }
 }
 
 async function loadPosts() {
   try {
+    // Check cache first
+    const now = Date.now();
+    if (postsCache && (now - postsCacheTime) < POSTS_CACHE_TTL) {
+      console.log('Loaded posts from cache:', postsCache.length, 'posts');
+      return postsCache;
+    }
+    
     // Try MongoDB first if available
     const db = await getMongoDB();
     if (db) {
@@ -348,7 +411,9 @@ async function loadPosts() {
         const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
         if (posts && posts.length > 0) {
           console.log('Loaded posts from MongoDB:', posts.length, 'posts');
-          return posts.map(p => ({ ...p, id: p._id || p.id }));
+          postsCache = posts.map(p => ({ ...p, id: p._id || p.id }));
+          postsCacheTime = now;
+          return postsCache;
         }
       } catch (mongoErr) {
         console.warn('MongoDB posts query error:', mongoErr.message);
@@ -362,7 +427,9 @@ async function loadPosts() {
         if (data) {
           const parsed = JSON.parse(data);
           console.log('Loaded posts from Vercel KV:', parsed.length, 'posts');
-          return parsed;
+          postsCache = parsed;
+          postsCacheTime = now;
+          return postsCache;
         }
       } catch (kvErr) {
         console.warn('Vercel KV posts error:', kvErr.message);
@@ -373,6 +440,8 @@ async function loadPosts() {
     try {
       const data = JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
       console.log('Loaded posts from local file:', data.length, 'posts');
+      postsCache = data;
+      postsCacheTime = now;
       return data;
     } catch (fileErr) {
       console.warn('Local posts file error:', fileErr.message);
@@ -386,10 +455,11 @@ async function loadPosts() {
 
 async function savePosts(posts) {
   try {
-    if (db) {
-      await db.collection('posts').deleteMany({});
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('posts').deleteMany({});
       if (posts.length > 0) {
-        await db.collection('posts').insertMany(posts.map(p => ({ ...p, _id: p.id })));
+        await mongoDb.collection('posts').insertMany(posts.map(p => ({ ...p, _id: p.id })));
       }
       return;
     }
@@ -400,6 +470,10 @@ async function savePosts(posts) {
     fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
   } catch (e) {
     console.error('Save posts error:', e);
+  } finally {
+    // Clear cache after save to ensure fresh data on next load
+    postsCache = null;
+    postsCacheTime = 0;
   }
 }
 
@@ -410,7 +484,7 @@ async function loadCategories() {
     if (db) {
       try {
         const categories = await db.collection('categories').find({}).toArray();
-        if (categories && categories.length > 0) {
+        if (categories && Array.isArray(categories) && categories.length > 0) {
           console.log('Loaded categories from MongoDB:', categories.length);
           return categories.map(c => ({ ...c, id: String(c._id || c.id) }));
         }
@@ -425,8 +499,10 @@ async function loadCategories() {
         const data = await kv.get('categories');
         if (data) {
           const parsed = JSON.parse(data);
-          console.log('Loaded categories from Vercel KV:', parsed.length);
-          return parsed;
+          if (Array.isArray(parsed)) {
+            console.log('Loaded categories from Vercel KV:', parsed.length);
+            return parsed.map(c => ({ ...c, id: String(c.id) }));
+          }
         }
       } catch (kvErr) {
         console.warn('Vercel KV categories error:', kvErr.message);
@@ -435,9 +511,15 @@ async function loadCategories() {
     
     // Fall back to local file
     try {
-      const cats = JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf8')) || [];
-      console.log('Loaded categories from local file:', cats.length);
-      return cats.map(c => ({ ...c, id: String(c.id) }));
+      const data = fs.readFileSync(CATEGORIES_FILE, 'utf8');
+      const cats = JSON.parse(data) || [];
+      if (Array.isArray(cats) && cats.length > 0) {
+        console.log('Loaded categories from local file:', cats.length);
+        return cats.map(c => ({ ...c, id: String(c.id) }));
+      } else {
+        console.log('No categories in local file');
+        return [];
+      }
     } catch (fileErr) {
       console.warn('Local categories file error:', fileErr.message);
       return [];
@@ -450,20 +532,28 @@ async function loadCategories() {
 
 async function saveCategories(categories) {
   try {
-    if (db) {
+    if (!Array.isArray(categories)) {
+      console.error('saveCategories: categories is not an array', typeof categories);
+      throw new Error('categories must be an array');
+    }
+    
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
       console.log('Saving to MongoDB:', categories.length);
-      await db.collection('categories').deleteMany({});
+      await mongoDb.collection('categories').deleteMany({});
       if (categories.length > 0) {
-        const result = await db.collection('categories').insertMany(categories.map(c => ({ ...c, _id: c.id })));
+        const docsToInsert = categories.map(c => ({ ...c, _id: c.id }));
+        const result = await mongoDb.collection('categories').insertMany(docsToInsert);
         console.log('MongoDB save result:', result.insertedCount);
       }
       return;
     }
     if (process.env.VERCEL && kv) {
+      console.log('Saving to Vercel KV:', categories.length);
       await kv.set('categories', JSON.stringify(categories));
       return;
     }
-    console.log('Saving to file system');
+    console.log('Saving to file system:', categories.length);
     fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
   } catch (e) {
     console.error('Save categories error:', e);
@@ -486,8 +576,9 @@ async function loadAnalytics() {
 
 async function saveAnalytics(analytics) {
   try {
-    if (db) {
-      await db.collection('analytics').updateOne(
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('analytics').updateOne(
         { type: 'data' },
         { $set: { data: analytics, updatedAt: new Date() } },
         { upsert: true }
@@ -515,8 +606,9 @@ async function loadSecurityLogs() {
 
 async function saveSecurityLogs(logs) {
   try {
-    if (db) {
-      await db.collection('security').updateOne(
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('security').updateOne(
         { type: 'logs' },
         { $set: { logs, updatedAt: new Date() } },
         { upsert: true }
@@ -545,10 +637,11 @@ async function loadComments() {
 
 async function saveComments(comments) {
   try {
-    if (db) {
-      await db.collection('comments').deleteMany({});
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('comments').deleteMany({});
       if (comments.length > 0) {
-        await db.collection('comments').insertMany(comments.map(c => ({ ...c, _id: c.id })));
+        await mongoDb.collection('comments').insertMany(comments.map(c => ({ ...c, _id: c.id })));
       }
       return;
     }
@@ -577,10 +670,11 @@ async function loadSubscriptions() {
 
 async function saveSubscriptions(subscriptions) {
   try {
-    if (db) {
-      await db.collection('subscriptions').deleteMany({});
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('subscriptions').deleteMany({});
       if (subscriptions.length > 0) {
-        await db.collection('subscriptions').insertMany(subscriptions.map(s => ({ ...s, _id: s.id })));
+        await mongoDb.collection('subscriptions').insertMany(subscriptions.map(s => ({ ...s, _id: s.id })));
       }
       return;
     }
@@ -849,44 +943,7 @@ app.post('/api/users/:username/verify-admin-key', async (req, res) => {
 });
 
 // Admin: Categories API
-app.get('/api/categories', requireAdmin, async (req, res) => {
-  try {
-    const categories = await loadCategories();
-    res.json({ categories });
-  } catch (e) {
-    res.status(500).json({ error: 'failed_to_load_categories' });
-  }
-});
-
-app.post('/api/categories', requireAdmin, async (req, res) => {
-  try {
-    const { name } = req.body || {};
-    if (!name) return res.status(400).json({ error: 'missing_name' });
-    const categories = await loadCategories();
-    const newCat = { id: String(Date.now()), name };
-    const updated = Array.isArray(categories) ? [...categories, newCat] : [newCat];
-    await saveCategories(updated);
-    res.json({ success: true, category: newCat, categories: updated });
-  } catch (e) {
-    console.error('Add category error:', e);
-    res.status(500).json({ error: 'failed_to_add_category' });
-  }
-});
-
-app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const categories = await loadCategories();
-    const idx = (categories || []).findIndex(c => c.id === id);
-    if (idx === -1) return res.status(404).json({ error: 'not_found' });
-    categories.splice(idx, 1);
-    await saveCategories(categories);
-    res.json({ success: true });
-  } catch (e) {
-    console.error('Delete category error:', e);
-    res.status(500).json({ error: 'failed_to_delete_category' });
-  }
-});
+// Delete category endpoint
 
 const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
   ? nodemailer.createTransport({
@@ -1108,15 +1165,38 @@ app.get('/auth/status', (req, res) => {
 });
 
 app.post('/auth/logout', (req, res) => {
-  console.log('Logout requested - Session before destroy:', !!req.session, 'User:', !!req.session?.user);
-  req.session.destroy(err => {
+  console.log('Logout requested - Session exists:', !!req.session, 'User:', req.session?.user?.username || 'none');
+  
+  // Check if session exists and has user data
+  if (!req.session || !req.session.user) {
+    console.log('No active session or user, clearing any existing cookies and returning success');
+    res.clearCookie('sessionId', { path: '/', httpOnly: true, sameSite: 'lax', secure: false });
+    return res.json({ success: true, message: 'already logged out' });
+  }
+  
+  const username = req.session.user.username;
+  
+  // Destroy the session
+  req.session.destroy((err) => {
     if (err) {
       console.error('Session destroy error:', err);
-      return res.status(500).json({ error: 'failed to logout' });
     }
-    console.log('Session destroyed successfully');
-    res.clearCookie('sessionId'); // Clear the correct cookie name
-    return res.json({ success: true });
+    
+    // Always clear the cookie and send response, regardless of destroy success
+    console.log('Session destroy completed for user:', username);
+    
+    // Clear the session cookie with all required options
+    res.clearCookie('sessionId', {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: false
+    });
+    
+    console.log('Logout completed successfully, sending response');
+    
+    // Send success response
+    return res.json({ success: true, message: 'logged out successfully' });
   });
 });
 
@@ -1222,7 +1302,7 @@ app.post('/auth/forgot', async (req, res) => {
       return res.json({ success: true, message: 'If an account exists, a reset email has been sent.' });
     }
 
-    // Generate reset token (username + timestamp + random)
+                                                                                                               // Generate reset token (username + timestamp + random)
     const resetToken = crypto.randomBytes(32).toString('hex');
     const tokenData = `${targetUser.username}|${Date.now()}|${resetToken}`;
     const encryptedToken = encryptText(tokenData);
@@ -1608,21 +1688,32 @@ app.post('/api/settings/theme', requireAdmin, async (req, res) => {
 // Author settings API
 app.get('/api/settings/author', async (req, res) => {
   try {
-    // For Vercel, use MongoDB if available
+    // For Vercel with MongoDB, check if data exists in MongoDB
     if (process.env.VERCEL && db) {
       const result = await db.collection('settings').findOne({ type: 'author' });
-      const author = result?.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
-      return res.json({ author });
+      // If MongoDB has valid author data with at least some fields populated, use it
+      if (result?.author && (result.author.name || result.author.email || result.author.phone || result.author.bio)) {
+        const author = result.author;
+        return res.json({ author });
+      }
+      // Otherwise fall through to local file
     }
 
-    // Local development
+    // Local development - always read from local file
     const settings = readSettings();
     const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
     return res.json({ author });
   } catch (e) {
     console.error('Error reading author settings:', e);
-    const author = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
-    return res.json({ author });
+    // Fall back to local file on error
+    try {
+      const settings = readSettings();
+      const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+      return res.json({ author });
+    } catch (innerErr) {
+      const author = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+      return res.json({ author });
+    }
   }
 });
 
@@ -2142,10 +2233,15 @@ app.post('/api/categories', requireAdmin, async (req, res) => {
   try {
     console.log('Creating category - DB connected:', !!db, 'Body:', req.body);
     const { name, description } = req.body;
-    if (!name) return res.status(400).json({ error: 'missing name' });
+    if (!name || !name.trim()) return res.status(400).json({ error: 'missing name' });
     
     const categories = await loadCategories();
-    const id = Date.now();
+    if (!Array.isArray(categories)) {
+      console.error('loadCategories did not return an array:', categories);
+      return res.status(500).json({ error: 'invalid categories format' });
+    }
+    
+    const id = String(Date.now());
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     
     const category = {
@@ -2156,13 +2252,13 @@ app.post('/api/categories', requireAdmin, async (req, res) => {
     };
     
     categories.push(category);
-    console.log('Saving categories:', categories.length);
+    console.log('Saving categories:', categories.length, 'New category:', category);
     await saveCategories(categories);
     console.log('Category saved successfully');
-    return res.json({ success: true, category, debug: { dbConnected: !!db } });
+    return res.json({ success: true, category, categories });
   } catch (error) {
     console.error('Category creation error:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message || 'failed to create category' });
   }
 });
 
@@ -2287,6 +2383,17 @@ app.post('/api/subscribe', async (req, res) => {
   } catch (e) {
     console.error('Subscription error:', e);
     return res.status(500).json({ error: 'Failed to subscribe' });
+  }
+});
+
+// Get all subscriptions (admin only)
+app.get('/api/subscriptions', requireAdmin, async (req, res) => {
+  try {
+    const subscriptions = await loadSubscriptions();
+    return res.json({ subscriptions, count: subscriptions.length });
+  } catch (e) {
+    console.error('Load subscriptions error:', e);
+    return res.status(500).json({ error: 'Failed to load subscriptions' });
   }
 });
 
