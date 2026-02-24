@@ -121,22 +121,45 @@ const PORT = process.env.PORT || 3000;
 
 // MongoDB connection - lazy loaded for serverless
 let db;
+let mongoConnectionPromise = null;
+let mongoConnectionFailed = false;
+let mongoNextRetry = 0;
+const MONGO_RETRY_DELAY = 60000; // 1 minute
+
 async function getMongoDB() {
   if (db) return db;
   if (!process.env.MONGODB_URI) return null;
 
-  try {
-    const client = await MongoClient.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 5000
-    });
-    console.log('Connected to MongoDB');
-    db = client.db('blog');
-    return db;
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
+  // Circuit breaker: don't retry immediately if connection failed recently
+  if (mongoConnectionFailed && Date.now() < mongoNextRetry) {
     return null;
   }
+
+  // Deduplicate connection attempts
+  if (mongoConnectionPromise) return mongoConnectionPromise;
+
+  mongoConnectionPromise = (async () => {
+    try {
+      const client = await MongoClient.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 2000, // Reduced timeout for faster fallback
+        connectTimeoutMS: 2000,
+        socketTimeoutMS: 5000
+      });
+      console.log('Connected to MongoDB');
+      db = client.db('blog');
+      mongoConnectionFailed = false;
+      return db;
+    } catch (error) {
+      console.error('MongoDB connection error:', error.message);
+      mongoConnectionFailed = true;
+      mongoNextRetry = Date.now() + MONGO_RETRY_DELAY;
+      return null;
+    } finally {
+      mongoConnectionPromise = null;
+    }
+  })();
+
+  return mongoConnectionPromise;
 }
 
 // Simple in-memory cache for posts to avoid repeated database calls
