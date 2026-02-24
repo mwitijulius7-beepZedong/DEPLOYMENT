@@ -2353,6 +2353,17 @@ app.get('/api/analytics', requireAdmin, async (req, res) => {
   return res.json(analytics);
 });
 
+// Get all subscriptions (admin only)
+app.get('/api/subscriptions', requireAdmin, async (req, res) => {
+  try {
+    const subscriptions = await loadSubscriptions();
+    return res.json({ subscriptions, count: subscriptions.length });
+  } catch (e) {
+    console.error('Load subscriptions error:', e);
+    return res.status(500).json({ error: 'Failed to load subscriptions' });
+  }
+});
+
 // Newsletter subscription API
 app.post('/api/subscribe', async (req, res) => {
   try {
