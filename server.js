@@ -15,7 +15,21 @@ const jwt = require('jsonwebtoken');
 const { put } = require('@vercel/blob');
 const { MongoClient } = require('mongodb');
 const cloudinary = require('cloudinary').v2;
- const { kv } = require('@vercel/kv'); // For Vercel deployment data persistence
+
+// Conditionally import @vercel/kv - handle case when env vars are missing
+let kv = null;
+try {
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    const kvModule = require('@vercel/kv');
+    kv = kvModule.kv;
+    console.log('Vercel KV initialized successfully');
+  } else {
+    console.warn('Vercel KV: Missing KV_REST_API_URL or KV_REST_API_TOKEN - using fallback storage');
+  }
+} catch (err) {
+  console.warn('Vercel KV import failed:', err.message);
+}
+
  const errorHandler = require('./middleware/errorHandler');
 
 // Session store for Vercel KV with fallback
