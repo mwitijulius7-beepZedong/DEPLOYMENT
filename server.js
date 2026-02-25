@@ -590,6 +590,11 @@ async function saveCategories(categories) {
       await kv.set('categories', JSON.stringify(categories));
       return;
     }
+    // Skip file write on Vercel (read-only filesystem)
+    if (process.env.VERCEL) {
+      console.warn('Save categories skipped: No storage available on Vercel (read-only filesystem)');
+      return;
+    }
     console.log('Saving to file system:', categories.length);
     fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
   } catch (e) {
