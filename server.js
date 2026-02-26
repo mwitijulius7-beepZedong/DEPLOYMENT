@@ -15,7 +15,21 @@ const jwt = require('jsonwebtoken');
 const { put } = require('@vercel/blob');
 const { MongoClient } = require('mongodb');
 const cloudinary = require('cloudinary').v2;
- const { kv } = require('@vercel/kv'); // For Vercel deployment data persistence
+
+// Conditionally import @vercel/kv - handle case when env vars are missing
+let kv = null;
+try {
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    const kvModule = require('@vercel/kv');
+    kv = kvModule.kv;
+    console.log('Vercel KV initialized successfully');
+  } else {
+    console.warn('Vercel KV: Missing KV_REST_API_URL or KV_REST_API_TOKEN - using fallback storage');
+  }
+} catch (err) {
+  console.warn('Vercel KV import failed:', err.message);
+}
+
  const errorHandler = require('./middleware/errorHandler');
 
 // Session store for Vercel KV with fallback
@@ -121,22 +135,45 @@ const PORT = process.env.PORT || 3000;
 
 // MongoDB connection - lazy loaded for serverless
 let db;
+let mongoConnectionPromise = null;
+let mongoConnectionFailed = false;
+let mongoNextRetry = 0;
+const MONGO_RETRY_DELAY = 60000; // 1 minute
+
 async function getMongoDB() {
   if (db) return db;
   if (!process.env.MONGODB_URI) return null;
 
-  try {
-    const client = await MongoClient.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 5000
-    });
-    console.log('Connected to MongoDB');
-    db = client.db('blog');
-    return db;
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
+  // Circuit breaker: don't retry immediately if connection failed recently
+  if (mongoConnectionFailed && Date.now() < mongoNextRetry) {
     return null;
   }
+
+  // Deduplicate connection attempts
+  if (mongoConnectionPromise) return mongoConnectionPromise;
+
+  mongoConnectionPromise = (async () => {
+    try {
+      const client = await MongoClient.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 2000, // Reduced timeout for faster fallback
+        connectTimeoutMS: 2000,
+        socketTimeoutMS: 5000
+      });
+      console.log('Connected to MongoDB');
+      db = client.db('blog');
+      mongoConnectionFailed = false;
+      return db;
+    } catch (error) {
+      console.error('MongoDB connection error:', error.message);
+      mongoConnectionFailed = true;
+      mongoNextRetry = Date.now() + MONGO_RETRY_DELAY;
+      return null;
+    } finally {
+      mongoConnectionPromise = null;
+    }
+  })();
+
+  return mongoConnectionPromise;
 }
 
 // Simple in-memory cache for posts to avoid repeated database calls
@@ -551,6 +588,11 @@ async function saveCategories(categories) {
     if (process.env.VERCEL && kv) {
       console.log('Saving to Vercel KV:', categories.length);
       await kv.set('categories', JSON.stringify(categories));
+      return;
+    }
+    // Skip file write on Vercel (read-only filesystem)
+    if (process.env.VERCEL) {
+      console.warn('Save categories skipped: No storage available on Vercel (read-only filesystem)');
       return;
     }
     console.log('Saving to file system:', categories.length);
