@@ -15,6 +15,38 @@
       "userAgent": "Test User Agent",
       "ip": "::1",
       "timestamp": "2026-02-20T11:50:17.828Z"
+    },
+    {
+      "id": 1772127634831,
+      "page": "/test-page",
+      "referrer": "http://localhost:3000/",
+      "userAgent": "Test User Agent",
+      "ip": "::1",
+      "timestamp": "2026-02-26T17:40:34.831Z"
+    },
+    {
+      "id": 1772127694968,
+      "page": "/test",
+      "referrer": "http://localhost",
+      "userAgent": "Test Agent",
+      "ip": "::1",
+      "timestamp": "2026-02-26T17:41:34.968Z"
+    },
+    {
+      "id": 1772127765953,
+      "page": "/test",
+      "referrer": "http://localhost",
+      "userAgent": "Test Agent",
+      "ip": "::1",
+      "timestamp": "2026-02-26T17:42:45.953Z"
+    },
+    {
+      "id": 1772127858886,
+      "page": "/test",
+      "referrer": "http://localhost",
+      "userAgent": "Test Agent",
+      "ip": "::1",
+      "timestamp": "2026-02-26T17:44:18.886Z"
     }
   ],
   "postViews": [],
@@ -27,6 +59,42 @@
       "ip": "::1",
       "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
       "timestamp": "2026-02-20T11:50:17.840Z"
+    },
+    {
+      "id": 1772127634853,
+      "type": "click",
+      "target": "test-button",
+      "value": "test-value",
+      "ip": "::1",
+      "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+      "timestamp": "2026-02-26T17:40:34.853Z"
+    },
+    {
+      "id": 1772127694977,
+      "type": "click",
+      "target": "test-button",
+      "value": "",
+      "ip": "::1",
+      "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+      "timestamp": "2026-02-26T17:41:34.977Z"
+    },
+    {
+      "id": 1772127765979,
+      "type": "click",
+      "target": "test-button",
+      "value": "",
+      "ip": "::1",
+      "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+      "timestamp": "2026-02-26T17:42:45.979Z"
+    },
+    {
+      "id": 1772127858906,
+      "type": "click",
+      "target": "test-button",
+      "value": "",
+      "ip": "::1",
+      "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+      "timestamp": "2026-02-26T17:44:18.906Z"
     }
   ]
 }
