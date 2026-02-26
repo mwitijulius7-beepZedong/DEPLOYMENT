@@ -2467,12 +2467,6 @@
                     </a>
                 </div>
                 <div class="nav-item">
-                    <a id="nav-users" href="#users" class="nav-link">
-                        <i>👥</i>
-                        <span>Users</span>
-                    </a>
-                </div>
-                <div class="nav-item">
                     <a id="nav-settings" href="#settings" class="nav-link">
                         <i>⚙️</i>
                         <span>Settings</span>
@@ -3765,7 +3759,6 @@
     bind('#nav-create-post', showCreatePostSection);
     bind('#nav-posts', showPostsSection);
     bind('#nav-analytics', showAnalyticsSection);
-    bind('#nav-users', showUsersSection);
     bind('#nav-settings', showSettingsSection);
     const form = document.getElementById('create-user-form');
     if (form) form.addEventListener('submit', handleCreateUser);
