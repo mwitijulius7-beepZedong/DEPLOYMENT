@@ -209,7 +209,7 @@
                             </div>
                             <div style="display: flex; gap: 8px;">
                                 <button class="action-btn" style="padding: 6px 12px; font-size: 12px;" onclick="editCategory('${category.id}')">Edit</button>
-                                <button class="action-btn secondary" style="padding: 6px 12px; font-size: 12px;" onclick="deleteCategory('${category.id}')">Delete</button>
+                                <button class="action-btn secondary" style="padding: 6px 12px; font-size: 12px;" onclick="deleteCategory('${category.id}', this)">Delete</button>
                             </div>
                         </div>
                     `).join('');
@@ -255,10 +255,9 @@
             }
         }
 
-        async function deleteCategory(categoryId) {
+        async function deleteCategory(categoryId, deleteButton) {
             console.log('deleteCategory called with id:', categoryId);
             if (confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
-                const deleteButton = event?.target;
                 const originalText = deleteButton?.textContent;
 
                 if (deleteButton) {
@@ -817,6 +816,53 @@
             }
         }
 
+        async function viewCurrentKey() {
+            const password = prompt('Enter your password to view the current admin key:');
+            if (!password) return;
+
+            try {
+                const response = await fetch('/api/settings/security/key-view', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({ username: 'admin', password })
+                });
+
+                const data = await response.json();
+                if (response.ok && data.key) {
+                    alert('Current Admin Key: ' + data.key);
+                } else {
+                    alert('Error: ' + (data.error || 'Could not retrieve key'));
+                }
+            } catch (error) {
+                console.error('Error viewing key:', error);
+                alert('Error viewing key. Check console for details.');
+            }
+        }
+
+        async function clearKey() {
+            if (confirm('Are you sure you want to clear the admin key? This cannot be undone.')) {
+                try {
+                    const response = await fetch('/api/settings/security', {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        credentials: 'include',
+                        body: JSON.stringify({ adminEntryKey: '' })
+                    });
+
+                    const data = await response.json();
+                    if (response.ok) {
+                        alert('Admin key cleared successfully');
+                    } else {
+                        alert('Error: ' + (data.error || 'Could not clear key'));
+                    }
+                } catch (error) {
+                    console.error('Error clearing key:', error);
+                    alert('Error clearing key. Check console for details.');
+                }
+            }
+        }
+
         async function saveNotificationSettings() {
             const emailNotifications = document.getElementById('email-notifications').checked;
             const commentNotifications = document.getElementById('comment-notifications').checked;
@@ -866,13 +912,7 @@
         }
 
         // Wrapper functions for settings functions to handle async loading
-        function addCategoryWrapper() {
-            addCategory();
-        }
 
-        function saveAuthorInfoWrapper() {
-            saveAuthorInfo();
-        }
 
         async function saveThemeSettings() {
             const primaryColor = document.getElementById('primary-color').value;
@@ -1000,37 +1040,7 @@
             reader.readAsDataURL(file);
         }
 
-        function saveThemeSettingsWrapper() {
-            if (typeof window.saveThemeSettings === 'function') {
-                window.saveThemeSettings();
-            }
-        }
 
-        function saveBackgroundSettingsWrapper() {
-            if (typeof window.saveBackgroundSettings === 'function') {
-                window.saveBackgroundSettings();
-            }
-        }
-
-        function saveSecuritySettingsWrapper() {
-            saveSecuritySettings();
-        }
-
-        function saveNotificationSettingsWrapper() {
-            saveNotificationSettings();
-        }
-
-        function saveContentSettingsWrapper() {
-            saveContentSettings();
-        }
-
-        function loadCategoriesWrapper() {
-            loadCategories();
-        }
-
-        function deleteSelectedCategoriesWrapper() {
-            deleteSelectedCategories();
-        }
 
         // Export to global scope
         window.hideAllSections = hideAllSections;
@@ -1042,15 +1052,7 @@
         window.showUsersSection = showUsersSection;
         window.showSettingsSection = showSettingsSection;
         window.switchSettingsPanel = switchSettingsPanel;
-        window.addCategoryWrapper = addCategoryWrapper;
-        window.saveAuthorInfoWrapper = saveAuthorInfoWrapper;
-        window.saveThemeSettingsWrapper = saveThemeSettingsWrapper;
-        window.saveBackgroundSettingsWrapper = saveBackgroundSettingsWrapper;
-        window.saveSecuritySettingsWrapper = saveSecuritySettingsWrapper;
-        window.saveNotificationSettingsWrapper = saveNotificationSettingsWrapper;
-        window.saveContentSettingsWrapper = saveContentSettingsWrapper;
-        window.loadCategoriesWrapper = loadCategoriesWrapper;
-        window.deleteSelectedCategoriesWrapper = deleteSelectedCategoriesWrapper;
+
     </script>
     <!-- Settings.js not needed - all functions are in head script -->
     <style>
@@ -2912,7 +2914,7 @@
                         </div>
 
                         <div style="margin-top: 32px;">
-                            <button class="btn-modern" onclick="saveAuthorInfoWrapper()">
+                            <button class="btn-modern" onclick="saveAuthorInfo()">
                                 <i>💾</i>
                                 Save General Settings
                             </button>
@@ -3004,7 +3006,7 @@
                         </div>
 
                         <div style="margin-top: 32px; display: flex; gap: 12px;">
-                            <button class="btn-modern secondary" onclick="saveSecuritySettingsWrapper()">
+                            <button class="btn-modern secondary" onclick="saveSecuritySettings()">
                                 <i>🔒</i>
                                 Save Security
                             </button>
@@ -3042,7 +3044,7 @@
                         </div>
 
                         <div style="margin-top: 32px;">
-                            <button class="btn-modern" onclick="saveNotificationSettingsWrapper()">
+                            <button class="btn-modern" onclick="saveNotificationSettings()">
                                 <i>📧</i>
                                 Save Notifications
                             </button>
@@ -3075,7 +3077,7 @@
                         </div>
 
                         <div style="margin-top: 32px;">
-                            <button class="btn-modern secondary" onclick="saveContentSettingsWrapper()">
+                            <button class="btn-modern secondary" onclick="saveContentSettings()">
                                 <i>🗂️</i>
                                 Save Content Settings
                             </button>
@@ -3101,11 +3103,11 @@
                         </div>
 
                         <div style="margin-top: 24px; display: flex; gap: 12px;">
-                            <button id="btn-add-category" class="btn-modern secondary" type="button" onclick="addCategoryWrapper()">
+                            <button id="btn-add-category" class="btn-modern secondary" type="button" onclick="addCategory()">
                                 <i>➕</i>
                                 Add Category
                             </button>
-                            <button class="btn-modern sm" onclick="loadCategoriesWrapper()">
+                            <button class="btn-modern sm" onclick="loadCategories()">
                                 <i>🔄</i>
                                 Refresh
                             </button>
@@ -3117,7 +3119,7 @@
                                     <input type="checkbox" id="select-all-categories" onchange="toggleSelectAllCategories()">
                                     <span style="font-size: 14px;">Select All</span>
                                 </label>
-                                <button class="btn-modern sm" id="delete-selected-categories" style="display: none; background: #dc2626;" onclick="deleteSelectedCategoriesWrapper()">
+                                <button class="btn-modern sm" id="delete-selected-categories" style="display: none; background: #dc2626;" onclick="deleteSelectedCategories()">
                                     <i>🗑️</i>
                                     Delete Selected (<span id="selected-categories-count">0</span>)
                                 </button>
@@ -3171,8 +3173,8 @@
         window.deleteSelectedCategories = deleteSelectedCategories;
         window.saveAuthorInfo = saveAuthorInfo;
         window.saveSecuritySettings = saveSecuritySettings;
-        window.viewCurrentKey = () => console.log('viewCurrentKey not available');
-        window.clearKey = () => console.log('clearKey not available');
+        window.viewCurrentKey = viewCurrentKey;
+        window.clearKey = clearKey;
         window.saveNotificationSettings = saveNotificationSettings;
         window.setUserAdminKey = setUserAdminKey;
         window.verifyUserAdminKey = verifyUserAdminKey;
@@ -3186,18 +3188,11 @@
         window.saveNewPost = saveNewPost;
         window.previewPost = previewPost;
         window.clearPostForm = clearPostForm;
-        window.handlePostImageUpload = () => console.log('handlePostImageUpload not available');
         window.toggleSelectAllPosts = toggleSelectAllPosts;
         window.updateSelectedCount = updateSelectedCount;
         window.deleteSelectedPosts = deleteSelectedPosts;
         window.editPost = editPost;
         window.deletePost = deletePost;
-        window.refreshAnalytics = () => console.log('refreshAnalytics not available');
-        window.viewEngagementDetails = () => console.log('viewEngagementDetails not available');
-        window.exportAnalytics = () => console.log('exportAnalytics not available');
-        window.loadTimeAnalytics = () => console.log('loadTimeAnalytics not available');
-        
-        window.toggleSidebar = () => console.log('toggleSidebar not available');
 
         // Auto-login for localhost development
         async function autoLoginForLocalhost() {
@@ -3285,19 +3280,6 @@
             .catch(err => console.error('Error loading settings:', err));
 
         // Function aliases for posts
-        window.createNewPost = function() {
-            console.log('createNewPost called');
-            const createPostSection = document.getElementById('create-post-section');
-            const sections = ['dashboard', 'posts-section', 'settings-section', 'analytics-section', 'customize-section'];
-            sections.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = 'none';
-            });
-            if (createPostSection) {
-                createPostSection.style.display = 'block';
-                createPostSection.scrollIntoView({ behavior: 'smooth' });
-            }
-        };
 
         window.viewPostStats = function() {
             console.log('viewPostStats called');

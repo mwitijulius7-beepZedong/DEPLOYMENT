@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "id": 1772127766009,
+    "postId": 123,
+    "name": "Test User",
+    "email": "test@example.com",
+    "content": "This is a test comment",
+    "parentId": null,
+    "date": "2026-02-26T17:42:46.009Z",
+    "approved": false
+  }
+]
