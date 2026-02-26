@@ -57,9 +57,6 @@
 
         function showUsersSection() {
             showSection('users-section', 'Users', 'showUsersSection');
-            if (typeof loadUsers === 'function') {
-                loadUsers();
-            }
         }
 
         function showSettingsSection() {
@@ -3543,63 +3540,7 @@
         }
 
         // Users: load and create
-        async function loadUsers() {
-            const container = document.getElementById('users-list');
-            if (!container) return;
-            container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">Loading users...</div>';
-            try {
-                const resp = await fetch('/api/users', {
-                    credentials: 'include',
-                    headers: getAuthHeaders()
-                });
-                
-                console.log('Users API response status:', resp.status);
-                const data = await resp.json();
-                
-                if (!resp.ok) {
-                    console.error('Failed to load users:', data.error);
-                    container.innerHTML = '<div style="text-align:center; color:#c0392b;">Failed to load users: ' + (data.error || 'Unknown error') + '</div>';
-                    return;
-                }
-                
-                const users = data.users || [];
-                if (users.length === 0) {
-                    container.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-medium);">No users found.</div>';
-                    return;
-                }
-                container.innerHTML = users.map(u => {
-                    const statusColor = u.active ? '#27ae60' : '#c0392b';
-                    const statusText = u.active ? 'Active' : 'Inactive';
-                    const actionButtonText = u.active ? 'Deactivate' : 'Activate';
-                    const actionButtonColor = u.active ? '#e74c3c' : '#27ae60';
-                    
-                    // Only show action buttons for non-admin users (super admin cannot be deactivated)
-                    const actionButtons = u.username === 'admin' ? 
-                        '<span style="color:var(--text-light); font-size:0.9em;">(Super Admin)</span>' :
-                        `<button onclick="window.toggleUserStatus('${u.username}', ${!u.active})" style="margin-left:10px; padding:4px 8px; background:${actionButtonColor}; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.9em;">${actionButtonText}</button>`;
-                    
-                    // Admin key button
-                    const adminKeyButton = `<button onclick="window.setUserAdminKey('${u.username}')" style="margin-left:8px; padding:4px 8px; background:#3498db; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.9em;">🔑 Set Key</button>`;
-                    
-                    return `
-                        <div class="user-row" style="margin:10px 0; padding:10px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <strong>${u.username}</strong> - ${u.name} - ${u.email} - <span style="font-weight:500;">${u.role}</span>
-                                <div style="margin-top:4px; color:${statusColor}; font-weight:500;">● ${statusText}</div>
-                            </div>
-                            <div>
-                                ${adminKeyButton}
-                                ${actionButtons}
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            } catch (e) {
-                console.error('Error loading users:', e);
-                container.innerHTML = '<div style="text-align:center; color:#c0392b;">Failed to load users.</div>';
-            }
-        }
-        
+
         window.toggleUserStatus = async function(username, newStatus) {
             try {
                 console.log('Toggling user status:', username, 'to', newStatus);
@@ -3621,7 +3562,6 @@
                 
                 console.log('User status updated successfully:', data);
                 alert('User status updated successfully!');
-                loadUsers(); // Refresh the list
             } catch (e) {
                 console.error('Error updating user status:', e);
                 alert('Error updating user status');
