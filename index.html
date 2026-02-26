@@ -110,6 +110,13 @@
             background: rgba(255,255,255,0.3);
         }
 
+        /* Active Tab Highlighting */
+        .nav a.active-tab {
+            background: rgba(255,255,255,0.4);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            font-weight: 600;
+        }
+
         /* Search Bar */
         .search-container {
             position: relative;
@@ -557,6 +564,43 @@
         } else {
             initVue();
         }
+
+        // Active Tab Highlighting Function
+        function highlightActiveTab() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.nav a');
+            
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                
+                // Remove any existing active classes
+                link.classList.remove('active');
+                link.classList.remove('active-tab');
+                
+                // Check if this link matches the current page
+                if (href === '/') {
+                    // Home page - highlight Blog
+                    if (currentPath === '/' || currentPath === '/index.html' || currentPath.endsWith('/')) {
+                        link.classList.add('active');
+                        link.classList.add('active-tab');
+                    }
+                } else if (href && currentPath.includes(href.replace('/', '').replace('.html', ''))) {
+                    // Other pages - highlight matching link
+                    link.classList.add('active');
+                    link.classList.add('active-tab');
+                }
+            });
+        }
+
+        // Run on page load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', highlightActiveTab);
+        } else {
+            highlightActiveTab();
+        }
+
+        // Also run when Vue mounts (for SPA-like behavior)
+        window.addEventListener('load', highlightActiveTab);
     </script>
 </body>
 </html>
