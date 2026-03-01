@@ -322,11 +322,15 @@ async function loadUsers() {
     if (db) {
       try {
         const users = await db.collection('users').find({}).toArray();
-        if (users && Array.isArray(users)) {
+        if (users && Array.isArray(users) && users.length > 0) {
           const result = {};
           users.forEach(u => result[u.username] = u);
           console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
           return result;
+        }
+        // If connected but empty, we MUST fallback for users to prevent initial lockout
+        if (users && users.length === 0) {
+          console.log('MongoDB users collection is empty, falling back to other sources to prevent lockout...');
         }
       } catch (mongoErr) {
         console.warn('MongoDB query error:', mongoErr.message);
