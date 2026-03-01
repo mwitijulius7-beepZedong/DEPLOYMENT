@@ -322,11 +322,14 @@ async function loadUsers() {
     if (db) {
       try {
         const users = await db.collection('users').find({}).toArray();
-        if (users && Array.isArray(users)) {
+        if (users && Array.isArray(users) && users.length > 0) {
           const result = {};
           users.forEach(u => result[u.username] = u);
           console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
           return result;
+        }
+        if (users && users.length === 0) {
+          console.log('MongoDB users collection is empty, falling back to other sources...');
         }
       } catch (mongoErr) {
         console.warn('MongoDB query error:', mongoErr.message);
@@ -406,9 +409,12 @@ async function loadPosts() {
     if (db) {
       try {
         const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
-        if (posts && Array.isArray(posts)) {
+        if (posts && Array.isArray(posts) && posts.length > 0) {
           console.log('Loaded posts from MongoDB:', posts.length, 'posts');
           return posts.map(p => ({ ...p, id: (p._id || p.id).toString() }));
+        }
+        if (posts && posts.length === 0) {
+          console.log('MongoDB posts collection is empty, falling back to other sources...');
         }
       } catch (mongoErr) {
         console.warn('MongoDB posts query error:', mongoErr.message);
@@ -509,9 +515,12 @@ async function loadCategories() {
     if (db) {
       try {
         const categories = await db.collection('categories').find({}).toArray();
-        if (categories && Array.isArray(categories)) {
+        if (categories && Array.isArray(categories) && categories.length > 0) {
           console.log('Loaded categories from MongoDB:', categories.length);
           return categories.map(c => ({ ...c, id: (c._id || c.id).toString() }));
+        }
+        if (categories && categories.length === 0) {
+          console.log('MongoDB categories collection is empty, falling back to other sources...');
         }
       } catch (mongoErr) {
         console.warn('MongoDB categories query error:', mongoErr.message);
@@ -1021,19 +1030,46 @@ const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
     }
   );
 
-// Temporary migration endpoint - REMOVE AFTER USE
-app.post('/migrate-users', async (req, res) => {
+// Integrated data migration endpoint — Migrates all data from KV/File to MongoDB
+app.post('/api/admin/migrate-to-mongodb', async (req, res) => {
   try {
-    // Only allow in development or with admin auth
-    if (process.env.NODE_ENV === 'production' && !req.session?.user?.role === 'ADMIN') {
-      return res.status(403).json({ error: 'not authorized' });
+    // Check for admin role
+    if (process.env.NODE_ENV === 'production' && req.session?.user?.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'not_authorized' });
     }
 
-    const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-    await saveUsers(users);
-    return res.json({ success: true, migrated: Object.keys(users) });
+    const report = {
+      users: 0,
+      posts: 0,
+      categories: 0
+    };
+
+    // 1. Migrate Users
+    const users = await loadUsers();
+    if (Object.keys(users).length > 0) {
+      await saveUsers(users);
+      report.users = Object.keys(users).length;
+    }
+
+    // 2. Migrate Posts
+    const posts = await loadPosts();
+    if (posts.length > 0) {
+      await savePosts(posts);
+      report.posts = posts.length;
+    }
+
+    // 3. Migrate Categories
+    const categories = await loadCategories();
+    if (categories.length > 0) {
+      await saveCategories(categories);
+      report.categories = categories.length;
+    }
+
+    console.log('Migration completed:', report);
+    return res.json({ success: true, report });
   } catch (e) {
-    return res.status(500).json({ error: 'migration failed', details: e.message });
+    console.error('Migration error:', e);
+    return res.status(500).json({ error: 'migration_failed', details: e.message });
   }
 });
 
