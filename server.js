@@ -14,7 +14,7 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { put } = require('@vercel/blob');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const cloudinary = require('cloudinary').v2;
 
 // Conditionally import @vercel/kv - handle case when env vars are missing
@@ -178,16 +178,6 @@ async function getMongoDB() {
   return mongoConnectionPromise;
 }
 
-// Simple in-memory cache for posts to avoid repeated database calls
-let postsCache = null;
-let postsCacheTime = 0;
-const POSTS_CACHE_TTL = 10000; // 10 seconds cache for posts
-
-// Simple in-memory cache for users to avoid repeated database calls
-let usersCache = null;
-let usersCacheTime = 0;
-const USERS_CACHE_TTL = 30000; // 30 seconds cache
-
 // Cloudinary configuration
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
   cloudinary.config({
@@ -327,83 +317,46 @@ app.use(fileUpload({
 
 async function loadUsers() {
   try {
-    // Check cache first
-    const now = Date.now();
-    if (usersCache && (now - usersCacheTime) < USERS_CACHE_TTL) {
-      console.log('Loaded users from cache:', Object.keys(usersCache).length, 'users');
-      return usersCache;
-    }
-
-    // Load from all sources in parallel for better performance
-    const loadPromises = [];
-
-    // MongoDB loader
-    loadPromises.push(
-      (async () => {
-        try {
-          const db = await getMongoDB();
-          if (db) {
-            const users = await db.collection('users').find({}).toArray();
-            if (users && users.length > 0) {
-              const result = {};
-              users.forEach(u => result[u.username] = u);
-              console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
-              return { source: 'mongodb', data: result };
-            }
-          }
-        } catch (mongoErr) {
-          console.warn('MongoDB query error:', mongoErr.message);
+    // Try MongoDB first if available
+    const db = await getMongoDB();
+    if (db) {
+      try {
+        const users = await db.collection('users').find({}).toArray();
+        if (users && Array.isArray(users)) {
+          const result = {};
+          users.forEach(u => result[u.username] = u);
+          console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
+          return result;
         }
-        return null;
-      })()
-    );
-
-    // Vercel KV loader
-    loadPromises.push(
-      (async () => {
-        try {
-          if (process.env.VERCEL && kv) {
-            const data = await kv.get('users');
-            if (data) {
-              const parsed = JSON.parse(data);
-              console.log('Loaded users from Vercel KV:', Object.keys(parsed).length, 'users');
-              return { source: 'kv', data: parsed };
-            }
-          }
-        } catch (kvErr) {
-          console.warn('Vercel KV error:', kvErr.message);
-        }
-        return null;
-      })()
-    );
-
-    // Local file loader
-    loadPromises.push(
-      (async () => {
-        try {
-          const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-          console.log('Loaded users from local file:', Object.keys(data).length, 'users');
-          return { source: 'file', data };
-        } catch (fileErr) {
-          console.warn('Local users file error:', fileErr.message);
-          return null;
-        }
-      })()
-    );
-
-    // Wait for the first successful load
-    const results = await Promise.allSettled(loadPromises);
-    for (const result of results) {
-      if (result.status === 'fulfilled' && result.value) {
-        usersCache = result.value.data;
-        usersCacheTime = now;
-        return result.value.data;
+      } catch (mongoErr) {
+        console.warn('MongoDB query error:', mongoErr.message);
       }
     }
 
-    // If no source worked, return empty object
-    console.log('No users data found in any source');
-    return {};
+    // Vercel KV loader
+    if (process.env.VERCEL && kv) {
+      try {
+        const data = await kv.get('users');
+        if (data) {
+          const parsed = JSON.parse(data);
+          console.log('Loaded users from Vercel KV:', Object.keys(parsed).length, 'users');
+          return parsed;
+        }
+      } catch (kvErr) {
+        console.warn('Vercel KV error:', kvErr.message);
+      }
+    }
+
+    // Local file loader
+    try {
+      const dataStr = fs.readFileSync(USERS_FILE, 'utf8');
+      const data = JSON.parse(dataStr);
+      console.log('Loaded users from local file:', Object.keys(data).length, 'users');
+      return data;
+    } catch (fileErr) {
+      console.warn('Local users file error:', fileErr.message);
+      return {};
+    }
   } catch (e) {
     console.error('Fatal error in loadUsers:', e);
     return {};
@@ -443,32 +396,19 @@ async function saveUsers(users) {
   } catch (e) {
     console.error('Save users error:', e);
     throw e;
-  } finally {
-    // Clear cache after save to ensure fresh data on next load
-    usersCache = null;
-    usersCacheTime = 0;
   }
 }
 
 async function loadPosts() {
   try {
-    // Check cache first
-    const now = Date.now();
-    if (postsCache && (now - postsCacheTime) < POSTS_CACHE_TTL) {
-      console.log('Loaded posts from cache:', postsCache.length, 'posts');
-      return postsCache;
-    }
-
     // Try MongoDB first if available
     const db = await getMongoDB();
     if (db) {
       try {
         const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
-        if (posts && posts.length > 0) {
+        if (posts && Array.isArray(posts)) {
           console.log('Loaded posts from MongoDB:', posts.length, 'posts');
-          postsCache = posts.map(p => ({ ...p, id: p._id || p.id }));
-          postsCacheTime = now;
-          return postsCache;
+          return posts.map(p => ({ ...p, id: (p._id || p.id).toString() }));
         }
       } catch (mongoErr) {
         console.warn('MongoDB posts query error:', mongoErr.message);
@@ -482,9 +422,7 @@ async function loadPosts() {
         if (data) {
           const parsed = JSON.parse(data);
           console.log('Loaded posts from Vercel KV:', parsed.length, 'posts');
-          postsCache = parsed;
-          postsCacheTime = now;
-          return postsCache;
+          return parsed;
         }
       } catch (kvErr) {
         console.warn('Vercel KV posts error:', kvErr.message);
@@ -495,8 +433,6 @@ async function loadPosts() {
     try {
       const data = JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
       console.log('Loaded posts from local file:', data.length, 'posts');
-      postsCache = data;
-      postsCacheTime = now;
       return data;
     } catch (fileErr) {
       console.warn('Local posts file error:', fileErr.message);
@@ -517,21 +453,33 @@ async function savePosts(posts) {
         // Nothing left — clear the collection
         await col.deleteMany({});
       } else {
-        // Use _id (which is where we store p.id) as the primary filter for upserts
-        const ids = posts.map(p => p.id);
+        // Prepare IDs and operations
+        const ids = [];
         const ops = posts.map(p => {
-          // Prepare document: remove our 'id' field if we're setting it as _id
           const { id, ...doc } = p;
+
+          // Try to handle both string and ObjectId IDs for compatibility
+          let filterSelector;
+          if (typeof id === 'string' && id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id)) {
+            const oid = new ObjectId(id);
+            ids.push(oid, id); // Add both to the keep-list
+            filterSelector = { _id: { $in: [oid, id] } };
+          } else {
+            ids.push(id);
+            filterSelector = { _id: id };
+          }
+
           return {
             replaceOne: {
-              filter: { _id: id },
+              filter: filterSelector,
               replacement: { ...doc, _id: id },
               upsert: true
             }
           };
         });
+
         await col.bulkWrite(ops, { ordered: false });
-        // Remove stale documents using _id
+        // Remove stale documents using the collected list of (ObjectId | string) IDs
         await col.deleteMany({ _id: { $nin: ids } });
       }
       return;
@@ -551,10 +499,6 @@ async function savePosts(posts) {
   } catch (e) {
     console.error('Save posts error:', e);
     throw e; // propagate so callers know it failed
-  } finally {
-    // Clear cache after save to ensure fresh data on next load
-    postsCache = null;
-    postsCacheTime = 0;
   }
 }
 
@@ -565,9 +509,9 @@ async function loadCategories() {
     if (db) {
       try {
         const categories = await db.collection('categories').find({}).toArray();
-        if (categories && Array.isArray(categories) && categories.length > 0) {
+        if (categories && Array.isArray(categories)) {
           console.log('Loaded categories from MongoDB:', categories.length);
-          return categories.map(c => ({ ...c, id: String(c._id || c.id) }));
+          return categories.map(c => ({ ...c, id: (c._id || c.id).toString() }));
         }
       } catch (mongoErr) {
         console.warn('MongoDB categories query error:', mongoErr.message);
@@ -594,13 +538,8 @@ async function loadCategories() {
     try {
       const data = fs.readFileSync(CATEGORIES_FILE, 'utf8');
       const cats = JSON.parse(data) || [];
-      if (Array.isArray(cats) && cats.length > 0) {
-        console.log('Loaded categories from local file:', cats.length);
-        return cats.map(c => ({ ...c, id: String(c.id) }));
-      } else {
-        console.log('No categories in local file');
-        return [];
-      }
+      console.log('Loaded categories from local file:', cats.length);
+      return cats.map(c => ({ ...c, id: String(c.id) }));
     } catch (fileErr) {
       console.warn('Local categories file error:', fileErr.message);
       return [];
@@ -624,12 +563,23 @@ async function saveCategories(categories) {
       if (categories.length === 0) {
         await col.deleteMany({});
       } else {
-        const ids = categories.map(c => c.id);
+        const ids = [];
         const ops = categories.map(c => {
           const { id, ...doc } = c;
+
+          let filterSelector;
+          if (typeof id === 'string' && id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id)) {
+            const oid = new ObjectId(id);
+            ids.push(oid, id);
+            filterSelector = { _id: { $in: [oid, id] } };
+          } else {
+            ids.push(id);
+            filterSelector = { _id: id };
+          }
+
           return {
             replaceOne: {
-              filter: { _id: id },
+              filter: filterSelector,
               replacement: { ...doc, _id: id },
               upsert: true
             }
