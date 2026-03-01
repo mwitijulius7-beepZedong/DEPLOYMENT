@@ -281,8 +281,9 @@
                         alert('Category deleted successfully!');
                         await loadCategories();
                     } else {
-                        const errorMessage = data.error || data.message || 'Failed to delete category.';
-                        alert(`Error: ${errorMessage}`);
+                        const errorMessage = data.details || data.error || data.message || 'Failed to delete category.';
+                        console.error('Delete category error:', errorMessage);
+                        alert(`Error (${response.status}): ${errorMessage}`);
                     }
                 } catch (error) {
                     console.error('Error deleting category:', error);
@@ -515,11 +516,18 @@
                         alert('Post deleted successfully!');
                         await loadPostsList();
                     } else {
-                        alert('Failed to delete post.');
+                        let errMsg = `Failed to delete post (HTTP ${response.status})`;
+                        try {
+                            const errData = await response.json();
+                            if (errData.details) errMsg += `: ${errData.details}`;
+                            else if (errData.error) errMsg += `: ${errData.error}`;
+                        } catch (_) { }
+                        console.error('Delete post failed:', errMsg);
+                        alert(errMsg);
                     }
                 } catch (error) {
                     console.error('Error deleting post:', error);
-                    alert('Error deleting post.');
+                    alert('Network error deleting post: ' + error.message);
                 }
             }
         }
