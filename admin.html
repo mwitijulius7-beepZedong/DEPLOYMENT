@@ -1,10 +1,13 @@
-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script>
         // Define navigation functions IMMEDIATELY in <head> so inline onclick handlers can find them
@@ -16,7 +19,7 @@
             });
             document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => link.classList.remove('active'));
         }
-        
+
         function showSection(sectionId, title, linkOnClick) {
             hideAllSections();
             const section = document.getElementById(sectionId);
@@ -29,11 +32,11 @@
             const titleEl = document.getElementById('page-title');
             if (titleEl) titleEl.textContent = title;
         }
-        
+
         function showDashboard() {
             showSection('dashboard', 'Dashboard', 'showDashboard');
         }
-        
+
         function showCreatePostSection() {
             showSection('create-post-section', 'Create New Post', 'showCreatePostSection');
             // Populate category dropdown when navigating to create post
@@ -55,9 +58,7 @@
             showSection('analytics-section', 'Analytics', 'showAnalyticsSection');
         }
 
-        function showUsersSection() {
-            showSection('users-section', 'Users', 'showUsersSection');
-        }
+        // Users section removed - functionality moved to settings
 
         function showSettingsSection() {
             showSection('settings-section', 'Settings', 'showSettingsSection');
@@ -65,7 +66,7 @@
 
         function switchSettingsPanel(panelName) {
             console.log('switchSettingsPanel called with:', panelName);
-            
+
             const settingsSection = document.getElementById('settings-section');
             if (!settingsSection) {
                 console.error('Settings section not found');
@@ -106,7 +107,7 @@
         // Helper function to get auth headers
         function getAuthHeaders() {
             const token = localStorage.getItem('authToken');
-            const headers = { 
+            const headers = {
                 'Content-Type': 'application/json'
             };
             if (token) {
@@ -138,7 +139,7 @@
             try {
                 const headers = getAuthHeaders();
                 console.log('Request headers:', headers);
-                
+
                 const response = await fetch('/api/categories', {
                     method: 'POST',
                     headers: headers,
@@ -182,11 +183,11 @@
                     headers: headers,
                     credentials: 'include'
                 });
-                
+
                 console.log('loadCategories response status:', response.status);
                 const data = await response.json();
                 console.log('Categories data:', data);
-                
+
                 const categoriesList = document.getElementById('categories-list');
                 if (!categoriesList) {
                     console.error('categories-list element not found!');
@@ -231,13 +232,13 @@
                     credentials: 'include'
                 });
                 const data = await response.json();
-                
+
                 const selectElement = document.getElementById('post-category');
                 if (!selectElement) return;
-                
+
                 if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
                     selectElement.innerHTML = '<option value="">Select a category</option>' +
-                        data.categories.map(cat => 
+                        data.categories.map(cat =>
                             `<option value="${cat.id}">${cat.name}</option>`
                         ).join('');
                 } else {
@@ -265,7 +266,7 @@
                 try {
                     const headers = getAuthHeaders();
                     console.log('Delete request headers:', headers);
-                    
+
                     const response = await fetch(`/api/categories/${categoryId}`, {
                         method: 'DELETE',
                         headers: headers,
@@ -309,18 +310,18 @@
             console.log('toggleSelectAllCategories called');
             const selectAllCheckbox = document.getElementById('select-all-categories');
             const categoryCheckboxes = document.querySelectorAll('.category-checkbox');
-            
+
             if (selectAllCheckbox) {
                 const isChecked = selectAllCheckbox.checked;
                 console.log('Select all checked:', isChecked);
-                
+
                 categoryCheckboxes.forEach(checkbox => {
                     checkbox.checked = isChecked;
                 });
-                
+
                 console.log('Updated', categoryCheckboxes.length, 'checkboxes to', isChecked);
             }
-            
+
             updateSelectedCategoriesCount();
         }
 
@@ -347,7 +348,7 @@
                 try {
                     const headers = getAuthHeaders();
                     console.log(`Deleting category ${categoryId}...`);
-                    
+
                     const response = await fetch(`/api/categories/${categoryId}`, {
                         method: 'DELETE',
                         headers: headers,
@@ -430,7 +431,7 @@
                     postsList.innerHTML = '<p>No posts found.</p>';
                     if (totalPosts) totalPosts.textContent = '0';
                 }
-                
+
                 const selectAll = document.getElementById('select-all-posts');
                 if (selectAll) selectAll.checked = false;
                 updateSelectedCount();
@@ -441,9 +442,60 @@
             }
         }
 
-        function editPost(postId) {
+        async function editPost(postId) {
             console.log('editPost called with ID:', postId);
-            alert(`Edit post functionality - This would open a form to edit post with ID: ${postId}`);
+            try {
+                // Fetch the post data
+                const response = await fetch(`/api/posts/${postId}`);
+                const data = await response.json();
+
+                if (!response.ok || !data.post) {
+                    alert('Failed to load post data for editing.');
+                    return;
+                }
+
+                const post = data.post;
+
+                // Populate the form fields
+                document.getElementById('edit-post-id').value = post.id;
+                document.getElementById('post-title').value = post.title;
+                document.getElementById('post-content').value = post.content;
+                document.getElementById('post-status').value = post.isDraft ? 'draft' : 'published';
+
+                if (post.categoryId) {
+                    document.getElementById('post-category').value = post.categoryId;
+                }
+
+                if (post.tags && Array.isArray(post.tags)) {
+                    document.getElementById('post-tags').value = post.tags.join(', ');
+                }
+
+                // Handle image preview
+                const previewContainer = document.getElementById('image-preview');
+                const previewImg = document.getElementById('preview-img');
+                if (post.image) {
+                    previewImg.src = post.image;
+                    previewContainer.style.display = 'block';
+                } else {
+                    previewContainer.style.display = 'none';
+                    previewImg.src = '';
+                }
+
+                // Change section title and button text
+                document.querySelector('#create-post-section .section-title').innerHTML = '✏️ Edit Post';
+                document.querySelector('#create-post-section .section-description').textContent = 'Update your blog post content and settings.';
+                const saveBtn = document.querySelector('#create-post-section .form-actions .btn-modern');
+                saveBtn.innerHTML = '<i>📝</i> Update Post';
+
+                // Switch to the create/edit post section
+                showCreatePostSection();
+
+                // Scroll to top of form
+                window.scrollTo(0, 0);
+            } catch (error) {
+                console.error('Error loading post for edit:', error);
+                alert('An error occurred while loading the post.');
+            }
         }
 
         async function deletePost(postId) {
@@ -476,18 +528,18 @@
             console.log('toggleSelectAllPosts called');
             const selectAllCheckbox = document.getElementById('select-all-posts');
             const postCheckboxes = document.querySelectorAll('.post-checkbox');
-            
+
             if (selectAllCheckbox) {
                 const isChecked = selectAllCheckbox.checked;
                 console.log('Select all posts checked:', isChecked);
-                
+
                 postCheckboxes.forEach(checkbox => {
                     checkbox.checked = isChecked;
                 });
-                
+
                 console.log('Updated', postCheckboxes.length, 'post checkboxes to', isChecked);
             }
-            
+
             updateSelectedCount();
         }
 
@@ -524,7 +576,7 @@
                 try {
                     const headers = getAuthHeaders();
                     console.log(`Deleting post ${postId}...`);
-                    
+
                     const response = await fetch(`/api/posts/${postId}`, {
                         method: 'DELETE',
                         headers: headers,
@@ -555,6 +607,7 @@
         }
 
         async function saveNewPost() {
+            const postId = document.getElementById('edit-post-id').value;
             const title = document.getElementById('post-title').value.trim();
             const content = document.getElementById('post-content').value.trim();
             const category = document.getElementById('post-category').value;
@@ -562,7 +615,7 @@
             const status = document.getElementById('post-status').value;
             const imageFile = document.getElementById('post-image-file').files[0];
 
-            console.log('saveNewPost called with:', { title, content, category, tags, status });
+            console.log('saveNewPost called with:', { postId, title, content, category, tags, status });
 
             if (!title || !content) {
                 alert('Please enter both a title and content for the post.');
@@ -570,7 +623,13 @@
             }
 
             try {
-                let imageUrl = '';
+                let imageUrl = document.getElementById('preview-img').src || '';
+
+                // If the preview image is a data URL (from a new file upload locally) we don't send it unless uploaded
+                // Wait, if imageFile exists, we'll upload it and get the real URL.
+                if (imageUrl.startsWith('data:image')) {
+                    imageUrl = '';
+                }
 
                 // Upload image if provided
                 if (imageFile) {
@@ -594,41 +653,45 @@
                     const uploadData = await uploadResponse.json();
                     if (uploadResponse.ok && uploadData.url) {
                         imageUrl = uploadData.url;
+                    } else {
+                        throw new Error(uploadData.error || 'Failed to upload image');
                     }
                 }
 
-                // Create post
-                const response = await fetch('/api/posts', {
-                    method: 'POST',
+                const postData = {
+                    title,
+                    content,
+                    tags: tags.split(',').map(t => t.trim()).filter(t => t),
+                    image: imageUrl,
+                    isDraft: status === 'draft',
+                    categoryId: category || null
+                };
+
+                // Create or Update post
+                const url = postId ? `/api/posts/${postId}` : '/api/posts';
+                const method = postId ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method: method,
                     headers: getAuthHeaders(),
                     credentials: 'include',
-                    body: JSON.stringify({
-                        title,
-                        content,
-                        tags: tags.split(',').map(t => t.trim()).filter(t => t),
-                        image: imageUrl,
-                        isDraft: status === 'draft',
-                        categoryId: category || null
-                    })
+                    body: JSON.stringify(postData)
                 });
 
                 const data = await response.json();
 
                 if (response.ok) {
-                    alert('Post saved successfully!');
-                    // Clear form
-                    document.getElementById('post-title').value = '';
-                    document.getElementById('post-content').value = '';
-                    document.getElementById('post-tags').value = '';
-                    document.getElementById('post-category').value = '';
-                    document.getElementById('post-status').value = 'draft';
-                    document.getElementById('post-image-file').value = '';
-                    document.getElementById('image-preview').style.display = 'none';
-                    
+                    alert(postId ? 'Post updated successfully!' : 'Post saved successfully!');
+                    // Clear form mapping back to create state
+                    resetPostForm();
+
                     // Reload posts list if available
                     if (typeof loadPostsList === 'function') {
                         await loadPostsList();
                     }
+
+                    // Route back to posts list
+                    showPostsSection();
                 } else {
                     alert('Failed to save post: ' + (data.error || 'Unknown error'));
                 }
@@ -677,22 +740,42 @@
             previewWindow.document.close();
         }
 
-        function clearPostForm() {
-            if (!confirm('Clear all post form fields?')) return;
-
+        function resetPostForm() {
+            // Silently resets form after a successful save/cancel — no confirm dialog
+            document.getElementById('edit-post-id').value = '';
             document.getElementById('post-title').value = '';
             document.getElementById('post-content').value = '';
             document.getElementById('post-tags').value = '';
             document.getElementById('post-category').value = '';
             document.getElementById('post-status').value = 'draft';
-            document.getElementById('post-image-file').value = '';
-            document.getElementById('image-preview').style.display = 'none';
-            document.getElementById('preview-img').src = '';
+
+            const fileInput = document.getElementById('post-image-file');
+            if (fileInput) fileInput.value = '';
+
+            const previewContainer = document.getElementById('image-preview');
+            const previewImg = document.getElementById('preview-img');
+            if (previewContainer) previewContainer.style.display = 'none';
+            if (previewImg) previewImg.src = '';
+
+            // Reset wording back to Create
+            const sectionTitle = document.querySelector('#create-post-section .section-title');
+            if (sectionTitle) sectionTitle.innerHTML = '✏️ Create New Post';
+
+            const sectionDesc = document.querySelector('#create-post-section .section-description');
+            if (sectionDesc) sectionDesc.textContent = 'Write and publish a new blog post with images and rich content.';
+
+            const saveBtn = document.querySelector('#create-post-section .form-actions .btn-modern');
+            if (saveBtn) saveBtn.innerHTML = '<i>📝</i> Save Post';
+        }
+
+        function clearPostForm() {
+            if (!confirm('Clear all post form fields?')) return;
+            resetPostForm();
         }
 
         async function saveAuthorInfo() {
             console.log('saveAuthorInfo called');
-            
+
             const blogTitle = document.getElementById('blog-title').value;
             const blogDescription = document.getElementById('blog-description').value;
             const authorName = document.getElementById('author-name').value;
@@ -754,12 +837,12 @@
                 // Check both responses
                 if (blogResponse.ok && authorResponse.ok) {
                     alert('General settings saved successfully!');
-                    
+
                     // Update sidebar title immediately
-                    const sidebarTitle = document.querySelector('.sidebar-logo h2');
+                    const sidebarTitle = document.querySelector('.sidebar-logo .sidebar-logo-title');
                     if (sidebarTitle) sidebarTitle.textContent = blogTitle;
                     document.title = `Admin Panel - ${blogTitle}`;
-                    
+
                     console.log('Settings saved successfully');
                 } else {
                     // Show specific error messages
@@ -795,7 +878,7 @@
 
                 if (response.ok) {
                     console.log('Security settings response:', data);
-                    
+
                     if (data.message) {
                         // New per-user admin key system
                         alert(data.message + '\n\n' + data.info);
@@ -1079,13 +1162,16 @@
             width: 8px;
             height: 8px;
         }
+
         ::-webkit-scrollbar-track {
             background: transparent;
         }
+
         ::-webkit-scrollbar-thumb {
             background: #cbd5e1;
             border-radius: 4px;
         }
+
         ::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
         }
@@ -1097,7 +1183,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-dark);
             line-height: 1.6;
@@ -1155,13 +1241,13 @@
             border-radius: 6px;
         }
 
-        .sidebar-logo h2 {
+        .sidebar-logo .sidebar-logo-title {
             font-size: 18px;
             font-weight: 600;
             margin: 0;
         }
 
-        .sidebar.collapsed .sidebar-logo h2 {
+        .sidebar.collapsed .sidebar-logo .sidebar-logo-title {
             display: none;
         }
 
@@ -1218,7 +1304,11 @@
         }
 
         /* Focus States for Accessibility */
-        a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+        a:focus-visible,
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
             outline: 2px solid var(--primary-color);
             outline-offset: 2px;
         }
@@ -1230,7 +1320,7 @@
             transition: margin-left var(--transition);
         }
 
-        .sidebar.collapsed + .main-content {
+        .sidebar.collapsed+.main-content {
             margin-left: var(--sidebar-collapsed);
         }
 
@@ -2025,11 +2115,13 @@
                 overflow: hidden;
                 border-right: none;
             }
+
             .sidebar.collapsed {
                 width: 280px;
-                box-shadow: 0 0 20px rgba(0,0,0,0.15);
+                box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
                 border-right: 1px solid var(--border-color);
             }
+
             .main-content {
                 margin-left: 0 !important;
             }
@@ -2083,12 +2175,12 @@
                 height: 250px;
             }
 
-            .action-card .customize-options + div {
+            .action-card .customize-options+div {
                 flex-direction: column;
                 gap: 12px;
             }
 
-            .action-card .customize-options + div button {
+            .action-card .customize-options+div button {
                 width: 100%;
             }
 
@@ -2097,15 +2189,19 @@
                 width: 100%;
                 justify-content: center;
                 padding: 12px 16px;
-                font-size: 16px; /* Prevent zoom on iOS */
-                min-height: 48px; /* Touch target size */
+                font-size: 16px;
+                /* Prevent zoom on iOS */
+                min-height: 48px;
+                /* Touch target size */
             }
 
             .btn-modern {
                 width: 100%;
                 padding: 14px 20px;
-                font-size: 16px; /* Prevent zoom on iOS */
-                min-height: 48px; /* Touch target size */
+                font-size: 16px;
+                /* Prevent zoom on iOS */
+                min-height: 48px;
+                /* Touch target size */
                 justify-content: center;
             }
 
@@ -2257,7 +2353,7 @@
             }
 
             /* Specific fixes for button groups */
-            .customize-options + div button {
+            .customize-options+div button {
                 width: 100% !important;
                 display: block !important;
             }
@@ -2378,8 +2474,27 @@
             animation: slideUp 0.3s ease;
         }
 
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
 
         .admin-key-input {
             text-align: center;
@@ -2413,17 +2528,35 @@
             align-items: center;
             gap: 10px;
             text-align: left;
-            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
         }
 
         @keyframes shake {
-            10%, 90% { transform: translate3d(-1px, 0, 0); }
-            20%, 80% { transform: translate3d(2px, 0, 0); }
-            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-            40%, 60% { transform: translate3d(4px, 0, 0); }
+
+            10%,
+            90% {
+                transform: translate3d(-1px, 0, 0);
+            }
+
+            20%,
+            80% {
+                transform: translate3d(2px, 0, 0);
+            }
+
+            30%,
+            50%,
+            70% {
+                transform: translate3d(-4px, 0, 0);
+            }
+
+            40%,
+            60% {
+                transform: translate3d(4px, 0, 0);
+            }
         }
     </style>
 </head>
+
 <body>
     <div class="admin-layout">
         <!-- Sidebar -->
@@ -2431,7 +2564,7 @@
             <div class="sidebar-header">
                 <a href="/" class="sidebar-logo">
                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile picture">
-                    <h2>zedong254ke</h2>
+                    <span class="sidebar-logo-title">zedong254ke</span>
                 </a>
             </div>
 
@@ -2440,12 +2573,6 @@
                     <a id="nav-dashboard" href="#dashboard" class="nav-link active">
                         <i>📊</i>
                         <span>Dashboard</span>
-                    </a>
-                </div>
-                <div class="nav-item">
-                    <a href="#users" class="nav-link" onclick="showUsersSection()">
-                        <i>👥</i>
-                        <span>Users</span>
                     </a>
                 </div>
                 <div class="nav-item">
@@ -2480,8 +2607,9 @@
             <!-- Top Bar -->
             <header class="top-bar">
                 <div class="top-bar-left">
-                    <button class="sidebar-toggle" onclick="toggleSidebar()">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <path d="M3 12h18M3 6h18M3 18h18"></path>
                         </svg>
                     </button>
@@ -2490,7 +2618,8 @@
 
                 <div class="top-bar-actions">
                     <div class="user-menu">
-                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="User" class="user-avatar">
+                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="User"
+                            class="user-avatar">
                         <div class="user-info">
                             <span class="user-name">zedong254ke</span>
                             <span class="user-role">Administrator</span>
@@ -2503,68 +2632,72 @@
             <!-- Content Area -->
             <div class="content-area">
                 <div id="dashboard">
-                <!-- Dashboard Header -->
-                <div class="dashboard-header">
-                    <h2 class="dashboard-title">Welcome back, zedong254ke!</h2>
-                </div>
+                    <!-- Dashboard Header -->
+                    <div class="dashboard-header">
+                        <h2 class="dashboard-title">Welcome back, zedong254ke!</h2>
+                    </div>
 
-                <!-- Stats Grid -->
-                <div class="stats-grid">
-                    <div class="stat-card stat-posts">
-                        <div class="stat-content">
-                            <div class="stat-icon">📝</div>
-                            <div class="stat-info">
-                                <div class="stat-number" id="posts-count">0</div>
-                                <div class="stat-label">Total Posts</div>
+                    <!-- Stats Grid -->
+                    <div class="stats-grid">
+                        <div class="stat-card stat-posts">
+                            <div class="stat-content">
+                                <div class="stat-icon">📝</div>
+                                <div class="stat-info">
+                                    <div class="stat-number" id="posts-count">0</div>
+                                    <div class="stat-label">Total Posts</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card stat-views">
+                            <div class="stat-content">
+                                <div class="stat-icon">👁️</div>
+                                <div class="stat-info">
+                                    <div class="stat-number" id="views-count">0</div>
+                                    <div class="stat-label">Total Views</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card stat-subscribers">
+                            <div class="stat-content">
+                                <div class="stat-icon">👥</div>
+                                <div class="stat-info">
+                                    <div class="stat-number" id="subscribers-count">0</div>
+                                    <div class="stat-label">Subscribers</div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="stat-card stat-views">
-                        <div class="stat-content">
-                            <div class="stat-icon">👁️</div>
-                            <div class="stat-info">
-                                <div class="stat-number" id="views-count">0</div>
-                                <div class="stat-label">Total Views</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="stat-card stat-subscribers">
-                        <div class="stat-content">
-                            <div class="stat-icon">👥</div>
-                            <div class="stat-info">
-                                <div class="stat-number" id="subscribers-count">0</div>
-                                <div class="stat-label">Subscribers</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Quick Actions Grid -->
-                <div class="quick-actions-grid">
-                    <!-- accessibility-fix: issue-149 - Interactive div needs keyboard accessibility -->
-                    <div class="action-card action-posts" role="button" tabindex="0" onclick="showPostsSection()" onkeydown="if(event.key==='Enter'||event.key===' ') showPostsSection()">
-                        <div class="action-card-header">
-                            <div class="action-icon">📝</div>
-                            <h3>Manage Posts</h3>
+                    <!-- Quick Actions Grid -->
+                    <div class="quick-actions-grid">
+                        <!-- accessibility-fix: issue-149 - Interactive div needs keyboard accessibility -->
+                        <div class="action-card action-posts" role="button" tabindex="0" onclick="showPostsSection()"
+                            onkeydown="if(event.key==='Enter'||event.key===' ') showPostsSection()">
+                            <div class="action-card-header">
+                                <div class="action-icon">📝</div>
+                                <h3>Manage Posts</h3>
+                            </div>
+                            <p>Create, edit, and organize your blog posts. Keep your content fresh and engaging.</p>
                         </div>
-                        <p>Create, edit, and organize your blog posts. Keep your content fresh and engaging.</p>
-                    </div>
-                    <!-- accessibility-fix: issue-149 - Interactive div needs keyboard accessibility -->
-                    <div class="action-card action-analytics" role="button" tabindex="0" onclick="showAnalyticsSection()" onkeydown="if(event.key==='Enter'||event.key===' ') showAnalyticsSection()">
-                        <div class="action-card-header">
-                            <div class="action-icon">📊</div>
-                            <h3>View Analytics</h3>
+                        <!-- accessibility-fix: issue-149 - Interactive div needs keyboard accessibility -->
+                        <div class="action-card action-analytics" role="button" tabindex="0"
+                            onclick="showAnalyticsSection()"
+                            onkeydown="if(event.key==='Enter'||event.key===' ') showAnalyticsSection()">
+                            <div class="action-card-header">
+                                <div class="action-icon">📊</div>
+                                <h3>View Analytics</h3>
+                            </div>
+                            <p>Track your blog's performance with detailed analytics and insights.</p>
                         </div>
-                        <p>Track your blog's performance with detailed analytics and insights.</p>
                     </div>
-                </div>
                 </div>
 
                 <!-- Posts Section -->
                 <div id="posts-section" class="section-content" style="display: none;">
                     <div class="section-header">
                         <h3 class="section-title">📝 Manage Posts</h3>
-                        <p class="section-description">Create, edit, and delete blog posts. Organize your content and keep your readers engaged.</p>
+                        <p class="section-description">Create, edit, and delete blog posts. Organize your content and
+                            keep your readers engaged.</p>
                     </div>
 
                     <div class="section-body">
@@ -2576,15 +2709,20 @@
                                 <div id="posts-list-container" style="display: none; margin-top: 16px;">
                                     <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
                                         <label style="display: flex; align-items: center; gap: 4px;">
-                                            <input type="checkbox" id="select-all-posts" onchange="toggleSelectAllPosts()">
+                                            <input type="checkbox" id="select-all-posts"
+                                                onchange="toggleSelectAllPosts()">
                                             <span style="font-size: 14px;">Select All</span>
                                         </label>
-                                        <button class="btn-modern" id="delete-selected-posts" style="display: none; background: #dc2626;" onclick="deleteSelectedPosts()">Delete Selected (<span id="selected-posts-count">0</span>)</button>
+                                        <button class="btn-modern" id="delete-selected-posts"
+                                            style="display: none; background: #dc2626;"
+                                            onclick="deleteSelectedPosts()">Delete Selected (<span
+                                                id="selected-posts-count">0</span>)</button>
                                     </div>
                                     <div id="posts-list">
                                         <!-- Posts will be loaded here -->
                                     </div>
-                                    <button class="btn-modern secondary" onclick="loadPostsList()">Refresh Posts</button>
+                                    <button class="btn-modern secondary" onclick="loadPostsList()">Refresh
+                                        Posts</button>
                                 </div>
                             </div>
 
@@ -2599,7 +2737,7 @@
                             </div>
                         </div>
                     </div>
-                 </div>
+                </div>
 
                 <!-- Users Section -->
                 <div id="users-section" class="section-content" style="display: none;">
@@ -2616,19 +2754,23 @@
                                 <form id="create-user-form" class="form-grid">
                                     <div class="form-group">
                                         <label for="new-username">Username</label>
-                                        <input type="text" id="new-username" class="form-input" placeholder="Enter username" required>
+                                        <input type="text" id="new-username" class="form-input"
+                                            placeholder="Enter username" required>
                                     </div>
                                     <div class="form-group">
                                         <label for="new-password">Password</label>
-                                        <input type="password" id="new-password" class="form-input" placeholder="Enter password" required>
+                                        <input type="password" id="new-password" class="form-input"
+                                            placeholder="Enter password" required>
                                     </div>
                                     <div class="form-group">
                                         <label for="new-name">Full Name</label>
-                                        <input type="text" id="new-name" class="form-input" placeholder="Enter full name" required>
+                                        <input type="text" id="new-name" class="form-input"
+                                            placeholder="Enter full name" required>
                                     </div>
                                     <div class="form-group">
                                         <label for="new-email">Email</label>
-                                        <input type="email" id="new-email" class="form-input" placeholder="Enter email address" required>
+                                        <input type="email" id="new-email" class="form-input"
+                                            placeholder="Enter email address" required>
                                     </div>
                                     <div class="form-group">
                                         <label for="new-role">Role</label>
@@ -2659,7 +2801,8 @@
                 <div id="analytics-section" class="section-content" style="display: none;">
                     <div class="section-header">
                         <h3 class="section-title">📊 Analytics Dashboard</h3>
-                        <p class="section-description">View detailed analytics about your blog's performance and reader engagement.</p>
+                        <p class="section-description">View detailed analytics about your blog's performance and reader
+                            engagement.</p>
                     </div>
 
                     <div class="section-body">
@@ -2683,7 +2826,8 @@
                                 <div class="chart-container">
                                     <canvas id="engagementChart"></canvas>
                                 </div>
-                                <button class="btn-modern secondary" onclick="viewEngagementDetails()">View Details</button>
+                                <button class="btn-modern secondary" onclick="viewEngagementDetails()">View
+                                    Details</button>
                             </div>
 
                             <div class="action-card">
@@ -2709,7 +2853,8 @@
                                 <div class="chart-container">
                                     <canvas id="timeAnalyticsChart"></canvas>
                                 </div>
-                                <button class="btn-modern secondary" onclick="loadTimeAnalytics()">Load Analytics</button>
+                                <button class="btn-modern secondary" onclick="loadTimeAnalytics()">Load
+                                    Analytics</button>
                             </div>
                         </div>
                     </div>
@@ -2719,45 +2864,54 @@
                 <div id="create-post-section" class="section-content" style="display: none;">
                     <div class="section-header">
                         <h3 class="section-title">✏️ Create New Post</h3>
-                        <p class="section-description">Write and publish a new blog post with images and rich content.</p>
+                        <p class="section-description">Write and publish a new blog post with images and rich content.
+                        </p>
                     </div>
 
                     <div class="section-body">
                         <div class="form-container">
+                            <input type="hidden" id="edit-post-id" value="">
                             <div class="form-grid">
                                 <div class="form-group">
-                                    <label class="form-label">Post Title</label>
-                                    <input type="text" class="form-input" id="post-title" placeholder="Enter an engaging title for your post">
+                                    <label for="post-title" class="form-label">Post Title</label>
+                                    <input type="text" class="form-input" id="post-title"
+                                        placeholder="Enter an engaging title for your post">
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Category</label>
+                                    <label for="post-category" class="form-label">Category</label>
                                     <select class="form-input" id="post-category">
                                         <option value="">Loading categories...</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Featured Image</label>
+                                    <label for="post-image-file" class="form-label">Featured Image</label>
                                     <div class="file-input-wrapper">
-                                        <input type="file" class="file-input" id="post-image-file" accept="image/*" onchange="handlePostImageUpload()">
+                                        <input type="file" class="file-input" id="post-image-file" accept="image/*"
+                                            onchange="handlePostImageUpload()">
                                         <label for="post-image-file" class="file-input-label">
                                             <i>🖼️</i>
                                             Choose featured image...
                                         </label>
                                     </div>
                                     <div id="image-preview" style="margin-top: 12px; display: none;">
-                                        <img id="preview-img" style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 1px solid #ddd;" alt="Preview">
+                                        <img id="preview-img"
+                                            style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 1px solid #ddd;"
+                                            alt="Preview">
                                     </div>
                                 </div>
                                 <div class="form-group" style="grid-column: 1 / -1;">
-                                    <label class="form-label">Post Content</label>
-                                    <textarea class="form-input form-textarea" id="post-content" placeholder="Write your blog post content here... You can include HTML tags for formatting." style="min-height: 300px;"></textarea>
+                                    <label for="post-content" class="form-label">Post Content</label>
+                                    <textarea class="form-input form-textarea" id="post-content"
+                                        placeholder="Write your blog post content here... You can include HTML tags for formatting."
+                                        style="min-height: 300px;"></textarea>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Tags (comma-separated)</label>
-                                    <input type="text" class="form-input" id="post-tags" placeholder="javascript, web-development, tutorial">
+                                    <label for="post-tags" class="form-label">Tags (comma-separated)</label>
+                                    <input type="text" class="form-input" id="post-tags"
+                                        placeholder="javascript, web-development, tutorial">
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Publish Status</label>
+                                    <label for="post-status" class="form-label">Publish Status</label>
                                     <select class="form-input" id="post-status">
                                         <option value="draft">Draft</option>
                                         <option value="published">Published</option>
@@ -2787,604 +2941,690 @@
                 <div id="settings-section" class="section-content" style="display: none;">
                     <div class="section-header">
                         <h3 class="section-title">⚙️ Blog Settings</h3>
-                        <p class="section-description">Configure your blog settings, author information, and security preferences.</p>
+                        <p class="section-description">Configure your blog settings, author information, and security
+                            preferences.</p>
                     </div>
 
                     <div class="section-body">
                         <div class="settings-container">
-                <!-- Sidebar Navigation -->
-                <div class="settings-sidebar">
-                    <ul class="settings-nav">
-                        <li class="settings-nav-item">
-                            <button type="button" class="settings-nav-btn active" data-panel="general" onclick="switchSettingsPanel('general')">
-                                <i>👤</i>
-                                General
-                            </button>
-                        </li>
-                        <li class="settings-nav-item">
-                            <button type="button" class="settings-nav-btn" data-panel="appearance" onclick="switchSettingsPanel('appearance')">
-                                <i>🎨</i>
-                                Appearance
-                            </button>
-                        </li>
-                        <li class="settings-nav-item">
-                            <button type="button" class="settings-nav-btn" data-panel="security" onclick="switchSettingsPanel('security')">
-                                <i>🔒</i>
-                                Security
-                            </button>
-                        </li>
-                        <li class="settings-nav-item">
-                            <button type="button" class="settings-nav-btn" data-panel="notifications" onclick="switchSettingsPanel('notifications')">
-                                <i>📧</i>
-                                Notifications
-                            </button>
-                        </li>
-                        <li class="settings-nav-item">
-                            <button type="button" class="settings-nav-btn" data-panel="content" onclick="switchSettingsPanel('content')">
-                                <i>🗂️</i>
-                                Content
-                            </button>
-                        </li>
-                        <li class="settings-nav-item">
-                            <button type="button" class="settings-nav-btn" data-panel="categories" onclick="switchSettingsPanel('categories')">
-                                <i>📂</i>
-                                Categories
-                            </button>
-                        </li>
-                    </ul>
+                            <!-- Sidebar Navigation -->
+                            <div class="settings-sidebar">
+                                <ul class="settings-nav">
+                                    <li class="settings-nav-item">
+                                        <button type="button" class="settings-nav-btn active" data-panel="general"
+                                            onclick="switchSettingsPanel('general')">
+                                            <i>👤</i>
+                                            General
+                                        </button>
+                                    </li>
+                                    <li class="settings-nav-item">
+                                        <button type="button" class="settings-nav-btn" data-panel="appearance"
+                                            onclick="switchSettingsPanel('appearance')">
+                                            <i>🎨</i>
+                                            Appearance
+                                        </button>
+                                    </li>
+                                    <li class="settings-nav-item">
+                                        <button type="button" class="settings-nav-btn" data-panel="security"
+                                            onclick="switchSettingsPanel('security')">
+                                            <i>🔒</i>
+                                            Security
+                                        </button>
+                                    </li>
+                                    <li class="settings-nav-item">
+                                        <button type="button" class="settings-nav-btn" data-panel="notifications"
+                                            onclick="switchSettingsPanel('notifications')">
+                                            <i>📧</i>
+                                            Notifications
+                                        </button>
+                                    </li>
+                                    <li class="settings-nav-item">
+                                        <button type="button" class="settings-nav-btn" data-panel="content"
+                                            onclick="switchSettingsPanel('content')">
+                                            <i>🗂️</i>
+                                            Content
+                                        </button>
+                                    </li>
+                                    <li class="settings-nav-item">
+                                        <button type="button" class="settings-nav-btn" data-panel="categories"
+                                            onclick="switchSettingsPanel('categories')">
+                                            <i>📂</i>
+                                            Categories
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <!-- Content Area -->
+                            <div class="settings-content">
+                                <!-- General Settings Panel -->
+                                <div id="general-panel" class="settings-panel active">
+                                    <div class="panel-header">
+                                        <h2 class="panel-title">General Settings</h2>
+                                        <p class="panel-description">Update your blog information and author details.
+                                        </p>
+                                    </div>
+
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="blog-title" class="form-label">Blog Title</label>
+                                            <input type="text" class="form-input" id="blog-title" value="zedong254ke"
+                                                placeholder="Enter blog title">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="author-name" class="form-label">Author Name</label>
+                                            <input type="text" class="form-input" id="author-name" value="zedong254ke"
+                                                placeholder="Enter author name">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="author-email" class="form-label">Author Email</label>
+                                            <input type="email" class="form-input" id="author-email"
+                                                placeholder="Enter email address">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="author-bio" class="form-label">Author Bio</label>
+                                            <textarea class="form-input form-textarea" id="author-bio"
+                                                placeholder="Enter author bio">Passionate developer and blogger sharing insights on technology and programming.</textarea>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="blog-description" class="form-label">Blog Description</label>
+                                            <textarea class="form-input form-textarea" id="blog-description"
+                                                placeholder="Enter blog description">Discover insights, tutorials, and thoughts on web development, programming, and technology.</textarea>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="author-website" class="form-label">Website URL</label>
+                                            <input type="url" class="form-input" id="author-website"
+                                                placeholder="https://yourwebsite.com">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="author-twitter" class="form-label">Twitter Profile</label>
+                                            <input type="url" class="form-input" id="author-twitter"
+                                                placeholder="https://twitter.com/username">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="author-facebook" class="form-label">Facebook Profile</label>
+                                            <input type="url" class="form-input" id="author-facebook"
+                                                placeholder="https://facebook.com/username">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="author-linkedin" class="form-label">LinkedIn Profile</label>
+                                            <input type="url" class="form-input" id="author-linkedin"
+                                                placeholder="https://linkedin.com/in/username">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="author-instagram" class="form-label">Instagram Profile</label>
+                                            <input type="url" class="form-input" id="author-instagram"
+                                                placeholder="https://instagram.com/username">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="author-phone" class="form-label">Phone Number</label>
+                                            <input type="tel" class="form-input" id="author-phone"
+                                                placeholder="+1 234 567 8900">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="author-whatsapp" class="form-label">WhatsApp Number</label>
+                                            <input type="tel" class="form-input" id="author-whatsapp"
+                                                placeholder="+1 234 567 8900">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="profile-picture-file" class="form-label">Profile Picture</label>
+                                            <div class="file-input-wrapper">
+                                                <input type="file" class="file-input" id="profile-picture-file"
+                                                    accept="image/*" onchange="handleProfilePictureUpload()">
+                                                <label for="profile-picture-file" class="file-input-label">
+                                                    <i>📁</i>
+                                                    Choose image file...
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-top: 32px;">
+                                        <button class="btn-modern" onclick="saveAuthorInfo()">
+                                            <i>💾</i>
+                                            Save General Settings
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Appearance Settings Panel -->
+                                <div id="appearance-panel" class="settings-panel">
+                                    <div class="panel-header">
+                                        <h2 class="panel-title">Appearance Settings</h2>
+                                        <p class="panel-description">Customize your blog's visual appearance and theme.
+                                        </p>
+                                    </div>
+
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="primary-color" class="form-label">Primary Color</label>
+                                            <div class="color-input-group">
+                                                <input type="color" class="color-input" id="primary-color"
+                                                    value="#F4A191">
+                                                <span>Choose your primary theme color</span>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="accent-color" class="form-label">Accent Color</label>
+                                            <div class="color-input-group">
+                                                <input type="color" class="color-input" id="accent-color"
+                                                    value="#4A9B9B">
+                                                <span>Choose your accent color</span>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="background-color" class="form-label">Background Color</label>
+                                            <div class="color-input-group">
+                                                <input type="color" class="color-input" id="background-color"
+                                                    value="#ffffff">
+                                                <span>Choose background color</span>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="background-url" class="form-label">Background Image URL</label>
+                                            <input type="url" class="form-input" id="background-url"
+                                                placeholder="https://example.com/image.jpg">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="background-file" class="form-label">Upload Background
+                                                Image</label>
+                                            <div class="file-input-wrapper">
+                                                <input type="file" class="file-input" id="background-file"
+                                                    accept="image/*" onchange="handleBackgroundUpload()">
+                                                <label for="background-file" class="file-input-label">
+                                                    <i>🖼️</i>
+                                                    Choose background image...
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-top: 32px; display: flex; gap: 12px;">
+                                        <button class="btn-modern secondary" onclick="saveThemeSettings()">
+                                            <i>🎨</i>
+                                            Save Theme
+                                        </button>
+                                        <button class="btn-modern" onclick="saveBackgroundSettings()">
+                                            <i>🖼️</i>
+                                            Save Background
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Security Settings Panel -->
+                                <div id="security-panel" class="settings-panel">
+                                    <div class="panel-header">
+                                        <h2 class="panel-title">Security Settings</h2>
+                                        <p class="panel-description">Manage access controls and security preferences.
+                                        </p>
+                                    </div>
+
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="admin-entry-key" class="form-label">Admin Entry Key</label>
+                                            <div style="position: relative;">
+                                                <input type="password" class="form-input" id="admin-entry-key"
+                                                    placeholder="Admin keys are now managed per-user" disabled>
+                                                <button type="button" id="admin-key-toggle" class="password-toggle"
+                                                    aria-label="Toggle admin key visibility"
+                                                    style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%);">
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                                        stroke="currentColor" stroke-width="2">
+                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                                        <circle cx="12" cy="12" r="3"></circle>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            <small style="color: var(--text-light); margin-top: 6px; display: block;">✓
+                                                Admin keys are now managed per-user in the <strong>User
+                                                    Management</strong> section</small>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="session-timeout" class="form-label">Session Timeout
+                                                (minutes)</label>
+                                            <input type="number" class="form-input" id="session-timeout" value="30"
+                                                min="5" max="480">
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-top: 32px; display: flex; gap: 12px;">
+                                        <button class="btn-modern secondary" onclick="saveSecuritySettings()">
+                                            <i>🔒</i>
+                                            Save Security
+                                        </button>
+                                        <button class="btn-modern sm" onclick="viewCurrentKey()">
+                                            <i>👁️</i>
+                                            View Key
+                                        </button>
+                                        <button class="btn-modern sm secondary" onclick="clearKey()"
+                                            style="background: #dc3545;">
+                                            <i>🗑️</i>
+                                            Clear Key
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Notifications Settings Panel -->
+                                <div id="notifications-panel" class="settings-panel">
+                                    <div class="panel-header">
+                                        <h2 class="panel-title">Notification Settings</h2>
+                                        <p class="panel-description">Configure how you receive notifications and alerts.
+                                        </p>
+                                    </div>
+
+                                    <div style="max-width: 400px;">
+                                        <div class="checkbox-group">
+                                            <input type="checkbox" id="email-notifications" checked>
+                                            <label for="email-notifications">Email Notifications</label>
+                                        </div>
+                                        <div class="checkbox-group">
+                                            <input type="checkbox" id="comment-notifications">
+                                            <label for="comment-notifications">Comment Notifications</label>
+                                        </div>
+                                        <div class="checkbox-group">
+                                            <input type="checkbox" id="system-alerts" checked>
+                                            <label for="system-alerts">System Alerts</label>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-top: 32px;">
+                                        <button class="btn-modern" onclick="saveNotificationSettings()">
+                                            <i>📧</i>
+                                            Save Notifications
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Content Settings Panel -->
+                                <div id="content-panel" class="settings-panel">
+                                    <div class="panel-header">
+                                        <h2 class="panel-title">Content Settings</h2>
+                                        <p class="panel-description">Manage content display and publishing options.</p>
+                                    </div>
+
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="posts-per-page" class="form-label">Posts Per Page</label>
+                                            <input type="number" class="form-input" id="posts-per-page" value="10"
+                                                min="5" max="50">
+                                        </div>
+                                    </div>
+
+                                    <div style="max-width: 400px; margin-top: 24px;">
+                                        <div class="checkbox-group">
+                                            <input type="checkbox" id="auto-publish" checked>
+                                            <label for="auto-publish">Auto-publish new posts</label>
+                                        </div>
+                                        <div class="checkbox-group">
+                                            <input type="checkbox" id="enable-comments">
+                                            <label for="enable-comments">Enable comments</label>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-top: 32px;">
+                                        <button class="btn-modern secondary" onclick="saveContentSettings()">
+                                            <i>🗂️</i>
+                                            Save Content Settings
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Categories Settings Panel -->
+                                <div id="categories-panel" class="settings-panel">
+                                    <div class="panel-header">
+                                        <h2 class="panel-title">Category Management</h2>
+                                        <p class="panel-description">Organize your blog posts with categories.</p>
+                                    </div>
+
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="category-name" class="form-label">Category Name</label>
+                                            <input type="text" class="form-input" id="category-name"
+                                                placeholder="Enter category name">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="category-description" class="form-label">Category
+                                                Description</label>
+                                            <textarea class="form-input form-textarea" id="category-description"
+                                                placeholder="Enter category description"></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-top: 24px; display: flex; gap: 12px;">
+                                        <button id="btn-add-category" class="btn-modern secondary" type="button"
+                                            onclick="addCategory()">
+                                            <i>➕</i>
+                                            Add Category
+                                        </button>
+                                        <button class="btn-modern sm" onclick="loadCategories()">
+                                            <i>🔄</i>
+                                            Refresh
+                                        </button>
+                                    </div>
+
+                                    <div id="categories-list-container" style="margin-top: 32px;">
+                                        <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
+                                            <label style="display: flex; align-items: center; gap: 4px;">
+                                                <input type="checkbox" id="select-all-categories"
+                                                    onchange="toggleSelectAllCategories()">
+                                                <span style="font-size: 14px;">Select All</span>
+                                            </label>
+                                            <button class="btn-modern sm" id="delete-selected-categories"
+                                                style="display: none; background: #dc2626;"
+                                                onclick="deleteSelectedCategories()">
+                                                <i>🗑️</i>
+                                                Delete Selected (<span id="selected-categories-count">0</span>)
+                                            </button>
+                                        </div>
+                                        <div id="categories-list">
+                                            <!-- Categories will be loaded here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
                 </div>
 
-                <!-- Content Area -->
-                <div class="settings-content">
-                    <!-- General Settings Panel -->
-                    <div id="general-panel" class="settings-panel active">
-                        <div class="panel-header">
-                            <h2 class="panel-title">General Settings</h2>
-                            <p class="panel-description">Update your blog information and author details.</p>
+                <!-- Admin Key Prompt Modal -->
+                <div id="admin-key-modal" class="modal-overlay">
+                    <div class="modal-card">
+                        <div style="margin-bottom: 24px; font-size: 56px;">🔒</div>
+                        <h2 style="margin-bottom: 12px; font-size: 24px; font-weight: 700; color: var(--text-dark);">
+                            Security Check</h2>
+                        <p style="color: var(--text-medium); margin-bottom: 24px; font-size: 15px;">This area is
+                            protected. Please enter your Admin Entry Key.</p>
+
+                        <div id="modal-error" class="modal-error">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                            <span>Invalid admin entry key. Access denied.</span>
                         </div>
 
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Blog Title</label>
-                                <input type="text" class="form-input" id="blog-title" value="zedong254ke" placeholder="Enter blog title">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Author Name</label>
-                                <input type="text" class="form-input" id="author-name" value="zedong254ke" placeholder="Enter author name">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Author Email</label>
-                                <input type="email" class="form-input" id="author-email" placeholder="Enter email address">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Author Bio</label>
-                                <textarea class="form-input form-textarea" id="author-bio" placeholder="Enter author bio">Passionate developer and blogger sharing insights on technology and programming.</textarea>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Blog Description</label>
-                                <textarea class="form-input form-textarea" id="blog-description" placeholder="Enter blog description">Discover insights, tutorials, and thoughts on web development, programming, and technology.</textarea>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Website URL</label>
-                                <input type="url" class="form-input" id="author-website" placeholder="https://yourwebsite.com">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Twitter Profile</label>
-                                <input type="url" class="form-input" id="author-twitter" placeholder="https://twitter.com/username">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Facebook Profile</label>
-                                <input type="url" class="form-input" id="author-facebook" placeholder="https://facebook.com/username">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">LinkedIn Profile</label>
-                                <input type="url" class="form-input" id="author-linkedin" placeholder="https://linkedin.com/in/username">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Instagram Profile</label>
-                                <input type="url" class="form-input" id="author-instagram" placeholder="https://instagram.com/username">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Phone Number</label>
-                                <input type="tel" class="form-input" id="author-phone" placeholder="+1 234 567 8900">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">WhatsApp Number</label>
-                                <input type="tel" class="form-input" id="author-whatsapp" placeholder="+1 234 567 8900">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Profile Picture</label>
-                                <div class="file-input-wrapper">
-                                    <input type="file" class="file-input" id="profile-picture-file" accept="image/*" onchange="handleProfilePictureUpload()">
-                                    <label for="profile-picture-file" class="file-input-label">
-                                        <i>📁</i>
-                                        Choose image file...
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
+                        <input type="password" id="modal-admin-key" class="admin-key-input" placeholder="••••••"
+                            maxlength="20" autocomplete="off">
 
-                        <div style="margin-top: 32px;">
-                            <button class="btn-modern" onclick="saveAuthorInfo()">
-                                <i>💾</i>
-                                Save General Settings
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Appearance Settings Panel -->
-                    <div id="appearance-panel" class="settings-panel">
-                        <div class="panel-header">
-                            <h2 class="panel-title">Appearance Settings</h2>
-                            <p class="panel-description">Customize your blog's visual appearance and theme.</p>
-                        </div>
-
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Primary Color</label>
-                                <div class="color-input-group">
-                                    <input type="color" class="color-input" id="primary-color" value="#F4A191">
-                                    <span>Choose your primary theme color</span>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Accent Color</label>
-                                <div class="color-input-group">
-                                    <input type="color" class="color-input" id="accent-color" value="#4A9B9B">
-                                    <span>Choose your accent color</span>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Background Color</label>
-                                <div class="color-input-group">
-                                    <input type="color" class="color-input" id="background-color" value="#ffffff">
-                                    <span>Choose background color</span>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Background Image URL</label>
-                                <input type="url" class="form-input" id="background-url" placeholder="https://example.com/image.jpg">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Upload Background Image</label>
-                                <div class="file-input-wrapper">
-                                    <input type="file" class="file-input" id="background-file" accept="image/*" onchange="handleBackgroundUpload()">
-                                    <label for="background-file" class="file-input-label">
-                                        <i>🖼️</i>
-                                        Choose background image...
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 32px; display: flex; gap: 12px;">
-                            <button class="btn-modern secondary" onclick="saveThemeSettings()">
-                                <i>🎨</i>
-                                Save Theme
-                            </button>
-                            <button class="btn-modern" onclick="saveBackgroundSettings()">
-                                <i>🖼️</i>
-                                Save Background
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Security Settings Panel -->
-                    <div id="security-panel" class="settings-panel">
-                        <div class="panel-header">
-                            <h2 class="panel-title">Security Settings</h2>
-                            <p class="panel-description">Manage access controls and security preferences.</p>
-                        </div>
-
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Admin Entry Key</label>
-                                <div style="position: relative;">
-                                    <input type="password" class="form-input" id="admin-entry-key" placeholder="Admin keys are now managed per-user" disabled>
-                                    <button type="button" id="admin-key-toggle" class="password-toggle" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%);">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                            <circle cx="12" cy="12" r="3"></circle>
-                                        </svg>
-                                    </button>
-                                </div>
-                                <small style="color: var(--text-light); margin-top: 6px; display: block;">✓ Admin keys are now managed per-user in the <strong>User Management</strong> section</small>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Session Timeout (minutes)</label>
-                                <input type="number" class="form-input" id="session-timeout" value="30" min="5" max="480">
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 32px; display: flex; gap: 12px;">
-                            <button class="btn-modern secondary" onclick="saveSecuritySettings()">
-                                <i>🔒</i>
-                                Save Security
-                            </button>
-                            <button class="btn-modern sm" onclick="viewCurrentKey()">
-                                <i>👁️</i>
-                                View Key
-                            </button>
-                            <button class="btn-modern sm secondary" onclick="clearKey()" style="background: #dc3545;">
-                                <i>🗑️</i>
-                                Clear Key
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Notifications Settings Panel -->
-                    <div id="notifications-panel" class="settings-panel">
-                        <div class="panel-header">
-                            <h2 class="panel-title">Notification Settings</h2>
-                            <p class="panel-description">Configure how you receive notifications and alerts.</p>
-                        </div>
-
-                        <div style="max-width: 400px;">
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="email-notifications" checked>
-                                <label for="email-notifications">Email Notifications</label>
-                            </div>
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="comment-notifications">
-                                <label for="comment-notifications">Comment Notifications</label>
-                            </div>
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="system-alerts" checked>
-                                <label for="system-alerts">System Alerts</label>
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 32px;">
-                            <button class="btn-modern" onclick="saveNotificationSettings()">
-                                <i>📧</i>
-                                Save Notifications
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Content Settings Panel -->
-                    <div id="content-panel" class="settings-panel">
-                        <div class="panel-header">
-                            <h2 class="panel-title">Content Settings</h2>
-                            <p class="panel-description">Manage content display and publishing options.</p>
-                        </div>
-
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Posts Per Page</label>
-                                <input type="number" class="form-input" id="posts-per-page" value="10" min="5" max="50">
-                            </div>
-                        </div>
-
-                        <div style="max-width: 400px; margin-top: 24px;">
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="auto-publish" checked>
-                                <label for="auto-publish">Auto-publish new posts</label>
-                            </div>
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="enable-comments">
-                                <label for="enable-comments">Enable comments</label>
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 32px;">
-                            <button class="btn-modern secondary" onclick="saveContentSettings()">
-                                <i>🗂️</i>
-                                Save Content Settings
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Categories Settings Panel -->
-                    <div id="categories-panel" class="settings-panel">
-                        <div class="panel-header">
-                            <h2 class="panel-title">Category Management</h2>
-                            <p class="panel-description">Organize your blog posts with categories.</p>
-                        </div>
-
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Category Name</label>
-                                <input type="text" class="form-input" id="category-name" placeholder="Enter category name">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Category Description</label>
-                                <textarea class="form-input form-textarea" id="category-description" placeholder="Enter category description"></textarea>
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 24px; display: flex; gap: 12px;">
-                            <button id="btn-add-category" class="btn-modern secondary" type="button" onclick="addCategory()">
-                                <i>➕</i>
-                                Add Category
-                            </button>
-                            <button class="btn-modern sm" onclick="loadCategories()">
-                                <i>🔄</i>
-                                Refresh
-                            </button>
-                        </div>
-
-                        <div id="categories-list-container" style="margin-top: 32px;">
-                            <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
-                                <label style="display: flex; align-items: center; gap: 4px;">
-                                    <input type="checkbox" id="select-all-categories" onchange="toggleSelectAllCategories()">
-                                    <span style="font-size: 14px;">Select All</span>
-                                </label>
-                                <button class="btn-modern sm" id="delete-selected-categories" style="display: none; background: #dc2626;" onclick="deleteSelectedCategories()">
-                                    <i>🗑️</i>
-                                    Delete Selected (<span id="selected-categories-count">0</span>)
-                                </button>
-                            </div>
-                            <div id="categories-list">
-                                <!-- Categories will be loaded here -->
-                            </div>
-                        </div>
+                        <button class="btn-modern" onclick="verifyAdminKeyModal()"
+                            style="width: 100%; justify-content: center; padding: 16px; font-size: 16px;">
+                            Unlock Admin Panel
+                        </button>
                     </div>
                 </div>
-            </div>
-        </div>
 
 
-    </div>
+                <script>
+                    // Expose functions to window for onclick handlers
+                    window.addCategory = addCategory;
+                    window.loadCategories = loadCategories;
+                    window.populatePostCategoryDropdown = populatePostCategoryDropdown;
+                    window.deleteCategory = deleteCategory;
+                    window.editCategory = editCategory;
+                    window.toggleSelectAllCategories = toggleSelectAllCategories;
+                    window.updateSelectedCategoriesCount = updateSelectedCategoriesCount;
+                    window.deleteSelectedCategories = deleteSelectedCategories;
+                    window.saveAuthorInfo = saveAuthorInfo;
+                    window.saveSecuritySettings = saveSecuritySettings;
+                    window.viewCurrentKey = viewCurrentKey;
+                    window.clearKey = clearKey;
+                    window.saveNotificationSettings = saveNotificationSettings;
+                    window.setUserAdminKey = setUserAdminKey;
+                    window.verifyUserAdminKey = verifyUserAdminKey;
+                    window.saveContentSettings = saveContentSettings;
+                    window.saveContentSettings = saveContentSettings;
+                    window.handleProfilePictureUpload = handleProfilePictureUpload;
 
-    <!-- Admin Key Prompt Modal -->
-    <div id="admin-key-modal" class="modal-overlay">
-        <div class="modal-card">
-            <div style="margin-bottom: 24px; font-size: 56px;">🔒</div>
-            <h2 style="margin-bottom: 12px; font-size: 24px; font-weight: 700; color: var(--text-dark);">Security Check</h2>
-            <p style="color: var(--text-medium); margin-bottom: 24px; font-size: 15px;">This area is protected. Please enter your Admin Entry Key.</p>
-            
-            <div id="modal-error" class="modal-error">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
-                <span>Invalid admin entry key. Access denied.</span>
-            </div>
-            
-            <input type="password" id="modal-admin-key" class="admin-key-input" placeholder="••••••" maxlength="20" autocomplete="off">
-            
-            <button class="btn-modern" onclick="verifyAdminKeyModal()" style="width: 100%; justify-content: center; padding: 16px; font-size: 16px;">
-                Unlock Admin Panel
-            </button>
-        </div>
-    </div>
-
-
-    <script>
-        // Expose functions to window for onclick handlers
-        window.addCategory = addCategory;
-        window.loadCategories = loadCategories;
-        window.populatePostCategoryDropdown = populatePostCategoryDropdown;
-        window.deleteCategory = deleteCategory;
-        window.editCategory = editCategory;
-        window.toggleSelectAllCategories = toggleSelectAllCategories;
-        window.updateSelectedCategoriesCount = updateSelectedCategoriesCount;
-        window.deleteSelectedCategories = deleteSelectedCategories;
-        window.saveAuthorInfo = saveAuthorInfo;
-        window.saveSecuritySettings = saveSecuritySettings;
-        window.viewCurrentKey = viewCurrentKey;
-        window.clearKey = clearKey;
-        window.saveNotificationSettings = saveNotificationSettings;
-        window.setUserAdminKey = setUserAdminKey;
-        window.verifyUserAdminKey = verifyUserAdminKey;
-        window.saveContentSettings = saveContentSettings;
-        window.handleProfilePictureUpload = handleProfilePictureUpload;
-        window.saveThemeSettings = saveThemeSettings;
-        window.saveBackgroundSettings = saveBackgroundSettings;
-        window.handleBackgroundUpload = handleBackgroundUpload;
-        window.togglePostsList = togglePostsList;
-        window.loadPostsList = loadPostsList;
-        window.saveNewPost = saveNewPost;
-        window.previewPost = previewPost;
-        window.clearPostForm = clearPostForm;
-        window.toggleSelectAllPosts = toggleSelectAllPosts;
-        window.updateSelectedCount = updateSelectedCount;
-        window.deleteSelectedPosts = deleteSelectedPosts;
-        window.editPost = editPost;
-        window.deletePost = deletePost;
-
-        // Auto-login for localhost development
-        async function autoLoginForLocalhost() {
-            try {
-                const response = await fetch('/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ username: 'admin', password: 'password' })
-                });
-                
-                const data = await response.json();
-                if (data.success && data.token) {
-                    // Store JWT token in localStorage for API requests
-                    localStorage.setItem('authToken', data.token);
-                    console.log('Auto-login successful for localhost');
-                }
-            } catch (error) {
-                console.error('Auto-login failed:', error);
-            }
-        }
-
-        // Run auto-login on page load
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            document.addEventListener('DOMContentLoaded', autoLoginForLocalhost);
-            // Also try immediately in case DOM is already loaded
-            autoLoginForLocalhost();
-        }
-
-        // Load blog info for sidebar
-        fetch('/api/settings/blog-info')
-            .then(res => res.json())
-            .then(data => {
-                if (data.blogInfo && data.blogInfo.title) {
-                    const sidebarTitle = document.querySelector('.sidebar-logo h2');
-                    if (sidebarTitle) sidebarTitle.textContent = data.blogInfo.title;
-                    document.title = `Admin Panel - ${data.blogInfo.title}`;
-                }
-            })
-            .catch(err => console.error('Error loading blog info:', err));
-
-        // Load both blog-info and author settings to populate form fields
-        Promise.all([
-            fetch('/api/settings/blog-info').then(res => res.json()),
-            fetch('/api/settings/author').then(res => res.json())
-        ])
-            .then(([blogInfoData, authorData]) => {
-                console.log('Loading saved settings:', { blogInfo: blogInfoData.blogInfo, author: authorData.author });
-                
-                const blogInfo = blogInfoData.blogInfo || {};
-                const author = authorData.author || {};
-
-                // Populate form fields with saved values
-                const blogTitle = document.getElementById('blog-title');
-                const blogDescription = document.getElementById('blog-description');
-                const authorName = document.getElementById('author-name');
-                const authorEmail = document.getElementById('author-email');
-                const authorBio = document.getElementById('author-bio');
-                const authorPhone = document.getElementById('author-phone');
-                const authorWhatsapp = document.getElementById('author-whatsapp');
-                const authorTwitter = document.getElementById('author-twitter');
-                const authorFacebook = document.getElementById('author-facebook');
-                const authorLinkedin = document.getElementById('author-linkedin');
-                const authorInstagram = document.getElementById('author-instagram');
-                const authorWebsite = document.getElementById('author-website');
-
-                // Blog info fields - from blog-info endpoint
-                if (blogTitle) blogTitle.value = blogInfo.title || 'zedong254ke';
-                if (blogDescription) blogDescription.value = blogInfo.description || 'Discover insights, tutorials, and thoughts on web development, programming, and technology.';
-                
-                // Author fields - from author endpoint
-                if (authorName) authorName.value = author.name || 'zedong254ke';
-                if (authorEmail) authorEmail.value = author.email || '';
-                if (authorBio) authorBio.value = author.bio || 'Passionate developer and blogger sharing insights on technology and programming.';
-                if (authorPhone) authorPhone.value = author.phone || '';
-                if (authorWhatsapp) authorWhatsapp.value = author.whatsapp || '';
-                if (authorTwitter) authorTwitter.value = author.social?.twitter || '';
-                if (authorFacebook) authorFacebook.value = author.social?.facebook || '';
-                if (authorLinkedin) authorLinkedin.value = author.social?.linkedin || '';
-                if (authorInstagram) authorInstagram.value = author.social?.instagram || '';
-                if (authorWebsite) authorWebsite.value = author.social?.website || '';
-
-                console.log('Settings loaded and form populated successfully');
-            })
-            .catch(err => console.error('Error loading settings:', err));
-
-        // Function aliases for posts
-
-        window.viewPostStats = function() {
-            console.log('viewPostStats called');
-            showAnalyticsSection();
-        };
-
-        // Sidebar toggle
-        window.toggleSidebar = function() {
-            const sidebar = document.getElementById('sidebar');
-            if (sidebar) sidebar.classList.toggle('collapsed');
-        };
-
-        // Modern Settings Navigation
-        let settingsNavigationInitialized = false;
-
-        function initSettingsNavigation() {
-            // Prevent multiple initializations
-            if (settingsNavigationInitialized) {
-                console.log('Settings navigation already initialized, skipping');
-                return;
-            }
-            
-            console.log('initSettingsNavigation called');
-            const settingsSection = document.getElementById('settings-section');
-            if (!settingsSection) {
-                console.error('Settings section not found');
-                return;
-            }
-
-            const settingsSidebar = settingsSection.querySelector('.settings-sidebar');
-            if (!settingsSidebar) {
-                console.error('Settings sidebar not found');
-                return;
-            }
-
-            console.log('Found sidebar, attaching click handlers');
-
-            // Add click listener to sidebar using event delegation
-            settingsSidebar.addEventListener('click', (event) => {
-                const button = event.target.closest('.settings-nav-btn');
-                if (!button) {
-                    return;
-                }
-
-                event.preventDefault();
-                event.stopPropagation();
-
-                const targetPanel = button.getAttribute('data-panel');
-                console.log('Button clicked, switching to panel:', targetPanel);
-                
-                switchSettingsPanel(targetPanel);
-            });
-
-            settingsNavigationInitialized = true;
-            console.log('Settings navigation initialized successfully');
-        }
-
-        // Password toggle functionality
-        function initPasswordToggle() {
-            const toggleBtn = document.getElementById('admin-key-toggle');
-            const passwordInput = document.getElementById('admin-entry-key');
-
-            if (toggleBtn && passwordInput) {
-                toggleBtn.addEventListener('click', () => {
-                    const type = passwordInput.type === 'password' ? 'text' : 'password';
-                    passwordInput.type = type;
-
-                    // Update icon
-                    const icon = toggleBtn.querySelector('svg');
-                    if (type === 'text') {
-                        icon.innerHTML = '<path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>';
-                    } else {
-                        icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+                    function handleProfilePictureUpload() {
+                        const fileInput = document.getElementById('profile-picture-file');
+                        if (fileInput.files && fileInput.files[0]) {
+                            const reader = new FileReader();
+                            reader.onload = function (e) {
+                                const previewImgs = document.querySelectorAll('.user-avatar, .sidebar-logo img');
+                                previewImgs.forEach(img => {
+                                    img.src = e.target.result;
+                                });
+                            }
+                            reader.readAsDataURL(fileInput.files[0]);
+                        }
                     }
-                });
-            }
-        }
+                    window.saveThemeSettings = saveThemeSettings;
+                    window.saveBackgroundSettings = saveBackgroundSettings;
+                    window.handleBackgroundUpload = handleBackgroundUpload;
+                    window.togglePostsList = togglePostsList;
+                    window.loadPostsList = loadPostsList;
+                    window.saveNewPost = saveNewPost;
+                    window.handlePostImageUpload = handlePostImageUpload;
 
-        // Expose functions globally for settings module
-        window.initSettingsNavigation = initSettingsNavigation;
-        window.initPasswordToggle = initPasswordToggle;
-        window.switchSettingsPanel = switchSettingsPanel;
+                    function handlePostImageUpload() {
+                        const fileInput = document.getElementById('post-image-file');
+                        const previewContainer = document.getElementById('image-preview');
+                        const previewImg = document.getElementById('preview-img');
 
-        // Initialize settings navigation on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            initSettingsNavigation();
-            initPasswordToggle();
-        });
+                        if (fileInput.files && fileInput.files[0]) {
+                            const reader = new FileReader();
+                            reader.onload = function (e) {
+                                previewImg.src = e.target.result;
+                                previewContainer.style.display = 'block';
+                            }
+                            reader.readAsDataURL(fileInput.files[0]);
+                        } else {
+                            previewContainer.style.display = 'none';
+                            previewImg.src = '';
+                        }
+                    }
+                    window.previewPost = previewPost;
+                    window.clearPostForm = clearPostForm;
+                    window.toggleSelectAllPosts = toggleSelectAllPosts;
+                    window.updateSelectedCount = updateSelectedCount;
+                    window.deleteSelectedPosts = deleteSelectedPosts;
+                    window.editPost = editPost;
+                    window.deletePost = deletePost;
 
-        // Also initialize immediately if DOM is already loaded
-        if (document.readyState !== 'loading') {
-            initSettingsNavigation();
-            initPasswordToggle();
-        }
+                    // Auto-login for localhost development
+                    async function autoLoginForLocalhost() {
+                        try {
+                            const response = await fetch('/auth/login', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ username: 'admin', password: 'password' })
+                            });
 
-        // Enhanced Post Rendering for Modern UI
-        async function loadAndRenderPosts() {
-            const container = document.getElementById('posts-list');
-            if (!container) return;
-            
-            // Show loading state
-            container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">Loading posts...</div>';
+                            const data = await response.json();
+                            if (data.success && data.token) {
+                                // Store JWT token in localStorage for API requests
+                                localStorage.setItem('authToken', data.token);
+                                console.log('Auto-login successful for localhost');
+                            }
+                        } catch (error) {
+                            console.error('Auto-login failed:', error);
+                        }
+                    }
 
-            try {
-                const response = await fetch('/api/posts');
-                const data = await response.json();
-                const posts = data.posts || [];
+                    // Run auto-login on page load
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        document.addEventListener('DOMContentLoaded', autoLoginForLocalhost);
+                        // Also try immediately in case DOM is already loaded
+                        autoLoginForLocalhost();
+                    }
 
-                if (posts.length === 0) {
-                    container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">No posts found. Create one to get started!</div>';
-                    return;
-                }
+                    // Load blog info for sidebar
+                    fetch('/api/settings/blog-info')
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.blogInfo && data.blogInfo.title) {
+                                const sidebarTitle = document.querySelector('.sidebar-logo .sidebar-logo-title');
+                                if (sidebarTitle) sidebarTitle.textContent = data.blogInfo.title;
+                                document.title = `Admin Panel - ${data.blogInfo.title}`;
+                            }
+                        })
+                        .catch(err => console.error('Error loading blog info:', err));
 
-                container.innerHTML = posts.map(post => `
+                    // Load both blog-info and author settings to populate form fields
+                    Promise.all([
+                        fetch('/api/settings/blog-info').then(res => res.json()),
+                        fetch('/api/settings/author').then(res => res.json())
+                    ])
+                        .then(([blogInfoData, authorData]) => {
+                            console.log('Loading saved settings:', { blogInfo: blogInfoData.blogInfo, author: authorData.author });
+
+                            const blogInfo = blogInfoData.blogInfo || {};
+                            const author = authorData.author || {};
+
+                            // Populate form fields with saved values
+                            const blogTitle = document.getElementById('blog-title');
+                            const blogDescription = document.getElementById('blog-description');
+                            const authorName = document.getElementById('author-name');
+                            const authorEmail = document.getElementById('author-email');
+                            const authorBio = document.getElementById('author-bio');
+                            const authorPhone = document.getElementById('author-phone');
+                            const authorWhatsapp = document.getElementById('author-whatsapp');
+                            const authorTwitter = document.getElementById('author-twitter');
+                            const authorFacebook = document.getElementById('author-facebook');
+                            const authorLinkedin = document.getElementById('author-linkedin');
+                            const authorInstagram = document.getElementById('author-instagram');
+                            const authorWebsite = document.getElementById('author-website');
+
+                            // Blog info fields - from blog-info endpoint
+                            if (blogTitle) blogTitle.value = blogInfo.title || 'zedong254ke';
+                            if (blogDescription) blogDescription.value = blogInfo.description || 'Discover insights, tutorials, and thoughts on web development, programming, and technology.';
+
+                            // Author fields - from author endpoint
+                            if (authorName) authorName.value = author.name || 'zedong254ke';
+                            if (authorEmail) authorEmail.value = author.email || '';
+                            if (authorBio) authorBio.value = author.bio || 'Passionate developer and blogger sharing insights on technology and programming.';
+                            if (authorPhone) authorPhone.value = author.phone || '';
+                            if (authorWhatsapp) authorWhatsapp.value = author.whatsapp || '';
+                            if (authorTwitter) authorTwitter.value = author.social?.twitter || '';
+                            if (authorFacebook) authorFacebook.value = author.social?.facebook || '';
+                            if (authorLinkedin) authorLinkedin.value = author.social?.linkedin || '';
+                            if (authorInstagram) authorInstagram.value = author.social?.instagram || '';
+                            if (authorWebsite) authorWebsite.value = author.social?.website || '';
+
+                            console.log('Settings loaded and form populated successfully');
+                        })
+                        .catch(err => console.error('Error loading settings:', err));
+
+                    // Function aliases for posts
+
+                    window.viewPostStats = function () {
+                        console.log('viewPostStats called');
+                        showAnalyticsSection();
+                    };
+
+                    // Sidebar toggle
+                    window.toggleSidebar = function () {
+                        const sidebar = document.getElementById('sidebar');
+                        if (sidebar) sidebar.classList.toggle('collapsed');
+                    };
+
+                    // Modern Settings Navigation
+                    let settingsNavigationInitialized = false;
+
+                    function initSettingsNavigation() {
+                        // Prevent multiple initializations
+                        if (settingsNavigationInitialized) {
+                            console.log('Settings navigation already initialized, skipping');
+                            return;
+                        }
+
+                        console.log('initSettingsNavigation called');
+                        const settingsSection = document.getElementById('settings-section');
+                        if (!settingsSection) {
+                            console.error('Settings section not found');
+                            return;
+                        }
+
+                        const settingsSidebar = settingsSection.querySelector('.settings-sidebar');
+                        if (!settingsSidebar) {
+                            console.error('Settings sidebar not found');
+                            return;
+                        }
+
+                        console.log('Found sidebar, attaching click handlers');
+
+                        // Add click listener to sidebar using event delegation
+                        settingsSidebar.addEventListener('click', (event) => {
+                            const button = event.target.closest('.settings-nav-btn');
+                            if (!button) {
+                                return;
+                            }
+
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            const targetPanel = button.getAttribute('data-panel');
+                            console.log('Button clicked, switching to panel:', targetPanel);
+
+                            switchSettingsPanel(targetPanel);
+                        });
+
+                        settingsNavigationInitialized = true;
+                        console.log('Settings navigation initialized successfully');
+                    }
+
+                    // Password toggle functionality
+                    function initPasswordToggle() {
+                        const toggleBtn = document.getElementById('admin-key-toggle');
+                        const passwordInput = document.getElementById('admin-entry-key');
+
+                        if (toggleBtn && passwordInput) {
+                            toggleBtn.addEventListener('click', () => {
+                                const type = passwordInput.type === 'password' ? 'text' : 'password';
+                                passwordInput.type = type;
+
+                                // Update icon
+                                const icon = toggleBtn.querySelector('svg');
+                                if (type === 'text') {
+                                    icon.innerHTML = '<path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>';
+                                } else {
+                                    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+                                }
+                            });
+                        }
+                    }
+
+                    // Expose functions globally for settings module
+                    window.initSettingsNavigation = initSettingsNavigation;
+                    window.initPasswordToggle = initPasswordToggle;
+                    window.switchSettingsPanel = switchSettingsPanel;
+
+                    // Initialize settings navigation on page load
+                    document.addEventListener('DOMContentLoaded', function () {
+                        initSettingsNavigation();
+                        initPasswordToggle();
+                    });
+
+                    // Also initialize immediately if DOM is already loaded
+                    if (document.readyState !== 'loading') {
+                        initSettingsNavigation();
+                        initPasswordToggle();
+                    }
+
+                    // Enhanced Post Rendering for Modern UI
+                    async function loadAndRenderPosts() {
+                        const container = document.getElementById('posts-list');
+                        if (!container) return;
+
+                        // Show loading state
+                        container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">Loading posts...</div>';
+
+                        try {
+                            const response = await fetch('/api/posts');
+                            const data = await response.json();
+                            const posts = data.posts || [];
+
+                            if (posts.length === 0) {
+                                container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">No posts found. Create one to get started!</div>';
+                                return;
+                            }
+
+                            container.innerHTML = posts.map(post => `
                     <div class="post-item">
                         <div class="post-item-header">
                             <h4 class="post-item-title">${post.title}</h4>
@@ -3405,408 +3645,409 @@
                         </div>
                     </div>
                 `).join('');
-                
-                const listContainer = document.getElementById('posts-list-container');
-                if (listContainer) listContainer.style.display = 'block';
-                
-            } catch (e) {
-                console.error('Error rendering posts:', e);
-                container.innerHTML = '<div style="text-align:center; color:#dc2626;">Failed to load posts.</div>';
-            }
-        }
 
+                            const listContainer = document.getElementById('posts-list-container');
+                            if (listContainer) listContainer.style.display = 'block';
 
-
-        window.handleCreateUser = async function(event) {
-            event.preventDefault();
-
-            const username = document.getElementById('new-username').value.trim();
-            const password = document.getElementById('new-password').value.trim();
-            const name = document.getElementById('new-name').value.trim();
-            const email = document.getElementById('new-email').value.trim();
-            const role = document.getElementById('new-role').value;
-
-            if (!username || !password || !name || !email) {
-                alert('All fields are required');
-                return;
-            }
-
-            try {
-                const headers = getAuthHeaders();
-                const token = localStorage.getItem('authToken');
-                console.log('Creating user with token:', token ? 'Token found' : 'No token found');
-                console.log('Request headers:', headers);
-
-                const response = await fetch('/auth/setup', {
-                    method: 'POST',
-                    headers: headers,
-                    credentials: 'include',
-                    body: JSON.stringify({ username, password, name, email })
-                });
-
-                console.log('Response status:', response.status);
-                const data = await response.json();
-
-                if (data.success) {
-                    alert('User created successfully!');
-                    document.getElementById('create-user-form').reset();
-                    loadUsers(); // Refresh the list
-                } else {
-                    alert('Failed to create user: ' + (data.error || 'Unknown error'));
-                }
-            } catch (e) {
-                console.error('Error creating user:', e);
-                alert('Failed to create user. Check console for details.');
-            }
-        };
-
-        // Admin Key Verification Logic
-        async function checkSecurityOnLoad() {
-            // Bypass for localhost to prevent prompt
-            const hostname = window.location.hostname;
-            if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
-                console.log('Localhost/Local network detected, bypassing admin key check');
-                return;
-            }
-
-            try {
-                // First check if a key is even configured
-                const secRes = await fetch('/api/settings/security');
-                const sec = await secRes.json();
-                
-                if (sec.hasEntryKey) {
-                    // If configured, check if we are verified
-                    const verRes = await fetch('/api/settings/check-admin-key-verified');
-                    const ver = await verRes.json();
-                    
-                    if (!ver.verified) {
-                        document.getElementById('admin-key-modal').style.display = 'flex';
-                        document.getElementById('modal-admin-key').focus();
+                        } catch (e) {
+                            console.error('Error rendering posts:', e);
+                            container.innerHTML = '<div style="text-align:center; color:#dc2626;">Failed to load posts.</div>';
+                        }
                     }
-                }
-            } catch(e) { console.error('Security check failed:', e); }
-        }
 
-        async function verifyAdminKeyModal() {
-            const keyInput = document.getElementById('modal-admin-key');
-            const errorEl = document.getElementById('modal-error');
-            const key = keyInput.value;
-            
-            // Reset error state
-            errorEl.style.display = 'none';
-            keyInput.style.borderColor = '#e2e8f0';
-            
-            if (!key) return;
 
-            try {
-                const res = await fetch('/api/settings/verify-entry-key', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ adminEntryKey: key })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    const modal = document.getElementById('admin-key-modal');
-                    modal.style.opacity = '0';
-                    setTimeout(() => modal.style.display = 'none', 300);
-                } else {
-                    keyInput.style.borderColor = '#ef4444';
-                    keyInput.value = '';
-                    errorEl.style.display = 'flex';
-                    // Trigger reflow for animation restart
-                    errorEl.style.animation = 'none';
-                    errorEl.offsetHeight; 
-                    errorEl.style.animation = 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both';
-                }
-            } catch(e) {
-                console.error(e);
-                alert('Verification failed. Please try again.');
-            }
-        }
 
-        // Create user form handler (redundant safety binding)
-        const createUserForm = document.getElementById('create-user-form');
-        if (createUserForm) {
-            if (typeof createUserForm.addEventListener === 'function') {
-                createUserForm.addEventListener('submit', handleCreateUser);
-            }
-        }
+                    window.handleCreateUser = async function (event) {
+                        event.preventDefault();
 
-        // Users: load and create
+                        const username = document.getElementById('new-username').value.trim();
+                        const password = document.getElementById('new-password').value.trim();
+                        const name = document.getElementById('new-name').value.trim();
+                        const email = document.getElementById('new-email').value.trim();
+                        const role = document.getElementById('new-role').value;
 
-        window.toggleUserStatus = async function(username, newStatus) {
-            try {
-                console.log('Toggling user status:', username, 'to', newStatus);
-                
-                const response = await fetch(`/api/users/${username}`, {
-                    method: 'PUT',
-                    credentials: 'include',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ active: newStatus })
-                });
-                
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    console.error('Failed to update user status:', data.error);
-                    alert('Failed to update user: ' + (data.error || 'Unknown error'));
-                    return;
-                }
-                
-                console.log('User status updated successfully:', data);
-                alert('User status updated successfully!');
-            } catch (e) {
-                console.error('Error updating user status:', e);
-                alert('Error updating user status');
-            }
-        };
-        
-        async function setUserAdminKey(username) {
-            const adminKey = prompt(`Enter admin key for user ${username}:`);
-            if (!adminKey) return;
-            
-            try {
-                console.log('Setting admin key for user:', username);
-                
-                const response = await fetch(`/api/users/${username}/admin-key`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ adminKey })
-                });
-                
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    console.error('Failed to set admin key:', data.error);
-                    alert('Failed to set admin key: ' + (data.error || 'Unknown error'));
-                    return;
-                }
-                
-                console.log('Admin key set successfully');
-                alert('Admin key set successfully for ' + username);
-            } catch (e) {
-                console.error('Error setting admin key:', e);
-                alert('Error setting admin key');
-            }
-        }
-        
-        async function verifyUserAdminKey(username) {
-            const adminKey = prompt(`Enter admin key for ${username}:`);
-            if (!adminKey) return false;
-            
-            try {
-                console.log('Verifying admin key for user:', username);
-                
-                const response = await fetch(`/api/users/${username}/verify-admin-key`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ adminKey })
-                });
-                
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    console.error('Failed to verify admin key:', data.error);
-                    alert('Invalid admin key. Access denied.');
-                    return false;
-                }
-                
-                console.log('Admin key verified');
-                alert('Admin key verified. Redirecting to login...');
-                window.location.href = '/login.html';
-                return true;
-            } catch (e) {
-                console.error('Error verifying admin key:', e);
-                alert('Error verifying admin key');
-                return false;
-            }
-        }
+                        if (!username || !password || !name || !email) {
+                            alert('All fields are required');
+                            return;
+                        }
 
-        // Navigation Functions - Define all before any onclick handlers can fire
-        function handleHashRoute() {
-            // First check if there's a saved section in localStorage
-            const savedSection = localStorage.getItem('adminCurrentSection');
-            const hash = window.location.hash.slice(1);
-            
-            // If hash is provided in URL, use it (has priority)
-            if (hash) {
-                const routeMap = {
-                    'dashboard': () => showDashboard(),
-                    'create-post': () => showCreatePostSection(),
-                    'posts': () => showPostsSection(),
-                    'analytics': () => showAnalyticsSection(),
-                    'users': () => showUsersSection(),
-                    'settings': () => showSettingsSection()
-                };
-                
-                const handler = routeMap[hash];
-                if (handler) {
-                    handler();
-                }
-            } else if (savedSection) {
-                // Restore saved section from localStorage
-                console.log('Restoring saved section:', savedSection);
-                switch (savedSection) {
-                    case 'dashboard':
-                        showDashboard();
-                        break;
-                    case 'create-post':
-                        showCreatePostSection();
-                        break;
-                    case 'posts':
-                        showPostsSection();
-                        break;
-                    case 'analytics':
-                        showAnalyticsSection();
-                        break;
-                    case 'users':
-                        showUsersSection();
-                        break;
-                    case 'settings':
-                        showSettingsSection();
-                        break;
-                    default:
-                        showDashboard();
-                }
-            } else {
-                // Default to dashboard
-                showDashboard();
-            }
-        }
-        window.handleHashRoute = handleHashRoute;
+                        try {
+                            const headers = getAuthHeaders();
+                            const token = localStorage.getItem('authToken');
+                            console.log('Creating user with token:', token ? 'Token found' : 'No token found');
+                            console.log('Request headers:', headers);
 
-        // Save current section to localStorage when navigating
-        function saveCurrentSection(section) {
-            try {
-                localStorage.setItem('adminCurrentSection', section);
-                console.log('Saved current section:', section);
-            } catch (e) {
-                console.warn('Could not save section to localStorage:', e);
-            }
-        }
+                            const response = await fetch('/auth/setup', {
+                                method: 'POST',
+                                headers: headers,
+                                credentials: 'include',
+                                body: JSON.stringify({ username, password, name, email })
+                            });
 
-        // Override showDashboard to save section
-        const originalShowDashboard = showDashboard;
-        showDashboard = function() {
-            originalShowDashboard();
-            saveCurrentSection('dashboard');
-        };
+                            console.log('Response status:', response.status);
+                            const data = await response.json();
 
-        // Override showCreatePostSection to save section
-        const originalShowCreatePostSection = showCreatePostSection;
-        showCreatePostSection = function() {
-            originalShowCreatePostSection();
-            saveCurrentSection('create-post');
-        };
+                            if (data.success) {
+                                alert('User created successfully!');
+                                document.getElementById('create-user-form').reset();
+                                loadUsers(); // Refresh the list
+                            } else {
+                                alert('Failed to create user: ' + (data.error || 'Unknown error'));
+                            }
+                        } catch (e) {
+                            console.error('Error creating user:', e);
+                            alert('Failed to create user. Check console for details.');
+                        }
+                    };
 
-        // Override showPostsSection to save section
-        const originalShowPostsSection = showPostsSection;
-        showPostsSection = function() {
-            originalShowPostsSection();
-            saveCurrentSection('posts');
-        };
+                    // Admin Key Verification Logic
+                    async function checkSecurityOnLoad() {
+                        // Bypass for localhost to prevent prompt
+                        const hostname = window.location.hostname;
+                        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
+                            console.log('Localhost/Local network detected, bypassing admin key check');
+                            return;
+                        }
 
-        // Override showAnalyticsSection to save section
-        const originalShowAnalyticsSection = showAnalyticsSection;
-        showAnalyticsSection = function() {
-            originalShowAnalyticsSection();
-            saveCurrentSection('analytics');
-        };
+                        try {
+                            // First check if a key is even configured
+                            const secRes = await fetch('/api/settings/security');
+                            const sec = await secRes.json();
 
-        // Override showUsersSection to save section
-        const originalShowUsersSection = showUsersSection;
-        showUsersSection = function() {
-            originalShowUsersSection();
-            saveCurrentSection('users');
-        };
+                            if (sec.hasEntryKey) {
+                                // If configured, check if we are verified
+                                const verRes = await fetch('/api/settings/check-admin-key-verified');
+                                const ver = await verRes.json();
 
-        // Override showSettingsSection to save section
-        const originalShowSettingsSection = showSettingsSection;
-        showSettingsSection = function() {
-            originalShowSettingsSection();
-            saveCurrentSection('settings');
-        };
+                                if (!ver.verified) {
+                                    document.getElementById('admin-key-modal').style.display = 'flex';
+                                    document.getElementById('modal-admin-key').focus();
+                                }
+                            }
+                        } catch (e) { console.error('Security check failed:', e); }
+                    }
 
-        // Allow Enter key to submit
-        document.getElementById('modal-admin-key').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') verifyAdminKeyModal();
-        });
+                    async function verifyAdminKeyModal() {
+                        const keyInput = document.getElementById('modal-admin-key');
+                        const errorEl = document.getElementById('modal-error');
+                        const key = keyInput.value;
 
-        // Run check immediately
-        checkSecurityOnLoad();
-        
-        // Restore saved section on page load
-        handleHashRoute();
-    </script>
+                        // Reset error state
+                        errorEl.style.display = 'none';
+                        keyInput.style.borderColor = '#e2e8f0';
 
-<script>
-(function(){
-  function bind(sel, fn){
-    const el = document.querySelector(sel);
-    if (!el) return;
-    el.addEventListener('click', function(e){
-      e.preventDefault();
-      fn();
-    });
-  }
-  document.addEventListener('DOMContentLoaded', function(){
-    bind('#nav-dashboard', showDashboard);
-    bind('#nav-create-post', showCreatePostSection);
-    bind('#nav-posts', showPostsSection);
-    bind('#nav-analytics', showAnalyticsSection);
-    bind('#nav-settings', showSettingsSection);
-    const form = document.getElementById('create-user-form');
-    if (form) form.addEventListener('submit', handleCreateUser);
-    
-    // Populate category dropdown on page load
-    if (typeof populatePostCategoryDropdown === 'function') {
-        populatePostCategoryDropdown().catch(err => console.error('Failed to populate categories:', err));
-    }
+                        if (!key) return;
 
-    // Add event listener for the logout button
-    const logoutButton = document.getElementById('logout-btn');
-    if (logoutButton) {
-        logoutButton.addEventListener('click', async () => {
-            try {
-                console.log('Logout initiated from event listener');
-                
-                // Always clear local storage first (even if server call fails)
-                try {
-                    localStorage.removeItem('authToken');
-                    localStorage.removeItem('user');
-                } catch (e) {
-                    console.warn('Could not clear localStorage:', e);
-                }
-                sessionStorage.clear();
-                
-                // Call server logout endpoint to destroy session
-                const response = await fetch('/auth/logout', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' }
-                }).catch(err => {
-                    console.warn('Logout fetch failed:', err);
-                    return { ok: true }; // Treat network errors as success for logout
-                });
-                
-                console.log('Logout completed successfully');
-                
-                // Redirect to login page
-                window.location.href = '/login.html';
-            } catch (error) {
-                console.error('Logout error:', error);
-                // Even on error, redirect to login to ensure user is logged out
-                window.location.href = '/login.html';
-            }
-        });
-    }
-  });
-})();
-</script>
+                        try {
+                            const res = await fetch('/api/settings/verify-entry-key', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ adminEntryKey: key })
+                            });
+                            const data = await res.json();
+
+                            if (data.success) {
+                                const modal = document.getElementById('admin-key-modal');
+                                modal.style.opacity = '0';
+                                setTimeout(() => modal.style.display = 'none', 300);
+                            } else {
+                                keyInput.style.borderColor = '#ef4444';
+                                keyInput.value = '';
+                                errorEl.style.display = 'flex';
+                                // Trigger reflow for animation restart
+                                errorEl.style.animation = 'none';
+                                errorEl.offsetHeight;
+                                errorEl.style.animation = 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both';
+                            }
+                        } catch (e) {
+                            console.error(e);
+                            alert('Verification failed. Please try again.');
+                        }
+                    }
+
+                    // Create user form handler (redundant safety binding)
+                    const createUserForm = document.getElementById('create-user-form');
+                    if (createUserForm) {
+                        if (typeof createUserForm.addEventListener === 'function') {
+                            createUserForm.addEventListener('submit', handleCreateUser);
+                        }
+                    }
+
+                    // Users: load and create
+
+                    window.toggleUserStatus = async function (username, newStatus) {
+                        try {
+                            console.log('Toggling user status:', username, 'to', newStatus);
+
+                            const response = await fetch(`/api/users/${username}`, {
+                                method: 'PUT',
+                                credentials: 'include',
+                                headers: getAuthHeaders(),
+                                body: JSON.stringify({ active: newStatus })
+                            });
+
+                            const data = await response.json();
+
+                            if (!response.ok) {
+                                console.error('Failed to update user status:', data.error);
+                                alert('Failed to update user: ' + (data.error || 'Unknown error'));
+                                return;
+                            }
+
+                            console.log('User status updated successfully:', data);
+                            alert('User status updated successfully!');
+                        } catch (e) {
+                            console.error('Error updating user status:', e);
+                            alert('Error updating user status');
+                        }
+                    };
+
+                    async function setUserAdminKey(username) {
+                        const adminKey = prompt(`Enter admin key for user ${username}:`);
+                        if (!adminKey) return;
+
+                        try {
+                            console.log('Setting admin key for user:', username);
+
+                            const response = await fetch(`/api/users/${username}/admin-key`, {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: getAuthHeaders(),
+                                body: JSON.stringify({ adminKey })
+                            });
+
+                            const data = await response.json();
+
+                            if (!response.ok) {
+                                console.error('Failed to set admin key:', data.error);
+                                alert('Failed to set admin key: ' + (data.error || 'Unknown error'));
+                                return;
+                            }
+
+                            console.log('Admin key set successfully');
+                            alert('Admin key set successfully for ' + username);
+                        } catch (e) {
+                            console.error('Error setting admin key:', e);
+                            alert('Error setting admin key');
+                        }
+                    }
+
+                    async function verifyUserAdminKey(username) {
+                        const adminKey = prompt(`Enter admin key for ${username}:`);
+                        if (!adminKey) return false;
+
+                        try {
+                            console.log('Verifying admin key for user:', username);
+
+                            const response = await fetch(`/api/users/${username}/verify-admin-key`, {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ adminKey })
+                            });
+
+                            const data = await response.json();
+
+                            if (!response.ok) {
+                                console.error('Failed to verify admin key:', data.error);
+                                alert('Invalid admin key. Access denied.');
+                                return false;
+                            }
+
+                            console.log('Admin key verified');
+                            alert('Admin key verified. Redirecting to login...');
+                            window.location.href = '/login.html';
+                            return true;
+                        } catch (e) {
+                            console.error('Error verifying admin key:', e);
+                            alert('Error verifying admin key');
+                            return false;
+                        }
+                    }
+
+                    // Navigation Functions - Define all before any onclick handlers can fire
+                    function handleHashRoute() {
+                        // First check if there's a saved section in localStorage
+                        const savedSection = localStorage.getItem('adminCurrentSection');
+                        const hash = window.location.hash.slice(1);
+
+                        // If hash is provided in URL, use it (has priority)
+                        if (hash) {
+                            const routeMap = {
+                                'dashboard': () => showDashboard(),
+                                'create-post': () => showCreatePostSection(),
+                                'posts': () => showPostsSection(),
+                                'analytics': () => showAnalyticsSection(),
+                                'users': () => showUsersSection(),
+                                'settings': () => showSettingsSection()
+                            };
+
+                            const handler = routeMap[hash];
+                            if (handler) {
+                                handler();
+                            }
+                        } else if (savedSection) {
+                            // Restore saved section from localStorage
+                            console.log('Restoring saved section:', savedSection);
+                            switch (savedSection) {
+                                case 'dashboard':
+                                    showDashboard();
+                                    break;
+                                case 'create-post':
+                                    showCreatePostSection();
+                                    break;
+                                case 'posts':
+                                    showPostsSection();
+                                    break;
+                                case 'analytics':
+                                    showAnalyticsSection();
+                                    break;
+                                case 'users':
+                                    showUsersSection();
+                                    break;
+                                case 'settings':
+                                    showSettingsSection();
+                                    break;
+                                default:
+                                    showDashboard();
+                            }
+                        } else {
+                            // Default to dashboard
+                            showDashboard();
+                        }
+                    }
+                    window.handleHashRoute = handleHashRoute;
+
+                    // Save current section to localStorage when navigating
+                    function saveCurrentSection(section) {
+                        try {
+                            localStorage.setItem('adminCurrentSection', section);
+                            console.log('Saved current section:', section);
+                        } catch (e) {
+                            console.warn('Could not save section to localStorage:', e);
+                        }
+                    }
+
+                    // Override showDashboard to save section
+                    const originalShowDashboard = showDashboard;
+                    showDashboard = function () {
+                        originalShowDashboard();
+                        saveCurrentSection('dashboard');
+                    };
+
+                    // Override showCreatePostSection to save section
+                    const originalShowCreatePostSection = showCreatePostSection;
+                    showCreatePostSection = function () {
+                        originalShowCreatePostSection();
+                        saveCurrentSection('create-post');
+                    };
+
+                    // Override showPostsSection to save section
+                    const originalShowPostsSection = showPostsSection;
+                    showPostsSection = function () {
+                        originalShowPostsSection();
+                        saveCurrentSection('posts');
+                    };
+
+                    // Override showAnalyticsSection to save section
+                    const originalShowAnalyticsSection = showAnalyticsSection;
+                    showAnalyticsSection = function () {
+                        originalShowAnalyticsSection();
+                        saveCurrentSection('analytics');
+                    };
+
+                    // Override showUsersSection to save section
+                    const originalShowUsersSection = showUsersSection;
+                    showUsersSection = function () {
+                        originalShowUsersSection();
+                        saveCurrentSection('users');
+                    };
+
+                    // Override showSettingsSection to save section
+                    const originalShowSettingsSection = showSettingsSection;
+                    showSettingsSection = function () {
+                        originalShowSettingsSection();
+                        saveCurrentSection('settings');
+                    };
+
+                    // Allow Enter key to submit
+                    document.getElementById('modal-admin-key').addEventListener('keypress', function (e) {
+                        if (e.key === 'Enter') verifyAdminKeyModal();
+                    });
+
+                    // Run check immediately
+                    checkSecurityOnLoad();
+
+                    // Restore saved section on page load
+                    handleHashRoute();
+                </script>
+
+                <script>
+                    (function () {
+                        function bind(sel, fn) {
+                            const el = document.querySelector(sel);
+                            if (!el) return;
+                            el.addEventListener('click', function (e) {
+                                e.preventDefault();
+                                fn();
+                            });
+                        }
+                        document.addEventListener('DOMContentLoaded', function () {
+                            bind('#nav-dashboard', showDashboard);
+                            bind('#nav-create-post', showCreatePostSection);
+                            bind('#nav-posts', showPostsSection);
+                            bind('#nav-analytics', showAnalyticsSection);
+                            bind('#nav-settings', showSettingsSection);
+                            const form = document.getElementById('create-user-form');
+                            if (form) form.addEventListener('submit', handleCreateUser);
+
+                            // Populate category dropdown on page load
+                            if (typeof populatePostCategoryDropdown === 'function') {
+                                populatePostCategoryDropdown().catch(err => console.error('Failed to populate categories:', err));
+                            }
+
+                            // Add event listener for the logout button
+                            const logoutButton = document.getElementById('logout-btn');
+                            if (logoutButton) {
+                                logoutButton.addEventListener('click', async () => {
+                                    try {
+                                        console.log('Logout initiated from event listener');
+
+                                        // Always clear local storage first (even if server call fails)
+                                        try {
+                                            localStorage.removeItem('authToken');
+                                            localStorage.removeItem('user');
+                                        } catch (e) {
+                                            console.warn('Could not clear localStorage:', e);
+                                        }
+                                        sessionStorage.clear();
+
+                                        // Call server logout endpoint to destroy session
+                                        const response = await fetch('/auth/logout', {
+                                            method: 'POST',
+                                            credentials: 'include',
+                                            headers: { 'Content-Type': 'application/json' }
+                                        }).catch(err => {
+                                            console.warn('Logout fetch failed:', err);
+                                            return { ok: true }; // Treat network errors as success for logout
+                                        });
+
+                                        console.log('Logout completed successfully');
+
+                                        // Redirect to login page
+                                        window.location.href = '/login.html';
+                                    } catch (error) {
+                                        console.error('Logout error:', error);
+                                        // Even on error, redirect to login to ensure user is logged out
+                                        window.location.href = '/login.html';
+                                    }
+                                });
+                            }
+                        });
+                    })();
+                </script>
 </body>
+
 </html>
