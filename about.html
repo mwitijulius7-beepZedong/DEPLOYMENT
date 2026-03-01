@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>About - zedong254ke Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             /* Modern Color Palette with Enhanced Accessibility */
@@ -123,7 +126,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-dark);
             line-height: 1.6;
@@ -166,7 +169,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
-        .logo h1 {
+        .logo .logo-title {
             font-size: 24px;
             font-weight: 600;
         }
@@ -190,6 +193,13 @@
         nav a:hover, nav a:focus-visible {
             background: rgba(255,255,255,0.2);
             outline: none;
+        }
+
+        /* Active Tab Highlighting */
+        nav a.active-tab {
+            background: rgba(255,255,255,0.4);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            font-weight: 600;
         }
 
         .admin-btn {
@@ -391,7 +401,7 @@
                 padding: 0 16px;
             }
 
-            .logo h1 {
+            .logo .logo-title {
                 font-size: 20px;
             }
 
@@ -544,12 +554,12 @@
         <div class="header-container">
             <a href="/" class="logo">
                 <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile picture">
-                <h1>zedong254ke</h1>
+                <span class="logo-title">zedong254ke</span>
             </a>
             <nav>
                 <a href="/"><span>Home</span>🏠</a>
                 <a href="/"><span>Blog</span>📝</a>
-                <a href="/about.html"><span>About</span>ℹ️</a>
+                <a href="/about.html" class="active-tab"><span>About</span>ℹ️</a>
                 <button class="admin-btn" onclick="openAdminModal()">🔒 Admin</button>
             </nav>
         </div>
@@ -661,11 +671,33 @@
             .then(response => response.json())
             .then(data => {
                 if (data.blogInfo && data.blogInfo.title) {
-                    document.querySelector('.logo h1').textContent = data.blogInfo.title;
+                    document.querySelector('.logo .logo-title').textContent = data.blogInfo.title;
                     document.title = `About - ${data.blogInfo.title}`;
                 }
             })
             .catch(error => console.error('Error loading blog info:', error));
+
+        // Active Tab Highlighting Function
+        function highlightActiveTab() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('nav a');
+            
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                
+                link.classList.remove('active');
+                link.classList.remove('active-tab');
+                
+                if (href === '/' && (currentPath === '/' || currentPath === '/index.html')) {
+                    if (link.textContent.includes('Home')) {
+                        link.classList.add('active', 'active-tab');
+                    }
+                } else if (href && href !== '/' && currentPath.includes(href.replace('/', '').replace('.html', ''))) {
+                    link.classList.add('active', 'active-tab');
+                }
+            });
+        }
+        document.addEventListener('DOMContentLoaded', highlightActiveTab);
     </script>
 </body>
 </html>

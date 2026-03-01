@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Post - zedong254ke Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             /* Modern Color Palette with Enhanced Accessibility */
@@ -21,7 +25,7 @@
             --bg-secondary: #f8fafc;
             --bg-tertiary: #f1f5f9;
             --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
-            --bg-gradient-subtle: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.8) 100%);
+            --bg-gradient-subtle: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
 
             /* Card and Surface Colors */
             --card-bg: #ffffff;
@@ -123,7 +127,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-dark);
             line-height: 1.6;
@@ -182,10 +186,10 @@
             height: 48px;
             border-radius: 50%;
             border: 3px solid white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
-        .logo h1 {
+        .logo .logo-title {
             font-size: 24px;
             font-weight: 600;
         }
@@ -206,16 +210,24 @@
             border-radius: 8px;
         }
 
-        nav a:hover, nav a:focus-visible {
-            background: rgba(255,255,255,0.2);
-            outline: 2px solid rgba(255,255,255,0.5);
+        nav a:hover,
+        nav a:focus-visible {
+            background: rgba(255, 255, 255, 0.2);
+            outline: 2px solid rgba(255, 255, 255, 0.5);
             outline-offset: 2px;
         }
 
+        /* Active Tab Highlighting */
+        nav a.active-tab {
+            background: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            font-weight: 600;
+        }
+
         .back-btn {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
             color: white;
-            border: 1px solid rgba(255,255,255,0.3);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             padding: 8px 16px;
             border-radius: 8px;
             cursor: pointer;
@@ -225,15 +237,16 @@
             margin-left: 16px;
         }
 
-        .back-btn:hover, .back-btn:focus-visible {
-            background: rgba(255,255,255,0.2);
-            border-color: rgba(255,255,255,0.5);
-            outline: 2px solid rgba(255,255,255,0.5);
+        .back-btn:hover,
+        .back-btn:focus-visible {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            outline: 2px solid rgba(255, 255, 255, 0.5);
             outline-offset: 2px;
         }
 
         .back-btn:focus-visible {
-            outline: 2px solid rgba(255,255,255,0.8);
+            outline: 2px solid rgba(255, 255, 255, 0.8);
         }
 
         /* Main Content */
@@ -253,7 +266,7 @@
         .post-header {
             padding: 48px 32px;
             border-bottom: 1px solid var(--border-color);
-            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255,255,255,0.8) 100%);
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255, 255, 255, 0.8) 100%);
             position: relative;
             overflow: hidden;
         }
@@ -336,7 +349,8 @@
             hyphens: auto;
         }
 
-        .post-content ul, .post-content ol {
+        .post-content ul,
+        .post-content ol {
             margin-bottom: 24px;
             padding-left: 32px;
         }
@@ -352,7 +366,7 @@
             margin: 32px 0;
             font-style: italic;
             color: var(--text-medium);
-            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255,255,255,0.8) 100%);
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255, 255, 255, 0.8) 100%);
             border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
             position: relative;
         }
@@ -447,7 +461,7 @@
                 padding: 0 16px;
             }
 
-            .logo h1 {
+            .logo .logo-title {
                 font-size: 20px;
             }
 
@@ -481,14 +495,54 @@
             }
         }
 
-        /* Social Share Section */
         .social-share {
             padding: 32px;
             border-top: 1px solid var(--border-color);
             border-bottom: 1px solid var(--border-color);
             margin: 32px 0;
-            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255,255,255,0.5) 100%);
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255, 255, 255, 0.5) 100%);
             border-radius: var(--border-radius);
+        }
+
+        /* Reactions Section */
+        .post-reactions {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .reaction-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 30px;
+            background: var(--card-bg);
+            color: var(--text-dark);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .reaction-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .reaction-btn.like-btn:hover {
+            border-color: #22c55e;
+            color: #16a34a;
+            background: #f0fdf4;
+        }
+
+        .reaction-btn.dislike-btn:hover {
+            border-color: #ef4444;
+            color: #dc2626;
+            background: #fef2f2;
         }
 
         .social-share h3 {
@@ -599,9 +653,12 @@
         }
 
         @keyframes pulse {
-            0%, 100% {
+
+            0%,
+            100% {
                 opacity: 1;
             }
+
             50% {
                 opacity: 0.5;
             }
@@ -631,7 +688,7 @@
             left: -100%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
             transition: left 0.5s ease;
         }
 
@@ -665,6 +722,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Reading Progress Bar -->
     <div class="reading-progress">
@@ -675,11 +733,11 @@
         <div class="header-container">
             <a href="/" class="logo">
                 <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile picture">
-                <h1>zedong254ke</h1>
+                <span class="logo-title">zedong254ke</span>
             </a>
             <nav>
                 <a href="/"><span>Home</span>🏠</a>
-                <a href="/"><span>Blog</span>📝</a>
+                <a href="/" class="active-tab"><span>Blog</span>📝</a>
                 <a href="/about.html"><span>About</span>ℹ️</a>
                 <button class="back-btn" onclick="goBack()">← Back to Blog</button>
             </nav>
@@ -750,6 +808,14 @@
                 <div class="post-content">
                     ${post.content || '<p>No content available.</p>'}
                 </div>
+                <div class="post-reactions">
+                    <button class="reaction-btn like-btn" onclick="likePost(${post.id})" id="like-btn">
+                        <span>👍</span> <span id="like-count">${post.likes || 0}</span>
+                    </button>
+                    <button class="reaction-btn dislike-btn" onclick="dislikePost(${post.id})" id="dislike-btn">
+                        <span>👎</span> <span id="dislike-count">${post.dislikes || 0}</span>
+                    </button>
+                </div>
                 <div class="social-share">
                     <h3>Share this post</h3>
                     <div class="share-buttons">
@@ -769,8 +835,11 @@
                 </div>
                 ${tags ? `<div class="post-tags"><div class="tags-list">${tags}</div></div>` : ''}
             `;
-        }
 
+            const reactionKey = `reaction_${post.id}`;
+            const currentReaction = localStorage.getItem(reactionKey);
+            updateReactionButtons(currentReaction);
+        }
         function showError(message) {
             const container = document.getElementById('post-container');
             container.innerHTML = `
@@ -780,6 +849,117 @@
                     <button class="back-btn" onclick="goBack()" style="margin-top: 20px;">← Back to Blog</button>
                 </div>
             `;
+        }
+
+        async function likePost(id) {
+            try {
+                const reactionKey = `reaction_${id}`;
+                const currentReaction = localStorage.getItem(reactionKey);
+
+                if (currentReaction === 'like') {
+                    // Undo like
+                    const response = await fetch(`/api/posts/${id}/like`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'remove' })
+                    });
+                    const data = await response.json();
+                    if (response.ok && data.success) {
+                        document.getElementById('like-count').textContent = data.likes;
+                        localStorage.removeItem(reactionKey);
+                        updateReactionButtons(null);
+                    }
+                } else {
+                    // If disliked, undo dislike first
+                    if (currentReaction === 'dislike') {
+                        await fetch(`/api/posts/${id}/dislike`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'remove' })
+                        }).then(r => r.json()).then(d => {
+                            if (d.success) document.getElementById('dislike-count').textContent = d.dislikes;
+                        });
+                    }
+                    // Add like
+                    const response = await fetch(`/api/posts/${id}/like`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'add' })
+                    });
+                    const data = await response.json();
+                    if (response.ok && data.success) {
+                        document.getElementById('like-count').textContent = data.likes;
+                        localStorage.setItem(reactionKey, 'like');
+                        updateReactionButtons('like');
+                    }
+                }
+            } catch (err) {
+                console.error('Error liking post:', err);
+            }
+        }
+
+        async function dislikePost(id) {
+            try {
+                const reactionKey = `reaction_${id}`;
+                const currentReaction = localStorage.getItem(reactionKey);
+
+                if (currentReaction === 'dislike') {
+                    // Undo dislike
+                    const response = await fetch(`/api/posts/${id}/dislike`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'remove' })
+                    });
+                    const data = await response.json();
+                    if (response.ok && data.success) {
+                        document.getElementById('dislike-count').textContent = data.dislikes;
+                        localStorage.removeItem(reactionKey);
+                        updateReactionButtons(null);
+                    }
+                } else {
+                    // If liked, undo like first
+                    if (currentReaction === 'like') {
+                        await fetch(`/api/posts/${id}/like`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'remove' })
+                        }).then(r => r.json()).then(d => {
+                            if (d.success) document.getElementById('like-count').textContent = d.likes;
+                        });
+                    }
+                    // Add dislike
+                    const response = await fetch(`/api/posts/${id}/dislike`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'add' })
+                    });
+                    const data = await response.json();
+                    if (response.ok && data.success) {
+                        document.getElementById('dislike-count').textContent = data.dislikes;
+                        localStorage.setItem(reactionKey, 'dislike');
+                        updateReactionButtons('dislike');
+                    }
+                }
+            } catch (err) {
+                console.error('Error disliking post:', err);
+            }
+        }
+
+        function updateReactionButtons(activeReaction) {
+            const likeBtn = document.getElementById('like-btn');
+            const dislikeBtn = document.getElementById('dislike-btn');
+            if (!likeBtn || !dislikeBtn) return;
+
+            if (activeReaction === 'like') {
+                likeBtn.classList.add('active');
+                dislikeBtn.classList.remove('active');
+            } else if (activeReaction === 'dislike') {
+                dislikeBtn.classList.add('active');
+                likeBtn.classList.remove('active');
+            } else {
+                likeBtn.classList.remove('active');
+                dislikeBtn.classList.remove('active');
+            }
         }
 
         function goBack() {
@@ -840,6 +1020,29 @@
                 alert('Link copied to clipboard!');
             });
         }
+
+        // Active Tab Highlighting Function
+        function highlightActiveTab() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('nav a');
+
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+
+                link.classList.remove('active');
+                link.classList.remove('active-tab');
+
+                if (href === '/' && (currentPath === '/' || currentPath === '/index.html')) {
+                    if (link.textContent.includes('Home')) {
+                        link.classList.add('active', 'active-tab');
+                    }
+                } else if (href && href !== '/' && currentPath.includes(href.replace('/', '').replace('.html', ''))) {
+                    link.classList.add('active', 'active-tab');
+                }
+            });
+        }
+        document.addEventListener('DOMContentLoaded', highlightActiveTab);
     </script>
 </body>
+
 </html>

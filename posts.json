@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "id": 1772392391669,
+    "title": "Updated Title Test",
+    "author": "Admin",
+    "content": "Updated Content Test",
+    "date": "2026-03-01T19:13:11.669Z",
+    "tags": [],
+    "image": "http://localhost:3000/uploads/1772393536603_image.png",
+    "featured": false,
+    "isDraft": false,
+    "categoryId": null,
+    "likes": 2,
+    "dislikes": 7
+  }
+]
