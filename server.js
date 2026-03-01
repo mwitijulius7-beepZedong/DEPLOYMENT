@@ -156,9 +156,9 @@ async function getMongoDB() {
   mongoConnectionPromise = (async () => {
     try {
       const client = await MongoClient.connect(process.env.MONGODB_URI, {
-        serverSelectionTimeoutMS: 2000, // Reduced timeout for faster fallback
-        connectTimeoutMS: 2000,
-        socketTimeoutMS: 5000
+        serverSelectionTimeoutMS: 8000, // Increased for Vercel cold starts
+        connectTimeoutMS: 8000,
+        socketTimeoutMS: 10000
       });
       console.log('Connected to MongoDB');
       db = client.db('blog');
@@ -520,6 +520,12 @@ async function savePosts(posts) {
       await kv.set('posts', JSON.stringify(posts));
       return;
     }
+    // Guard: on Vercel the filesystem is read-only — never attempt fs.writeFileSync
+    if (process.env.VERCEL) {
+      const reason = process.env.MONGODB_URI ? 'MongoDB connection failed' : 'MONGODB_URI env var not set';
+      console.error(`savePosts: cannot write on Vercel without storage. Reason: ${reason}`);
+      throw new Error(`No writable storage available on Vercel (${reason}). Configure MONGODB_URI.`);
+    }
     fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
   } catch (e) {
     console.error('Save posts error:', e);
@@ -617,10 +623,11 @@ async function saveCategories(categories) {
       await kv.set('categories', JSON.stringify(categories));
       return;
     }
-    // Skip file write on Vercel (read-only filesystem)
+    // Guard: on Vercel the filesystem is read-only — never attempt fs.writeFileSync
     if (process.env.VERCEL) {
-      console.warn('Save categories skipped: No storage available on Vercel (read-only filesystem)');
-      return;
+      const reason = process.env.MONGODB_URI ? 'MongoDB connection failed' : 'MONGODB_URI env var not set';
+      console.error(`saveCategories: cannot write on Vercel without storage. Reason: ${reason}`);
+      throw new Error(`No writable storage available on Vercel (${reason}). Configure MONGODB_URI.`);
     }
     console.log('Saving to file system:', categories.length);
     fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
