@@ -414,10 +414,24 @@ async function saveUsers(users) {
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
-      await mongoDb.collection('users').deleteMany({});
+      console.log('Syncing users to MongoDB:', Object.keys(users).length);
+      const col = mongoDb.collection('users');
       const userArray = Object.entries(users).map(([username, data]) => ({ username, ...data }));
-      if (userArray.length > 0) {
-        await mongoDb.collection('users').insertMany(userArray);
+
+      if (userArray.length === 0) {
+        await col.deleteMany({});
+      } else {
+        const usernames = userArray.map(u => u.username);
+        const ops = userArray.map(u => ({
+          replaceOne: {
+            filter: { username: u.username },
+            replacement: u,
+            upsert: true
+          }
+        }));
+        await col.bulkWrite(ops, { ordered: false });
+        // Clean up any users that were removed
+        await col.deleteMany({ username: { $nin: usernames } });
       }
       return;
     }
@@ -428,6 +442,7 @@ async function saveUsers(users) {
     fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
   } catch (e) {
     console.error('Save users error:', e);
+    throw e;
   } finally {
     // Clear cache after save to ensure fresh data on next load
     usersCache = null;
@@ -502,18 +517,22 @@ async function savePosts(posts) {
         // Nothing left — clear the collection
         await col.deleteMany({});
       } else {
-        // Upsert each post by its id, then delete any that are no longer present
+        // Use _id (which is where we store p.id) as the primary filter for upserts
         const ids = posts.map(p => p.id);
-        const ops = posts.map(p => ({
-          replaceOne: {
-            filter: { id: p.id },
-            replacement: { ...p, _id: p.id },
-            upsert: true
-          }
-        }));
+        const ops = posts.map(p => {
+          // Prepare document: remove our 'id' field if we're setting it as _id
+          const { id, ...doc } = p;
+          return {
+            replaceOne: {
+              filter: { _id: id },
+              replacement: { ...doc, _id: id },
+              upsert: true
+            }
+          };
+        });
         await col.bulkWrite(ops, { ordered: false });
-        // Remove stale documents not in the current list
-        await col.deleteMany({ id: { $nin: ids } });
+        // Remove stale documents using _id
+        await col.deleteMany({ _id: { $nin: ids } });
       }
       return;
     }
@@ -606,16 +625,19 @@ async function saveCategories(categories) {
         await col.deleteMany({});
       } else {
         const ids = categories.map(c => c.id);
-        const ops = categories.map(c => ({
-          replaceOne: {
-            filter: { id: c.id },
-            replacement: { ...c, _id: c.id },
-            upsert: true
-          }
-        }));
+        const ops = categories.map(c => {
+          const { id, ...doc } = c;
+          return {
+            replaceOne: {
+              filter: { _id: id },
+              replacement: { ...doc, _id: id },
+              upsert: true
+            }
+          };
+        });
         await col.bulkWrite(ops, { ordered: false });
-        // Remove stale categories not in the current list
-        await col.deleteMany({ id: { $nin: ids } });
+        // Remove stale categories using _id
+        await col.deleteMany({ _id: { $nin: ids } });
       }
       console.log('Saved categories to MongoDB:', categories.length);
       return;
