@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const fetch = require('node-fetch');
@@ -30,7 +31,7 @@ try {
   console.warn('Vercel KV import failed:', err.message);
 }
 
- const errorHandler = require('./middleware/errorHandler');
+const errorHandler = require('./middleware/errorHandler');
 
 // Session store for Vercel KV with fallback
 const { EventEmitter } = require('events');
@@ -195,7 +196,8 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== '
   });
 }
 
-// Security middlewares
+// Security and optimization middlewares
+app.use(compression());
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -440,7 +442,7 @@ async function loadPosts() {
       console.log('Loaded posts from cache:', postsCache.length, 'posts');
       return postsCache;
     }
-    
+
     // Try MongoDB first if available
     const db = await getMongoDB();
     if (db) {
@@ -456,7 +458,7 @@ async function loadPosts() {
         console.warn('MongoDB posts query error:', mongoErr.message);
       }
     }
-    
+
     // Try Vercel KV if available
     if (process.env.VERCEL && kv) {
       try {
@@ -472,7 +474,7 @@ async function loadPosts() {
         console.warn('Vercel KV posts error:', kvErr.message);
       }
     }
-    
+
     // Fall back to local file
     try {
       const data = JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
@@ -529,7 +531,7 @@ async function loadCategories() {
         console.warn('MongoDB categories query error:', mongoErr.message);
       }
     }
-    
+
     // Try Vercel KV if available
     if (process.env.VERCEL && kv) {
       try {
@@ -545,7 +547,7 @@ async function loadCategories() {
         console.warn('Vercel KV categories error:', kvErr.message);
       }
     }
-    
+
     // Fall back to local file
     try {
       const data = fs.readFileSync(CATEGORIES_FILE, 'utf8');
@@ -573,7 +575,7 @@ async function saveCategories(categories) {
       console.error('saveCategories: categories is not an array', typeof categories);
       throw new Error('categories must be an array');
     }
-    
+
     const mongoDb = await getMongoDB();
     if (mongoDb) {
       console.log('Saving to MongoDB:', categories.length);
@@ -826,7 +828,7 @@ function updateAdminActivity(req, res, next) {
   next();
 }
 
- const requireAdmin = [requireAuth, checkIdleTimeout, updateAdminActivity];
+const requireAdmin = [requireAuth, checkIdleTimeout, updateAdminActivity];
 
 // Admin: Users API (admin-only)
 app.get('/api/users', requireAdmin, async (req, res) => {
@@ -867,23 +869,23 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
   try {
     const { username } = req.params;
     const { active, role } = req.body || {};
-    
+
     // Check if requester is super admin (admin user)
     const requestUser = req.session?.user || req.user;
     if (!requestUser || requestUser.username !== 'admin') {
       return res.status(403).json({ error: 'only_super_admin_can_manage_users' });
     }
-    
+
     // Prevent deactivating the only super admin
     if (username === 'admin' && active === false) {
       return res.status(400).json({ error: 'cannot_deactivate_super_admin' });
     }
-    
+
     const users = await loadUsers();
     if (!users || !users[username]) {
       return res.status(404).json({ error: 'user_not_found' });
     }
-    
+
     // Update user properties
     if (active !== undefined) {
       users[username].active = active;
@@ -892,17 +894,17 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
       // Only allow changing roles if not the super admin
       users[username].role = role;
     }
-    
+
     await saveUsers(users);
-    return res.json({ 
-      success: true, 
-      user: { 
-        username, 
-        name: users[username].name, 
-        email: users[username].email, 
+    return res.json({
+      success: true,
+      user: {
+        username,
+        name: users[username].name,
+        email: users[username].email,
         role: users[username].role,
         active: users[username].active
-      } 
+      }
     });
   } catch (e) {
     console.error('Update user error:', e);
@@ -915,27 +917,27 @@ app.post('/api/users/:username/admin-key', async (req, res) => {
   try {
     const { username } = req.params;
     const { adminKey } = req.body || {};
-    
+
     if (!adminKey || String(adminKey).length === 0) {
       return res.status(400).json({ error: 'admin_key_required' });
     }
-    
+
     // Check if user is setting their own key or if requester is admin
     const requestUser = req.session?.user || req.user;
     if (!requestUser || (requestUser.username !== username && requestUser.username !== 'admin')) {
       return res.status(403).json({ error: 'cannot_set_other_users_admin_key' });
     }
-    
+
     const users = await loadUsers();
     if (!users || !users[username]) {
       return res.status(404).json({ error: 'user_not_found' });
     }
-    
+
     // Hash the admin key
     const keyHash = await bcrypt.hash(String(adminKey), 10);
     users[username].adminKeyHash = keyHash;
     users[username].adminKeySet = true;
-    
+
     await saveUsers(users);
     return res.json({ success: true, message: 'Admin key set successfully' });
   } catch (e) {
@@ -949,34 +951,34 @@ app.post('/api/users/:username/verify-admin-key', async (req, res) => {
   try {
     const { username } = req.params;
     const { adminKey } = req.body || {};
-    
+
     if (!adminKey) {
       return res.status(400).json({ error: 'admin_key_required' });
     }
-    
+
     const users = await loadUsers();
     if (!users || !users[username]) {
       return res.status(404).json({ error: 'user_not_found' });
     }
-    
+
     const user = users[username];
-    
+
     // Check if user has admin key set
     if (!user.adminKeyHash) {
       return res.status(400).json({ error: 'user_has_no_admin_key' });
     }
-    
+
     // Verify admin key
     const keyMatches = await bcrypt.compare(String(adminKey), user.adminKeyHash);
     if (!keyMatches) {
       return res.status(401).json({ error: 'invalid_admin_key' });
     }
-    
+
     // Set admin key verification in session
     req.session.adminKeyVerified = true;
     req.session.adminKeyVerifiedAt = Date.now();
     req.session.adminKeyVerifiedUsername = username;
-    
+
     return res.json({ success: true, message: 'Admin key verified' });
   } catch (e) {
     console.error('Error verifying admin key:', e);
@@ -989,28 +991,28 @@ app.post('/api/users/:username/verify-admin-key', async (req, res) => {
 
 const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
   ? nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    })
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  })
   : (process.env.SENDGRID_API_KEY
-      ? nodemailer.createTransport({
-          host: 'smtp.sendgrid.net',
-          port: 587,
-          secure: false,
-          auth: { user: 'apikey', pass: process.env.SENDGRID_API_KEY }
-        })
-      : {
-          sendMail: async (opts) => {
-            console.log('Mock email:', opts);
-            return { messageId: 'mock-' + Date.now() };
-          }
-        }
-    );
+    ? nodemailer.createTransport({
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      secure: false,
+      auth: { user: 'apikey', pass: process.env.SENDGRID_API_KEY }
+    })
+    : {
+      sendMail: async (opts) => {
+        console.log('Mock email:', opts);
+        return { messageId: 'mock-' + Date.now() };
+      }
+    }
+  );
 
 // Temporary migration endpoint - REMOVE AFTER USE
 app.post('/migrate-users', async (req, res) => {
@@ -1142,7 +1144,7 @@ app.post('/auth/setup', async (req, res) => {
 
   // Check authentication: either session-based OR JWT token
   let isAuthenticated = false;
-  
+
   if (req.session && req.session.user) {
     isAuthenticated = true;
   } else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
@@ -1208,25 +1210,25 @@ app.get('/auth/status', (req, res) => {
 
 app.post('/auth/logout', (req, res) => {
   console.log('Logout requested - Session exists:', !!req.session, 'User:', req.session?.user?.username || 'none');
-  
+
   // Check if session exists and has user data
   if (!req.session || !req.session.user) {
     console.log('No active session or user, clearing any existing cookies and returning success');
     res.clearCookie('sessionId', { path: '/', httpOnly: true, sameSite: 'lax', secure: false });
     return res.json({ success: true, message: 'already logged out' });
   }
-  
+
   const username = req.session.user.username;
-  
+
   // Destroy the session
   req.session.destroy((err) => {
     if (err) {
       console.error('Session destroy error:', err);
     }
-    
+
     // Always clear the cookie and send response, regardless of destroy success
     console.log('Session destroy completed for user:', username);
-    
+
     // Clear the session cookie with all required options
     res.clearCookie('sessionId', {
       path: '/',
@@ -1234,9 +1236,9 @@ app.post('/auth/logout', (req, res) => {
       sameSite: 'lax',
       secure: false
     });
-    
+
     console.log('Logout completed successfully, sending response');
-    
+
     // Send success response
     return res.json({ success: true, message: 'logged out successfully' });
   });
@@ -1245,7 +1247,7 @@ app.post('/auth/logout', (req, res) => {
 app.post('/auth/google', async (req, res) => {
   const { credential, id_token } = req.body;
   const token = credential || id_token; // Support both new and old formats
-  
+
   if (!token) return res.status(400).json({ error: 'missing token' });
 
   try {
@@ -1262,11 +1264,11 @@ app.post('/auth/google', async (req, res) => {
     }
 
     const email = payload.email;
-    
+
     // Check if user exists in users.json or if it's an allowed email/domain
     const users = await loadUsers();
     const isExistingUser = Object.values(users).some(user => user.email === email);
-    
+
     if (!isExistingUser) {
       if (ALLOWED_EMAIL && email !== ALLOWED_EMAIL) {
         return res.status(403).json({ error: 'email not allowed' });
@@ -1288,9 +1290,9 @@ app.post('/auth/google', async (req, res) => {
       authToken = Buffer.from(tokenData).toString('base64');
     }
 
-    return res.json({ 
-      success: true, 
-      email: payload.email, 
+    return res.json({
+      success: true,
+      email: payload.email,
       name: payload.name,
       token: authToken
     });
@@ -1335,8 +1337,8 @@ app.post('/auth/forgot', async (req, res) => {
           <p>No action is required. If this was unexpected, you may review security logs in the admin panel.</p>
         `
       };
-      try { 
-        await transporter.sendMail(mailOptions); 
+      try {
+        await transporter.sendMail(mailOptions);
         console.log('Admin notification email sent for unknown email:', email);
       } catch (err) {
         console.error('Failed to send admin notification:', err.message);
@@ -1344,7 +1346,7 @@ app.post('/auth/forgot', async (req, res) => {
       return res.json({ success: true, message: 'If an account exists, a reset email has been sent.' });
     }
 
-                                                                                                               // Generate reset token (username + timestamp + random)
+    // Generate reset token (username + timestamp + random)
     const resetToken = crypto.randomBytes(32).toString('hex');
     const tokenData = `${targetUser.username}|${Date.now()}|${resetToken}`;
     const encryptedToken = encryptText(tokenData);
@@ -1459,7 +1461,9 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
     image: body.image || '',
     featured: !!body.featured,
     isDraft: !!body.isDraft,
-    categoryId: null
+    categoryId: null,
+    likes: 0,
+    dislikes: 0
   };
 
   if (body && ('categoryId' in body) && body.categoryId != null) {
@@ -1492,7 +1496,9 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
     image: body.image || posts[idx].image,
     featured: !!body.featured,
     isDraft: 'isDraft' in body ? !!body.isDraft : posts[idx].isDraft,
-    categoryId: posts[idx].categoryId
+    categoryId: posts[idx].categoryId,
+    likes: typeof posts[idx].likes === 'number' ? posts[idx].likes : 0,
+    dislikes: typeof posts[idx].dislikes === 'number' ? posts[idx].dislikes : 0
   };
 
   if ('categoryId' in body) {
@@ -1518,6 +1524,48 @@ app.delete('/api/posts/:id', requireAdmin, async (req, res) => {
   return res.json({ success: true });
 });
 
+// Like a post
+app.post('/api/posts/:id/like', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const posts = await loadPosts();
+  const idx = posts.findIndex(p => p.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+
+  const action = req.body && req.body.action === 'remove' ? 'remove' : 'add';
+
+  // Initialize if missing
+  if (typeof posts[idx].likes !== 'number') posts[idx].likes = 0;
+
+  if (action === 'remove') {
+    posts[idx].likes = Math.max(0, posts[idx].likes - 1);
+  } else {
+    posts[idx].likes += 1;
+  }
+  await savePosts(posts);
+  return res.json({ success: true, likes: posts[idx].likes });
+});
+
+// Dislike a post
+app.post('/api/posts/:id/dislike', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const posts = await loadPosts();
+  const idx = posts.findIndex(p => p.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+
+  const action = req.body && req.body.action === 'remove' ? 'remove' : 'add';
+
+  // Initialize if missing
+  if (typeof posts[idx].dislikes !== 'number') posts[idx].dislikes = 0;
+
+  if (action === 'remove') {
+    posts[idx].dislikes = Math.max(0, posts[idx].dislikes - 1);
+  } else {
+    posts[idx].dislikes += 1;
+  }
+  await savePosts(posts);
+  return res.json({ success: true, dislikes: posts[idx].dislikes });
+});
+
 // Upload API with Cloudinary
 app.post('/api/upload', requireAdmin, async (req, res) => {
   try {
@@ -1531,7 +1579,7 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
     if (image.size > MAX_BYTES) {
       return res.status(400).json({ error: 'file_too_large', maxBytes: MAX_BYTES });
     }
-    
+
     // Use Cloudinary if configured and not the default 'cloudinary' value
     if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
       const result = await new Promise((resolve, reject) => {
@@ -1551,7 +1599,7 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
       console.log(`Uploaded to Cloudinary: ${result.secure_url}`);
       return res.json({ success: true, url: result.secure_url, filename: result.public_id, size: image.size });
     }
-    
+
     // Fallback to Vercel Blob
     if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
       const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
@@ -1563,7 +1611,7 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
       console.log(`Uploaded to Vercel Blob: ${blob.url}`);
       return res.json({ success: true, url: blob.url, filename, size: image.size });
     }
-    
+
     // Local development fallback
     const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
     const filename = Date.now() + '_' + safe;
@@ -1888,7 +1936,7 @@ app.get('/api/settings/security', async (req, res) => {
     if (process.env.ADMIN_ENTRY_KEY) {
       return res.json({ hasEntryKey: true, mode: 'env' });
     }
-    
+
     let hasEntryKey = false;
     if (process.env.VERCEL && db) {
       const result = await db.collection('settings').findOne({ type: 'security' });
@@ -1897,7 +1945,7 @@ app.get('/api/settings/security', async (req, res) => {
       const settings = readSettings();
       hasEntryKey = !!(settings.security && settings.security.adminEntryKeyHash);
     }
-    
+
     return res.json({ hasEntryKey, mode: hasEntryKey ? 'local' : 'none' });
   } catch (e) {
     return res.json({ hasEntryKey: false, mode: 'none' });
@@ -1908,8 +1956,8 @@ app.post('/api/settings/security', requireAdmin, async (req, res) => {
   try {
     // Admin entry keys are now managed per-user in the User Management section
     // Return informational response instead of error
-    return res.json({ 
-      success: true, 
+    return res.json({
+      success: true,
       message: 'Admin keys are now managed per-user in the User Management section',
       info: 'Use the "🔑 Set Key" button in User List to assign admin keys to users'
     });
@@ -2022,7 +2070,7 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
 // Check if admin entry key is verified in session
 app.get('/api/settings/check-admin-key-verified', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  
+
   // Auto-verify for localhost
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const host = req.get('host') || '';
@@ -2056,7 +2104,7 @@ app.post('/api/settings/security/logs', requireAdmin, async (req, res) => {
 
     const logs = await loadSecurityLogs();
     // Return most recent first
-    const ordered = logs.slice().sort((a,b)=>b.id-a.id).slice(0, 2000);
+    const ordered = logs.slice().sort((a, b) => b.id - a.id).slice(0, 2000);
     return res.json({ success: true, logs: ordered });
   } catch (e) {
     console.error('security logs error:', e);
@@ -2073,7 +2121,7 @@ app.post('/api/settings/security/key-view', requireAdmin, async (req, res) => {
         message: 'Admin entry key is managed by environment; viewing disabled.'
       });
     }
-    
+
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
     const users = await loadUsers();
@@ -2090,7 +2138,7 @@ app.post('/api/settings/security/key-view', requireAdmin, async (req, res) => {
       const settings = readSettings();
       enc = settings.security?.adminEntryKeyEnc || '';
     }
-    
+
     const key = decryptText(enc);
     return res.json({ success: true, key: key || '' });
   } catch (e) {
@@ -2276,23 +2324,23 @@ app.post('/api/categories', requireAdmin, async (req, res) => {
     console.log('Creating category - DB connected:', !!db, 'Body:', req.body);
     const { name, description } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'missing name' });
-    
+
     const categories = await loadCategories();
     if (!Array.isArray(categories)) {
       console.error('loadCategories did not return an array:', categories);
       return res.status(500).json({ error: 'invalid categories format' });
     }
-    
+
     const id = String(Date.now());
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    
+
     const category = {
       id,
       name: name.trim(),
       slug,
       description: description ? description.trim() : ''
     };
-    
+
     categories.push(category);
     console.log('Saving categories:', categories.length, 'New category:', category);
     await saveCategories(categories);
@@ -2342,7 +2390,7 @@ app.post('/api/analytics/pageview', async (req, res) => {
   try {
     const { page, referrer, userAgent } = req.body;
     const analytics = await loadAnalytics();
-    
+
     const pageView = {
       id: Date.now(),
       page: page || '/',
@@ -2351,10 +2399,10 @@ app.post('/api/analytics/pageview', async (req, res) => {
       ip: req.ip || req.connection.remoteAddress,
       timestamp: new Date().toISOString()
     };
-    
+
     analytics.pageViews.push(pageView);
     await saveAnalytics(analytics);
-    
+
     return res.json({ success: true });
   } catch (e) {
     console.error('Analytics pageview error:', e);
@@ -2366,9 +2414,9 @@ app.post('/api/analytics/interaction', async (req, res) => {
   try {
     const { type, target, value } = req.body;
     if (!type) return res.status(400).json({ error: 'missing type' });
-    
+
     const analytics = await loadAnalytics();
-    
+
     const interaction = {
       id: Date.now(),
       type: type,
@@ -2378,10 +2426,10 @@ app.post('/api/analytics/interaction', async (req, res) => {
       userAgent: req.get('User-Agent') || '',
       timestamp: new Date().toISOString()
     };
-    
+
     analytics.interactions.push(interaction);
     await saveAnalytics(analytics);
-    
+
     return res.json({ success: true });
   } catch (e) {
     console.error('Analytics interaction error:', e);
