@@ -322,14 +322,11 @@ async function loadUsers() {
     if (db) {
       try {
         const users = await db.collection('users').find({}).toArray();
-        if (users && Array.isArray(users) && users.length > 0) {
+        if (users && Array.isArray(users)) {
           const result = {};
           users.forEach(u => result[u.username] = u);
           console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
           return result;
-        }
-        if (users && users.length === 0) {
-          console.log('MongoDB users collection is empty, falling back to other sources...');
         }
       } catch (mongoErr) {
         console.warn('MongoDB query error:', mongoErr.message);
@@ -409,12 +406,9 @@ async function loadPosts() {
     if (db) {
       try {
         const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
-        if (posts && Array.isArray(posts) && posts.length > 0) {
+        if (posts && Array.isArray(posts)) {
           console.log('Loaded posts from MongoDB:', posts.length, 'posts');
           return posts.map(p => ({ ...p, id: (p._id || p.id).toString() }));
-        }
-        if (posts && posts.length === 0) {
-          console.log('MongoDB posts collection is empty, falling back to other sources...');
         }
       } catch (mongoErr) {
         console.warn('MongoDB posts query error:', mongoErr.message);
@@ -515,12 +509,9 @@ async function loadCategories() {
     if (db) {
       try {
         const categories = await db.collection('categories').find({}).toArray();
-        if (categories && Array.isArray(categories) && categories.length > 0) {
+        if (categories && Array.isArray(categories)) {
           console.log('Loaded categories from MongoDB:', categories.length);
           return categories.map(c => ({ ...c, id: (c._id || c.id).toString() }));
-        }
-        if (categories && categories.length === 0) {
-          console.log('MongoDB categories collection is empty, falling back to other sources...');
         }
       } catch (mongoErr) {
         console.warn('MongoDB categories query error:', mongoErr.message);
