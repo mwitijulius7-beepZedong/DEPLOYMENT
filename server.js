@@ -143,7 +143,8 @@ const MONGO_RETRY_DELAY = 60000; // 1 minute
 
 async function getMongoDB() {
   if (db) return db;
-  if (!process.env.MONGODB_URI) return null;
+  const mongoUri = process.env.MONGODB_URI || process.env.PERSONALBLOG_MONGODB_URI;
+  if (!mongoUri) return null;
 
   // Circuit breaker: don't retry immediately if connection failed recently
   if (mongoConnectionFailed && Date.now() < mongoNextRetry) {
@@ -155,7 +156,7 @@ async function getMongoDB() {
 
   mongoConnectionPromise = (async () => {
     try {
-      const client = await MongoClient.connect(process.env.MONGODB_URI, {
+      const client = await MongoClient.connect(mongoUri, {
         serverSelectionTimeoutMS: 8000, // Increased for Vercel cold starts
         connectTimeoutMS: 8000,
         socketTimeoutMS: 10000
@@ -522,7 +523,8 @@ async function savePosts(posts) {
     }
     // Guard: on Vercel the filesystem is read-only — never attempt fs.writeFileSync
     if (process.env.VERCEL) {
-      const reason = process.env.MONGODB_URI ? 'MongoDB connection failed' : 'MONGODB_URI env var not set';
+      const hasMongoUri = !!(process.env.MONGODB_URI || process.env.PERSONALBLOG_MONGODB_URI);
+      const reason = hasMongoUri ? 'MongoDB connection failed' : 'MONGODB_URI / PERSONALBLOG_MONGODB_URI env var not set';
       console.error(`savePosts: cannot write on Vercel without storage. Reason: ${reason}`);
       throw new Error(`No writable storage available on Vercel (${reason}). Configure MONGODB_URI.`);
     }
@@ -625,7 +627,8 @@ async function saveCategories(categories) {
     }
     // Guard: on Vercel the filesystem is read-only — never attempt fs.writeFileSync
     if (process.env.VERCEL) {
-      const reason = process.env.MONGODB_URI ? 'MongoDB connection failed' : 'MONGODB_URI env var not set';
+      const hasMongoUri = !!(process.env.MONGODB_URI || process.env.PERSONALBLOG_MONGODB_URI);
+      const reason = hasMongoUri ? 'MongoDB connection failed' : 'MONGODB_URI / PERSONALBLOG_MONGODB_URI env var not set';
       console.error(`saveCategories: cannot write on Vercel without storage. Reason: ${reason}`);
       throw new Error(`No writable storage available on Vercel (${reason}). Configure MONGODB_URI.`);
     }
