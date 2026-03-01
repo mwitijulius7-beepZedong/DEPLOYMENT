@@ -1137,7 +1137,6 @@
         window.showCreatePostSection = showCreatePostSection;
         window.showPostsSection = showPostsSection;
         window.showAnalyticsSection = showAnalyticsSection;
-        window.showUsersSection = showUsersSection;
         window.showSettingsSection = showSettingsSection;
         window.switchSettingsPanel = switchSettingsPanel;
 
@@ -2633,7 +2632,7 @@
                             <span class="user-role">Administrator</span>
                         </div>
                     </div>
-                    <button id="logout-btn" class="logout-btn">Logout</button>
+                    <button id="logout-btn" class="logout-btn" onclick="handleLogout()">Logout</button>
                 </div>
             </header>
 
@@ -3888,7 +3887,6 @@
                                 'create-post': () => showCreatePostSection(),
                                 'posts': () => showPostsSection(),
                                 'analytics': () => showAnalyticsSection(),
-                                'users': () => showUsersSection(),
                                 'settings': () => showSettingsSection()
                             };
 
@@ -3911,9 +3909,6 @@
                                     break;
                                 case 'analytics':
                                     showAnalyticsSection();
-                                    break;
-                                case 'users':
-                                    showUsersSection();
                                     break;
                                 case 'settings':
                                     showSettingsSection();
@@ -3966,13 +3961,6 @@
                         saveCurrentSection('analytics');
                     };
 
-                    // Override showUsersSection to save section
-                    const originalShowUsersSection = showUsersSection;
-                    showUsersSection = function () {
-                        originalShowUsersSection();
-                        saveCurrentSection('users');
-                    };
-
                     // Override showSettingsSection to save section
                     const originalShowSettingsSection = showSettingsSection;
                     showSettingsSection = function () {
@@ -4016,45 +4004,37 @@
                                 populatePostCategoryDropdown().catch(err => console.error('Failed to populate categories:', err));
                             }
 
-                            // Add event listener for the logout button
-                            const logoutButton = document.getElementById('logout-btn');
-                            if (logoutButton) {
-                                logoutButton.addEventListener('click', async () => {
-                                    try {
-                                        console.log('Logout initiated from event listener');
-
-                                        // Always clear local storage first (even if server call fails)
-                                        try {
-                                            localStorage.removeItem('authToken');
-                                            localStorage.removeItem('user');
-                                        } catch (e) {
-                                            console.warn('Could not clear localStorage:', e);
-                                        }
-                                        sessionStorage.clear();
-
-                                        // Call server logout endpoint to destroy session
-                                        const response = await fetch('/auth/logout', {
-                                            method: 'POST',
-                                            credentials: 'include',
-                                            headers: { 'Content-Type': 'application/json' }
-                                        }).catch(err => {
-                                            console.warn('Logout fetch failed:', err);
-                                            return { ok: true }; // Treat network errors as success for logout
-                                        });
-
-                                        console.log('Logout completed successfully');
-
-                                        // Redirect to login page
-                                        window.location.href = '/login.html';
-                                    } catch (error) {
-                                        console.error('Logout error:', error);
-                                        // Even on error, redirect to login to ensure user is logged out
-                                        window.location.href = '/login.html';
-                                    }
-                                });
-                            }
+                            // Logout handler moved to global scope for reliability
                         });
                     })();
+
+                    // Global logout function for maximum reliability
+                    async function handleLogout() {
+                        try {
+                            console.log('Logout initiated');
+
+                            // 1. Clear local session data immediately
+                            localStorage.removeItem('authToken');
+                            localStorage.removeItem('user');
+                            localStorage.removeItem('adminCurrentSection');
+                            sessionStorage.clear();
+
+                            // 2. Attempt server-side logout
+                            fetch('/auth/logout', {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: { 'Content-Type': 'application/json' }
+                            }).catch(e => console.warn('Server logout call failed:', e));
+
+                            console.log('Logout cleanup complete, redirecting...');
+
+                            // 3. Always redirect to login
+                            window.location.href = '/login.html';
+                        } catch (error) {
+                            console.error('Logout error:', error);
+                            window.location.href = '/login.html';
+                        }
+                    }
                 </script>
 </body>
 
