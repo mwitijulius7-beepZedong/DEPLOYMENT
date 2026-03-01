@@ -496,9 +496,23 @@ async function savePosts(posts) {
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
-      await mongoDb.collection('posts').deleteMany({});
-      if (posts.length > 0) {
-        await mongoDb.collection('posts').insertMany(posts.map(p => ({ ...p, _id: p.id })));
+      const col = mongoDb.collection('posts');
+      if (posts.length === 0) {
+        // Nothing left — clear the collection
+        await col.deleteMany({});
+      } else {
+        // Upsert each post by its id, then delete any that are no longer present
+        const ids = posts.map(p => p.id);
+        const ops = posts.map(p => ({
+          replaceOne: {
+            filter: { id: p.id },
+            replacement: { ...p, _id: p.id },
+            upsert: true
+          }
+        }));
+        await col.bulkWrite(ops, { ordered: false });
+        // Remove stale documents not in the current list
+        await col.deleteMany({ id: { $nin: ids } });
       }
       return;
     }
@@ -509,6 +523,7 @@ async function savePosts(posts) {
     fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
   } catch (e) {
     console.error('Save posts error:', e);
+    throw e; // propagate so callers know it failed
   } finally {
     // Clear cache after save to ensure fresh data on next load
     postsCache = null;
@@ -578,13 +593,23 @@ async function saveCategories(categories) {
 
     const mongoDb = await getMongoDB();
     if (mongoDb) {
-      console.log('Saving to MongoDB:', categories.length);
-      await mongoDb.collection('categories').deleteMany({});
-      if (categories.length > 0) {
-        const docsToInsert = categories.map(c => ({ ...c, _id: c.id }));
-        const result = await mongoDb.collection('categories').insertMany(docsToInsert);
-        console.log('MongoDB save result:', result.insertedCount);
+      const col = mongoDb.collection('categories');
+      if (categories.length === 0) {
+        await col.deleteMany({});
+      } else {
+        const ids = categories.map(c => c.id);
+        const ops = categories.map(c => ({
+          replaceOne: {
+            filter: { id: c.id },
+            replacement: { ...c, _id: c.id },
+            upsert: true
+          }
+        }));
+        await col.bulkWrite(ops, { ordered: false });
+        // Remove stale categories not in the current list
+        await col.deleteMany({ id: { $nin: ids } });
       }
+      console.log('Saved categories to MongoDB:', categories.length);
       return;
     }
     if (process.env.VERCEL && kv) {
@@ -601,7 +626,7 @@ async function saveCategories(categories) {
     fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
   } catch (e) {
     console.error('Save categories error:', e);
-    throw e;
+    throw e; // propagate so callers know it failed
   }
 }
 
@@ -1515,13 +1540,18 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
 });
 
 app.delete('/api/posts/:id', requireAdmin, async (req, res) => {
-  const id = req.params.id;
-  let posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
-  if (idx === -1) return res.status(404).json({ error: 'not found' });
-  posts.splice(idx, 1);
-  await savePosts(posts);
-  return res.json({ success: true });
+  try {
+    const id = req.params.id;
+    let posts = await loadPosts();
+    const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
+    if (idx === -1) return res.status(404).json({ error: 'not found' });
+    posts.splice(idx, 1);
+    await savePosts(posts);
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Delete post error:', e);
+    return res.status(500).json({ error: 'delete_failed', details: e.message });
+  }
 });
 
 // Like a post
@@ -2375,14 +2405,18 @@ app.put('/api/categories/:id', requireAdmin, async (req, res) => {
 });
 
 app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
-  const id = req.params.id;
-  let categories = await loadCategories();
-  const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
-  if (idx === -1) return res.status(404).json({ error: 'not found' });
-
-  categories.splice(idx, 1);
-  await saveCategories(categories);
-  return res.json({ success: true });
+  try {
+    const id = req.params.id;
+    let categories = await loadCategories();
+    const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
+    if (idx === -1) return res.status(404).json({ error: 'not found' });
+    categories.splice(idx, 1);
+    await saveCategories(categories);
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Delete category error:', e);
+    return res.status(500).json({ error: 'delete_failed', details: e.message });
+  }
 });
 
 // Analytics API
