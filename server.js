@@ -283,6 +283,11 @@ app.use((req, res, next) => {
   }
 });
 
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 app.use(express.json());
 app.use(express.static(__dirname));
 app.use('/public', express.static(path.join(__dirname, 'public'), {
@@ -1076,17 +1081,21 @@ app.post('/auth/login', async (req, res) => {
   const users = await loadUsers();
   const user = users[username];
 
+  console.log('Login attempt for:', username);
+  console.log('User found in storage:', !!user);
+  if (user) console.log('User active status:', user.active);
+
   // Check for dev admin credentials (admin/password)
-  // Allow if explicitly configured via env var, OR if running in non-production with default 'password'
   const isDev = !process.env.NODE_ENV || process.env.NODE_ENV !== 'production';
   const devPwd = process.env.DEV_ADMIN_PASSWORD || 'password';
+  console.log('Is Dev Mode:', isDev);
+  console.log('Dev Password configured:', !!process.env.DEV_ADMIN_PASSWORD);
+
   const isDevAuth = (isDev && username === 'admin' && password === devPwd);
   const isEnvAuth = (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD);
 
-  // Temporary fallback: allow Mwitijulius7 login with Mwitijulius7@Jm if no users exist in production
-  const isTempAuth = false;
-
   if (isDevAuth || isEnvAuth) {
+    console.log('Authenticated via Dev/Env admin credentials');
     // Generate JWT token for dev admin
     const token = jwt.sign({
       username: 'admin',
