@@ -442,7 +442,7 @@ async function loadPosts() {
     try {
       const data = JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
       console.log('Loaded posts from local file:', data.length, 'posts');
-      return data;
+      return data.map(p => ({ ...p, id: p.id.toString() }));
     } catch (fileErr) {
       console.warn('Local posts file error:', fileErr.message);
       return [];
@@ -1485,9 +1485,9 @@ app.get('/api/posts', async (req, res) => {
 });
 
 app.get('/api/posts/:id', async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   const posts = await loadPosts();
-  const post = posts.find(p => p.id === id);
+  const post = posts.find(p => p.id.toString() === id.toString());
   if (!post) return res.status(404).json({ error: 'Post not found' });
   return res.json({ post });
 });
@@ -1528,10 +1528,10 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
 
 // PUT /api/posts/:id - update (admin only)
 app.put('/api/posts/:id', requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   const body = req.body;
   const posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id === id);
+  const idx = posts.findIndex(p => p.id.toString() === id.toString());
   if (idx === -1) return res.status(404).json({ error: 'not found' });
 
   const updated = {
@@ -1578,9 +1578,9 @@ app.delete('/api/posts/:id', requireAdmin, async (req, res) => {
 
 // Like a post
 app.post('/api/posts/:id/like', async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   const posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id === id);
+  const idx = posts.findIndex(p => p.id.toString() === id.toString());
   if (idx === -1) return res.status(404).json({ error: 'not found' });
 
   const action = req.body && req.body.action === 'remove' ? 'remove' : 'add';
@@ -1599,9 +1599,9 @@ app.post('/api/posts/:id/like', async (req, res) => {
 
 // Dislike a post
 app.post('/api/posts/:id/dislike', async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   const posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id === id);
+  const idx = posts.findIndex(p => p.id.toString() === id.toString());
   if (idx === -1) return res.status(404).json({ error: 'not found' });
 
   const action = req.body && req.body.action === 'remove' ? 'remove' : 'add';
