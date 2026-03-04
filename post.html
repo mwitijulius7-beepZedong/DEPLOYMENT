@@ -283,7 +283,7 @@
         }
 
         .post-title {
-            font-size: 2.5rem;
+            font-size: 2rem;
             font-weight: 800;
             margin-bottom: 20px;
             color: var(--text-dark);
@@ -326,7 +326,7 @@
         }
 
         .post-content h2 {
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             font-weight: 700;
             margin: 40px 0 16px 0;
             color: var(--text-dark);
@@ -335,7 +335,7 @@
         }
 
         .post-content h3 {
-            font-size: 1.4rem;
+            font-size: 1.25rem;
             font-weight: 600;
             margin: 32px 0 12px 0;
             color: var(--text-dark);
@@ -606,6 +606,89 @@
             border-color: var(--primary-color);
         }
 
+        /* Comments Section */
+        .comments-section {
+            padding: 32px;
+            margin-top: 32px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .comments-section h3,
+        .comments-section h4 {
+            color: var(--text-dark);
+            margin-bottom: 24px;
+        }
+
+        .comments-list {
+            margin-bottom: 32px;
+        }
+
+        .comment {
+            background: var(--bg-secondary);
+            padding: 16px 20px;
+            border-radius: var(--border-radius-sm);
+            margin-bottom: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .comment-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: var(--text-medium);
+        }
+
+        .comment-meta strong {
+            color: var(--text-dark);
+        }
+
+        .comment-body {
+            color: var(--text-dark);
+            line-height: 1.5;
+        }
+
+        .comment-form-container {
+            background: var(--bg-tertiary);
+            padding: 24px;
+            border-radius: var(--border-radius-sm);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: inherit;
+        }
+
+        .submit-comment-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .submit-comment-btn:hover {
+            background: var(--primary-hover);
+        }
+
         /* Smooth scroll */
         html {
             scroll-behavior: smooth;
@@ -769,6 +852,7 @@
                 }
                 const data = await response.json();
                 renderPost(data.post);
+                loadComments(id);
             } catch (error) {
                 console.error('Failed to load post:', error);
                 showError('Failed to load post. It may have been deleted or the link is invalid.');
@@ -834,12 +918,89 @@
                     </div>
                 </div>
                 ${tags ? `<div class="post-tags"><div class="tags-list">${tags}</div></div>` : ''}
+                <div class="comments-section" id="comments-section">
+                    <h3>Comments</h3>
+                    <div id="comments-list" class="comments-list">
+                        <p>Loading comments...</p>
+                    </div>
+                    <div class="comment-form-container">
+                        <h4>Leave a Comment</h4>
+                        <form id="comment-form" onsubmit="submitComment(event)">
+                            <div class="form-group">
+                                <label for="comment-name">Name</label>
+                                <input type="text" id="comment-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="comment-content">Comment</label>
+                                <textarea id="comment-content" rows="4" required></textarea>
+                            </div>
+                            <button type="submit" class="submit-comment-btn" id="submit-comment-btn">Post Comment</button>
+                        </form>
+                    </div>
+                </div>
             `;
 
             const reactionKey = `reaction_${post.id}`;
             const currentReaction = localStorage.getItem(reactionKey);
             updateReactionButtons(currentReaction);
         }
+
+        async function loadComments(postId) {
+            try {
+                const response = await fetch(`/api/posts/${postId}/comments`);
+                const data = await response.json();
+                const list = document.getElementById('comments-list');
+                if (data.success) {
+                    if (data.comments.length === 0) {
+                        list.innerHTML = '<p class="no-comments" style="color: var(--text-medium);">No comments yet. Be the first to share your thoughts!</p>';
+                    } else {
+                        list.innerHTML = data.comments.map(c => `
+                            <div class="comment">
+                                <div class="comment-meta">
+                                    <strong>${c.name}</strong> <span>${new Date(c.date).toLocaleDateString()}</span>
+                                </div>
+                                <div class="comment-body">${c.content}</div>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load comments:', e);
+                document.getElementById('comments-list').innerHTML = '<p class="error" style="padding: 0; text-align: left;">Failed to load comments.</p>';
+            }
+        }
+
+        async function submitComment(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submit-comment-btn');
+            btn.disabled = true;
+            btn.textContent = 'Posting...';
+
+            const name = document.getElementById('comment-name').value;
+            const content = document.getElementById('comment-content').value;
+
+            try {
+                const response = await fetch(`/api/posts/${postId}/comments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, content })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('comment-form').reset();
+                    loadComments(postId);
+                } else {
+                    alert('Failed to post comment.');
+                }
+            } catch (err) {
+                console.error('Error posting comment:', err);
+                alert('An error occurred.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Post Comment';
+            }
+        }
+
         function showError(message) {
             const container = document.getElementById('post-container');
             container.innerHTML = `
