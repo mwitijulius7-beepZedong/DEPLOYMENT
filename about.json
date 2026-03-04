@@ -1,0 +1,53 @@
+{
+    "hero": {
+        "title": "About Me",
+        "subtitle": "Passionate developer sharing knowledge through code and creativity"
+    },
+    "sections": [
+        {
+            "id": "who-i-am",
+            "title": "Who I Am",
+            "content": "Hello! I'm zedong254ke, a passionate software developer and technology enthusiast. I love exploring new technologies, solving complex problems, and sharing my knowledge with the developer community through this blog.\n\nWhen I'm not coding, you can find me exploring the latest web technologies, contributing to open-source projects, or writing about my experiences in the ever-evolving world of software development."
+        },
+        {
+            "id": "what-i-do",
+            "title": "What I Do",
+            "content": "I specialize in full-stack web development, with a particular focus on modern JavaScript frameworks, responsive design, and scalable backend architectures. My goal is to create meaningful digital experiences that make a difference."
+        },
+        {
+            "id": "mission",
+            "title": "My Mission",
+            "content": "I believe in the power of technology to solve real-world problems and improve lives. Through this blog, I aim to:",
+            "points": [
+                "Share practical coding tutorials and best practices",
+                "Discuss emerging technologies and industry trends",
+                "Help fellow developers overcome common challenges",
+                "Build a community of passionate problem-solvers"
+            ]
+        }
+    ],
+    "skills": [
+        {
+            "title": "Frontend Development",
+            "description": "Building responsive, interactive user interfaces with React, Vue.js, and modern CSS frameworks."
+        },
+        {
+            "title": "Backend Development",
+            "description": "Creating robust APIs and server-side applications using Node.js, Express, and various databases."
+        },
+        {
+            "title": "DevOps & Tools",
+            "description": "Implementing CI/CD pipelines, containerization, and cloud deployment strategies."
+        },
+        {
+            "title": "Open Source",
+            "description": "Contributing to the developer community through open-source projects and technical writing."
+        }
+    ],
+    "contact": {
+        "email": "contact@zedong254ke.dev",
+        "twitter": "https://twitter.com/zedong254ke",
+        "linkedin": "https://linkedin.com/in/zedong254ke",
+        "github": "https://github.com/zedong254ke"
+    }
+}

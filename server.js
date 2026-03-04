@@ -1618,6 +1618,45 @@ app.post('/api/posts/:id/dislike', async (req, res) => {
   return res.json({ success: true, dislikes: posts[idx].dislikes });
 });
 
+// Comments API
+app.get('/api/posts/:id/comments', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const allComments = await loadComments();
+    const postComments = allComments.filter(c => c.postId === id);
+    return res.json({ success: true, comments: postComments });
+  } catch (e) {
+    console.error('Error loading comments:', e);
+    return res.status(500).json({ error: 'failed_to_load_comments' });
+  }
+});
+
+app.post('/api/posts/:id/comments', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { name, content } = req.body;
+    if (!name || !content) {
+      return res.status(400).json({ error: 'name_and_content_required' });
+    }
+
+    const allComments = await loadComments();
+    const newComment = {
+      id: Date.now().toString(),
+      postId: id,
+      name,
+      content,
+      date: new Date().toISOString()
+    };
+    allComments.push(newComment);
+    await saveComments(allComments);
+
+    return res.json({ success: true, comment: newComment });
+  } catch (e) {
+    console.error('Error posting comment:', e);
+    return res.status(500).json({ error: 'failed_to_post_comment' });
+  }
+});
+
 // Upload API with Cloudinary
 app.post('/api/upload', requireAdmin, async (req, res) => {
   try {
@@ -1682,8 +1721,8 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
   }
 });
 
-// Settings API
 const settingsPath = path.join(__dirname, 'settings.json');
+const aboutPath = path.join(__dirname, 'about.json');
 
 // Helper function to read settings
 function readSettings() {
@@ -1722,6 +1761,48 @@ function writeSettings(settings) {
     console.error('Error writing settings:', error);
   }
 }
+
+// Helper function to read about info
+function readAbout() {
+  try {
+    if (fs.existsSync(aboutPath)) {
+      const data = fs.readFileSync(aboutPath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error reading about info:', error);
+  }
+  return {
+    hero: { title: 'About Me', subtitle: '' },
+    sections: [],
+    skills: [],
+    contact: {}
+  };
+}
+
+// Helper function to write about info
+function writeAbout(about) {
+  try {
+    fs.writeFileSync(aboutPath, JSON.stringify(about, null, 2));
+  } catch (error) {
+    console.error('Error writing about info:', error);
+  }
+}
+
+// About API
+app.get('/api/about', (req, res) => {
+  const about = readAbout();
+  return res.json(about);
+});
+
+app.post('/api/about', requireAdmin, (req, res) => {
+  const about = req.body;
+  if (!about || typeof about !== 'object') {
+    return res.status(400).json({ error: 'invalid_payload' });
+  }
+  writeAbout(about);
+  return res.json({ success: true });
+});
 
 // Get current background image
 app.get('/api/settings/background', (req, res) => {
