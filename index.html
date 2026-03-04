@@ -444,6 +444,7 @@
 
                     <!-- Filter Section -->
                     <div class="filter-section" style="margin-bottom: 0;">
+                        <input v-model="selectedDate" type="date" class="filter-select" title="Filter by date">
                         <select v-model="selectedTag" class="filter-select">
                             <option value="">All Tags</option>
                             <option v-for="tag in allTags" :key="tag" :value="tag">{{ tag }}</option>
@@ -510,7 +511,8 @@
                         searchQuery: '',
                         selectedCategory: '',
                         selectedTag: '',
-                        selectedArchive: ''
+                        selectedArchive: '',
+                        selectedDate: ''
                     };
                 },
                 mounted() {
@@ -548,6 +550,17 @@
                             });
                         }
 
+                        if (this.selectedDate) {
+                            filtered = filtered.filter(post => {
+                                const pDate = new Date(post.date);
+                                const yyyy = pDate.getFullYear();
+                                const mm = String(pDate.getMonth() + 1).padStart(2, '0');
+                                const dd = String(pDate.getDate()).padStart(2, '0');
+                                const formattedPDate = `${yyyy}-${mm}-${dd}`;
+                                return formattedPDate === this.selectedDate;
+                            });
+                        }
+
                         return filtered;
                     },
                     allTags() {
@@ -574,7 +587,7 @@
                         ];
                     },
                     hasFilters() {
-                        return this.searchQuery || this.selectedCategory || this.selectedTag || this.selectedArchive;
+                        return this.searchQuery || this.selectedCategory || this.selectedTag || this.selectedArchive || this.selectedDate;
                     }
                 },
                 methods: {
@@ -632,6 +645,7 @@
                         this.selectedCategory = '';
                         this.selectedTag = '';
                         this.selectedArchive = '';
+                        this.selectedDate = '';
                     },
                     toggleCategory(categoryId) {
                         if (categoryId === 'all') {

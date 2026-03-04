@@ -98,9 +98,11 @@
                 console.error('Panel not found:', `${panelName}-panel`);
             }
 
-            // Auto-load categories if needed
+            // Auto-load categories or about if needed
             if (panelName === 'categories' && typeof window.loadCategories === 'function') {
                 window.loadCategories();
+            } else if (panelName === 'about' && typeof window.loadAboutSettings === 'function') {
+                window.loadAboutSettings();
             }
         }
 
@@ -869,6 +871,83 @@
                 alert('Error saving general settings. Check console for details.');
             }
         }
+
+        async function loadAboutSettings() {
+            console.log('loadAboutSettings called');
+            try {
+                const response = await fetch('/api/about');
+                const about = await response.json();
+
+                if (about) {
+                    if (document.getElementById('about-hero-title')) document.getElementById('about-hero-title').value = about.hero?.title || '';
+                    if (document.getElementById('about-hero-subtitle')) document.getElementById('about-hero-subtitle').value = about.hero?.subtitle || '';
+                    if (document.getElementById('about-who-content')) document.getElementById('about-who-content').value = about.sections?.find(s => s.id === 'who-i-am')?.content || '';
+                    if (document.getElementById('about-what-content')) document.getElementById('about-what-content').value = about.sections?.find(s => s.id === 'what-i-do')?.content || '';
+                    if (document.getElementById('about-mission-content')) document.getElementById('about-mission-content').value = about.sections?.find(s => s.id === 'mission')?.content || '';
+
+                    if (document.getElementById('about-contact-email')) document.getElementById('about-contact-email').value = about.contact?.email || '';
+                    if (document.getElementById('about-contact-twitter')) document.getElementById('about-contact-twitter').value = about.contact?.twitter || '';
+                    if (document.getElementById('about-contact-linkedin')) document.getElementById('about-contact-linkedin').value = about.contact?.linkedin || '';
+                    if (document.getElementById('about-contact-github')) document.getElementById('about-contact-github').value = about.contact?.github || '';
+                }
+            } catch (error) {
+                console.error('Error loading about settings:', error);
+            }
+        }
+
+        async function saveAboutSettings() {
+            const aboutData = {
+                hero: {
+                    title: document.getElementById('about-hero-title').value,
+                    subtitle: document.getElementById('about-hero-subtitle').value
+                },
+                sections: [
+                    {
+                        id: 'who-i-am',
+                        title: 'Who I Am',
+                        content: document.getElementById('about-who-content').value
+                    },
+                    {
+                        id: 'what-i-do',
+                        title: 'What I Do',
+                        content: document.getElementById('about-what-content').value
+                    },
+                    {
+                        id: 'mission',
+                        title: 'My Mission',
+                        content: document.getElementById('about-mission-content').value
+                    }
+                ],
+                contact: {
+                    email: document.getElementById('about-contact-email').value,
+                    twitter: document.getElementById('about-contact-twitter').value,
+                    linkedin: document.getElementById('about-contact-linkedin').value,
+                    github: document.getElementById('about-contact-github').value
+                }
+            };
+
+            try {
+                const response = await fetch('/api/about', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify(aboutData)
+                });
+
+                if (response.ok) {
+                    alert('About Me settings saved successfully!');
+                } else {
+                    const data = await response.json();
+                    alert('Failed to save settings: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving about settings:', error);
+                alert('Connection error. Failed to save settings.');
+            }
+        }
+
+        window.loadAboutSettings = loadAboutSettings;
+        window.saveAboutSettings = saveAboutSettings;
 
         async function saveSecuritySettings() {
             const adminEntryKey = document.getElementById('admin-entry-key').value;
@@ -2999,6 +3078,13 @@
                                             Categories
                                         </button>
                                     </li>
+                                    <li class="settings-nav-item">
+                                        <button type="button" class="settings-nav-btn" data-panel="about"
+                                            onclick="switchSettingsPanel('about')">
+                                            <i>👤</i>
+                                            About Me
+                                        </button>
+                                    </li>
                                 </ul>
                             </div>
 
@@ -3326,6 +3412,81 @@
                                         <div id="categories-list">
                                             <!-- Categories will be loaded here -->
                                         </div>
+                                    </div>
+                                </div>
+
+                                <!-- About Me Settings Panel -->
+                                <div id="about-panel" class="settings-panel">
+                                    <div class="panel-header">
+                                        <h2 class="panel-title">About Me Management</h2>
+                                        <p class="panel-description">Manage the content of your About Me page.</p>
+                                    </div>
+
+                                    <div class="form-grid">
+                                        <div class="form-group" style="grid-column: span 2;">
+                                            <label class="form-label" style="font-weight: 700;">Hero Section</label>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="about-hero-title" class="form-label">Hero Title</label>
+                                            <input type="text" class="form-input" id="about-hero-title"
+                                                placeholder="About Me">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="about-hero-subtitle" class="form-label">Hero Subtitle</label>
+                                            <input type="text" class="form-input" id="about-hero-subtitle"
+                                                placeholder="Subtitle">
+                                        </div>
+
+                                        <div class="form-group" style="grid-column: span 2; margin-top: 20px;">
+                                            <label class="form-label" style="font-weight: 700;">Who I Am</label>
+                                        </div>
+                                        <div class="form-group" style="grid-column: span 2;">
+                                            <textarea class="form-input form-textarea" id="about-who-content"
+                                                rows="4"></textarea>
+                                        </div>
+
+                                        <div class="form-group" style="grid-column: span 2; margin-top: 20px;">
+                                            <label class="form-label" style="font-weight: 700;">What I Do</label>
+                                        </div>
+                                        <div class="form-group" style="grid-column: span 2;">
+                                            <textarea class="form-input form-textarea" id="about-what-content"
+                                                rows="3"></textarea>
+                                        </div>
+
+                                        <div class="form-group" style="grid-column: span 2; margin-top: 20px;">
+                                            <label class="form-label" style="font-weight: 700;">My Mission</label>
+                                        </div>
+                                        <div class="form-group" style="grid-column: span 2;">
+                                            <textarea class="form-input form-textarea" id="about-mission-content"
+                                                rows="2"></textarea>
+                                        </div>
+
+                                        <div class="form-group" style="grid-column: span 2; margin-top: 20px;">
+                                            <label class="form-label" style="font-weight: 700;">Contact Links</label>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="about-contact-email" class="form-label">Email</label>
+                                            <input type="email" class="form-input" id="about-contact-email">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="about-contact-twitter" class="form-label">Twitter</label>
+                                            <input type="url" class="form-input" id="about-contact-twitter">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="about-contact-linkedin" class="form-label">LinkedIn</label>
+                                            <input type="url" class="form-input" id="about-contact-linkedin">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="about-contact-github" class="form-label">GitHub</label>
+                                            <input type="url" class="form-input" id="about-contact-github">
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-top: 32px;">
+                                        <button class="btn-modern" onclick="saveAboutSettings()">
+                                            <i>💾</i>
+                                            Save About Me
+                                        </button>
                                     </div>
                                 </div>
                             </div>
