@@ -1849,35 +1849,44 @@ app.get('/api/about', async (req, res) => {
 });
 
 app.post('/api/about', requireAdmin, async (req, res) => {
-  const incoming = req.body;
-  if (!incoming || typeof incoming !== 'object') {
-    return res.status(400).json({ error: 'invalid_payload' });
-  }
+  try {
+    const incoming = req.body;
+    if (!incoming || typeof incoming !== 'object') {
+      return res.status(400).json({ error: 'invalid_payload' });
+    }
 
-  // Merge cleanly to avoid losing skills and nested data
-  const existing = await loadAbout();
+    // Load existing data to preserve non-editable fields (skills, points)
+    const existing = await loadAbout();
 
-  if (incoming.hero) {
-    existing.hero = { ...existing.hero, ...incoming.hero };
-  }
-  if (incoming.sections && Array.isArray(incoming.sections)) {
-    // Merge sections by ID to preserve 'points' array
-    incoming.sections.forEach(newSec => {
-      const existingSec = existing.sections.find(s => s.id === newSec.id);
-      if (existingSec) {
-        existingSec.title = newSec.title || existingSec.title;
-        existingSec.content = newSec.content || existingSec.content;
-      } else {
-        existing.sections.push(newSec);
-      }
-    });
-  }
-  if (incoming.contact) {
-    existing.contact = { ...existing.contact, ...incoming.contact };
-  }
+    // Build the updated about object
+    const updated = {
+      hero: incoming.hero || existing.hero,
+      sections: existing.sections, // start from existing to preserve points
+      skills: existing.skills || [],
+      contact: incoming.contact || existing.contact
+    };
 
-  await saveAbout(existing);
-  return res.json({ success: true, updated: existing });
+    // Update sections: apply incoming content but preserve 'points' from existing
+    if (incoming.sections && Array.isArray(incoming.sections)) {
+      updated.sections = incoming.sections.map(newSec => {
+        const oldSec = existing.sections.find(s => s.id === newSec.id);
+        return {
+          id: newSec.id,
+          title: newSec.title,
+          content: newSec.content,
+          // Preserve points array from existing data (not editable in UI)
+          ...(oldSec && oldSec.points ? { points: oldSec.points } : {})
+        };
+      });
+    }
+
+    await saveAbout(updated);
+    console.log('About saved successfully:', JSON.stringify(updated).substring(0, 200));
+    return res.json({ success: true, updated });
+  } catch (err) {
+    console.error('Error saving about:', err);
+    return res.status(500).json({ error: 'save_failed', details: err.message });
+  }
 });
 
 // Get current background image
