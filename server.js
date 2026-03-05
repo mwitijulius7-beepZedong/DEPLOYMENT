@@ -1791,17 +1791,41 @@ function writeAbout(about) {
 
 // About API
 app.get('/api/about', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const about = readAbout();
   return res.json(about);
 });
 
 app.post('/api/about', requireAdmin, (req, res) => {
-  const about = req.body;
-  if (!about || typeof about !== 'object') {
+  const incoming = req.body;
+  if (!incoming || typeof incoming !== 'object') {
     return res.status(400).json({ error: 'invalid_payload' });
   }
-  writeAbout(about);
-  return res.json({ success: true });
+
+  // Merge cleanly to avoid losing skills and nested data
+  const existing = readAbout();
+
+  if (incoming.hero) {
+    existing.hero = { ...existing.hero, ...incoming.hero };
+  }
+  if (incoming.sections && Array.isArray(incoming.sections)) {
+    // Merge sections by ID to preserve 'points' array
+    incoming.sections.forEach(newSec => {
+      const existingSec = existing.sections.find(s => s.id === newSec.id);
+      if (existingSec) {
+        existingSec.title = newSec.title || existingSec.title;
+        existingSec.content = newSec.content || existingSec.content;
+      } else {
+        existing.sections.push(newSec);
+      }
+    });
+  }
+  if (incoming.contact) {
+    existing.contact = { ...existing.contact, ...incoming.contact };
+  }
+
+  writeAbout(existing);
+  return res.json({ success: true, updated: existing });
 });
 
 // Get current background image
