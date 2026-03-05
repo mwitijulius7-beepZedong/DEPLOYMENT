@@ -882,7 +882,6 @@
                     if (document.getElementById('about-hero-title')) document.getElementById('about-hero-title').value = about.hero?.title || '';
                     if (document.getElementById('about-hero-subtitle')) document.getElementById('about-hero-subtitle').value = about.hero?.subtitle || '';
                     if (document.getElementById('about-who-content')) document.getElementById('about-who-content').value = about.sections?.find(s => s.id === 'who-i-am')?.content || '';
-                    if (document.getElementById('about-what-content')) document.getElementById('about-what-content').value = about.sections?.find(s => s.id === 'what-i-do')?.content || '';
                     if (document.getElementById('about-mission-content')) document.getElementById('about-mission-content').value = about.sections?.find(s => s.id === 'mission')?.content || '';
 
                     if (document.getElementById('about-contact-email')) document.getElementById('about-contact-email').value = about.contact?.email || '';
@@ -906,11 +905,6 @@
                         id: 'who-i-am',
                         title: 'Who I Am',
                         content: document.getElementById('about-who-content').value
-                    },
-                    {
-                        id: 'what-i-do',
-                        title: 'What I Do',
-                        content: document.getElementById('about-what-content').value
                     },
                     {
                         id: 'mission',
@@ -3255,12 +3249,9 @@
                                     <div class="form-grid">
                                         <div class="form-group">
                                             <label for="admin-entry-key" class="form-label">Admin Entry Key</label>
-                                            <div style="position: relative;">
-                                                <input type="password" class="form-input" id="admin-entry-key"
-                                                    placeholder="Admin keys are now managed per-user" disabled>
-                                                <button type="button" id="admin-key-toggle" class="password-toggle"
-                                                    aria-label="Toggle admin key visibility"
-                                                    style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%);">
+                                            <div class="input-with-icon">
+                                                <input type="password" id="admin-entry-key" placeholder="••••••••">
+                                                <button type="button" class="icon-btn" id="admin-key-toggle">
                                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
                                                         stroke="currentColor" stroke-width="2">
                                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -3268,9 +3259,9 @@
                                                     </svg>
                                                 </button>
                                             </div>
-                                            <small style="color: var(--text-light); margin-top: 6px; display: block;">✓
-                                                Admin keys are now managed per-user in the <strong>User
-                                                    Management</strong> section</small>
+                                            <span class="form-help">Enter a key that will be required to access the
+                                                admin
+                                                portal. Leave blank to disable.</span>
                                         </div>
                                         <div class="form-group">
                                             <label for="session-timeout" class="form-label">Session Timeout
@@ -3445,13 +3436,6 @@
                                                 rows="4"></textarea>
                                         </div>
 
-                                        <div class="form-group" style="grid-column: span 2; margin-top: 20px;">
-                                            <label class="form-label" style="font-weight: 700;">What I Do</label>
-                                        </div>
-                                        <div class="form-group" style="grid-column: span 2;">
-                                            <textarea class="form-input form-textarea" id="about-what-content"
-                                                rows="3"></textarea>
-                                        </div>
 
                                         <div class="form-group" style="grid-column: span 2; margin-top: 20px;">
                                             <label class="form-label" style="font-weight: 700;">My Mission</label>
@@ -3523,276 +3507,345 @@
                             Unlock Admin Panel
                         </button>
                     </div>
-                </div>
+                    <script>
+                        // Robust Security Gating Logic
+                        let isSecurityVerified = false;
+                        let isSecurityCheckComplete = false;
 
+                        async function enforceSecurityGate() {
+                            // Bypass for localhost to prevent prompt
+                            const hostname = window.location.hostname;
+                            if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
+                                console.log('Localhost/Local network detected, bypassing admin key check');
+                                isSecurityVerified = true;
+                                isSecurityCheckComplete = true;
+                                return true;
+                            }
 
-                <script>
-                    // Expose functions to window for onclick handlers
-                    window.addCategory = addCategory;
-                    window.loadCategories = loadCategories;
-                    window.populatePostCategoryDropdown = populatePostCategoryDropdown;
-                    window.deleteCategory = deleteCategory;
-                    window.editCategory = editCategory;
-                    window.toggleSelectAllCategories = toggleSelectAllCategories;
-                    window.updateSelectedCategoriesCount = updateSelectedCategoriesCount;
-                    window.deleteSelectedCategories = deleteSelectedCategories;
-                    window.saveAuthorInfo = saveAuthorInfo;
-                    window.saveSecuritySettings = saveSecuritySettings;
-                    window.viewCurrentKey = viewCurrentKey;
-                    window.clearKey = clearKey;
-                    window.saveNotificationSettings = saveNotificationSettings;
-                    window.setUserAdminKey = setUserAdminKey;
-                    window.verifyUserAdminKey = verifyUserAdminKey;
-                    window.saveContentSettings = saveContentSettings;
-                    window.saveContentSettings = saveContentSettings;
-                    window.handleProfilePictureUpload = handleProfilePictureUpload;
+                            try {
+                                // First check if a key is even configured
+                                const secRes = await fetch('/api/settings/security');
+                                const sec = await secRes.json();
 
-                    function handleProfilePictureUpload() {
-                        const fileInput = document.getElementById('profile-picture-file');
-                        if (fileInput.files && fileInput.files[0]) {
-                            const reader = new FileReader();
-                            reader.onload = function (e) {
-                                const previewImgs = document.querySelectorAll('.user-avatar, .sidebar-logo img');
-                                previewImgs.forEach(img => {
-                                    img.src = e.target.result;
+                                if (!sec.hasEntryKey) {
+                                    isSecurityVerified = true;
+                                    isSecurityCheckComplete = true;
+                                    return true;
+                                }
+
+                                // If configured, check if we are verified
+                                const verRes = await fetch('/api/settings/check-admin-key-verified');
+                                const ver = await verRes.json();
+
+                                if (ver.verified) {
+                                    isSecurityVerified = true;
+                                    isSecurityCheckComplete = true;
+                                    return true;
+                                }
+
+                                // If we get here, show the modal and wait
+                                const modal = document.getElementById('admin-key-modal');
+                                if (modal) {
+                                    modal.style.display = 'flex';
+                                    const keyInput = document.getElementById('modal-admin-key');
+                                    if (keyInput) keyInput.focus();
+                                }
+
+                                // Return a promise that resolves when verified
+                                return new Promise((resolve) => {
+                                    window.resolveSecurityGate = (success) => {
+                                        if (success) {
+                                            isSecurityVerified = true;
+                                            isSecurityCheckComplete = true;
+                                            resolve(true);
+                                        }
+                                    };
+                                });
+                            } catch (e) {
+                                console.error('Security gate failed:', e);
+                                // Fallback to allow access if API fails? No, for security better to stay locked
+                                isSecurityCheckComplete = true;
+                                return true;
+                            }
+                        }
+
+                        // Start the gate immediately
+                        const securityGatePromise = enforceSecurityGate();
+
+                        // Wrapper function to ensure security is checked before running anything else
+                        async function runPostSecurity(fn) {
+                            await securityGatePromise;
+                            if (isSecurityVerified) {
+                                return fn();
+                            }
+                        }
+
+                        // Expose functions to window for onclick handlers
+                        window.addCategory = addCategory;
+                        window.loadCategories = loadCategories;
+                        window.populatePostCategoryDropdown = populatePostCategoryDropdown;
+                        window.deleteCategory = deleteCategory;
+                        window.editCategory = editCategory;
+                        window.toggleSelectAllCategories = toggleSelectAllCategories;
+                        window.updateSelectedCategoriesCount = updateSelectedCategoriesCount;
+                        window.deleteSelectedCategories = deleteSelectedCategories;
+                        window.saveAuthorInfo = saveAuthorInfo;
+                        window.saveSecuritySettings = saveSecuritySettings;
+                        window.viewCurrentKey = viewCurrentKey;
+                        window.clearKey = clearKey;
+                        window.saveNotificationSettings = saveNotificationSettings;
+                        window.setUserAdminKey = setUserAdminKey;
+                        window.verifyUserAdminKey = verifyUserAdminKey;
+                        window.saveContentSettings = saveContentSettings;
+                        window.saveContentSettings = saveContentSettings;
+                        window.handleProfilePictureUpload = handleProfilePictureUpload;
+
+                        function handleProfilePictureUpload() {
+                            const fileInput = document.getElementById('profile-picture-file');
+                            if (fileInput.files && fileInput.files[0]) {
+                                const reader = new FileReader();
+                                reader.onload = function (e) {
+                                    const previewImgs = document.querySelectorAll('.user-avatar, .sidebar-logo img');
+                                    previewImgs.forEach(img => {
+                                        img.src = e.target.result;
+                                    });
+                                }
+                                reader.readAsDataURL(fileInput.files[0]);
+                            }
+                        }
+                        window.saveThemeSettings = saveThemeSettings;
+                        window.saveBackgroundSettings = saveBackgroundSettings;
+                        window.handleBackgroundUpload = handleBackgroundUpload;
+                        window.togglePostsList = togglePostsList;
+                        window.loadPostsList = loadPostsList;
+                        window.saveNewPost = saveNewPost;
+                        window.handlePostImageUpload = handlePostImageUpload;
+
+                        function handlePostImageUpload() {
+                            const fileInput = document.getElementById('post-image-file');
+                            const previewContainer = document.getElementById('image-preview');
+                            const previewImg = document.getElementById('preview-img');
+
+                            if (fileInput.files && fileInput.files[0]) {
+                                const reader = new FileReader();
+                                reader.onload = function (e) {
+                                    previewImg.src = e.target.result;
+                                    previewContainer.style.display = 'block';
+                                }
+                                reader.readAsDataURL(fileInput.files[0]);
+                            } else {
+                                previewContainer.style.display = 'none';
+                                previewImg.src = '';
+                            }
+                        }
+                        window.previewPost = previewPost;
+                        window.clearPostForm = clearPostForm;
+                        window.toggleSelectAllPosts = toggleSelectAllPosts;
+                        window.updateSelectedCount = updateSelectedCount;
+                        window.deleteSelectedPosts = deleteSelectedPosts;
+                        window.editPost = editPost;
+                        window.deletePost = deletePost;
+
+                        // Auto-login for localhost development
+                        async function autoLoginForLocalhost() {
+                            try {
+                                const response = await fetch('/auth/login', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
+                                    body: JSON.stringify({ username: 'admin', password: 'password' })
+                                });
+
+                                const data = await response.json();
+                                if (data.success && data.token) {
+                                    // Store JWT token in localStorage for API requests
+                                    localStorage.setItem('authToken', data.token);
+                                    console.log('Auto-login successful for localhost');
+                                }
+                            } catch (error) {
+                                console.error('Auto-login failed:', error);
+                            }
+                        }
+
+                        // Run auto-login on page load
+                        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                            document.addEventListener('DOMContentLoaded', autoLoginForLocalhost);
+                            // Also try immediately in case DOM is already loaded
+                            autoLoginForLocalhost();
+                        }
+
+                        // Load blog info for sidebar
+                        fetch('/api/settings/blog-info')
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.blogInfo && data.blogInfo.title) {
+                                    const sidebarTitle = document.querySelector('.sidebar-logo .sidebar-logo-title');
+                                    if (sidebarTitle) sidebarTitle.textContent = data.blogInfo.title;
+                                    document.title = `Admin Panel - ${data.blogInfo.title}`;
+                                }
+                            })
+                            .catch(err => console.error('Error loading blog info:', err));
+
+                        // Load both blog-info and author settings to populate form fields
+                        Promise.all([
+                            fetch('/api/settings/blog-info').then(res => res.json()),
+                            fetch('/api/settings/author').then(res => res.json())
+                        ])
+                            .then(([blogInfoData, authorData]) => {
+                                console.log('Loading saved settings:', { blogInfo: blogInfoData.blogInfo, author: authorData.author });
+
+                                const blogInfo = blogInfoData.blogInfo || {};
+                                const author = authorData.author || {};
+
+                                // Populate form fields with saved values
+                                const blogTitle = document.getElementById('blog-title');
+                                const blogDescription = document.getElementById('blog-description');
+                                const authorName = document.getElementById('author-name');
+                                const authorEmail = document.getElementById('author-email');
+                                const authorBio = document.getElementById('author-bio');
+                                const authorPhone = document.getElementById('author-phone');
+                                const authorWhatsapp = document.getElementById('author-whatsapp');
+                                const authorTwitter = document.getElementById('author-twitter');
+                                const authorFacebook = document.getElementById('author-facebook');
+                                const authorLinkedin = document.getElementById('author-linkedin');
+                                const authorInstagram = document.getElementById('author-instagram');
+                                const authorWebsite = document.getElementById('author-website');
+
+                                // Blog info fields - from blog-info endpoint
+                                if (blogTitle) blogTitle.value = blogInfo.title || 'zedong254ke';
+                                if (blogDescription) blogDescription.value = blogInfo.description || 'Discover insights, tutorials, and thoughts on web development, programming, and technology.';
+
+                                // Author fields - from author endpoint
+                                if (authorName) authorName.value = author.name || 'zedong254ke';
+                                if (authorEmail) authorEmail.value = author.email || '';
+                                if (authorBio) authorBio.value = author.bio || 'Passionate developer and blogger sharing insights on technology and programming.';
+                                if (authorPhone) authorPhone.value = author.phone || '';
+                                if (authorWhatsapp) authorWhatsapp.value = author.whatsapp || '';
+                                if (authorTwitter) authorTwitter.value = author.social?.twitter || '';
+                                if (authorFacebook) authorFacebook.value = author.social?.facebook || '';
+                                if (authorLinkedin) authorLinkedin.value = author.social?.linkedin || '';
+                                if (authorInstagram) authorInstagram.value = author.social?.instagram || '';
+                                if (authorWebsite) authorWebsite.value = author.social?.website || '';
+
+                                console.log('Settings loaded and form populated successfully');
+                            })
+                            .catch(err => console.error('Error loading settings:', err));
+
+                        // Function aliases for posts
+
+                        window.viewPostStats = function () {
+                            console.log('viewPostStats called');
+                            showAnalyticsSection();
+                        };
+
+                        // Sidebar toggle
+                        window.toggleSidebar = function () {
+                            const sidebar = document.getElementById('sidebar');
+                            if (sidebar) sidebar.classList.toggle('collapsed');
+                        };
+
+                        // Modern Settings Navigation
+                        let settingsNavigationInitialized = false;
+
+                        function initSettingsNavigation() {
+                            // Prevent multiple initializations
+                            if (settingsNavigationInitialized) {
+                                console.log('Settings navigation already initialized, skipping');
+                                return;
+                            }
+
+                            console.log('initSettingsNavigation called');
+                            const settingsSection = document.getElementById('settings-section');
+                            if (!settingsSection) {
+                                console.error('Settings section not found');
+                                return;
+                            }
+
+                            const settingsSidebar = settingsSection.querySelector('.settings-sidebar');
+                            if (!settingsSidebar) {
+                                console.error('Settings sidebar not found');
+                                return;
+                            }
+
+                            console.log('Found sidebar, attaching click handlers');
+
+                            // Add click listener to sidebar using event delegation
+                            settingsSidebar.addEventListener('click', (event) => {
+                                const button = event.target.closest('.settings-nav-btn');
+                                if (!button) {
+                                    return;
+                                }
+
+                                event.preventDefault();
+                                event.stopPropagation();
+
+                                const targetPanel = button.getAttribute('data-panel');
+                                console.log('Button clicked, switching to panel:', targetPanel);
+
+                                switchSettingsPanel(targetPanel);
+                            });
+
+                            settingsNavigationInitialized = true;
+                            console.log('Settings navigation initialized successfully');
+                        }
+
+                        // Password toggle functionality
+                        function initPasswordToggle() {
+                            const toggleBtn = document.getElementById('admin-key-toggle');
+                            const passwordInput = document.getElementById('admin-entry-key');
+
+                            if (toggleBtn && passwordInput) {
+                                toggleBtn.addEventListener('click', () => {
+                                    const type = passwordInput.type === 'password' ? 'text' : 'password';
+                                    passwordInput.type = type;
+
+                                    // Update icon
+                                    const icon = toggleBtn.querySelector('svg');
+                                    if (type === 'text') {
+                                        icon.innerHTML = '<path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>';
+                                    } else {
+                                        icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+                                    }
                                 });
                             }
-                            reader.readAsDataURL(fileInput.files[0]);
-                        }
-                    }
-                    window.saveThemeSettings = saveThemeSettings;
-                    window.saveBackgroundSettings = saveBackgroundSettings;
-                    window.handleBackgroundUpload = handleBackgroundUpload;
-                    window.togglePostsList = togglePostsList;
-                    window.loadPostsList = loadPostsList;
-                    window.saveNewPost = saveNewPost;
-                    window.handlePostImageUpload = handlePostImageUpload;
-
-                    function handlePostImageUpload() {
-                        const fileInput = document.getElementById('post-image-file');
-                        const previewContainer = document.getElementById('image-preview');
-                        const previewImg = document.getElementById('preview-img');
-
-                        if (fileInput.files && fileInput.files[0]) {
-                            const reader = new FileReader();
-                            reader.onload = function (e) {
-                                previewImg.src = e.target.result;
-                                previewContainer.style.display = 'block';
-                            }
-                            reader.readAsDataURL(fileInput.files[0]);
-                        } else {
-                            previewContainer.style.display = 'none';
-                            previewImg.src = '';
-                        }
-                    }
-                    window.previewPost = previewPost;
-                    window.clearPostForm = clearPostForm;
-                    window.toggleSelectAllPosts = toggleSelectAllPosts;
-                    window.updateSelectedCount = updateSelectedCount;
-                    window.deleteSelectedPosts = deleteSelectedPosts;
-                    window.editPost = editPost;
-                    window.deletePost = deletePost;
-
-                    // Auto-login for localhost development
-                    async function autoLoginForLocalhost() {
-                        try {
-                            const response = await fetch('/auth/login', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                credentials: 'include',
-                                body: JSON.stringify({ username: 'admin', password: 'password' })
-                            });
-
-                            const data = await response.json();
-                            if (data.success && data.token) {
-                                // Store JWT token in localStorage for API requests
-                                localStorage.setItem('authToken', data.token);
-                                console.log('Auto-login successful for localhost');
-                            }
-                        } catch (error) {
-                            console.error('Auto-login failed:', error);
-                        }
-                    }
-
-                    // Run auto-login on page load
-                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                        document.addEventListener('DOMContentLoaded', autoLoginForLocalhost);
-                        // Also try immediately in case DOM is already loaded
-                        autoLoginForLocalhost();
-                    }
-
-                    // Load blog info for sidebar
-                    fetch('/api/settings/blog-info')
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.blogInfo && data.blogInfo.title) {
-                                const sidebarTitle = document.querySelector('.sidebar-logo .sidebar-logo-title');
-                                if (sidebarTitle) sidebarTitle.textContent = data.blogInfo.title;
-                                document.title = `Admin Panel - ${data.blogInfo.title}`;
-                            }
-                        })
-                        .catch(err => console.error('Error loading blog info:', err));
-
-                    // Load both blog-info and author settings to populate form fields
-                    Promise.all([
-                        fetch('/api/settings/blog-info').then(res => res.json()),
-                        fetch('/api/settings/author').then(res => res.json())
-                    ])
-                        .then(([blogInfoData, authorData]) => {
-                            console.log('Loading saved settings:', { blogInfo: blogInfoData.blogInfo, author: authorData.author });
-
-                            const blogInfo = blogInfoData.blogInfo || {};
-                            const author = authorData.author || {};
-
-                            // Populate form fields with saved values
-                            const blogTitle = document.getElementById('blog-title');
-                            const blogDescription = document.getElementById('blog-description');
-                            const authorName = document.getElementById('author-name');
-                            const authorEmail = document.getElementById('author-email');
-                            const authorBio = document.getElementById('author-bio');
-                            const authorPhone = document.getElementById('author-phone');
-                            const authorWhatsapp = document.getElementById('author-whatsapp');
-                            const authorTwitter = document.getElementById('author-twitter');
-                            const authorFacebook = document.getElementById('author-facebook');
-                            const authorLinkedin = document.getElementById('author-linkedin');
-                            const authorInstagram = document.getElementById('author-instagram');
-                            const authorWebsite = document.getElementById('author-website');
-
-                            // Blog info fields - from blog-info endpoint
-                            if (blogTitle) blogTitle.value = blogInfo.title || 'zedong254ke';
-                            if (blogDescription) blogDescription.value = blogInfo.description || 'Discover insights, tutorials, and thoughts on web development, programming, and technology.';
-
-                            // Author fields - from author endpoint
-                            if (authorName) authorName.value = author.name || 'zedong254ke';
-                            if (authorEmail) authorEmail.value = author.email || '';
-                            if (authorBio) authorBio.value = author.bio || 'Passionate developer and blogger sharing insights on technology and programming.';
-                            if (authorPhone) authorPhone.value = author.phone || '';
-                            if (authorWhatsapp) authorWhatsapp.value = author.whatsapp || '';
-                            if (authorTwitter) authorTwitter.value = author.social?.twitter || '';
-                            if (authorFacebook) authorFacebook.value = author.social?.facebook || '';
-                            if (authorLinkedin) authorLinkedin.value = author.social?.linkedin || '';
-                            if (authorInstagram) authorInstagram.value = author.social?.instagram || '';
-                            if (authorWebsite) authorWebsite.value = author.social?.website || '';
-
-                            console.log('Settings loaded and form populated successfully');
-                        })
-                        .catch(err => console.error('Error loading settings:', err));
-
-                    // Function aliases for posts
-
-                    window.viewPostStats = function () {
-                        console.log('viewPostStats called');
-                        showAnalyticsSection();
-                    };
-
-                    // Sidebar toggle
-                    window.toggleSidebar = function () {
-                        const sidebar = document.getElementById('sidebar');
-                        if (sidebar) sidebar.classList.toggle('collapsed');
-                    };
-
-                    // Modern Settings Navigation
-                    let settingsNavigationInitialized = false;
-
-                    function initSettingsNavigation() {
-                        // Prevent multiple initializations
-                        if (settingsNavigationInitialized) {
-                            console.log('Settings navigation already initialized, skipping');
-                            return;
                         }
 
-                        console.log('initSettingsNavigation called');
-                        const settingsSection = document.getElementById('settings-section');
-                        if (!settingsSection) {
-                            console.error('Settings section not found');
-                            return;
-                        }
+                        // Expose functions globally for settings module
+                        window.initSettingsNavigation = initSettingsNavigation;
+                        window.initPasswordToggle = initPasswordToggle;
+                        window.switchSettingsPanel = switchSettingsPanel;
 
-                        const settingsSidebar = settingsSection.querySelector('.settings-sidebar');
-                        if (!settingsSidebar) {
-                            console.error('Settings sidebar not found');
-                            return;
-                        }
-
-                        console.log('Found sidebar, attaching click handlers');
-
-                        // Add click listener to sidebar using event delegation
-                        settingsSidebar.addEventListener('click', (event) => {
-                            const button = event.target.closest('.settings-nav-btn');
-                            if (!button) {
-                                return;
-                            }
-
-                            event.preventDefault();
-                            event.stopPropagation();
-
-                            const targetPanel = button.getAttribute('data-panel');
-                            console.log('Button clicked, switching to panel:', targetPanel);
-
-                            switchSettingsPanel(targetPanel);
+                        // Initialize settings navigation on page load
+                        document.addEventListener('DOMContentLoaded', function () {
+                            initSettingsNavigation();
+                            initPasswordToggle();
                         });
 
-                        settingsNavigationInitialized = true;
-                        console.log('Settings navigation initialized successfully');
-                    }
-
-                    // Password toggle functionality
-                    function initPasswordToggle() {
-                        const toggleBtn = document.getElementById('admin-key-toggle');
-                        const passwordInput = document.getElementById('admin-entry-key');
-
-                        if (toggleBtn && passwordInput) {
-                            toggleBtn.addEventListener('click', () => {
-                                const type = passwordInput.type === 'password' ? 'text' : 'password';
-                                passwordInput.type = type;
-
-                                // Update icon
-                                const icon = toggleBtn.querySelector('svg');
-                                if (type === 'text') {
-                                    icon.innerHTML = '<path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>';
-                                } else {
-                                    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
-                                }
-                            });
+                        // Also initialize immediately if DOM is already loaded
+                        if (document.readyState !== 'loading') {
+                            initSettingsNavigation();
+                            initPasswordToggle();
                         }
-                    }
 
-                    // Expose functions globally for settings module
-                    window.initSettingsNavigation = initSettingsNavigation;
-                    window.initPasswordToggle = initPasswordToggle;
-                    window.switchSettingsPanel = switchSettingsPanel;
+                        // Enhanced Post Rendering for Modern UI
+                        async function loadAndRenderPosts() {
+                            const container = document.getElementById('posts-list');
+                            if (!container) return;
 
-                    // Initialize settings navigation on page load
-                    document.addEventListener('DOMContentLoaded', function () {
-                        initSettingsNavigation();
-                        initPasswordToggle();
-                    });
+                            // Show loading state
+                            container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">Loading posts...</div>';
 
-                    // Also initialize immediately if DOM is already loaded
-                    if (document.readyState !== 'loading') {
-                        initSettingsNavigation();
-                        initPasswordToggle();
-                    }
+                            try {
+                                const response = await fetch('/api/posts');
+                                const data = await response.json();
+                                const posts = data.posts || [];
 
-                    // Enhanced Post Rendering for Modern UI
-                    async function loadAndRenderPosts() {
-                        const container = document.getElementById('posts-list');
-                        if (!container) return;
+                                if (posts.length === 0) {
+                                    container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">No posts found. Create one to get started!</div>';
+                                    return;
+                                }
 
-                        // Show loading state
-                        container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">Loading posts...</div>';
-
-                        try {
-                            const response = await fetch('/api/posts');
-                            const data = await response.json();
-                            const posts = data.posts || [];
-
-                            if (posts.length === 0) {
-                                container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">No posts found. Create one to get started!</div>';
-                                return;
-                            }
-
-                            container.innerHTML = posts.map(post => `
+                                container.innerHTML = posts.map(post => `
                     <div class="post-item">
                         <div class="post-item-header">
                             <h4 class="post-item-title">${post.title}</h4>
@@ -3814,389 +3867,365 @@
                     </div>
                 `).join('');
 
-                            const listContainer = document.getElementById('posts-list-container');
-                            if (listContainer) listContainer.style.display = 'block';
+                                const listContainer = document.getElementById('posts-list-container');
+                                if (listContainer) listContainer.style.display = 'block';
 
-                        } catch (e) {
-                            console.error('Error rendering posts:', e);
-                            container.innerHTML = '<div style="text-align:center; color:#dc2626;">Failed to load posts.</div>';
-                        }
-                    }
-
-
-
-                    window.handleCreateUser = async function (event) {
-                        event.preventDefault();
-
-                        const username = document.getElementById('new-username').value.trim();
-                        const password = document.getElementById('new-password').value.trim();
-                        const name = document.getElementById('new-name').value.trim();
-                        const email = document.getElementById('new-email').value.trim();
-                        const role = document.getElementById('new-role').value;
-
-                        if (!username || !password || !name || !email) {
-                            alert('All fields are required');
-                            return;
-                        }
-
-                        try {
-                            const headers = getAuthHeaders();
-                            const token = localStorage.getItem('authToken');
-                            console.log('Creating user with token:', token ? 'Token found' : 'No token found');
-                            console.log('Request headers:', headers);
-
-                            const response = await fetch('/auth/setup', {
-                                method: 'POST',
-                                headers: headers,
-                                credentials: 'include',
-                                body: JSON.stringify({ username, password, name, email })
-                            });
-
-                            console.log('Response status:', response.status);
-                            const data = await response.json();
-
-                            if (data.success) {
-                                alert('User created successfully!');
-                                document.getElementById('create-user-form').reset();
-                                loadUsers(); // Refresh the list
-                            } else {
-                                alert('Failed to create user: ' + (data.error || 'Unknown error'));
+                            } catch (e) {
+                                console.error('Error rendering posts:', e);
+                                container.innerHTML = '<div style="text-align:center; color:#dc2626;">Failed to load posts.</div>';
                             }
-                        } catch (e) {
-                            console.error('Error creating user:', e);
-                            alert('Failed to create user. Check console for details.');
-                        }
-                    };
-
-                    // Admin Key Verification Logic
-                    async function checkSecurityOnLoad() {
-                        // Bypass for localhost to prevent prompt
-                        const hostname = window.location.hostname;
-                        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
-                            console.log('Localhost/Local network detected, bypassing admin key check');
-                            return;
                         }
 
-                        try {
-                            // First check if a key is even configured
-                            const secRes = await fetch('/api/settings/security');
-                            const sec = await secRes.json();
 
-                            if (sec.hasEntryKey) {
-                                // If configured, check if we are verified
-                                const verRes = await fetch('/api/settings/check-admin-key-verified');
-                                const ver = await verRes.json();
 
-                                if (!ver.verified) {
-                                    document.getElementById('admin-key-modal').style.display = 'flex';
-                                    document.getElementById('modal-admin-key').focus();
+                        window.handleCreateUser = async function (event) {
+                            event.preventDefault();
+
+                            const username = document.getElementById('new-username').value.trim();
+                            const password = document.getElementById('new-password').value.trim();
+                            const name = document.getElementById('new-name').value.trim();
+                            const email = document.getElementById('new-email').value.trim();
+                            const role = document.getElementById('new-role').value;
+
+                            if (!username || !password || !name || !email) {
+                                alert('All fields are required');
+                                return;
+                            }
+
+                            try {
+                                const headers = getAuthHeaders();
+                                const token = localStorage.getItem('authToken');
+                                console.log('Creating user with token:', token ? 'Token found' : 'No token found');
+                                console.log('Request headers:', headers);
+
+                                const response = await fetch('/auth/setup', {
+                                    method: 'POST',
+                                    headers: headers,
+                                    credentials: 'include',
+                                    body: JSON.stringify({ username, password, name, email })
+                                });
+
+                                console.log('Response status:', response.status);
+                                const data = await response.json();
+
+                                if (data.success) {
+                                    alert('User created successfully!');
+                                    document.getElementById('create-user-form').reset();
+                                    loadUsers(); // Refresh the list
+                                } else {
+                                    alert('Failed to create user: ' + (data.error || 'Unknown error'));
                                 }
+                            } catch (e) {
+                                console.error('Error creating user:', e);
+                                alert('Failed to create user. Check console for details.');
                             }
-                        } catch (e) { console.error('Security check failed:', e); }
-                    }
+                        };
 
-                    async function verifyAdminKeyModal() {
-                        const keyInput = document.getElementById('modal-admin-key');
-                        const errorEl = document.getElementById('modal-error');
-                        const key = keyInput.value;
 
-                        // Reset error state
-                        errorEl.style.display = 'none';
-                        keyInput.style.borderColor = '#e2e8f0';
+                        async function verifyAdminKeyModal() {
+                            const keyInput = document.getElementById('modal-admin-key');
+                            const errorEl = document.getElementById('modal-error');
+                            const key = keyInput.value;
 
-                        if (!key) return;
+                            // Reset error state
+                            errorEl.style.display = 'none';
+                            keyInput.style.borderColor = '#e2e8f0';
 
-                        try {
-                            const res = await fetch('/api/settings/verify-entry-key', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ adminEntryKey: key })
-                            });
-                            const data = await res.json();
+                            if (!key) return;
 
-                            if (data.success) {
-                                const modal = document.getElementById('admin-key-modal');
-                                modal.style.opacity = '0';
-                                setTimeout(() => modal.style.display = 'none', 300);
-                            } else {
-                                keyInput.style.borderColor = '#ef4444';
-                                keyInput.value = '';
-                                errorEl.style.display = 'flex';
-                                // Trigger reflow for animation restart
-                                errorEl.style.animation = 'none';
-                                errorEl.offsetHeight;
-                                errorEl.style.animation = 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both';
+                            try {
+                                const res = await fetch('/api/settings/verify-entry-key', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ adminEntryKey: key })
+                                });
+                                const data = await res.json();
+
+                                if (data.success) {
+                                    const modal = document.getElementById('admin-key-modal');
+                                    modal.style.opacity = '0';
+                                    setTimeout(() => {
+                                        modal.style.display = 'none';
+                                        if (window.resolveSecurityGate) window.resolveSecurityGate(true);
+                                    }, 300);
+                                } else {
+                                    keyInput.style.borderColor = '#ef4444';
+                                    keyInput.value = '';
+                                    errorEl.style.display = 'flex';
+                                    // Trigger reflow for animation restart
+                                    errorEl.style.animation = 'none';
+                                    errorEl.offsetHeight;
+                                    errorEl.style.animation = 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both';
+                                }
+                            } catch (e) {
+                                console.error(e);
+                                alert('Verification failed. Please try again.');
                             }
-                        } catch (e) {
-                            console.error(e);
-                            alert('Verification failed. Please try again.');
                         }
-                    }
 
-                    // Create user form handler (redundant safety binding)
-                    const createUserForm = document.getElementById('create-user-form');
-                    if (createUserForm) {
-                        if (typeof createUserForm.addEventListener === 'function') {
-                            createUserForm.addEventListener('submit', handleCreateUser);
-                        }
-                    }
-
-                    // Users: load and create
-
-                    window.toggleUserStatus = async function (username, newStatus) {
-                        try {
-                            console.log('Toggling user status:', username, 'to', newStatus);
-
-                            const response = await fetch(`/api/users/${username}`, {
-                                method: 'PUT',
-                                credentials: 'include',
-                                headers: getAuthHeaders(),
-                                body: JSON.stringify({ active: newStatus })
-                            });
-
-                            const data = await response.json();
-
-                            if (!response.ok) {
-                                console.error('Failed to update user status:', data.error);
-                                alert('Failed to update user: ' + (data.error || 'Unknown error'));
-                                return;
+                        // Create user form handler (redundant safety binding)
+                        const createUserForm = document.getElementById('create-user-form');
+                        if (createUserForm) {
+                            if (typeof createUserForm.addEventListener === 'function') {
+                                createUserForm.addEventListener('submit', handleCreateUser);
                             }
-
-                            console.log('User status updated successfully:', data);
-                            alert('User status updated successfully!');
-                        } catch (e) {
-                            console.error('Error updating user status:', e);
-                            alert('Error updating user status');
                         }
-                    };
 
-                    async function setUserAdminKey(username) {
-                        const adminKey = prompt(`Enter admin key for user ${username}:`);
-                        if (!adminKey) return;
+                        // Users: load and create
 
-                        try {
-                            console.log('Setting admin key for user:', username);
+                        window.toggleUserStatus = async function (username, newStatus) {
+                            try {
+                                console.log('Toggling user status:', username, 'to', newStatus);
 
-                            const response = await fetch(`/api/users/${username}/admin-key`, {
-                                method: 'POST',
-                                credentials: 'include',
-                                headers: getAuthHeaders(),
-                                body: JSON.stringify({ adminKey })
-                            });
+                                const response = await fetch(`/api/users/${username}`, {
+                                    method: 'PUT',
+                                    credentials: 'include',
+                                    headers: getAuthHeaders(),
+                                    body: JSON.stringify({ active: newStatus })
+                                });
 
-                            const data = await response.json();
+                                const data = await response.json();
 
-                            if (!response.ok) {
-                                console.error('Failed to set admin key:', data.error);
-                                alert('Failed to set admin key: ' + (data.error || 'Unknown error'));
-                                return;
+                                if (!response.ok) {
+                                    console.error('Failed to update user status:', data.error);
+                                    alert('Failed to update user: ' + (data.error || 'Unknown error'));
+                                    return;
+                                }
+
+                                console.log('User status updated successfully:', data);
+                                alert('User status updated successfully!');
+                            } catch (e) {
+                                console.error('Error updating user status:', e);
+                                alert('Error updating user status');
                             }
+                        };
 
-                            console.log('Admin key set successfully');
-                            alert('Admin key set successfully for ' + username);
-                        } catch (e) {
-                            console.error('Error setting admin key:', e);
-                            alert('Error setting admin key');
+                        async function setUserAdminKey(username) {
+                            const adminKey = prompt(`Enter admin key for user ${username}:`);
+                            if (!adminKey) return;
+
+                            try {
+                                console.log('Setting admin key for user:', username);
+
+                                const response = await fetch(`/api/users/${username}/admin-key`, {
+                                    method: 'POST',
+                                    credentials: 'include',
+                                    headers: getAuthHeaders(),
+                                    body: JSON.stringify({ adminKey })
+                                });
+
+                                const data = await response.json();
+
+                                if (!response.ok) {
+                                    console.error('Failed to set admin key:', data.error);
+                                    alert('Failed to set admin key: ' + (data.error || 'Unknown error'));
+                                    return;
+                                }
+
+                                console.log('Admin key set successfully');
+                                alert('Admin key set successfully for ' + username);
+                            } catch (e) {
+                                console.error('Error setting admin key:', e);
+                                alert('Error setting admin key');
+                            }
                         }
-                    }
 
-                    async function verifyUserAdminKey(username) {
-                        const adminKey = prompt(`Enter admin key for ${username}:`);
-                        if (!adminKey) return false;
+                        async function verifyUserAdminKey(username) {
+                            const adminKey = prompt(`Enter admin key for ${username}:`);
+                            if (!adminKey) return false;
 
-                        try {
-                            console.log('Verifying admin key for user:', username);
+                            try {
+                                console.log('Verifying admin key for user:', username);
 
-                            const response = await fetch(`/api/users/${username}/verify-admin-key`, {
-                                method: 'POST',
-                                credentials: 'include',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({ adminKey })
-                            });
+                                const response = await fetch(`/api/users/${username}/verify-admin-key`, {
+                                    method: 'POST',
+                                    credentials: 'include',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ adminKey })
+                                });
 
-                            const data = await response.json();
+                                const data = await response.json();
 
-                            if (!response.ok) {
-                                console.error('Failed to verify admin key:', data.error);
-                                alert('Invalid admin key. Access denied.');
+                                if (!response.ok) {
+                                    console.error('Failed to verify admin key:', data.error);
+                                    alert('Invalid admin key. Access denied.');
+                                    return false;
+                                }
+
+                                console.log('Admin key verified');
+                                alert('Admin key verified. Redirecting to login...');
+                                window.location.href = '/login.html';
+                                return true;
+                            } catch (e) {
+                                console.error('Error verifying admin key:', e);
+                                alert('Error verifying admin key');
                                 return false;
                             }
-
-                            console.log('Admin key verified');
-                            alert('Admin key verified. Redirecting to login...');
-                            window.location.href = '/login.html';
-                            return true;
-                        } catch (e) {
-                            console.error('Error verifying admin key:', e);
-                            alert('Error verifying admin key');
-                            return false;
                         }
-                    }
 
-                    // Navigation Functions - Define all before any onclick handlers can fire
-                    function handleHashRoute() {
-                        // First check if there's a saved section in localStorage
-                        const savedSection = localStorage.getItem('adminCurrentSection');
-                        const hash = window.location.hash.slice(1);
+                        // Navigation Functions - Define all before any onclick handlers can fire
+                        function handleHashRoute() {
+                            // First check if there's a saved section in localStorage
+                            const savedSection = localStorage.getItem('adminCurrentSection');
+                            const hash = window.location.hash.slice(1);
 
-                        // If hash is provided in URL, use it (has priority)
-                        if (hash) {
-                            const routeMap = {
-                                'dashboard': () => showDashboard(),
-                                'create-post': () => showCreatePostSection(),
-                                'posts': () => showPostsSection(),
-                                'analytics': () => showAnalyticsSection(),
-                                'settings': () => showSettingsSection()
-                            };
+                            // If hash is provided in URL, use it (has priority)
+                            if (hash) {
+                                const routeMap = {
+                                    'dashboard': () => showDashboard(),
+                                    'create-post': () => showCreatePostSection(),
+                                    'posts': () => showPostsSection(),
+                                    'analytics': () => showAnalyticsSection(),
+                                    'settings': () => showSettingsSection()
+                                };
 
-                            const handler = routeMap[hash];
-                            if (handler) {
-                                handler();
+                                const handler = routeMap[hash];
+                                if (handler) {
+                                    handler();
+                                }
+                            } else if (savedSection) {
+                                // Restore saved section from localStorage
+                                console.log('Restoring saved section:', savedSection);
+                                switch (savedSection) {
+                                    case 'dashboard':
+                                        showDashboard();
+                                        break;
+                                    case 'create-post':
+                                        showCreatePostSection();
+                                        break;
+                                    case 'posts':
+                                        showPostsSection();
+                                        break;
+                                    case 'analytics':
+                                        showAnalyticsSection();
+                                        break;
+                                    case 'settings':
+                                        showSettingsSection();
+                                        break;
+                                    default:
+                                        showDashboard();
+                                }
+                            } else {
+                                // Default to dashboard
+                                showDashboard();
                             }
-                        } else if (savedSection) {
-                            // Restore saved section from localStorage
-                            console.log('Restoring saved section:', savedSection);
-                            switch (savedSection) {
-                                case 'dashboard':
-                                    showDashboard();
-                                    break;
-                                case 'create-post':
-                                    showCreatePostSection();
-                                    break;
-                                case 'posts':
-                                    showPostsSection();
-                                    break;
-                                case 'analytics':
-                                    showAnalyticsSection();
-                                    break;
-                                case 'settings':
-                                    showSettingsSection();
-                                    break;
-                                default:
-                                    showDashboard();
+                        }
+                        window.handleHashRoute = handleHashRoute;
+
+                        // Save current section to localStorage when navigating
+                        function saveCurrentSection(section) {
+                            try {
+                                localStorage.setItem('adminCurrentSection', section);
+                                console.log('Saved current section:', section);
+                            } catch (e) {
+                                console.warn('Could not save section to localStorage:', e);
                             }
-                        } else {
-                            // Default to dashboard
-                            showDashboard();
                         }
-                    }
-                    window.handleHashRoute = handleHashRoute;
 
-                    // Save current section to localStorage when navigating
-                    function saveCurrentSection(section) {
-                        try {
-                            localStorage.setItem('adminCurrentSection', section);
-                            console.log('Saved current section:', section);
-                        } catch (e) {
-                            console.warn('Could not save section to localStorage:', e);
-                        }
-                    }
+                        // Override showDashboard to save section
+                        const originalShowDashboard = showDashboard;
+                        showDashboard = function () {
+                            originalShowDashboard();
+                            saveCurrentSection('dashboard');
+                        };
 
-                    // Override showDashboard to save section
-                    const originalShowDashboard = showDashboard;
-                    showDashboard = function () {
-                        originalShowDashboard();
-                        saveCurrentSection('dashboard');
-                    };
+                        // Override showCreatePostSection to save section
+                        const originalShowCreatePostSection = showCreatePostSection;
+                        showCreatePostSection = function () {
+                            originalShowCreatePostSection();
+                            saveCurrentSection('create-post');
+                        };
 
-                    // Override showCreatePostSection to save section
-                    const originalShowCreatePostSection = showCreatePostSection;
-                    showCreatePostSection = function () {
-                        originalShowCreatePostSection();
-                        saveCurrentSection('create-post');
-                    };
+                        // Override showPostsSection to save section
+                        const originalShowPostsSection = showPostsSection;
+                        showPostsSection = function () {
+                            originalShowPostsSection();
+                            saveCurrentSection('posts');
+                        };
 
-                    // Override showPostsSection to save section
-                    const originalShowPostsSection = showPostsSection;
-                    showPostsSection = function () {
-                        originalShowPostsSection();
-                        saveCurrentSection('posts');
-                    };
+                        // Override showAnalyticsSection to save section
+                        const originalShowAnalyticsSection = showAnalyticsSection;
+                        showAnalyticsSection = function () {
+                            originalShowAnalyticsSection();
+                            saveCurrentSection('analytics');
+                        };
 
-                    // Override showAnalyticsSection to save section
-                    const originalShowAnalyticsSection = showAnalyticsSection;
-                    showAnalyticsSection = function () {
-                        originalShowAnalyticsSection();
-                        saveCurrentSection('analytics');
-                    };
+                        // Override showSettingsSection to save section
+                        const originalShowSettingsSection = showSettingsSection;
+                        showSettingsSection = function () {
+                            originalShowSettingsSection();
+                            saveCurrentSection('settings');
+                        };
 
-                    // Override showSettingsSection to save section
-                    const originalShowSettingsSection = showSettingsSection;
-                    showSettingsSection = function () {
-                        originalShowSettingsSection();
-                        saveCurrentSection('settings');
-                    };
-
-                    // Allow Enter key to submit
-                    document.getElementById('modal-admin-key').addEventListener('keypress', function (e) {
-                        if (e.key === 'Enter') verifyAdminKeyModal();
-                    });
-
-                    // Run check immediately
-                    checkSecurityOnLoad();
-
-                    // Restore saved section on page load
-                    handleHashRoute();
-                </script>
-
-                <script>
-                    (function () {
-                        function bind(sel, fn) {
-                            const el = document.querySelector(sel);
-                            if (!el) return;
-                            el.addEventListener('click', function (e) {
-                                e.preventDefault();
-                                fn();
-                            });
-                        }
-                        document.addEventListener('DOMContentLoaded', function () {
-                            bind('#nav-dashboard', showDashboard);
-                            bind('#nav-create-post', showCreatePostSection);
-                            bind('#nav-posts', showPostsSection);
-                            bind('#nav-analytics', showAnalyticsSection);
-                            bind('#nav-settings', showSettingsSection);
-                            const form = document.getElementById('create-user-form');
-                            if (form) form.addEventListener('submit', handleCreateUser);
-
-                            // Populate category dropdown on page load
-                            if (typeof populatePostCategoryDropdown === 'function') {
-                                populatePostCategoryDropdown().catch(err => console.error('Failed to populate categories:', err));
-                            }
-
-                            // Logout handler moved to global scope for reliability
+                        // Allow Enter key to submit
+                        document.getElementById('modal-admin-key').addEventListener('keypress', function (e) {
+                            if (e.key === 'Enter') verifyAdminKeyModal();
                         });
-                    })();
 
-                    // Global logout function for maximum reliability
-                    async function handleLogout() {
-                        try {
-                            console.log('Logout initiated');
+                        // Run initial check and handle routing after verification
+                        securityGatePromise.then(() => {
+                            handleHashRoute();
+                        });
+                    </script>
 
-                            // 1. Clear local session data immediately
-                            localStorage.removeItem('authToken');
-                            localStorage.removeItem('user');
-                            localStorage.removeItem('adminCurrentSection');
-                            sessionStorage.clear();
+                    <script>
+                        (function () {
+                            function bind(sel, fn) {
+                                const el = document.querySelector(sel);
+                                if (!el) return;
+                                el.addEventListener('click', function (e) {
+                                    e.preventDefault();
+                                    fn();
+                                });
+                            }
+                            document.addEventListener('DOMContentLoaded', function () {
+                                bind('#nav-dashboard', showDashboard);
+                                bind('#nav-create-post', showCreatePostSection);
+                                bind('#nav-posts', showPostsSection);
+                                bind('#nav-analytics', showAnalyticsSection);
+                                bind('#nav-settings', showSettingsSection);
+                                const form = document.getElementById('create-user-form');
+                                if (form) form.addEventListener('submit', handleCreateUser);
 
-                            // 2. Attempt server-side logout
-                            fetch('/auth/logout', {
-                                method: 'POST',
-                                credentials: 'include',
-                                headers: { 'Content-Type': 'application/json' }
-                            }).catch(e => console.warn('Server logout call failed:', e));
+                                // Populate category dropdown on page load
+                                if (typeof populatePostCategoryDropdown === 'function') {
+                                    populatePostCategoryDropdown().catch(err => console.error('Failed to populate categories:', err));
+                                }
 
-                            console.log('Logout cleanup complete, redirecting...');
+                                // Logout handler moved to global scope for reliability
+                            });
+                        })();
 
-                            // 3. Always redirect to login
-                            window.location.href = '/login.html';
-                        } catch (error) {
-                            console.error('Logout error:', error);
-                            window.location.href = '/login.html';
+                        // Global logout function for maximum reliability
+                        async function handleLogout() {
+                            try {
+                                console.log('Logout initiated');
+
+                                // 1. Clear local session data immediately
+                                localStorage.removeItem('authToken');
+                                localStorage.removeItem('user');
+                                localStorage.removeItem('adminCurrentSection');
+                                sessionStorage.clear();
+
+                                // 2. Attempt server-side logout
+                                fetch('/auth/logout', {
+                                    method: 'POST',
+                                    credentials: 'include',
+                                    headers: { 'Content-Type': 'application/json' }
+                                }).catch(e => console.warn('Server logout call failed:', e));
+
+                                console.log('Logout cleanup complete, redirecting...');
+
+                                // 3. Always redirect to login
+                                window.location.href = '/login.html';
+                            } catch (error) {
+                                console.error('Logout error:', error);
+                                window.location.href = '/login.html';
+                            }
                         }
-                    }
-                </script>
+                    </script>
 </body>
 
 </html>

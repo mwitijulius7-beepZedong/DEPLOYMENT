@@ -1763,45 +1763,152 @@ function writeSettings(settings) {
 }
 
 // Helper function to read about info
-function readAbout() {
+const EXPECTED_SECTIONS = ['who-i-am', 'mission'];
+const DEFAULT_SECTION_TITLES = { 'who-i-am': 'Who I Am', 'mission': 'My Mission' };
+
+async function loadAbout() {
+  let aboutData = null;
   try {
-    if (fs.existsSync(aboutPath)) {
+    const db = await getMongoDB();
+    if (db) {
+      try {
+        const aboutDoc = await db.collection('about').findOne({ _id: 'about_data' });
+        if (aboutDoc) {
+          const { _id, ...data } = aboutDoc;
+          aboutData = data;
+        }
+      } catch (mongoErr) {
+        console.warn('MongoDB about query error:', mongoErr.message);
+      }
+    }
+
+    if (!aboutData && process.env.VERCEL && kv) {
+      try {
+        const data = await kv.get('about');
+        if (data) {
+          aboutData = typeof data === 'string' ? JSON.parse(data) : data;
+        }
+      } catch (kvErr) {
+        console.warn('Vercel KV about error:', kvErr.message);
+      }
+    }
+
+    if (!aboutData && fs.existsSync(aboutPath)) {
       const data = fs.readFileSync(aboutPath, 'utf8');
-      return JSON.parse(data);
+      aboutData = JSON.parse(data);
+      // Seed MongoDB/KV with about.json data on first load
+      if (aboutData) {
+        console.log('Seeding about data from about.json to persistent storage...');
+        await saveAbout(aboutData);
+      }
     }
   } catch (error) {
-    console.error('Error reading about info:', error);
+    console.error('Error loading about info:', error);
   }
-  return {
-    hero: { title: 'About Me', subtitle: '' },
-    sections: [],
-    skills: [],
-    contact: {}
-  };
+
+  if (!aboutData) {
+    aboutData = {
+      hero: { title: 'About Me', subtitle: '' },
+      sections: [],
+      skills: [],
+      contact: {}
+    };
+  }
+
+  // Ensure all expected sections exist (repair data corrupted by old save logic)
+  if (!Array.isArray(aboutData.sections)) aboutData.sections = [];
+  EXPECTED_SECTIONS.forEach(secId => {
+    if (!aboutData.sections.find(s => s.id === secId)) {
+      aboutData.sections.push({ id: secId, title: DEFAULT_SECTION_TITLES[secId], content: '' });
+    }
+  });
+
+  return aboutData;
 }
 
 // Helper function to write about info
-function writeAbout(about) {
+async function saveAbout(about) {
   try {
+    const db = await getMongoDB();
+    if (db) {
+      try {
+        await db.collection('about').updateOne(
+          { _id: 'about_data' },
+          { $set: about },
+          { upsert: true }
+        );
+        return;
+      } catch (mongoErr) {
+        console.warn('MongoDB save about error:', mongoErr.message);
+      }
+    }
+
+    if (process.env.VERCEL && kv) {
+      try {
+        await kv.set('about', JSON.stringify(about));
+        return;
+      } catch (kvErr) {
+        console.warn('Vercel KV save about error:', kvErr.message);
+      }
+    }
+
+    if (process.env.VERCEL) {
+      console.warn('saveAbout: cannot write on Vercel without storage. Changes will NOT persist.');
+      return;
+    }
+
     fs.writeFileSync(aboutPath, JSON.stringify(about, null, 2));
   } catch (error) {
-    console.error('Error writing about info:', error);
+    console.error('Error saving about info:', error);
   }
 }
 
 // About API
-app.get('/api/about', (req, res) => {
-  const about = readAbout();
+app.get('/api/about', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  const about = await loadAbout();
   return res.json(about);
 });
 
-app.post('/api/about', requireAdmin, (req, res) => {
-  const about = req.body;
-  if (!about || typeof about !== 'object') {
-    return res.status(400).json({ error: 'invalid_payload' });
+app.post('/api/about', requireAdmin, async (req, res) => {
+  try {
+    const incoming = req.body;
+    if (!incoming || typeof incoming !== 'object') {
+      return res.status(400).json({ error: 'invalid_payload' });
+    }
+
+    // Load existing data to preserve non-editable fields (skills, points)
+    const existing = await loadAbout();
+
+    // Build the updated about object
+    const updated = {
+      hero: incoming.hero || existing.hero,
+      sections: existing.sections, // start from existing to preserve points
+      skills: existing.skills || [],
+      contact: incoming.contact || existing.contact
+    };
+
+    // Update sections: apply incoming content but preserve 'points' from existing
+    if (incoming.sections && Array.isArray(incoming.sections)) {
+      updated.sections = incoming.sections.map(newSec => {
+        const oldSec = existing.sections.find(s => s.id === newSec.id);
+        return {
+          id: newSec.id,
+          title: newSec.title,
+          content: newSec.content,
+          // Preserve points array from existing data (not editable in UI)
+          ...(oldSec && oldSec.points ? { points: oldSec.points } : {})
+        };
+      });
+    }
+
+    await saveAbout(updated);
+    console.log('About saved successfully:', JSON.stringify(updated).substring(0, 200));
+    return res.json({ success: true, updated });
+  } catch (err) {
+    console.error('Error saving about:', err);
+    return res.status(500).json({ error: 'save_failed', details: err.message });
   }
-  writeAbout(about);
-  return res.json({ success: true });
 });
 
 // Get current background image
@@ -2087,13 +2194,29 @@ app.get('/api/settings/security', async (req, res) => {
 
 app.post('/api/settings/security', requireAdmin, async (req, res) => {
   try {
-    // Admin entry keys are now managed per-user in the User Management section
-    // Return informational response instead of error
-    return res.json({
-      success: true,
-      message: 'Admin keys are now managed per-user in the User Management section',
-      info: 'Use the "🔑 Set Key" button in User List to assign admin keys to users'
-    });
+    const { adminEntryKey, sessionTimeout } = req.body || {};
+
+    if (adminEntryKey !== undefined) {
+      const hash = await bcrypt.hash(String(adminEntryKey), 10);
+      const enc = encryptText(String(adminEntryKey));
+
+      if (process.env.VERCEL && db) {
+        await db.collection('settings').updateOne(
+          { type: 'security' },
+          { $set: { adminEntryKeyHash: hash, adminEntryKeyEnc: enc, updatedAt: new Date() } },
+          { upsert: true }
+        );
+      } else {
+        const settings = readSettings();
+        if (!settings.security) settings.security = {};
+        settings.security.adminEntryKeyHash = hash;
+        settings.security.adminEntryKeyEnc = enc;
+        writeSettings(settings);
+      }
+      return res.json({ success: true, message: 'Admin entry key updated successfully' });
+    }
+
+    return res.json({ success: true });
   } catch (e) {
     console.error('Error saving security settings:', e);
     return res.status(500).json({ error: 'internal' });
