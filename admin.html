@@ -882,7 +882,6 @@
                     if (document.getElementById('about-hero-title')) document.getElementById('about-hero-title').value = about.hero?.title || '';
                     if (document.getElementById('about-hero-subtitle')) document.getElementById('about-hero-subtitle').value = about.hero?.subtitle || '';
                     if (document.getElementById('about-who-content')) document.getElementById('about-who-content').value = about.sections?.find(s => s.id === 'who-i-am')?.content || '';
-                    if (document.getElementById('about-what-content')) document.getElementById('about-what-content').value = about.sections?.find(s => s.id === 'what-i-do')?.content || '';
                     if (document.getElementById('about-mission-content')) document.getElementById('about-mission-content').value = about.sections?.find(s => s.id === 'mission')?.content || '';
 
                     if (document.getElementById('about-contact-email')) document.getElementById('about-contact-email').value = about.contact?.email || '';
@@ -906,11 +905,6 @@
                         id: 'who-i-am',
                         title: 'Who I Am',
                         content: document.getElementById('about-who-content').value
-                    },
-                    {
-                        id: 'what-i-do',
-                        title: 'What I Do',
-                        content: document.getElementById('about-what-content').value
                     },
                     {
                         id: 'mission',
@@ -3445,13 +3439,6 @@
                                                 rows="4"></textarea>
                                         </div>
 
-                                        <div class="form-group" style="grid-column: span 2; margin-top: 20px;">
-                                            <label class="form-label" style="font-weight: 700;">What I Do</label>
-                                        </div>
-                                        <div class="form-group" style="grid-column: span 2;">
-                                            <textarea class="form-input form-textarea" id="about-what-content"
-                                                rows="3"></textarea>
-                                        </div>
 
                                         <div class="form-group" style="grid-column: span 2; margin-top: 20px;">
                                             <label class="form-label" style="font-weight: 700;">My Mission</label>

@@ -10,11 +10,6 @@
             "content": "Hello! I'm zedong254ke, a passionate software developer and technology enthusiast. I love exploring new technologies, solving complex problems, and sharing my knowledge with the developer community through this blog.\n\nWhen I'm not coding, you can find me exploring the latest web technologies, contributing to open-source projects, or writing about my experiences in the ever-evolving world of software development."
         },
         {
-            "id": "what-i-do",
-            "title": "What I Do",
-            "content": "I specialize in full-stack web development, with a particular focus on modern JavaScript frameworks, responsive design, and scalable backend architectures. My goal is to create meaningful digital experiences that make a difference."
-        },
-        {
             "id": "mission",
             "title": "My Mission",
             "content": "I believe in the power of technology to solve real-world problems and improve lives. Through this blog, I aim to:",

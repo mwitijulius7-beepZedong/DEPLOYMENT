@@ -1763,8 +1763,8 @@ function writeSettings(settings) {
 }
 
 // Helper function to read about info
-const EXPECTED_SECTIONS = ['who-i-am', 'what-i-do', 'mission'];
-const DEFAULT_SECTION_TITLES = { 'who-i-am': 'Who I Am', 'what-i-do': 'What I Do', 'mission': 'My Mission' };
+const EXPECTED_SECTIONS = ['who-i-am', 'mission'];
+const DEFAULT_SECTION_TITLES = { 'who-i-am': 'Who I Am', 'mission': 'My Mission' };
 
 async function loadAbout() {
   let aboutData = null;
