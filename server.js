@@ -2194,13 +2194,29 @@ app.get('/api/settings/security', async (req, res) => {
 
 app.post('/api/settings/security', requireAdmin, async (req, res) => {
   try {
-    // Admin entry keys are now managed per-user in the User Management section
-    // Return informational response instead of error
-    return res.json({
-      success: true,
-      message: 'Admin keys are now managed per-user in the User Management section',
-      info: 'Use the "🔑 Set Key" button in User List to assign admin keys to users'
-    });
+    const { adminEntryKey, sessionTimeout } = req.body || {};
+
+    if (adminEntryKey !== undefined) {
+      const hash = await bcrypt.hash(String(adminEntryKey), 10);
+      const enc = encryptText(String(adminEntryKey));
+
+      if (process.env.VERCEL && db) {
+        await db.collection('settings').updateOne(
+          { type: 'security' },
+          { $set: { adminEntryKeyHash: hash, adminEntryKeyEnc: enc, updatedAt: new Date() } },
+          { upsert: true }
+        );
+      } else {
+        const settings = readSettings();
+        if (!settings.security) settings.security = {};
+        settings.security.adminEntryKeyHash = hash;
+        settings.security.adminEntryKeyEnc = enc;
+        writeSettings(settings);
+      }
+      return res.json({ success: true, message: 'Admin entry key updated successfully' });
+    }
+
+    return res.json({ success: true });
   } catch (e) {
     console.error('Error saving security settings:', e);
     return res.status(500).json({ error: 'internal' });
