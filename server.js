@@ -1763,14 +1763,38 @@ function writeSettings(settings) {
 }
 
 // Helper function to read about info
-function readAbout() {
+async function loadAbout() {
   try {
+    const db = await getMongoDB();
+    if (db) {
+      try {
+        const aboutDoc = await db.collection('about').findOne({ _id: 'about_data' });
+        if (aboutDoc) {
+          const { _id, ...aboutData } = aboutDoc;
+          return aboutData;
+        }
+      } catch (mongoErr) {
+        console.warn('MongoDB about query error:', mongoErr.message);
+      }
+    }
+
+    if (process.env.VERCEL && kv) {
+      try {
+        const data = await kv.get('about');
+        if (data) {
+          return typeof data === 'string' ? JSON.parse(data) : data;
+        }
+      } catch (kvErr) {
+        console.warn('Vercel KV about error:', kvErr.message);
+      }
+    }
+
     if (fs.existsSync(aboutPath)) {
       const data = fs.readFileSync(aboutPath, 'utf8');
       return JSON.parse(data);
     }
   } catch (error) {
-    console.error('Error reading about info:', error);
+    console.error('Error loading about info:', error);
   }
   return {
     hero: { title: 'About Me', subtitle: '' },
@@ -1781,29 +1805,57 @@ function readAbout() {
 }
 
 // Helper function to write about info
-function writeAbout(about) {
+async function saveAbout(about) {
   try {
+    const db = await getMongoDB();
+    if (db) {
+      try {
+        await db.collection('about').updateOne(
+          { _id: 'about_data' },
+          { $set: about },
+          { upsert: true }
+        );
+        return;
+      } catch (mongoErr) {
+        console.warn('MongoDB save about error:', mongoErr.message);
+      }
+    }
+
+    if (process.env.VERCEL && kv) {
+      try {
+        await kv.set('about', JSON.stringify(about));
+        return;
+      } catch (kvErr) {
+        console.warn('Vercel KV save about error:', kvErr.message);
+      }
+    }
+
+    if (process.env.VERCEL) {
+      console.warn('saveAbout: cannot write on Vercel without storage. Changes will NOT persist.');
+      return;
+    }
+
     fs.writeFileSync(aboutPath, JSON.stringify(about, null, 2));
   } catch (error) {
-    console.error('Error writing about info:', error);
+    console.error('Error saving about info:', error);
   }
 }
 
 // About API
-app.get('/api/about', (req, res) => {
+app.get('/api/about', async (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  const about = readAbout();
+  const about = await loadAbout();
   return res.json(about);
 });
 
-app.post('/api/about', requireAdmin, (req, res) => {
+app.post('/api/about', requireAdmin, async (req, res) => {
   const incoming = req.body;
   if (!incoming || typeof incoming !== 'object') {
     return res.status(400).json({ error: 'invalid_payload' });
   }
 
   // Merge cleanly to avoid losing skills and nested data
-  const existing = readAbout();
+  const existing = await loadAbout();
 
   if (incoming.hero) {
     existing.hero = { ...existing.hero, ...incoming.hero };
@@ -1824,7 +1876,7 @@ app.post('/api/about', requireAdmin, (req, res) => {
     existing.contact = { ...existing.contact, ...incoming.contact };
   }
 
-  writeAbout(existing);
+  await saveAbout(existing);
   return res.json({ success: true, updated: existing });
 });
 
