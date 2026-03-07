@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -53,9 +54,23 @@
             animation: slideUp 0.5s ease-out;
         }
 
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
 
-        .login-header { text-align: center; margin-bottom: 32px; }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
         .login-header h1 {
             font-size: 24px;
             font-weight: 700;
@@ -63,7 +78,10 @@
             color: var(--text-dark);
         }
 
-        .login-header p { color: var(--text-medium); font-size: 14px; }
+        .login-header p {
+            color: var(--text-medium);
+            font-size: 14px;
+        }
 
         .login-form {
             display: flex;
@@ -141,8 +159,8 @@
             background: #ffffff;
         }
 
-        .form-input:focus ~ .form-label,
-        .form-input:not(:placeholder-shown) ~ .form-label {
+        .form-input:focus~.form-label,
+        .form-input:not(:placeholder-shown)~.form-label {
             transform: translateY(-10px) scale(0.85);
             transform-origin: left top;
             color: var(--primary-color);
@@ -239,21 +257,36 @@
         }
 
         @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-4px); }
-            75% { transform: translateX(4px); }
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-4px);
+            }
+
+            75% {
+                transform: translateX(4px);
+            }
         }
 
         .spinner {
             width: 18px;
             height: 18px;
-            border: 2px solid rgba(255,255,255,0.3);
+            border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
             border-top-color: #fff;
             animation: spin 0.8s linear infinite;
             display: inline-block;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
 
         .back-link {
             text-align: center;
@@ -285,10 +318,154 @@
                 padding: 24px;
             }
         }
+
+        /* Admin Entry Key Gate (blocks access to login page) */
+        .admin-key-overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(10px);
+            z-index: 9999;
+            padding: 20px;
+        }
+
+        .admin-key-card {
+            width: 100%;
+            max-width: 360px;
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            padding: 20px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .admin-key-card h2 {
+            margin: 0 0 8px;
+            font-size: 16px;
+            color: var(--text-dark);
+            letter-spacing: -0.02em;
+        }
+
+        .admin-key-card p {
+            margin: 0 0 18px;
+            color: var(--text-medium);
+            font-size: 12.5px;
+        }
+
+        .admin-key-error {
+            display: none;
+            background: #fef2f2;
+            border: 1px solid #fee2e2;
+            color: var(--error-color);
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        .admin-key-field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .admin-key-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .admin-key-input-wrap {
+            position: relative;
+            width: 100%;
+        }
+
+        .admin-key-input {
+            width: 100%;
+            padding: 12px 44px 12px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            background: #f8fafc;
+        }
+
+        .admin-key-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+            background: #ffffff;
+        }
+
+        .admin-key-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 32px;
+            height: 32px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #ffffff;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-medium);
+            transition: var(--transition);
+        }
+
+        .admin-key-toggle:hover {
+            color: var(--text-dark);
+            border-color: #cbd5e1;
+        }
+
+        .admin-key-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .admin-key-actions button {
+            flex: 1;
+        }
     </style>
 </head>
+
 <body>
-    <div class="login-container">
+    <!-- Admin Entry Key Gate -->
+    <div class="admin-key-overlay" id="adminKeyOverlay" aria-hidden="true">
+        <div class="admin-key-card" role="dialog" aria-modal="true" aria-labelledby="adminKeyTitle">
+            <h2 id="adminKeyTitle">Subscriber ID Required</h2>
+            <p>Please enter your Subscriber ID to continue.</p>
+            <div class="admin-key-error" id="adminKeyError"></div>
+
+            <div class="admin-key-field">
+                <div class="admin-key-label" id="adminKeyLabel">Subscriber ID</div>
+                <div class="admin-key-input-wrap">
+                    <input class="admin-key-input" id="adminKeyInput" type="password" placeholder="Enter subscriber ID"
+                        autocomplete="off" aria-labelledby="adminKeyLabel" />
+                    <button class="admin-key-toggle" id="adminKeyToggle" type="button" aria-label="Show subscriber ID"
+                        title="Show/Hide">
+                        <svg id="adminKeyToggleIcon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="admin-key-actions">
+                <button class="login-btn" id="adminKeyUnlockBtn" type="button">Unlock</button>
+                <button class="google-btn" id="adminKeyCancelBtn" type="button">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="login-container" id="loginContainer" style="display:none;">
         <div class="login-header">
             <h1>Welcome Back</h1>
             <p>Sign in to access the admin panel</p>
@@ -303,9 +480,11 @@
             </div>
 
             <div class="form-group">
-                <input type="password" id="password" class="form-input" placeholder=" " required autocomplete="current-password" style="padding-right: 48px;">
+                <input type="password" id="password" class="form-input" placeholder=" " required
+                    autocomplete="current-password" style="padding-right: 48px;">
                 <label for="password" class="form-label">Password</label>
-                <button type="button" class="password-toggle" id="passwordToggle" aria-label="Toggle password visibility">
+                <button type="button" class="password-toggle" id="passwordToggle"
+                    aria-label="Toggle password visibility">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                         <circle cx="12" cy="12" r="3"></circle>
@@ -322,16 +501,16 @@
             <a href="#" id="forgotPasswordLink">Forgot your password?</a>
         </div>
 
-        <div class="forgot-password-form" id="forgotPasswordForm">
+        <form class="forgot-password-form" id="forgotPasswordForm">
             <div class="form-group">
-                <input type="email" id="resetEmail" class="form-input" placeholder=" " required>
+                <input type="email" id="resetEmail" class="form-input" placeholder=" " required autocomplete="email">
                 <label for="resetEmail" class="form-label">Email Address</label>
             </div>
             <button type="submit" class="login-btn" id="resetBtn">Send Reset Email</button>
             <div class="forgot-password" style="margin-top: 12px;">
                 <a href="#" id="backToLoginLink">← Back to Login</a>
             </div>
-        </div>
+        </form>
 
         <div class="divider">
             <span>or</span>
@@ -339,10 +518,14 @@
 
         <button class="google-btn" id="googleBtn">
             <svg width="20" height="20" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                <path fill="currentColor"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="currentColor"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="currentColor"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="currentColor"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
             Sign in with Google
         </button>
@@ -353,6 +536,137 @@
     </div>
 
     <script>
+        // ------------------------------------------------------------
+        // Admin Entry Key gate (runs BEFORE showing the login UI)
+        // ------------------------------------------------------------
+        const loginContainerEl = document.getElementById('loginContainer');
+        const adminKeyOverlayEl = document.getElementById('adminKeyOverlay');
+        const adminKeyInputEl = document.getElementById('adminKeyInput');
+        const adminKeyUnlockBtn = document.getElementById('adminKeyUnlockBtn');
+        const adminKeyCancelBtn = document.getElementById('adminKeyCancelBtn');
+        const adminKeyErrorEl = document.getElementById('adminKeyError');
+        const adminKeyToggleBtn = document.getElementById('adminKeyToggle');
+        const adminKeyToggleIcon = document.getElementById('adminKeyToggleIcon');
+
+        function showAdminKeyError(message) {
+            if (!adminKeyErrorEl) return;
+            adminKeyErrorEl.textContent = message;
+            adminKeyErrorEl.style.display = 'block';
+        }
+
+        function clearAdminKeyError() {
+            if (!adminKeyErrorEl) return;
+            adminKeyErrorEl.textContent = '';
+            adminKeyErrorEl.style.display = 'none';
+        }
+
+        function showLoginUI() {
+            if (loginContainerEl) loginContainerEl.style.display = 'block';
+            if (adminKeyOverlayEl) {
+                adminKeyOverlayEl.style.display = 'none';
+                adminKeyOverlayEl.setAttribute('aria-hidden', 'true');
+            }
+        }
+
+        function showAdminKeyOverlay() {
+            if (!adminKeyOverlayEl) return;
+            adminKeyOverlayEl.style.display = 'flex';
+            adminKeyOverlayEl.setAttribute('aria-hidden', 'false');
+            setTimeout(() => adminKeyInputEl && adminKeyInputEl.focus(), 0);
+        }
+
+        async function isAdminKeyRequiredAndUnverified() {
+            // Always include credentials so the session cookie can be created/read.
+            const secRes = await fetch('/api/settings/security', { credentials: 'include' });
+            const sec = await secRes.json();
+
+            if (!sec || !sec.hasEntryKey) return false;
+
+            const verRes = await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' });
+            const ver = await verRes.json();
+            return !(ver && ver.verified);
+        }
+
+        async function verifyAdminEntryKeyFromOverlay() {
+            clearAdminKeyError();
+            const key = (adminKeyInputEl && adminKeyInputEl.value) ? adminKeyInputEl.value.trim() : '';
+            if (!key) {
+                showAdminKeyError('Subscriber ID is required.');
+                return;
+            }
+
+            adminKeyUnlockBtn.disabled = true;
+            adminKeyUnlockBtn.innerHTML = '<span class="spinner"></span> Verifying...';
+
+            try {
+                const res = await fetch('/api/settings/verify-entry-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ adminEntryKey: key })
+                });
+
+                const data = await res.json().catch(() => ({}));
+
+                if (res.ok && data && data.success) {
+                    // Verified: allow access to login page
+                    showLoginUI();
+                    return;
+                }
+
+                adminKeyInputEl.value = '';
+                showAdminKeyError('Invalid Subscriber ID.');
+            } catch (e) {
+                console.error('Admin key verification failed:', e);
+                showAdminKeyError('Could not verify Subscriber ID. Please try again.');
+            } finally {
+                adminKeyUnlockBtn.disabled = false;
+                adminKeyUnlockBtn.textContent = 'Unlock';
+            }
+        }
+
+        async function enforceAdminKeyGateForLogin() {
+            try {
+                const required = await isAdminKeyRequiredAndUnverified();
+                if (required) {
+                    showAdminKeyOverlay();
+                } else {
+                    showLoginUI();
+                }
+            } catch (e) {
+                console.error('Failed to enforce admin key gate:', e);
+                // Fail open so users can still reach login if the check fails (optional).
+                // If you'd rather fail closed, change this to showAdminKeyOverlay() and show error.
+                showLoginUI();
+            }
+        }
+
+        if (adminKeyUnlockBtn) adminKeyUnlockBtn.addEventListener('click', verifyAdminEntryKeyFromOverlay);
+        if (adminKeyCancelBtn) adminKeyCancelBtn.addEventListener('click', () => window.location.href = '/');
+        if (adminKeyInputEl) adminKeyInputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') verifyAdminEntryKeyFromOverlay();
+        });
+
+        if (adminKeyToggleBtn && adminKeyInputEl) {
+            adminKeyToggleBtn.addEventListener('click', () => {
+                const isPassword = adminKeyInputEl.getAttribute('type') === 'password';
+                adminKeyInputEl.setAttribute('type', isPassword ? 'text' : 'password');
+                adminKeyToggleBtn.setAttribute('aria-label', isPassword ? 'Hide subscriber ID' : 'Show subscriber ID');
+                adminKeyToggleBtn.title = isPassword ? 'Hide' : 'Show';
+
+                // Swap icon (eye vs eye-off)
+                if (!adminKeyToggleIcon) return;
+                if (isPassword) {
+                    adminKeyToggleIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+                } else {
+                    adminKeyToggleIcon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+                }
+            });
+        }
+
+        // Start the gate immediately
+        enforceAdminKeyGateForLogin();
+
         const loginForm = document.getElementById('loginForm');
         const loginBtn = document.getElementById('loginBtn');
         const googleBtn = document.getElementById('googleBtn');
@@ -403,7 +717,7 @@
 
                 if (data.success) {
                     // Persist JWT token for production requests
-                    try { localStorage.setItem('authToken', data.token || ''); } catch (_) {}
+                    try { localStorage.setItem('authToken', data.token || ''); } catch (_) { }
                     // Redirect to admin panel
                     window.location.href = '/admin.html';
                 } else {
@@ -437,7 +751,7 @@
                 const data = await authResponse.json();
 
                 if (data.success) {
-                    try { localStorage.setItem('authToken', data.token || ''); } catch (_) {}
+                    try { localStorage.setItem('authToken', data.token || ''); } catch (_) { }
                     window.location.href = '/admin.html';
                 } else {
                     showError(data.error || 'Google login failed');
@@ -562,4 +876,5 @@
         });
     </script>
 </body>
+
 </html>
