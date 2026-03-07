@@ -944,36 +944,30 @@
         window.saveAboutSettings = saveAboutSettings;
 
         async function saveSecuritySettings() {
-            const adminEntryKey = document.getElementById('admin-entry-key').value;
-            const sessionTimeout = document.getElementById('session-timeout').value;
-
             try {
-                const response = await fetch('/api/settings/security', {
+                const adminEntryKey = document.getElementById('admin-entry-key').value;
+                const trimmed = String(adminEntryKey || '').trim();
+                if (!trimmed) {
+                    alert('Please enter an Admin Entry Key. (To clear a key, use “Clear Key”.)');
+                    return;
+                }
+
+                const response = await fetch('/api/security/admin-key/set', {
                     method: 'POST',
                     headers: getAuthHeaders(),
                     credentials: 'include',
-                    body: JSON.stringify({ adminEntryKey, sessionTimeout: parseInt(sessionTimeout) })
+                    body: JSON.stringify({ adminKey: trimmed })
                 });
-
                 const data = await response.json();
-
-                if (response.ok) {
-                    console.log('Security settings response:', data);
-
-                    if (data.message) {
-                        // New per-user admin key system
-                        alert(data.message + '\n\n' + data.info);
-                        // Clear the form
-                        document.getElementById('admin-entry-key').value = '';
-                    } else {
-                        alert('Security settings saved successfully!');
-                    }
+                if (response.ok && data.success) {
+                    alert('Admin Entry Key saved successfully for your account.');
+                    document.getElementById('admin-entry-key').value = '';
                 } else {
-                    alert('Failed to save security settings: ' + (data.error || 'Unknown error'));
+                    alert('Failed to save Admin Entry Key: ' + (data.error || data.message || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error saving security settings:', error);
-                alert('Error saving security settings.');
+                alert('Error saving Admin Entry Key.');
             }
         }
 
@@ -982,11 +976,11 @@
             if (!password) return;
 
             try {
-                const response = await fetch('/api/settings/security/key-view', {
+                const response = await fetch('/api/security/admin-key/view', {
                     method: 'POST',
                     headers: getAuthHeaders(),
                     credentials: 'include',
-                    body: JSON.stringify({ username: 'admin', password })
+                    body: JSON.stringify({ password })
                 });
 
                 const data = await response.json();
@@ -1004,15 +998,23 @@
         async function clearKey() {
             if (confirm('Are you sure you want to clear the admin key? This cannot be undone.')) {
                 try {
-                    const response = await fetch('/api/settings/security', {
-                        method: 'POST',
+                    // Clear current user's key (or super-admin can clear others via Users panel)
+                    const meRes = await fetch('/auth/status', { credentials: 'include' });
+                    const me = await meRes.json();
+                    const username = me?.user?.username;
+                    if (!username) {
+                        alert('Not logged in.');
+                        return;
+                    }
+
+                    const response = await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
+                        method: 'DELETE',
                         headers: getAuthHeaders(),
-                        credentials: 'include',
-                        body: JSON.stringify({ adminEntryKey: '' })
+                        credentials: 'include'
                     });
 
                     const data = await response.json();
-                    if (response.ok) {
+                    if (response.ok && data.success) {
                         alert('Admin key cleared successfully');
                     } else {
                         alert('Error: ' + (data.error || 'Could not clear key'));
@@ -3259,9 +3261,9 @@
                                                     </svg>
                                                 </button>
                                             </div>
-                                            <span class="form-help">Enter a key that will be required to access the
-                                                admin
-                                                portal. Leave blank to disable.</span>
+                                            <span class="form-help">This key is stored <strong>per user</strong>. Each
+                                                admin must have their own key set before they can access the admin
+                                                portal.</span>
                                         </div>
                                         <div class="form-group">
                                             <label for="session-timeout" class="form-label">Session Timeout
@@ -3285,6 +3287,26 @@
                                             <i>🗑️</i>
                                             Clear Key
                                         </button>
+                                    </div>
+
+                                    <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e9ecef;">
+                                        <h3 style="margin: 0 0 8px 0; font-size: 16px;">Manage Users’ Admin Keys
+                                            (Super Admin)</h3>
+                                        <p style="margin: 0 0 16px 0; color: var(--text-medium); font-size: 14px;">
+                                            Set/rotate Admin Entry Keys for other users. Users without a key set will
+                                            be blocked from the admin panel.
+                                        </p>
+                                        <div style="display:flex; gap:12px; flex-wrap: wrap;">
+                                            <button class="btn-modern sm" onclick="loadUsers()">
+                                                <i>👥</i>
+                                                Load Users
+                                            </button>
+                                            <button class="btn-modern sm secondary" onclick="loadUsers()">
+                                                <i>🔄</i>
+                                                Refresh
+                                            </button>
+                                        </div>
+                                        <div id="users-admin-keys" style="margin-top: 16px;"></div>
                                     </div>
                                 </div>
 
@@ -3523,21 +3545,25 @@
                             }
 
                             try {
-                                // First check if a key is even configured
-                                const secRes = await fetch('/api/settings/security');
+                                // Per-user admin-key gate
+                                const secRes = await fetch('/api/security/admin-key/status', { credentials: 'include' });
                                 const sec = await secRes.json();
 
-                                if (!sec.hasEntryKey) {
+                                if (!sec.required) {
                                     isSecurityVerified = true;
                                     isSecurityCheckComplete = true;
                                     return true;
                                 }
 
-                                // If configured, check if we are verified
-                                const verRes = await fetch('/api/settings/check-admin-key-verified');
-                                const ver = await verRes.json();
+                                if (!sec.hasKey) {
+                                    // User is blocked until super-admin sets a key
+                                    alert('Your account does not have an Admin Entry Key set. Please contact the super admin.');
+                                    window.location.href = '/login.html';
+                                    isSecurityCheckComplete = true;
+                                    return false;
+                                }
 
-                                if (ver.verified) {
+                                if (sec.verified) {
                                     isSecurityVerified = true;
                                     isSecurityCheckComplete = true;
                                     return true;
@@ -3934,10 +3960,11 @@
                             if (!key) return;
 
                             try {
-                                const res = await fetch('/api/settings/verify-entry-key', {
+                                const res = await fetch('/api/security/admin-key/verify', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ adminEntryKey: key })
+                                    credentials: 'include',
+                                    body: JSON.stringify({ adminKey: key })
                                 });
                                 const data = await res.json();
 
@@ -3972,6 +3999,77 @@
                         }
 
                         // Users: load and create
+
+                        async function loadUsers() {
+                            const container = document.getElementById('users-admin-keys') || document.getElementById('users-list');
+                            if (container) {
+                                container.innerHTML = '<div style="padding:12px; color:var(--text-medium);">Loading users…</div>';
+                            }
+
+                            try {
+                                const res = await fetch('/api/users', { credentials: 'include', headers: getAuthHeaders() });
+                                const data = await res.json();
+
+                                if (!res.ok) {
+                                    const msg = data?.error || `Failed to load users (HTTP ${res.status})`;
+                                    if (container) container.innerHTML = `<div style="padding:12px; color:#dc2626;">${msg}</div>`;
+                                    return;
+                                }
+
+                                const users = Array.isArray(data.users) ? data.users : [];
+
+                                // Render in Security panel if present
+                                const keyContainer = document.getElementById('users-admin-keys');
+                                if (keyContainer) {
+                                    if (users.length === 0) {
+                                        keyContainer.innerHTML = '<div style="padding:12px; color:var(--text-medium);">No users found.</div>';
+                                        return;
+                                    }
+
+                                    keyContainer.innerHTML = users.map(u => {
+                                        const role = (u.role || 'USER').toUpperCase();
+                                        const keyStatus = u.adminKeySet ? '✅ Key set' : '❌ Not set';
+                                        const keyStatusColor = u.adminKeySet ? '#166534' : '#b91c1c';
+                                        const canManage = role === 'ADMIN';
+                                        return `
+                                          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; border:1px solid #e9ecef; border-radius:12px; margin-bottom:10px;">
+                                            <div style="display:flex; flex-direction:column; gap:2px;">
+                                              <div style="font-weight:600;">${u.username} <span style="font-weight:400; color:var(--text-medium);">(${role})</span></div>
+                                              <div style="font-size:13px; color:${keyStatusColor};">${keyStatus}</div>
+                                            </div>
+                                            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                                              <button class="btn-modern sm" ${canManage ? '' : 'disabled'} onclick="setUserAdminKey('${u.username}')">Set / Rotate Key</button>
+                                              <button class="btn-modern sm secondary" style="background:#dc3545;" ${canManage ? '' : 'disabled'} onclick="clearUserAdminKey('${u.username}')">Clear Key</button>
+                                            </div>
+                                          </div>
+                                        `;
+                                    }).join('');
+                                }
+
+                                // (Legacy) also render to old Users panel if present
+                                const usersList = document.getElementById('users-list');
+                                if (usersList) {
+                                    usersList.innerHTML = users.map(u => {
+                                        const role = (u.role || 'USER').toUpperCase();
+                                        return `
+                                          <div style="padding:12px; border:1px solid #e9ecef; border-radius:12px; margin-bottom:10px;">
+                                            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                                              <div>
+                                                <div style="font-weight:600;">${u.username} <span style="font-weight:400; color:var(--text-medium);">(${role})</span></div>
+                                                <div style="font-size:13px; color:var(--text-medium);">${u.email || ''}</div>
+                                              </div>
+                                              <div style="font-size:13px; color:${u.adminKeySet ? '#166534' : '#b91c1c'};">${u.adminKeySet ? '✅ Admin key set' : '❌ Admin key not set'}</div>
+                                            </div>
+                                          </div>
+                                        `;
+                                    }).join('');
+                                }
+                            } catch (e) {
+                                console.error('loadUsers error:', e);
+                                if (container) container.innerHTML = `<div style="padding:12px; color:#dc2626;">Failed to load users</div>`;
+                            }
+                        }
+                        window.loadUsers = loadUsers;
 
                         window.toggleUserStatus = async function (username, newStatus) {
                             try {
@@ -4024,11 +4122,34 @@
 
                                 console.log('Admin key set successfully');
                                 alert('Admin key set successfully for ' + username);
+                                if (typeof loadUsers === 'function') loadUsers();
                             } catch (e) {
                                 console.error('Error setting admin key:', e);
                                 alert('Error setting admin key');
                             }
                         }
+
+                        async function clearUserAdminKey(username) {
+                            if (!confirm(`Clear admin key for ${username}?`)) return;
+                            try {
+                                const response = await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
+                                    method: 'DELETE',
+                                    credentials: 'include',
+                                    headers: getAuthHeaders()
+                                });
+                                const data = await response.json();
+                                if (!response.ok) {
+                                    alert('Failed to clear admin key: ' + (data.error || 'Unknown error'));
+                                    return;
+                                }
+                                alert('Admin key cleared for ' + username);
+                                if (typeof loadUsers === 'function') loadUsers();
+                            } catch (e) {
+                                console.error('Error clearing user admin key:', e);
+                                alert('Error clearing admin key');
+                            }
+                        }
+                        window.clearUserAdminKey = clearUserAdminKey;
 
                         async function verifyUserAdminKey(username) {
                             const adminKey = prompt(`Enter admin key for ${username}:`);
