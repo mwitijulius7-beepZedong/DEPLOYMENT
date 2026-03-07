@@ -2208,9 +2208,20 @@ app.get('/api/settings/security', async (req, res) => {
     }
 
     let hasEntryKey = false;
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'security' });
-      hasEntryKey = !!(result?.adminEntryKeyHash);
+    if (process.env.VERCEL) {
+      const mongoDb = await getMongoDB();
+      if (mongoDb) {
+        const result = await mongoDb.collection('settings').findOne({ type: 'security' });
+        hasEntryKey = !!(result?.adminEntryKeyHash);
+        return res.json({ hasEntryKey, mode: hasEntryKey ? 'mongo' : 'mongo_none' });
+      }
+
+      // On Vercel filesystem is read-only — if MongoDB isn't available, we cannot persist a key.
+      return res.json({
+        hasEntryKey: false,
+        mode: 'vercel_no_storage',
+        hint: 'Set ADMIN_ENTRY_KEY env var on Vercel or configure MONGODB_URI to persist the key.'
+      });
     } else {
       const settings = readSettings();
       hasEntryKey = !!(settings.security && settings.security.adminEntryKeyHash);
@@ -2238,8 +2249,17 @@ app.post('/api/settings/security', requireAdmin, async (req, res) => {
       const hash = isClearingKey ? '' : await bcrypt.hash(trimmed, 10);
       const enc = isClearingKey ? '' : encryptText(trimmed);
 
-      if (process.env.VERCEL && db) {
-        await db.collection('settings').updateOne(
+      if (process.env.VERCEL) {
+        const mongoDb = await getMongoDB();
+        if (!mongoDb) {
+          return res.status(500).json({
+            success: false,
+            error: 'no_persistent_storage_on_vercel',
+            message: 'Cannot save Admin Entry Key on Vercel without MongoDB. Configure MONGODB_URI or set ADMIN_ENTRY_KEY env var.'
+          });
+        }
+
+        await mongoDb.collection('settings').updateOne(
           { type: 'security' },
           { $set: { adminEntryKeyHash: hash, adminEntryKeyEnc: enc, updatedAt: new Date() } },
           { upsert: true }
@@ -2316,9 +2336,15 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
 
     // 2) Get stored hash from MongoDB or file
     let hash = '';
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'security' });
-      hash = result?.adminEntryKeyHash || '';
+    if (process.env.VERCEL) {
+      const mongoDb = await getMongoDB();
+      if (mongoDb) {
+        const result = await mongoDb.collection('settings').findOne({ type: 'security' });
+        hash = result?.adminEntryKeyHash || '';
+      } else {
+        // No storage available; treat as "not set" and allow.
+        hash = '';
+      }
     } else {
       const settings = readSettings();
       hash = settings.security?.adminEntryKeyHash || '';
@@ -2425,9 +2451,14 @@ app.post('/api/settings/security/key-view', requireAdmin, async (req, res) => {
     if (!ok) return res.status(401).json({ error: 'invalid password' });
 
     let enc = '';
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'security' });
-      enc = result?.adminEntryKeyEnc || '';
+    if (process.env.VERCEL) {
+      const mongoDb = await getMongoDB();
+      if (!mongoDb) {
+        enc = '';
+      } else {
+        const result = await mongoDb.collection('settings').findOne({ type: 'security' });
+        enc = result?.adminEntryKeyEnc || '';
+      }
     } else {
       const settings = readSettings();
       enc = settings.security?.adminEntryKeyEnc || '';
