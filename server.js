@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const fetch = require('node-fetch');
@@ -13,7 +14,7 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { put } = require('@vercel/blob');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const cloudinary = require('cloudinary').v2;
 
 // Conditionally import @vercel/kv - handle case when env vars are missing
@@ -30,7 +31,7 @@ try {
   console.warn('Vercel KV import failed:', err.message);
 }
 
- const errorHandler = require('./middleware/errorHandler');
+const errorHandler = require('./middleware/errorHandler');
 
 // Session store for Vercel KV with fallback
 const { EventEmitter } = require('events');
@@ -142,7 +143,8 @@ const MONGO_RETRY_DELAY = 60000; // 1 minute
 
 async function getMongoDB() {
   if (db) return db;
-  if (!process.env.MONGODB_URI) return null;
+  const mongoUri = process.env.MONGODB_URI || process.env.PERSONALBLOG_MONGODB_URI;
+  if (!mongoUri) return null;
 
   // Circuit breaker: don't retry immediately if connection failed recently
   if (mongoConnectionFailed && Date.now() < mongoNextRetry) {
@@ -154,10 +156,10 @@ async function getMongoDB() {
 
   mongoConnectionPromise = (async () => {
     try {
-      const client = await MongoClient.connect(process.env.MONGODB_URI, {
-        serverSelectionTimeoutMS: 2000, // Reduced timeout for faster fallback
-        connectTimeoutMS: 2000,
-        socketTimeoutMS: 5000
+      const client = await MongoClient.connect(mongoUri, {
+        serverSelectionTimeoutMS: 8000, // Increased for Vercel cold starts
+        connectTimeoutMS: 8000,
+        socketTimeoutMS: 10000
       });
       console.log('Connected to MongoDB');
       db = client.db('blog');
@@ -176,16 +178,6 @@ async function getMongoDB() {
   return mongoConnectionPromise;
 }
 
-// Simple in-memory cache for posts to avoid repeated database calls
-let postsCache = null;
-let postsCacheTime = 0;
-const POSTS_CACHE_TTL = 10000; // 10 seconds cache for posts
-
-// Simple in-memory cache for users to avoid repeated database calls
-let usersCache = null;
-let usersCacheTime = 0;
-const USERS_CACHE_TTL = 30000; // 30 seconds cache
-
 // Cloudinary configuration
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
   cloudinary.config({
@@ -195,15 +187,28 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== '
   });
 }
 
-// Security middlewares
+// Security and optimization middlewares
+app.use(compression());
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://apis.google.com"],
+      // Google Sign-In (GIS) loads from accounts.google.com
+      // tokeninfo calls happen server-side, but the client script must be allowed.
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "'unsafe-eval'",
+        "https://cdn.jsdelivr.net",
+        "https://apis.google.com",
+        "https://accounts.google.com"
+      ],
       scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
+      // Allow browser to reach Google Identity endpoints
+      connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
     },
   },
 }));
@@ -245,7 +250,11 @@ const SECURITY_LOGS_FILE = path.join(__dirname, 'security_logs.json');
 const COMMENTS_FILE = path.join(__dirname, 'comments.json');
 const SUBSCRIPTIONS_FILE = path.join(__dirname, 'subscriptions.json');
 
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+// Google client ID (used to validate id_token audience in /auth/google)
+// For local dev, we fall back to the same client_id used in login.html so Google Sign-In works
+// even if .env is missing.
+const DEFAULT_DEV_GOOGLE_CLIENT_ID = '338774598801-rmbjl0aprte0l23ja5u3t3fm222jkbq1.apps.googleusercontent.com';
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ((process.env.NODE_ENV !== 'production') ? DEFAULT_DEV_GOOGLE_CLIENT_ID : '');
 const ALLOWED_EMAIL = process.env.ALLOWED_EMAIL || '';
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || '';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
@@ -260,8 +269,8 @@ if (process.env.NODE_ENV !== 'production') {
   process.env.DEV_ADMIN_PASSWORD = 'Mwitijulius7@Jm';
 }
 
-if (!CLIENT_ID) {
-  console.warn('WARNING: GOOGLE_CLIENT_ID is not set in .env - server verification will fail');
+if (!process.env.GOOGLE_CLIENT_ID) {
+  console.warn('WARNING: GOOGLE_CLIENT_ID is not set in .env - using dev fallback client id for local verification');
 }
 
 // Ensure uploads directory exists
@@ -288,6 +297,11 @@ app.use((req, res, next) => {
   } else {
     next();
   }
+});
+
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
 });
 
 app.use(express.json());
@@ -324,83 +338,50 @@ app.use(fileUpload({
 
 async function loadUsers() {
   try {
-    // Check cache first
-    const now = Date.now();
-    if (usersCache && (now - usersCacheTime) < USERS_CACHE_TTL) {
-      console.log('Loaded users from cache:', Object.keys(usersCache).length, 'users');
-      return usersCache;
-    }
-
-    // Load from all sources in parallel for better performance
-    const loadPromises = [];
-
-    // MongoDB loader
-    loadPromises.push(
-      (async () => {
-        try {
-          const db = await getMongoDB();
-          if (db) {
-            const users = await db.collection('users').find({}).toArray();
-            if (users && users.length > 0) {
-              const result = {};
-              users.forEach(u => result[u.username] = u);
-              console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
-              return { source: 'mongodb', data: result };
-            }
-          }
-        } catch (mongoErr) {
-          console.warn('MongoDB query error:', mongoErr.message);
+    // Try MongoDB first if available
+    const db = await getMongoDB();
+    if (db) {
+      try {
+        const users = await db.collection('users').find({}).toArray();
+        if (users && Array.isArray(users) && users.length > 0) {
+          const result = {};
+          users.forEach(u => result[u.username] = u);
+          console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
+          return result;
         }
-        return null;
-      })()
-    );
-
-    // Vercel KV loader
-    loadPromises.push(
-      (async () => {
-        try {
-          if (process.env.VERCEL && kv) {
-            const data = await kv.get('users');
-            if (data) {
-              const parsed = JSON.parse(data);
-              console.log('Loaded users from Vercel KV:', Object.keys(parsed).length, 'users');
-              return { source: 'kv', data: parsed };
-            }
-          }
-        } catch (kvErr) {
-          console.warn('Vercel KV error:', kvErr.message);
+        // If connected but empty, we MUST fallback for users to prevent initial lockout
+        if (users && users.length === 0) {
+          console.log('MongoDB users collection is empty, falling back to other sources to prevent lockout...');
         }
-        return null;
-      })()
-    );
-
-    // Local file loader
-    loadPromises.push(
-      (async () => {
-        try {
-          const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-          console.log('Loaded users from local file:', Object.keys(data).length, 'users');
-          return { source: 'file', data };
-        } catch (fileErr) {
-          console.warn('Local users file error:', fileErr.message);
-          return null;
-        }
-      })()
-    );
-
-    // Wait for the first successful load
-    const results = await Promise.allSettled(loadPromises);
-    for (const result of results) {
-      if (result.status === 'fulfilled' && result.value) {
-        usersCache = result.value.data;
-        usersCacheTime = now;
-        return result.value.data;
+      } catch (mongoErr) {
+        console.warn('MongoDB query error:', mongoErr.message);
       }
     }
 
-    // If no source worked, return empty object
-    console.log('No users data found in any source');
-    return {};
+    // Vercel KV loader
+    if (process.env.VERCEL && kv) {
+      try {
+        const data = await kv.get('users');
+        if (data) {
+          const parsed = JSON.parse(data);
+          console.log('Loaded users from Vercel KV:', Object.keys(parsed).length, 'users');
+          return parsed;
+        }
+      } catch (kvErr) {
+        console.warn('Vercel KV error:', kvErr.message);
+      }
+    }
+
+    // Local file loader
+    try {
+      const dataStr = fs.readFileSync(USERS_FILE, 'utf8');
+      const data = JSON.parse(dataStr);
+      console.log('Loaded users from local file:', Object.keys(data).length, 'users');
+      return data;
+    } catch (fileErr) {
+      console.warn('Local users file error:', fileErr.message);
+      return {};
+    }
   } catch (e) {
     console.error('Fatal error in loadUsers:', e);
     return {};
@@ -411,10 +392,24 @@ async function saveUsers(users) {
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
-      await mongoDb.collection('users').deleteMany({});
+      console.log('Syncing users to MongoDB:', Object.keys(users).length);
+      const col = mongoDb.collection('users');
       const userArray = Object.entries(users).map(([username, data]) => ({ username, ...data }));
-      if (userArray.length > 0) {
-        await mongoDb.collection('users').insertMany(userArray);
+
+      if (userArray.length === 0) {
+        await col.deleteMany({});
+      } else {
+        const usernames = userArray.map(u => u.username);
+        const ops = userArray.map(u => ({
+          replaceOne: {
+            filter: { username: u.username },
+            replacement: u,
+            upsert: true
+          }
+        }));
+        await col.bulkWrite(ops, { ordered: false });
+        // Clean up any users that were removed
+        await col.deleteMany({ username: { $nin: usernames } });
       }
       return;
     }
@@ -425,38 +420,26 @@ async function saveUsers(users) {
     fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
   } catch (e) {
     console.error('Save users error:', e);
-  } finally {
-    // Clear cache after save to ensure fresh data on next load
-    usersCache = null;
-    usersCacheTime = 0;
+    throw e;
   }
 }
 
 async function loadPosts() {
   try {
-    // Check cache first
-    const now = Date.now();
-    if (postsCache && (now - postsCacheTime) < POSTS_CACHE_TTL) {
-      console.log('Loaded posts from cache:', postsCache.length, 'posts');
-      return postsCache;
-    }
-    
     // Try MongoDB first if available
     const db = await getMongoDB();
     if (db) {
       try {
         const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
-        if (posts && posts.length > 0) {
+        if (posts && Array.isArray(posts)) {
           console.log('Loaded posts from MongoDB:', posts.length, 'posts');
-          postsCache = posts.map(p => ({ ...p, id: p._id || p.id }));
-          postsCacheTime = now;
-          return postsCache;
+          return posts.map(p => ({ ...p, id: (p._id || p.id).toString() }));
         }
       } catch (mongoErr) {
         console.warn('MongoDB posts query error:', mongoErr.message);
       }
     }
-    
+
     // Try Vercel KV if available
     if (process.env.VERCEL && kv) {
       try {
@@ -464,22 +447,18 @@ async function loadPosts() {
         if (data) {
           const parsed = JSON.parse(data);
           console.log('Loaded posts from Vercel KV:', parsed.length, 'posts');
-          postsCache = parsed;
-          postsCacheTime = now;
-          return postsCache;
+          return parsed;
         }
       } catch (kvErr) {
         console.warn('Vercel KV posts error:', kvErr.message);
       }
     }
-    
+
     // Fall back to local file
     try {
       const data = JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
       console.log('Loaded posts from local file:', data.length, 'posts');
-      postsCache = data;
-      postsCacheTime = now;
-      return data;
+      return data.map(p => ({ ...p, id: p.id.toString() }));
     } catch (fileErr) {
       console.warn('Local posts file error:', fileErr.message);
       return [];
@@ -494,9 +473,39 @@ async function savePosts(posts) {
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
-      await mongoDb.collection('posts').deleteMany({});
-      if (posts.length > 0) {
-        await mongoDb.collection('posts').insertMany(posts.map(p => ({ ...p, _id: p.id })));
+      const col = mongoDb.collection('posts');
+      if (posts.length === 0) {
+        // Nothing left — clear the collection
+        await col.deleteMany({});
+      } else {
+        // Prepare IDs and operations
+        const ids = [];
+        const ops = posts.map(p => {
+          const { id, ...doc } = p;
+
+          // Try to handle both string and ObjectId IDs for compatibility
+          let filterSelector;
+          if (typeof id === 'string' && id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id)) {
+            const oid = new ObjectId(id);
+            ids.push(oid, id); // Add both to the keep-list
+            filterSelector = { _id: { $in: [oid, id] } };
+          } else {
+            ids.push(id);
+            filterSelector = { _id: id };
+          }
+
+          return {
+            replaceOne: {
+              filter: filterSelector,
+              replacement: { ...doc, _id: id },
+              upsert: true
+            }
+          };
+        });
+
+        await col.bulkWrite(ops, { ordered: false });
+        // Remove stale documents using the collected list of (ObjectId | string) IDs
+        await col.deleteMany({ _id: { $nin: ids } });
       }
       return;
     }
@@ -504,13 +513,17 @@ async function savePosts(posts) {
       await kv.set('posts', JSON.stringify(posts));
       return;
     }
+    // Guard: on Vercel the filesystem is read-only — never attempt fs.writeFileSync
+    if (process.env.VERCEL) {
+      const hasMongoUri = !!(process.env.MONGODB_URI || process.env.PERSONALBLOG_MONGODB_URI);
+      const reason = hasMongoUri ? 'MongoDB connection failed' : 'MONGODB_URI / PERSONALBLOG_MONGODB_URI env var not set';
+      console.error(`savePosts: cannot write on Vercel without storage. Reason: ${reason}`);
+      throw new Error(`No writable storage available on Vercel (${reason}). Configure MONGODB_URI.`);
+    }
     fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
   } catch (e) {
     console.error('Save posts error:', e);
-  } finally {
-    // Clear cache after save to ensure fresh data on next load
-    postsCache = null;
-    postsCacheTime = 0;
+    throw e; // propagate so callers know it failed
   }
 }
 
@@ -521,15 +534,15 @@ async function loadCategories() {
     if (db) {
       try {
         const categories = await db.collection('categories').find({}).toArray();
-        if (categories && Array.isArray(categories) && categories.length > 0) {
+        if (categories && Array.isArray(categories)) {
           console.log('Loaded categories from MongoDB:', categories.length);
-          return categories.map(c => ({ ...c, id: String(c._id || c.id) }));
+          return categories.map(c => ({ ...c, id: (c._id || c.id).toString() }));
         }
       } catch (mongoErr) {
         console.warn('MongoDB categories query error:', mongoErr.message);
       }
     }
-    
+
     // Try Vercel KV if available
     if (process.env.VERCEL && kv) {
       try {
@@ -545,18 +558,13 @@ async function loadCategories() {
         console.warn('Vercel KV categories error:', kvErr.message);
       }
     }
-    
+
     // Fall back to local file
     try {
       const data = fs.readFileSync(CATEGORIES_FILE, 'utf8');
       const cats = JSON.parse(data) || [];
-      if (Array.isArray(cats) && cats.length > 0) {
-        console.log('Loaded categories from local file:', cats.length);
-        return cats.map(c => ({ ...c, id: String(c.id) }));
-      } else {
-        console.log('No categories in local file');
-        return [];
-      }
+      console.log('Loaded categories from local file:', cats.length);
+      return cats.map(c => ({ ...c, id: String(c.id) }));
     } catch (fileErr) {
       console.warn('Local categories file error:', fileErr.message);
       return [];
@@ -573,16 +581,40 @@ async function saveCategories(categories) {
       console.error('saveCategories: categories is not an array', typeof categories);
       throw new Error('categories must be an array');
     }
-    
+
     const mongoDb = await getMongoDB();
     if (mongoDb) {
-      console.log('Saving to MongoDB:', categories.length);
-      await mongoDb.collection('categories').deleteMany({});
-      if (categories.length > 0) {
-        const docsToInsert = categories.map(c => ({ ...c, _id: c.id }));
-        const result = await mongoDb.collection('categories').insertMany(docsToInsert);
-        console.log('MongoDB save result:', result.insertedCount);
+      const col = mongoDb.collection('categories');
+      if (categories.length === 0) {
+        await col.deleteMany({});
+      } else {
+        const ids = [];
+        const ops = categories.map(c => {
+          const { id, ...doc } = c;
+
+          let filterSelector;
+          if (typeof id === 'string' && id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id)) {
+            const oid = new ObjectId(id);
+            ids.push(oid, id);
+            filterSelector = { _id: { $in: [oid, id] } };
+          } else {
+            ids.push(id);
+            filterSelector = { _id: id };
+          }
+
+          return {
+            replaceOne: {
+              filter: filterSelector,
+              replacement: { ...doc, _id: id },
+              upsert: true
+            }
+          };
+        });
+        await col.bulkWrite(ops, { ordered: false });
+        // Remove stale categories using _id
+        await col.deleteMany({ _id: { $nin: ids } });
       }
+      console.log('Saved categories to MongoDB:', categories.length);
       return;
     }
     if (process.env.VERCEL && kv) {
@@ -590,16 +622,18 @@ async function saveCategories(categories) {
       await kv.set('categories', JSON.stringify(categories));
       return;
     }
-    // Skip file write on Vercel (read-only filesystem)
+    // Guard: on Vercel the filesystem is read-only — never attempt fs.writeFileSync
     if (process.env.VERCEL) {
-      console.warn('Save categories skipped: No storage available on Vercel (read-only filesystem)');
-      return;
+      const hasMongoUri = !!(process.env.MONGODB_URI || process.env.PERSONALBLOG_MONGODB_URI);
+      const reason = hasMongoUri ? 'MongoDB connection failed' : 'MONGODB_URI / PERSONALBLOG_MONGODB_URI env var not set';
+      console.error(`saveCategories: cannot write on Vercel without storage. Reason: ${reason}`);
+      throw new Error(`No writable storage available on Vercel (${reason}). Configure MONGODB_URI.`);
     }
     console.log('Saving to file system:', categories.length);
     fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
   } catch (e) {
     console.error('Save categories error:', e);
-    throw e;
+    throw e; // propagate so callers know it failed
   }
 }
 
@@ -764,6 +798,29 @@ function decryptText(encStr) {
   }
 }
 
+// ------------------------------------------------------------
+// Admin Entry Key: localhost bypass (for development convenience)
+// ------------------------------------------------------------
+// By default, localhost bypass is enabled to keep local development smooth.
+// To TEST the Admin Entry Key gate on localhost, set:
+//   DISABLE_LOCALHOST_ADMIN_KEY_BYPASS=true
+function isLocalhostRequest(req) {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+  const host = req.get('host') || '';
+  return (
+    String(ip).includes('127.0.0.1') ||
+    ip === '::1' ||
+    host.includes('localhost') ||
+    host.includes('127.0.0.1') ||
+    host.includes('::1')
+  );
+}
+
+function isLocalhostAdminKeyBypassEnabled(req) {
+  const disabled = String(process.env.DISABLE_LOCALHOST_ADMIN_KEY_BYPASS || '').toLowerCase() === 'true';
+  return !disabled && isLocalhostRequest(req);
+}
+
 function requireAuth(req, res, next) {
   console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
 
@@ -794,10 +851,7 @@ function requireAuth(req, res, next) {
 // Middleware to check idle timeout for admin routes
 function checkIdleTimeout(req, res, next) {
   // Auto-verify/refresh for localhost
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-  const host = req.get('host') || '';
-  const isLocalhost = ip.includes('127.0.0.1') || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1') || host.includes('::1');
-  if (isLocalhost) {
+  if (isLocalhostAdminKeyBypassEnabled(req)) {
     req.session.adminKeyVerified = true;
     req.session.adminKeyVerifiedAt = Date.now();
     return next();
@@ -826,7 +880,7 @@ function updateAdminActivity(req, res, next) {
   next();
 }
 
- const requireAdmin = [requireAuth, checkIdleTimeout, updateAdminActivity];
+const requireAdmin = [requireAuth, checkIdleTimeout, updateAdminActivity];
 
 // Admin: Users API (admin-only)
 app.get('/api/users', requireAdmin, async (req, res) => {
@@ -867,23 +921,23 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
   try {
     const { username } = req.params;
     const { active, role } = req.body || {};
-    
+
     // Check if requester is super admin (admin user)
     const requestUser = req.session?.user || req.user;
     if (!requestUser || requestUser.username !== 'admin') {
       return res.status(403).json({ error: 'only_super_admin_can_manage_users' });
     }
-    
+
     // Prevent deactivating the only super admin
     if (username === 'admin' && active === false) {
       return res.status(400).json({ error: 'cannot_deactivate_super_admin' });
     }
-    
+
     const users = await loadUsers();
     if (!users || !users[username]) {
       return res.status(404).json({ error: 'user_not_found' });
     }
-    
+
     // Update user properties
     if (active !== undefined) {
       users[username].active = active;
@@ -892,17 +946,17 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
       // Only allow changing roles if not the super admin
       users[username].role = role;
     }
-    
+
     await saveUsers(users);
-    return res.json({ 
-      success: true, 
-      user: { 
-        username, 
-        name: users[username].name, 
-        email: users[username].email, 
+    return res.json({
+      success: true,
+      user: {
+        username,
+        name: users[username].name,
+        email: users[username].email,
         role: users[username].role,
         active: users[username].active
-      } 
+      }
     });
   } catch (e) {
     console.error('Update user error:', e);
@@ -915,27 +969,27 @@ app.post('/api/users/:username/admin-key', async (req, res) => {
   try {
     const { username } = req.params;
     const { adminKey } = req.body || {};
-    
+
     if (!adminKey || String(adminKey).length === 0) {
       return res.status(400).json({ error: 'admin_key_required' });
     }
-    
+
     // Check if user is setting their own key or if requester is admin
     const requestUser = req.session?.user || req.user;
     if (!requestUser || (requestUser.username !== username && requestUser.username !== 'admin')) {
       return res.status(403).json({ error: 'cannot_set_other_users_admin_key' });
     }
-    
+
     const users = await loadUsers();
     if (!users || !users[username]) {
       return res.status(404).json({ error: 'user_not_found' });
     }
-    
+
     // Hash the admin key
     const keyHash = await bcrypt.hash(String(adminKey), 10);
     users[username].adminKeyHash = keyHash;
     users[username].adminKeySet = true;
-    
+
     await saveUsers(users);
     return res.json({ success: true, message: 'Admin key set successfully' });
   } catch (e) {
@@ -949,34 +1003,34 @@ app.post('/api/users/:username/verify-admin-key', async (req, res) => {
   try {
     const { username } = req.params;
     const { adminKey } = req.body || {};
-    
+
     if (!adminKey) {
       return res.status(400).json({ error: 'admin_key_required' });
     }
-    
+
     const users = await loadUsers();
     if (!users || !users[username]) {
       return res.status(404).json({ error: 'user_not_found' });
     }
-    
+
     const user = users[username];
-    
+
     // Check if user has admin key set
     if (!user.adminKeyHash) {
       return res.status(400).json({ error: 'user_has_no_admin_key' });
     }
-    
+
     // Verify admin key
     const keyMatches = await bcrypt.compare(String(adminKey), user.adminKeyHash);
     if (!keyMatches) {
       return res.status(401).json({ error: 'invalid_admin_key' });
     }
-    
+
     // Set admin key verification in session
     req.session.adminKeyVerified = true;
     req.session.adminKeyVerifiedAt = Date.now();
     req.session.adminKeyVerifiedUsername = username;
-    
+
     return res.json({ success: true, message: 'Admin key verified' });
   } catch (e) {
     console.error('Error verifying admin key:', e);
@@ -989,42 +1043,69 @@ app.post('/api/users/:username/verify-admin-key', async (req, res) => {
 
 const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
   ? nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    })
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  })
   : (process.env.SENDGRID_API_KEY
-      ? nodemailer.createTransport({
-          host: 'smtp.sendgrid.net',
-          port: 587,
-          secure: false,
-          auth: { user: 'apikey', pass: process.env.SENDGRID_API_KEY }
-        })
-      : {
-          sendMail: async (opts) => {
-            console.log('Mock email:', opts);
-            return { messageId: 'mock-' + Date.now() };
-          }
-        }
-    );
+    ? nodemailer.createTransport({
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      secure: false,
+      auth: { user: 'apikey', pass: process.env.SENDGRID_API_KEY }
+    })
+    : {
+      sendMail: async (opts) => {
+        console.log('Mock email:', opts);
+        return { messageId: 'mock-' + Date.now() };
+      }
+    }
+  );
 
-// Temporary migration endpoint - REMOVE AFTER USE
-app.post('/migrate-users', async (req, res) => {
+// Integrated data migration endpoint — Migrates all data from KV/File to MongoDB
+app.post('/api/admin/migrate-to-mongodb', async (req, res) => {
   try {
-    // Only allow in development or with admin auth
-    if (process.env.NODE_ENV === 'production' && !req.session?.user?.role === 'ADMIN') {
-      return res.status(403).json({ error: 'not authorized' });
+    // Check for admin role
+    if (process.env.NODE_ENV === 'production' && req.session?.user?.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'not_authorized' });
     }
 
-    const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-    await saveUsers(users);
-    return res.json({ success: true, migrated: Object.keys(users) });
+    const report = {
+      users: 0,
+      posts: 0,
+      categories: 0
+    };
+
+    // 1. Migrate Users
+    const users = await loadUsers();
+    if (Object.keys(users).length > 0) {
+      await saveUsers(users);
+      report.users = Object.keys(users).length;
+    }
+
+    // 2. Migrate Posts
+    const posts = await loadPosts();
+    if (posts.length > 0) {
+      await savePosts(posts);
+      report.posts = posts.length;
+    }
+
+    // 3. Migrate Categories
+    const categories = await loadCategories();
+    if (categories.length > 0) {
+      await saveCategories(categories);
+      report.categories = categories.length;
+    }
+
+    console.log('Migration completed:', report);
+    return res.json({ success: true, report });
   } catch (e) {
-    return res.status(500).json({ error: 'migration failed', details: e.message });
+    console.error('Migration error:', e);
+    return res.status(500).json({ error: 'migration_failed', details: e.message });
   }
 });
 
@@ -1036,17 +1117,21 @@ app.post('/auth/login', async (req, res) => {
   const users = await loadUsers();
   const user = users[username];
 
+  console.log('Login attempt for:', username);
+  console.log('User found in storage:', !!user);
+  if (user) console.log('User active status:', user.active);
+
   // Check for dev admin credentials (admin/password)
-  // Allow if explicitly configured via env var, OR if running in non-production with default 'password'
   const isDev = !process.env.NODE_ENV || process.env.NODE_ENV !== 'production';
   const devPwd = process.env.DEV_ADMIN_PASSWORD || 'password';
+  console.log('Is Dev Mode:', isDev);
+  console.log('Dev Password configured:', !!process.env.DEV_ADMIN_PASSWORD);
+
   const isDevAuth = (isDev && username === 'admin' && password === devPwd);
   const isEnvAuth = (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD);
 
-  // Temporary fallback: allow Mwitijulius7 login with Mwitijulius7@Jm if no users exist in production
-  const isTempAuth = false;
-
   if (isDevAuth || isEnvAuth) {
+    console.log('Authenticated via Dev/Env admin credentials');
     // Generate JWT token for dev admin
     const token = jwt.sign({
       username: 'admin',
@@ -1066,9 +1151,7 @@ app.post('/auth/login', async (req, res) => {
     };
 
     // Auto-verify admin key for localhost
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const host = req.get('host') || '';
-    if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+    if (isLocalhostAdminKeyBypassEnabled(req)) {
       req.session.adminKeyVerified = true;
       req.session.adminKeyVerifiedAt = Date.now();
     }
@@ -1109,9 +1192,7 @@ app.post('/auth/login', async (req, res) => {
   };
 
   // Auto-verify admin key for localhost
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const host = req.get('host') || '';
-  if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+  if (isLocalhostAdminKeyBypassEnabled(req)) {
     req.session.adminKeyVerified = true;
     req.session.adminKeyVerifiedAt = Date.now();
   }
@@ -1142,7 +1223,7 @@ app.post('/auth/setup', async (req, res) => {
 
   // Check authentication: either session-based OR JWT token
   let isAuthenticated = false;
-  
+
   if (req.session && req.session.user) {
     isAuthenticated = true;
   } else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
@@ -1208,25 +1289,25 @@ app.get('/auth/status', (req, res) => {
 
 app.post('/auth/logout', (req, res) => {
   console.log('Logout requested - Session exists:', !!req.session, 'User:', req.session?.user?.username || 'none');
-  
+
   // Check if session exists and has user data
   if (!req.session || !req.session.user) {
     console.log('No active session or user, clearing any existing cookies and returning success');
     res.clearCookie('sessionId', { path: '/', httpOnly: true, sameSite: 'lax', secure: false });
     return res.json({ success: true, message: 'already logged out' });
   }
-  
+
   const username = req.session.user.username;
-  
+
   // Destroy the session
   req.session.destroy((err) => {
     if (err) {
       console.error('Session destroy error:', err);
     }
-    
+
     // Always clear the cookie and send response, regardless of destroy success
     console.log('Session destroy completed for user:', username);
-    
+
     // Clear the session cookie with all required options
     res.clearCookie('sessionId', {
       path: '/',
@@ -1234,9 +1315,9 @@ app.post('/auth/logout', (req, res) => {
       sameSite: 'lax',
       secure: false
     });
-    
+
     console.log('Logout completed successfully, sending response');
-    
+
     // Send success response
     return res.json({ success: true, message: 'logged out successfully' });
   });
@@ -1245,7 +1326,7 @@ app.post('/auth/logout', (req, res) => {
 app.post('/auth/google', async (req, res) => {
   const { credential, id_token } = req.body;
   const token = credential || id_token; // Support both new and old formats
-  
+
   if (!token) return res.status(400).json({ error: 'missing token' });
 
   try {
@@ -1262,11 +1343,11 @@ app.post('/auth/google', async (req, res) => {
     }
 
     const email = payload.email;
-    
+
     // Check if user exists in users.json or if it's an allowed email/domain
     const users = await loadUsers();
     const isExistingUser = Object.values(users).some(user => user.email === email);
-    
+
     if (!isExistingUser) {
       if (ALLOWED_EMAIL && email !== ALLOWED_EMAIL) {
         return res.status(403).json({ error: 'email not allowed' });
@@ -1288,9 +1369,9 @@ app.post('/auth/google', async (req, res) => {
       authToken = Buffer.from(tokenData).toString('base64');
     }
 
-    return res.json({ 
-      success: true, 
-      email: payload.email, 
+    return res.json({
+      success: true,
+      email: payload.email,
       name: payload.name,
       token: authToken
     });
@@ -1335,8 +1416,8 @@ app.post('/auth/forgot', async (req, res) => {
           <p>No action is required. If this was unexpected, you may review security logs in the admin panel.</p>
         `
       };
-      try { 
-        await transporter.sendMail(mailOptions); 
+      try {
+        await transporter.sendMail(mailOptions);
         console.log('Admin notification email sent for unknown email:', email);
       } catch (err) {
         console.error('Failed to send admin notification:', err.message);
@@ -1344,7 +1425,7 @@ app.post('/auth/forgot', async (req, res) => {
       return res.json({ success: true, message: 'If an account exists, a reset email has been sent.' });
     }
 
-                                                                                                               // Generate reset token (username + timestamp + random)
+    // Generate reset token (username + timestamp + random)
     const resetToken = crypto.randomBytes(32).toString('hex');
     const tokenData = `${targetUser.username}|${Date.now()}|${resetToken}`;
     const encryptedToken = encryptText(tokenData);
@@ -1436,9 +1517,9 @@ app.get('/api/posts', async (req, res) => {
 });
 
 app.get('/api/posts/:id', async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   const posts = await loadPosts();
-  const post = posts.find(p => p.id === id);
+  const post = posts.find(p => p.id.toString() === id.toString());
   if (!post) return res.status(404).json({ error: 'Post not found' });
   return res.json({ post });
 });
@@ -1459,7 +1540,9 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
     image: body.image || '',
     featured: !!body.featured,
     isDraft: !!body.isDraft,
-    categoryId: null
+    categoryId: null,
+    likes: 0,
+    dislikes: 0
   };
 
   if (body && ('categoryId' in body) && body.categoryId != null) {
@@ -1477,10 +1560,10 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
 
 // PUT /api/posts/:id - update (admin only)
 app.put('/api/posts/:id', requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = req.params.id;
   const body = req.body;
   const posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id === id);
+  const idx = posts.findIndex(p => p.id.toString() === id.toString());
   if (idx === -1) return res.status(404).json({ error: 'not found' });
 
   const updated = {
@@ -1492,7 +1575,9 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
     image: body.image || posts[idx].image,
     featured: !!body.featured,
     isDraft: 'isDraft' in body ? !!body.isDraft : posts[idx].isDraft,
-    categoryId: posts[idx].categoryId
+    categoryId: posts[idx].categoryId,
+    likes: typeof posts[idx].likes === 'number' ? posts[idx].likes : 0,
+    dislikes: typeof posts[idx].dislikes === 'number' ? posts[idx].dislikes : 0
   };
 
   if ('categoryId' in body) {
@@ -1509,13 +1594,99 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
 });
 
 app.delete('/api/posts/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    let posts = await loadPosts();
+    const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
+    if (idx === -1) return res.status(404).json({ error: 'not found' });
+    posts.splice(idx, 1);
+    await savePosts(posts);
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Delete post error:', e);
+    return res.status(500).json({ error: 'delete_failed', details: e.message });
+  }
+});
+
+// Like a post
+app.post('/api/posts/:id/like', async (req, res) => {
   const id = req.params.id;
-  let posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
+  const posts = await loadPosts();
+  const idx = posts.findIndex(p => p.id.toString() === id.toString());
   if (idx === -1) return res.status(404).json({ error: 'not found' });
-  posts.splice(idx, 1);
+
+  const action = req.body && req.body.action === 'remove' ? 'remove' : 'add';
+
+  // Initialize if missing
+  if (typeof posts[idx].likes !== 'number') posts[idx].likes = 0;
+
+  if (action === 'remove') {
+    posts[idx].likes = Math.max(0, posts[idx].likes - 1);
+  } else {
+    posts[idx].likes += 1;
+  }
   await savePosts(posts);
-  return res.json({ success: true });
+  return res.json({ success: true, likes: posts[idx].likes });
+});
+
+// Dislike a post
+app.post('/api/posts/:id/dislike', async (req, res) => {
+  const id = req.params.id;
+  const posts = await loadPosts();
+  const idx = posts.findIndex(p => p.id.toString() === id.toString());
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+
+  const action = req.body && req.body.action === 'remove' ? 'remove' : 'add';
+
+  // Initialize if missing
+  if (typeof posts[idx].dislikes !== 'number') posts[idx].dislikes = 0;
+
+  if (action === 'remove') {
+    posts[idx].dislikes = Math.max(0, posts[idx].dislikes - 1);
+  } else {
+    posts[idx].dislikes += 1;
+  }
+  await savePosts(posts);
+  return res.json({ success: true, dislikes: posts[idx].dislikes });
+});
+
+// Comments API
+app.get('/api/posts/:id/comments', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const allComments = await loadComments();
+    const postComments = allComments.filter(c => c.postId === id);
+    return res.json({ success: true, comments: postComments });
+  } catch (e) {
+    console.error('Error loading comments:', e);
+    return res.status(500).json({ error: 'failed_to_load_comments' });
+  }
+});
+
+app.post('/api/posts/:id/comments', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { name, content } = req.body;
+    if (!name || !content) {
+      return res.status(400).json({ error: 'name_and_content_required' });
+    }
+
+    const allComments = await loadComments();
+    const newComment = {
+      id: Date.now().toString(),
+      postId: id,
+      name,
+      content,
+      date: new Date().toISOString()
+    };
+    allComments.push(newComment);
+    await saveComments(allComments);
+
+    return res.json({ success: true, comment: newComment });
+  } catch (e) {
+    console.error('Error posting comment:', e);
+    return res.status(500).json({ error: 'failed_to_post_comment' });
+  }
 });
 
 // Upload API with Cloudinary
@@ -1531,7 +1702,7 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
     if (image.size > MAX_BYTES) {
       return res.status(400).json({ error: 'file_too_large', maxBytes: MAX_BYTES });
     }
-    
+
     // Use Cloudinary if configured and not the default 'cloudinary' value
     if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
       const result = await new Promise((resolve, reject) => {
@@ -1551,7 +1722,7 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
       console.log(`Uploaded to Cloudinary: ${result.secure_url}`);
       return res.json({ success: true, url: result.secure_url, filename: result.public_id, size: image.size });
     }
-    
+
     // Fallback to Vercel Blob
     if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
       const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
@@ -1563,7 +1734,7 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
       console.log(`Uploaded to Vercel Blob: ${blob.url}`);
       return res.json({ success: true, url: blob.url, filename, size: image.size });
     }
-    
+
     // Local development fallback
     const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
     const filename = Date.now() + '_' + safe;
@@ -1582,8 +1753,8 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
   }
 });
 
-// Settings API
 const settingsPath = path.join(__dirname, 'settings.json');
+const aboutPath = path.join(__dirname, 'about.json');
 
 // Helper function to read settings
 function readSettings() {
@@ -1622,6 +1793,155 @@ function writeSettings(settings) {
     console.error('Error writing settings:', error);
   }
 }
+
+// Helper function to read about info
+const EXPECTED_SECTIONS = ['who-i-am', 'mission'];
+const DEFAULT_SECTION_TITLES = { 'who-i-am': 'Who I Am', 'mission': 'My Mission' };
+
+async function loadAbout() {
+  let aboutData = null;
+  try {
+    const db = await getMongoDB();
+    if (db) {
+      try {
+        const aboutDoc = await db.collection('about').findOne({ _id: 'about_data' });
+        if (aboutDoc) {
+          const { _id, ...data } = aboutDoc;
+          aboutData = data;
+        }
+      } catch (mongoErr) {
+        console.warn('MongoDB about query error:', mongoErr.message);
+      }
+    }
+
+    if (!aboutData && process.env.VERCEL && kv) {
+      try {
+        const data = await kv.get('about');
+        if (data) {
+          aboutData = typeof data === 'string' ? JSON.parse(data) : data;
+        }
+      } catch (kvErr) {
+        console.warn('Vercel KV about error:', kvErr.message);
+      }
+    }
+
+    if (!aboutData && fs.existsSync(aboutPath)) {
+      const data = fs.readFileSync(aboutPath, 'utf8');
+      aboutData = JSON.parse(data);
+      // Seed MongoDB/KV with about.json data on first load
+      if (aboutData) {
+        console.log('Seeding about data from about.json to persistent storage...');
+        await saveAbout(aboutData);
+      }
+    }
+  } catch (error) {
+    console.error('Error loading about info:', error);
+  }
+
+  if (!aboutData) {
+    aboutData = {
+      hero: { title: 'About Me', subtitle: '' },
+      sections: [],
+      skills: [],
+      contact: {}
+    };
+  }
+
+  // Ensure all expected sections exist (repair data corrupted by old save logic)
+  if (!Array.isArray(aboutData.sections)) aboutData.sections = [];
+  EXPECTED_SECTIONS.forEach(secId => {
+    if (!aboutData.sections.find(s => s.id === secId)) {
+      aboutData.sections.push({ id: secId, title: DEFAULT_SECTION_TITLES[secId], content: '' });
+    }
+  });
+
+  return aboutData;
+}
+
+// Helper function to write about info
+async function saveAbout(about) {
+  try {
+    const db = await getMongoDB();
+    if (db) {
+      try {
+        await db.collection('about').updateOne(
+          { _id: 'about_data' },
+          { $set: about },
+          { upsert: true }
+        );
+        return;
+      } catch (mongoErr) {
+        console.warn('MongoDB save about error:', mongoErr.message);
+      }
+    }
+
+    if (process.env.VERCEL && kv) {
+      try {
+        await kv.set('about', JSON.stringify(about));
+        return;
+      } catch (kvErr) {
+        console.warn('Vercel KV save about error:', kvErr.message);
+      }
+    }
+
+    if (process.env.VERCEL) {
+      console.warn('saveAbout: cannot write on Vercel without storage. Changes will NOT persist.');
+      return;
+    }
+
+    fs.writeFileSync(aboutPath, JSON.stringify(about, null, 2));
+  } catch (error) {
+    console.error('Error saving about info:', error);
+  }
+}
+
+// About API
+app.get('/api/about', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  const about = await loadAbout();
+  return res.json(about);
+});
+
+app.post('/api/about', requireAdmin, async (req, res) => {
+  try {
+    const incoming = req.body;
+    if (!incoming || typeof incoming !== 'object') {
+      return res.status(400).json({ error: 'invalid_payload' });
+    }
+
+    // Load existing data to preserve non-editable fields (skills, points)
+    const existing = await loadAbout();
+
+    // Build the updated about object
+    const updated = {
+      hero: incoming.hero || existing.hero,
+      sections: existing.sections, // start from existing to preserve points
+      skills: existing.skills || [],
+      contact: incoming.contact || existing.contact
+    };
+
+    // Update sections: apply incoming content but preserve 'points' from existing
+    if (incoming.sections && Array.isArray(incoming.sections)) {
+      updated.sections = incoming.sections.map(newSec => {
+        const oldSec = existing.sections.find(s => s.id === newSec.id);
+        return {
+          id: newSec.id,
+          title: newSec.title,
+          content: newSec.content,
+          // Preserve points array from existing data (not editable in UI)
+          ...(oldSec && oldSec.points ? { points: oldSec.points } : {})
+        };
+      });
+    }
+
+    await saveAbout(updated);
+    console.log('About saved successfully:', JSON.stringify(updated).substring(0, 200));
+    return res.json({ success: true, updated });
+  } catch (err) {
+    console.error('Error saving about:', err);
+    return res.status(500).json({ error: 'save_failed', details: err.message });
+  }
+});
 
 // Get current background image
 app.get('/api/settings/background', (req, res) => {
@@ -1879,16 +2199,14 @@ app.post('/api/settings/author', requireAdmin, async (req, res) => {
 app.get('/api/settings/security', async (req, res) => {
   try {
     // Force bypass for localhost by reporting no key exists
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const host = req.get('host') || '';
-    if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+    if (isLocalhostAdminKeyBypassEnabled(req)) {
       return res.json({ hasEntryKey: false, mode: 'localhost' });
     }
 
     if (process.env.ADMIN_ENTRY_KEY) {
       return res.json({ hasEntryKey: true, mode: 'env' });
     }
-    
+
     let hasEntryKey = false;
     if (process.env.VERCEL && db) {
       const result = await db.collection('settings').findOne({ type: 'security' });
@@ -1897,7 +2215,7 @@ app.get('/api/settings/security', async (req, res) => {
       const settings = readSettings();
       hasEntryKey = !!(settings.security && settings.security.adminEntryKeyHash);
     }
-    
+
     return res.json({ hasEntryKey, mode: hasEntryKey ? 'local' : 'none' });
   } catch (e) {
     return res.json({ hasEntryKey: false, mode: 'none' });
@@ -1906,13 +2224,40 @@ app.get('/api/settings/security', async (req, res) => {
 
 app.post('/api/settings/security', requireAdmin, async (req, res) => {
   try {
-    // Admin entry keys are now managed per-user in the User Management section
-    // Return informational response instead of error
-    return res.json({ 
-      success: true, 
-      message: 'Admin keys are now managed per-user in the User Management section',
-      info: 'Use the "🔑 Set Key" button in User List to assign admin keys to users'
-    });
+    const { adminEntryKey, sessionTimeout } = req.body || {};
+
+    if (adminEntryKey !== undefined) {
+      const rawKey = String(adminEntryKey);
+      const trimmed = rawKey.trim();
+
+      // IMPORTANT:
+      // Treat empty/blank input as "clear / disable entry key".
+      // Previously we were hashing an empty string which made `hasEntryKey === true`
+      // but impossible to satisfy from the UI (since the UI won't allow blank input).
+      const isClearingKey = trimmed.length === 0;
+      const hash = isClearingKey ? '' : await bcrypt.hash(trimmed, 10);
+      const enc = isClearingKey ? '' : encryptText(trimmed);
+
+      if (process.env.VERCEL && db) {
+        await db.collection('settings').updateOne(
+          { type: 'security' },
+          { $set: { adminEntryKeyHash: hash, adminEntryKeyEnc: enc, updatedAt: new Date() } },
+          { upsert: true }
+        );
+      } else {
+        const settings = readSettings();
+        if (!settings.security) settings.security = {};
+        settings.security.adminEntryKeyHash = hash;
+        settings.security.adminEntryKeyEnc = enc;
+        writeSettings(settings);
+      }
+      return res.json({
+        success: true,
+        message: isClearingKey ? 'Admin entry key cleared successfully' : 'Admin entry key updated successfully'
+      });
+    }
+
+    return res.json({ success: true });
   } catch (e) {
     console.error('Error saving security settings:', e);
     return res.status(500).json({ error: 'internal' });
@@ -1924,10 +2269,9 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
     const provided = String(req.body?.adminEntryKey || '');
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const ua = req.headers['user-agent'];
-    const host = req.get('host') || '';
 
     // Skip admin key verification for localhost testing
-    if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+    if (isLocalhostAdminKeyBypassEnabled(req)) {
       const logs = await loadSecurityLogs();
       const entry = {
         id: Date.now(),
@@ -2022,11 +2366,9 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
 // Check if admin entry key is verified in session
 app.get('/api/settings/check-admin-key-verified', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  
+
   // Auto-verify for localhost
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const host = req.get('host') || '';
-  if (!req.session.adminKeyVerified && (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1'))) {
+  if (!req.session.adminKeyVerified && isLocalhostAdminKeyBypassEnabled(req)) {
     req.session.adminKeyVerified = true;
     req.session.adminKeyVerifiedAt = Date.now();
   }
@@ -2056,7 +2398,7 @@ app.post('/api/settings/security/logs', requireAdmin, async (req, res) => {
 
     const logs = await loadSecurityLogs();
     // Return most recent first
-    const ordered = logs.slice().sort((a,b)=>b.id-a.id).slice(0, 2000);
+    const ordered = logs.slice().sort((a, b) => b.id - a.id).slice(0, 2000);
     return res.json({ success: true, logs: ordered });
   } catch (e) {
     console.error('security logs error:', e);
@@ -2073,7 +2415,7 @@ app.post('/api/settings/security/key-view', requireAdmin, async (req, res) => {
         message: 'Admin entry key is managed by environment; viewing disabled.'
       });
     }
-    
+
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
     const users = await loadUsers();
@@ -2090,7 +2432,7 @@ app.post('/api/settings/security/key-view', requireAdmin, async (req, res) => {
       const settings = readSettings();
       enc = settings.security?.adminEntryKeyEnc || '';
     }
-    
+
     const key = decryptText(enc);
     return res.json({ success: true, key: key || '' });
   } catch (e) {
@@ -2276,23 +2618,23 @@ app.post('/api/categories', requireAdmin, async (req, res) => {
     console.log('Creating category - DB connected:', !!db, 'Body:', req.body);
     const { name, description } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'missing name' });
-    
+
     const categories = await loadCategories();
     if (!Array.isArray(categories)) {
       console.error('loadCategories did not return an array:', categories);
       return res.status(500).json({ error: 'invalid categories format' });
     }
-    
+
     const id = String(Date.now());
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    
+
     const category = {
       id,
       name: name.trim(),
       slug,
       description: description ? description.trim() : ''
     };
-    
+
     categories.push(category);
     console.log('Saving categories:', categories.length, 'New category:', category);
     await saveCategories(categories);
@@ -2327,14 +2669,18 @@ app.put('/api/categories/:id', requireAdmin, async (req, res) => {
 });
 
 app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
-  const id = req.params.id;
-  let categories = await loadCategories();
-  const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
-  if (idx === -1) return res.status(404).json({ error: 'not found' });
-
-  categories.splice(idx, 1);
-  await saveCategories(categories);
-  return res.json({ success: true });
+  try {
+    const id = req.params.id;
+    let categories = await loadCategories();
+    const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
+    if (idx === -1) return res.status(404).json({ error: 'not found' });
+    categories.splice(idx, 1);
+    await saveCategories(categories);
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Delete category error:', e);
+    return res.status(500).json({ error: 'delete_failed', details: e.message });
+  }
 });
 
 // Analytics API
@@ -2342,7 +2688,7 @@ app.post('/api/analytics/pageview', async (req, res) => {
   try {
     const { page, referrer, userAgent } = req.body;
     const analytics = await loadAnalytics();
-    
+
     const pageView = {
       id: Date.now(),
       page: page || '/',
@@ -2351,10 +2697,10 @@ app.post('/api/analytics/pageview', async (req, res) => {
       ip: req.ip || req.connection.remoteAddress,
       timestamp: new Date().toISOString()
     };
-    
+
     analytics.pageViews.push(pageView);
     await saveAnalytics(analytics);
-    
+
     return res.json({ success: true });
   } catch (e) {
     console.error('Analytics pageview error:', e);
@@ -2366,9 +2712,9 @@ app.post('/api/analytics/interaction', async (req, res) => {
   try {
     const { type, target, value } = req.body;
     if (!type) return res.status(400).json({ error: 'missing type' });
-    
+
     const analytics = await loadAnalytics();
-    
+
     const interaction = {
       id: Date.now(),
       type: type,
@@ -2378,10 +2724,10 @@ app.post('/api/analytics/interaction', async (req, res) => {
       userAgent: req.get('User-Agent') || '',
       timestamp: new Date().toISOString()
     };
-    
+
     analytics.interactions.push(interaction);
     await saveAnalytics(analytics);
-    
+
     return res.json({ success: true });
   } catch (e) {
     console.error('Analytics interaction error:', e);
