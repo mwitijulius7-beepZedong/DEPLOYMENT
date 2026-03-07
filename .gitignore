@@ -34,3 +34,9 @@ output.css
 # Test artifacts
 test.html
 .vercel
+# CodeBuddy
+.codebuddy/*
+!.codebuddy/skills/
+!.codebuddy/rules/
+!.codebuddy/prompts/
+!.codebuddy/config.json
