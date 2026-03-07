@@ -848,13 +848,39 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ error: 'not authenticated' });
 }
 
+function requireAdminRole(req, res, next) {
+  const user = req.session?.user || req.user;
+  if (!user) return res.status(401).json({ error: 'not authenticated' });
+  if (String(user.role || 'USER').toUpperCase() !== 'ADMIN') {
+    return res.status(403).json({ error: 'admin_only' });
+  }
+  return next();
+}
+
 // Middleware to check idle timeout for admin routes
 function checkIdleTimeout(req, res, next) {
+  const currentUser = req.session?.user || req.user;
+
   // Auto-verify/refresh for localhost
   if (isLocalhostAdminKeyBypassEnabled(req)) {
     req.session.adminKeyVerified = true;
     req.session.adminKeyVerifiedAt = Date.now();
+    req.session.adminKeyVerifiedUsername = currentUser?.username || 'admin';
     return next();
+  }
+
+  // Require a verified admin key for ALL admin routes
+  if (!req.session || req.session.adminKeyVerified !== true) {
+    return res.status(401).json({ error: 'admin_key_required' });
+  }
+
+  // Tie verification to the currently-authenticated username
+  const verifiedFor = req.session.adminKeyVerifiedUsername;
+  if (currentUser?.username && verifiedFor && verifiedFor !== currentUser.username) {
+    req.session.adminKeyVerified = false;
+    req.session.adminKeyVerifiedAt = null;
+    req.session.adminKeyVerifiedUsername = null;
+    return res.status(401).json({ error: 'admin_key_required' });
   }
 
   if (req.session && req.session.adminKeyVerified) {
@@ -866,6 +892,7 @@ function checkIdleTimeout(req, res, next) {
       // Clear verification on timeout
       req.session.adminKeyVerified = false;
       req.session.adminKeyVerifiedAt = null;
+      req.session.adminKeyVerifiedUsername = null;
       return res.status(401).json({ error: 'session_expired', message: 'Your session has expired due to inactivity' });
     }
   }
@@ -880,7 +907,7 @@ function updateAdminActivity(req, res, next) {
   next();
 }
 
-const requireAdmin = [requireAuth, checkIdleTimeout, updateAdminActivity];
+const requireAdmin = [requireAuth, requireAdminRole, checkIdleTimeout, updateAdminActivity];
 
 // Admin: Users API (admin-only)
 app.get('/api/users', requireAdmin, async (req, res) => {
@@ -891,7 +918,8 @@ app.get('/api/users', requireAdmin, async (req, res) => {
       name: data?.name || '',
       email: data?.email || '',
       role: data?.role || 'USER',
-      active: data?.active ?? true
+      active: data?.active ?? true,
+      adminKeySet: !!(data?.adminKeyHash || data?.adminKeySet)
     }));
     res.json({ users: list });
   } catch (e) {
@@ -965,7 +993,7 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
 });
 
 // POST /api/users/:username/admin-key - Set user's admin key (user can set their own or admin can set for others)
-app.post('/api/users/:username/admin-key', async (req, res) => {
+app.post('/api/users/:username/admin-key', requireAuth, async (req, res) => {
   try {
     const { username } = req.params;
     const { adminKey } = req.body || {};
@@ -988,6 +1016,7 @@ app.post('/api/users/:username/admin-key', async (req, res) => {
     // Hash the admin key
     const keyHash = await bcrypt.hash(String(adminKey), 10);
     users[username].adminKeyHash = keyHash;
+    users[username].adminKeyEnc = encryptText(String(adminKey));
     users[username].adminKeySet = true;
 
     await saveUsers(users);
@@ -998,8 +1027,44 @@ app.post('/api/users/:username/admin-key', async (req, res) => {
   }
 });
 
+// DELETE /api/users/:username/admin-key - Clear user's admin key (user can clear their own or super-admin can clear for others)
+app.delete('/api/users/:username/admin-key', requireAuth, async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    // Check if user is clearing their own key or if requester is admin
+    const requestUser = req.session?.user || req.user;
+    if (!requestUser || (requestUser.username !== username && requestUser.username !== 'admin')) {
+      return res.status(403).json({ error: 'cannot_clear_other_users_admin_key' });
+    }
+
+    const users = await loadUsers();
+    if (!users || !users[username]) {
+      return res.status(404).json({ error: 'user_not_found' });
+    }
+
+    delete users[username].adminKeyHash;
+    delete users[username].adminKeyEnc;
+    users[username].adminKeySet = false;
+
+    await saveUsers(users);
+
+    // Clear verification if it's for this user
+    if (req.session?.adminKeyVerifiedUsername === username) {
+      req.session.adminKeyVerified = false;
+      req.session.adminKeyVerifiedAt = null;
+      req.session.adminKeyVerifiedUsername = null;
+    }
+
+    return res.json({ success: true, message: 'Admin key cleared' });
+  } catch (e) {
+    console.error('Error clearing admin key:', e);
+    return res.status(500).json({ error: 'failed_to_clear_admin_key' });
+  }
+});
+
 // POST /api/users/:username/verify-admin-key - Verify user's admin key
-app.post('/api/users/:username/verify-admin-key', async (req, res) => {
+app.post('/api/users/:username/verify-admin-key', requireAuth, async (req, res) => {
   try {
     const { username } = req.params;
     const { adminKey } = req.body || {};
@@ -1035,6 +1100,154 @@ app.post('/api/users/:username/verify-admin-key', async (req, res) => {
   } catch (e) {
     console.error('Error verifying admin key:', e);
     return res.status(500).json({ error: 'failed_to_verify_admin_key' });
+  }
+});
+
+// -----------------------------------------------------------------
+// Per-user Admin Entry Key (recommended) - status / set / verify / view
+// -----------------------------------------------------------------
+
+app.get('/api/security/admin-key/status', requireAuth, async (req, res) => {
+  try {
+    // Localhost bypass
+    if (isLocalhostAdminKeyBypassEnabled(req)) {
+      return res.json({ required: false, hasKey: false, verified: true, mode: 'localhost' });
+    }
+
+    const currentUser = req.session?.user || req.user;
+    const username = currentUser?.username;
+
+    if (!username) return res.status(401).json({ error: 'not authenticated' });
+
+    // If env key is set, it's globally required
+    if (process.env.ADMIN_ENTRY_KEY) {
+      const verified = req.session?.adminKeyVerified === true;
+      return res.json({ required: true, hasKey: true, verified, mode: 'env', username });
+    }
+
+    // Require key for admin users only
+    const isAdmin = String(currentUser?.role || 'USER').toUpperCase() === 'ADMIN';
+    if (!isAdmin) {
+      return res.json({ required: false, hasKey: false, verified: true, mode: 'not_admin', username });
+    }
+
+    const users = await loadUsers();
+    const user = users?.[username];
+    if (!user) return res.status(404).json({ error: 'user_not_found' });
+
+    const hasKey = !!user.adminKeyHash;
+    const verified = req.session?.adminKeyVerified === true && req.session?.adminKeyVerifiedUsername === username;
+    return res.json({ required: true, hasKey, verified, mode: hasKey ? 'per_user' : 'per_user_not_set', username });
+  } catch (e) {
+    console.error('admin-key status error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+app.post('/api/security/admin-key/set', requireAuth, async (req, res) => {
+  try {
+    const currentUser = req.session?.user || req.user;
+    const username = currentUser?.username;
+    if (!username) return res.status(401).json({ error: 'not authenticated' });
+    if (process.env.ADMIN_ENTRY_KEY) {
+      return res.status(403).json({ error: 'env_managed', message: 'Admin entry key is managed by environment.' });
+    }
+
+    const { adminKey } = req.body || {};
+    const trimmed = String(adminKey || '').trim();
+    if (!trimmed) return res.status(400).json({ error: 'admin_key_required' });
+
+    const users = await loadUsers();
+    const user = users?.[username];
+    if (!user) return res.status(404).json({ error: 'user_not_found' });
+
+    user.adminKeyHash = await bcrypt.hash(trimmed, 10);
+    user.adminKeyEnc = encryptText(trimmed);
+    user.adminKeySet = true;
+
+    await saveUsers(users);
+
+    // Auto-verify after setting
+    req.session.adminKeyVerified = true;
+    req.session.adminKeyVerifiedAt = Date.now();
+    req.session.adminKeyVerifiedUsername = username;
+
+    return res.json({ success: true, message: 'Admin key set' });
+  } catch (e) {
+    console.error('admin-key set error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+app.post('/api/security/admin-key/verify', requireAuth, async (req, res) => {
+  try {
+    const currentUser = req.session?.user || req.user;
+    const username = currentUser?.username;
+    if (!username) return res.status(401).json({ error: 'not authenticated' });
+
+    const provided = String(req.body?.adminKey || '').trim();
+    if (!provided) return res.status(400).json({ error: 'admin_key_required' });
+
+    // Env-managed global key
+    if (process.env.ADMIN_ENTRY_KEY) {
+      const ok = provided === String(process.env.ADMIN_ENTRY_KEY);
+      if (!ok) return res.status(403).json({ success: false, error: 'invalid_admin_key', mode: 'env' });
+      req.session.adminKeyVerified = true;
+      req.session.adminKeyVerifiedAt = Date.now();
+      req.session.adminKeyVerifiedUsername = username;
+      return res.json({ success: true, mode: 'env' });
+    }
+
+    const users = await loadUsers();
+    const user = users?.[username];
+    if (!user) return res.status(404).json({ error: 'user_not_found' });
+    if (!user.adminKeyHash) return res.status(400).json({ error: 'admin_key_not_set' });
+
+    const ok = await bcrypt.compare(provided, user.adminKeyHash);
+    if (!ok) return res.status(403).json({ success: false, error: 'invalid_admin_key', mode: 'per_user' });
+
+    req.session.adminKeyVerified = true;
+    req.session.adminKeyVerifiedAt = Date.now();
+    req.session.adminKeyVerifiedUsername = username;
+    return res.json({ success: true, mode: 'per_user' });
+  } catch (e) {
+    console.error('admin-key verify error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+app.post('/api/security/admin-key/clear-verification', requireAuth, (req, res) => {
+  req.session.adminKeyVerified = false;
+  req.session.adminKeyVerifiedAt = null;
+  req.session.adminKeyVerifiedUsername = null;
+  return res.json({ success: true });
+});
+
+app.post('/api/security/admin-key/view', requireAuth, async (req, res) => {
+  try {
+    if (process.env.ADMIN_ENTRY_KEY) {
+      return res.status(403).json({ error: 'env_managed', message: 'Admin entry key is managed by environment; viewing disabled.' });
+    }
+
+    const currentUser = req.session?.user || req.user;
+    const username = currentUser?.username;
+    if (!username) return res.status(401).json({ error: 'not authenticated' });
+
+    const { password } = req.body || {};
+    if (!password) return res.status(400).json({ error: 'password_required' });
+
+    const users = await loadUsers();
+    const user = users?.[username];
+    if (!user) return res.status(404).json({ error: 'user_not_found' });
+
+    const ok = await bcrypt.compare(String(password), user.passwordHash);
+    if (!ok) return res.status(401).json({ error: 'invalid_password' });
+
+    const key = decryptText(user.adminKeyEnc || '');
+    return res.json({ success: true, key: key || '' });
+  } catch (e) {
+    console.error('admin-key view error:', e);
+    return res.status(500).json({ error: 'internal' });
   }
 });
 
@@ -1154,6 +1367,7 @@ app.post('/auth/login', async (req, res) => {
     if (isLocalhostAdminKeyBypassEnabled(req)) {
       req.session.adminKeyVerified = true;
       req.session.adminKeyVerifiedAt = Date.now();
+      req.session.adminKeyVerifiedUsername = 'admin';
     }
 
     return res.json({
@@ -1195,6 +1409,7 @@ app.post('/auth/login', async (req, res) => {
   if (isLocalhostAdminKeyBypassEnabled(req)) {
     req.session.adminKeyVerified = true;
     req.session.adminKeyVerifiedAt = Date.now();
+    req.session.adminKeyVerifiedUsername = username;
   }
 
   return res.json({
@@ -2203,20 +2418,30 @@ app.get('/api/settings/security', async (req, res) => {
       return res.json({ hasEntryKey: false, mode: 'localhost' });
     }
 
+    // If env-managed key exists, it's globally required
     if (process.env.ADMIN_ENTRY_KEY) {
       return res.json({ hasEntryKey: true, mode: 'env' });
     }
 
-    let hasEntryKey = false;
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'security' });
-      hasEntryKey = !!(result?.adminEntryKeyHash);
-    } else {
-      const settings = readSettings();
-      hasEntryKey = !!(settings.security && settings.security.adminEntryKeyHash);
+    // Per-user mode: require key for admin users
+    const currentUser = req.session?.user || req.user;
+    const isAdmin = String(currentUser?.role || 'USER').toUpperCase() === 'ADMIN';
+    if (!isAdmin) {
+      return res.json({ hasEntryKey: false, mode: 'not_admin' });
     }
 
-    return res.json({ hasEntryKey, mode: hasEntryKey ? 'local' : 'none' });
+    const username = currentUser?.username;
+    if (!username) {
+      // Legacy behaviour: cannot determine; respond "no" to avoid blocking pre-login pages.
+      return res.json({ hasEntryKey: false, mode: 'unknown' });
+    }
+
+    const users = await loadUsers();
+    const user = users?.[username];
+    const hasUserKey = !!user?.adminKeyHash;
+    // Even if the key isn't set yet, the system is considered "protected"
+    // (user is blocked until they set it).
+    return res.json({ hasEntryKey: true, hasUserKey, mode: hasUserKey ? 'per_user' : 'per_user_not_set' });
   } catch (e) {
     return res.json({ hasEntryKey: false, mode: 'none' });
   }
@@ -2238,8 +2463,17 @@ app.post('/api/settings/security', requireAdmin, async (req, res) => {
       const hash = isClearingKey ? '' : await bcrypt.hash(trimmed, 10);
       const enc = isClearingKey ? '' : encryptText(trimmed);
 
-      if (process.env.VERCEL && db) {
-        await db.collection('settings').updateOne(
+      if (process.env.VERCEL) {
+        const mongoDb = await getMongoDB();
+        if (!mongoDb) {
+          return res.status(500).json({
+            success: false,
+            error: 'no_persistent_storage_on_vercel',
+            message: 'Cannot save Admin Entry Key on Vercel without MongoDB. Configure MONGODB_URI or set ADMIN_ENTRY_KEY env var.'
+          });
+        }
+
+        await mongoDb.collection('settings').updateOne(
           { type: 'security' },
           { $set: { adminEntryKeyHash: hash, adminEntryKeyEnc: enc, updatedAt: new Date() } },
           { upsert: true }
@@ -2264,99 +2498,45 @@ app.post('/api/settings/security', requireAdmin, async (req, res) => {
   }
 });
 
-app.post('/api/settings/verify-entry-key', async (req, res) => {
+// Legacy endpoint (kept for backward compatibility): verifies the *current user's* admin key
+app.post('/api/settings/verify-entry-key', requireAuth, async (req, res) => {
   try {
-    const provided = String(req.body?.adminEntryKey || '');
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const ua = req.headers['user-agent'];
+    const provided = String(req.body?.adminEntryKey || '').trim();
+    const currentUser = req.session?.user || req.user;
+    const username = currentUser?.username;
+    if (!username) return res.status(401).json({ success: false, error: 'not_authenticated' });
 
-    // Skip admin key verification for localhost testing
+    // Localhost bypass
     if (isLocalhostAdminKeyBypassEnabled(req)) {
-      const logs = await loadSecurityLogs();
-      const entry = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        keyHash: crypto.createHash('sha256').update('localhost-skip').digest('hex'),
-        ip: ip || '',
-        userAgent: ua || '',
-        result: 'localhost_skip',
-        mode: 'localhost'
-      };
-      logs.push(entry);
-      await saveSecurityLogs(logs);
-
       req.session.adminKeyVerified = true;
       req.session.adminKeyVerifiedAt = Date.now();
+      req.session.adminKeyVerifiedUsername = username;
       return res.json({ success: true, mode: 'localhost' });
     }
 
-    // 1) If ADMIN_ENTRY_KEY is set, use it exclusively (works on Vercel)
+    // Env-managed key
     if (process.env.ADMIN_ENTRY_KEY) {
-      const ok = provided && provided === process.env.ADMIN_ENTRY_KEY;
-      const logs = await loadSecurityLogs();
-      const entry = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        keyHash: crypto.createHash('sha256').update(provided).digest('hex'),
-        ip: ip || '',
-        userAgent: ua || '',
-        result: ok ? 'success' : 'fail',
-        mode: 'env'
-      };
-      logs.push(entry);
-      await saveSecurityLogs(logs);
-
-      if (ok) {
+      if (provided && provided === String(process.env.ADMIN_ENTRY_KEY)) {
         req.session.adminKeyVerified = true;
         req.session.adminKeyVerifiedAt = Date.now();
+        req.session.adminKeyVerifiedUsername = username;
         return res.json({ success: true, mode: 'env' });
       }
       return res.status(403).json({ success: false, mode: 'env' });
     }
 
-    // 2) Get stored hash from MongoDB or file
-    let hash = '';
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'security' });
-      hash = result?.adminEntryKeyHash || '';
-    } else {
-      const settings = readSettings();
-      hash = settings.security?.adminEntryKeyHash || '';
-    }
+    const users = await loadUsers();
+    const user = users?.[username];
+    if (!user) return res.status(404).json({ success: false, error: 'user_not_found' });
+    if (!user.adminKeyHash) return res.status(400).json({ success: false, error: 'admin_key_not_set' });
 
-    const logs = await loadSecurityLogs();
-    const entry = {
-      id: Date.now(),
-      timestamp: new Date().toISOString(),
-      keyHash: crypto.createHash('sha256').update(provided).digest('hex'),
-      ip: ip || '',
-      userAgent: ua || '',
-      result: '',
-      mode: 'local'
-    };
+    const ok = await bcrypt.compare(provided, user.adminKeyHash);
+    if (!ok) return res.status(403).json({ success: false, mode: 'per_user' });
 
-    // 3) If no local key set, allow by default
-    if (!hash) {
-      entry.result = 'allow_not_set';
-      logs.push(entry);
-      await saveSecurityLogs(logs);
-      req.session.adminKeyVerified = true;
-      req.session.adminKeyVerifiedAt = Date.now();
-      return res.json({ success: true, mode: 'none' });
-    }
-
-    // 4) Verify against stored hash
-    const ok = await bcrypt.compare(provided, hash);
-    entry.result = ok ? 'success' : 'fail';
-    logs.push(entry);
-    await saveSecurityLogs(logs);
-
-    if (ok) {
-      req.session.adminKeyVerified = true;
-      req.session.adminKeyVerifiedAt = Date.now();
-      return res.json({ success: true, mode: 'local' });
-    }
-    return res.status(403).json({ success: false, mode: 'local' });
+    req.session.adminKeyVerified = true;
+    req.session.adminKeyVerifiedAt = Date.now();
+    req.session.adminKeyVerifiedUsername = username;
+    return res.json({ success: true, mode: 'per_user' });
   } catch (e) {
     console.error('verify-entry-key error:', e);
     return res.status(500).json({ error: 'internal' });
@@ -2364,7 +2544,7 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
 });
 
 // Check if admin entry key is verified in session
-app.get('/api/settings/check-admin-key-verified', (req, res) => {
+app.get('/api/settings/check-admin-key-verified', requireAuth, (req, res) => {
   res.set('Cache-Control', 'no-store');
 
   // Auto-verify for localhost
@@ -2373,15 +2553,19 @@ app.get('/api/settings/check-admin-key-verified', (req, res) => {
     req.session.adminKeyVerifiedAt = Date.now();
   }
 
-  const verified = req.session.adminKeyVerified === true;
+  const currentUser = req.session?.user || req.user;
+  const username = currentUser?.username;
+  const verified = req.session.adminKeyVerified === true && (!username || req.session.adminKeyVerifiedUsername === username);
   const verifiedAt = req.session.adminKeyVerifiedAt || null;
-  return res.json({ verified, verifiedAt });
+  const verifiedFor = req.session.adminKeyVerifiedUsername || null;
+  return res.json({ verified, verifiedAt, verifiedFor });
 });
 
 // Clear admin key verification (for idle timeout)
-app.post('/api/settings/clear-admin-key-verification', (req, res) => {
+app.post('/api/settings/clear-admin-key-verification', requireAuth, (req, res) => {
   req.session.adminKeyVerified = false;
   req.session.adminKeyVerifiedAt = null;
+  req.session.adminKeyVerifiedUsername = null;
   return res.json({ success: true });
 });
 
@@ -2425,9 +2609,14 @@ app.post('/api/settings/security/key-view', requireAdmin, async (req, res) => {
     if (!ok) return res.status(401).json({ error: 'invalid password' });
 
     let enc = '';
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'security' });
-      enc = result?.adminEntryKeyEnc || '';
+    if (process.env.VERCEL) {
+      const mongoDb = await getMongoDB();
+      if (!mongoDb) {
+        enc = '';
+      } else {
+        const result = await mongoDb.collection('settings').findOne({ type: 'security' });
+        enc = result?.adminEntryKeyEnc || '';
+      }
     } else {
       const settings = readSettings();
       enc = settings.security?.adminEntryKeyEnc || '';

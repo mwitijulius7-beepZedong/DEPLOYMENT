@@ -16,22 +16,22 @@ export async function checkAuth() {
             return;
         }
 
-        // Check if admin entry key is required
-        const securityResponse = await fetch('/api/settings/security');
-        const securityData = await securityResponse.json();
-        console.log('Security check:', securityData);
+        // Per-user admin entry key gate
+        const keyStatusRes = await fetch('/api/security/admin-key/status', { credentials: 'include' });
+        const keyStatus = await keyStatusRes.json();
+        console.log('Admin key status:', keyStatus);
 
-        if (securityData.hasEntryKey) {
-            // First check if admin key is already verified in session
-            const checkResponse = await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' });
-            const checkData = await checkResponse.json();
+        if (keyStatus.required) {
+            if (!keyStatus.hasKey) {
+                alert('Your account does not have an Admin Entry Key set. Please contact the super admin to set one for you.');
+                window.location.href = '/login.html';
+                return;
+            }
 
-            if (!checkData.verified) {
-                // Not verified, prompt for admin entry key
+            if (!keyStatus.verified) {
                 const success = await promptForAdminKey();
                 if (!success) return;
             } else {
-                // Already verified, start idle timer
                 resetIdleTimer();
             }
         }
@@ -46,7 +46,7 @@ export async function checkAuth() {
 }
 
 export async function promptForAdminKey() {
-    const adminKey = prompt('Please enter the admin entry key:');
+    const adminKey = prompt('Please enter your Admin Entry Key:');
     if (!adminKey) {
         alert('Admin entry key is required to access the admin panel.');
         window.location.href = '/login.html';
@@ -54,20 +54,26 @@ export async function promptForAdminKey() {
     }
 
     try {
-        // Server endpoint is /api/settings/verify-entry-key
-        // and expects payload { adminEntryKey: string }
-        const response = await fetch('/api/settings/verify-entry-key', {
+        // Per-user endpoint
+        const response = await fetch('/api/security/admin-key/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ adminEntryKey: adminKey })
+            body: JSON.stringify({ adminKey })
         });
 
         if (response.ok) {
             resetIdleTimer();
             return true;
         } else {
-            alert('Invalid admin entry key. Access denied.');
+            let msg = 'Invalid admin entry key. Access denied.';
+            try {
+                const data = await response.json();
+                if (data && data.error === 'admin_key_not_set') {
+                    msg = 'No Admin Entry Key is set for your account. Please contact the super admin.';
+                }
+            } catch (_) { }
+            alert(msg);
             window.location.href = '/login.html';
             return false;
         }
