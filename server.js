@@ -192,11 +192,23 @@ app.use(compression());
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://apis.google.com"],
+      // Google Sign-In (GIS) loads from accounts.google.com
+      // tokeninfo calls happen server-side, but the client script must be allowed.
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "'unsafe-eval'",
+        "https://cdn.jsdelivr.net",
+        "https://apis.google.com",
+        "https://accounts.google.com"
+      ],
       scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
+      // Allow browser to reach Google Identity endpoints
+      connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
     },
   },
 }));
@@ -238,7 +250,11 @@ const SECURITY_LOGS_FILE = path.join(__dirname, 'security_logs.json');
 const COMMENTS_FILE = path.join(__dirname, 'comments.json');
 const SUBSCRIPTIONS_FILE = path.join(__dirname, 'subscriptions.json');
 
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+// Google client ID (used to validate id_token audience in /auth/google)
+// For local dev, we fall back to the same client_id used in login.html so Google Sign-In works
+// even if .env is missing.
+const DEFAULT_DEV_GOOGLE_CLIENT_ID = '338774598801-rmbjl0aprte0l23ja5u3t3fm222jkbq1.apps.googleusercontent.com';
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ((process.env.NODE_ENV !== 'production') ? DEFAULT_DEV_GOOGLE_CLIENT_ID : '');
 const ALLOWED_EMAIL = process.env.ALLOWED_EMAIL || '';
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || '';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
@@ -253,8 +269,8 @@ if (process.env.NODE_ENV !== 'production') {
   process.env.DEV_ADMIN_PASSWORD = 'Mwitijulius7@Jm';
 }
 
-if (!CLIENT_ID) {
-  console.warn('WARNING: GOOGLE_CLIENT_ID is not set in .env - server verification will fail');
+if (!process.env.GOOGLE_CLIENT_ID) {
+  console.warn('WARNING: GOOGLE_CLIENT_ID is not set in .env - using dev fallback client id for local verification');
 }
 
 // Ensure uploads directory exists
@@ -782,6 +798,29 @@ function decryptText(encStr) {
   }
 }
 
+// ------------------------------------------------------------
+// Admin Entry Key: localhost bypass (for development convenience)
+// ------------------------------------------------------------
+// By default, localhost bypass is enabled to keep local development smooth.
+// To TEST the Admin Entry Key gate on localhost, set:
+//   DISABLE_LOCALHOST_ADMIN_KEY_BYPASS=true
+function isLocalhostRequest(req) {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+  const host = req.get('host') || '';
+  return (
+    String(ip).includes('127.0.0.1') ||
+    ip === '::1' ||
+    host.includes('localhost') ||
+    host.includes('127.0.0.1') ||
+    host.includes('::1')
+  );
+}
+
+function isLocalhostAdminKeyBypassEnabled(req) {
+  const disabled = String(process.env.DISABLE_LOCALHOST_ADMIN_KEY_BYPASS || '').toLowerCase() === 'true';
+  return !disabled && isLocalhostRequest(req);
+}
+
 function requireAuth(req, res, next) {
   console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
 
@@ -812,10 +851,7 @@ function requireAuth(req, res, next) {
 // Middleware to check idle timeout for admin routes
 function checkIdleTimeout(req, res, next) {
   // Auto-verify/refresh for localhost
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-  const host = req.get('host') || '';
-  const isLocalhost = ip.includes('127.0.0.1') || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1') || host.includes('::1');
-  if (isLocalhost) {
+  if (isLocalhostAdminKeyBypassEnabled(req)) {
     req.session.adminKeyVerified = true;
     req.session.adminKeyVerifiedAt = Date.now();
     return next();
@@ -1115,9 +1151,7 @@ app.post('/auth/login', async (req, res) => {
     };
 
     // Auto-verify admin key for localhost
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const host = req.get('host') || '';
-    if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+    if (isLocalhostAdminKeyBypassEnabled(req)) {
       req.session.adminKeyVerified = true;
       req.session.adminKeyVerifiedAt = Date.now();
     }
@@ -1158,9 +1192,7 @@ app.post('/auth/login', async (req, res) => {
   };
 
   // Auto-verify admin key for localhost
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const host = req.get('host') || '';
-  if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+  if (isLocalhostAdminKeyBypassEnabled(req)) {
     req.session.adminKeyVerified = true;
     req.session.adminKeyVerifiedAt = Date.now();
   }
@@ -2167,9 +2199,7 @@ app.post('/api/settings/author', requireAdmin, async (req, res) => {
 app.get('/api/settings/security', async (req, res) => {
   try {
     // Force bypass for localhost by reporting no key exists
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const host = req.get('host') || '';
-    if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+    if (isLocalhostAdminKeyBypassEnabled(req)) {
       return res.json({ hasEntryKey: false, mode: 'localhost' });
     }
 
@@ -2197,8 +2227,16 @@ app.post('/api/settings/security', requireAdmin, async (req, res) => {
     const { adminEntryKey, sessionTimeout } = req.body || {};
 
     if (adminEntryKey !== undefined) {
-      const hash = await bcrypt.hash(String(adminEntryKey), 10);
-      const enc = encryptText(String(adminEntryKey));
+      const rawKey = String(adminEntryKey);
+      const trimmed = rawKey.trim();
+
+      // IMPORTANT:
+      // Treat empty/blank input as "clear / disable entry key".
+      // Previously we were hashing an empty string which made `hasEntryKey === true`
+      // but impossible to satisfy from the UI (since the UI won't allow blank input).
+      const isClearingKey = trimmed.length === 0;
+      const hash = isClearingKey ? '' : await bcrypt.hash(trimmed, 10);
+      const enc = isClearingKey ? '' : encryptText(trimmed);
 
       if (process.env.VERCEL && db) {
         await db.collection('settings').updateOne(
@@ -2213,7 +2251,10 @@ app.post('/api/settings/security', requireAdmin, async (req, res) => {
         settings.security.adminEntryKeyEnc = enc;
         writeSettings(settings);
       }
-      return res.json({ success: true, message: 'Admin entry key updated successfully' });
+      return res.json({
+        success: true,
+        message: isClearingKey ? 'Admin entry key cleared successfully' : 'Admin entry key updated successfully'
+      });
     }
 
     return res.json({ success: true });
@@ -2228,10 +2269,9 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
     const provided = String(req.body?.adminEntryKey || '');
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const ua = req.headers['user-agent'];
-    const host = req.get('host') || '';
 
     // Skip admin key verification for localhost testing
-    if (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1')) {
+    if (isLocalhostAdminKeyBypassEnabled(req)) {
       const logs = await loadSecurityLogs();
       const entry = {
         id: Date.now(),
@@ -2328,9 +2368,7 @@ app.get('/api/settings/check-admin-key-verified', (req, res) => {
   res.set('Cache-Control', 'no-store');
 
   // Auto-verify for localhost
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const host = req.get('host') || '';
-  if (!req.session.adminKeyVerified && (ip === '127.0.0.1' || ip === '::1' || host.includes('localhost') || host.includes('127.0.0.1'))) {
+  if (!req.session.adminKeyVerified && isLocalhostAdminKeyBypassEnabled(req)) {
     req.session.adminKeyVerified = true;
     req.session.adminKeyVerifiedAt = Date.now();
   }
