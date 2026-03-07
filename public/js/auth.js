@@ -54,11 +54,13 @@ export async function promptForAdminKey() {
     }
 
     try {
-        const response = await fetch('/api/settings/verify-admin-key', {
+        // Server endpoint is /api/settings/verify-entry-key
+        // and expects payload { adminEntryKey: string }
+        const response = await fetch('/api/settings/verify-entry-key', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ adminKey })
+            body: JSON.stringify({ adminEntryKey: adminKey })
         });
 
         if (response.ok) {
@@ -80,7 +82,7 @@ export async function promptForAdminKey() {
 export async function logout() {
     try {
         // Clear stored token
-        try { localStorage.removeItem('authToken'); } catch (_) {}
+        try { localStorage.removeItem('authToken'); } catch (_) { }
         await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
         window.location.href = '/';
     } catch (error) {
