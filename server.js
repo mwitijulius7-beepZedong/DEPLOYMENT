@@ -395,7 +395,10 @@ async function loadUsers() {
         const users = await db.collection('users').find({}).toArray();
         if (users && Array.isArray(users) && users.length > 0) {
           const result = {};
-          users.forEach(u => result[u.username] = u);
+          users.forEach(u => {
+            if (!u.role) u.role = 'ADMIN'; // 2026: backward compatibility for legacy owner
+            result[u.username] = u;
+          });
           console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
           return result;
         }
@@ -414,6 +417,7 @@ async function loadUsers() {
         const data = await kv.get('users');
         if (data) {
           const parsed = JSON.parse(data);
+          Object.values(parsed).forEach(u => { if (!u.role) u.role = 'ADMIN'; });
           console.log('Loaded users from Vercel KV:', Object.keys(parsed).length, 'users');
           return parsed;
         }
@@ -426,6 +430,7 @@ async function loadUsers() {
     try {
       const dataStr = fs.readFileSync(USERS_FILE, 'utf8');
       const data = JSON.parse(dataStr);
+      Object.values(data).forEach(u => { if (!u.role) u.role = 'ADMIN'; });
       console.log('Loaded users from local file:', Object.keys(data).length, 'users');
       return data;
     } catch (fileErr) {
