@@ -362,6 +362,9 @@ app.use('/uploads', express.static(UPLOADS_DIR, {
   etag: true,
   lastModified: true
 }));
+// 2026: Trust proxy is required for 'secure: true' cookies to work behind Vercel edge
+app.set('trust proxy', 1);
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
@@ -1767,7 +1770,7 @@ app.post('/auth/logout', (req, res) => {
   // Check if session exists and has user data
   if (!req.session || !req.session.user) {
     console.log('No active session or user, clearing any existing cookies and returning success');
-    res.clearCookie('sessionId', { path: '/', httpOnly: true, sameSite: 'lax', secure: false });
+    res.clearCookie('__s', { path: '/', httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' });
     return res.json({ success: true, message: 'already logged out' });
   }
 
@@ -1783,11 +1786,11 @@ app.post('/auth/logout', (req, res) => {
     console.log('Session destroy completed for user:', username);
 
     // Clear the session cookie with all required options
-    res.clearCookie('sessionId', {
+    res.clearCookie('__s', {
       path: '/',
       httpOnly: true,
       sameSite: 'lax',
-      secure: false
+      secure: process.env.NODE_ENV === 'production'
     });
 
     console.log('Logout completed successfully, sending response');
