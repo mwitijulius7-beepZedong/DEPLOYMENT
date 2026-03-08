@@ -1009,7 +1009,8 @@ app.get('/api/users', requireAdmin, async (req, res) => {
       email: data?.email || '',
       role: data?.role || 'USER',
       active: data?.active ?? true,
-      adminKeySet: !!(data?.adminKeyHash || data?.adminKeySet)
+      adminKeySet: !!(data?.adminKeyHash || data?.adminKeySet),
+      adminKeyEncExists: !!data?.adminKeyEnc // 2026: Diagnostic flag
     }));
     res.json({ users: list });
   } catch (e) {
@@ -1459,8 +1460,17 @@ app.post('/api/settings/security/key-view', requireAuth, async (req, res) => {
     const ok = await bcrypt.compare(String(password), user.passwordHash);
     if (!ok) return res.status(401).json({ success: false, error: 'invalid_password' });
 
-    const key = decryptText(user.adminKeyEnc || '');
-    return res.json({ success: true, key: key || '' });
+    // 2026: Diagnosing production key-view issues
+    if (!user.adminKeyEnc) {
+      return res.status(400).json({ success: false, error: 'key_not_encrypted', message: 'No encrypted key found. You may need to set the key again.' });
+    }
+
+    const key = decryptText(user.adminKeyEnc);
+    if (!key) {
+      return res.status(500).json({ success: false, error: 'decryption_failed', message: 'Failed to decrypt key. Ensure SESSION_SECRET matches the environment where the key was created.' });
+    }
+
+    return res.json({ success: true, key });
   } catch (e) {
     console.error('/api/settings/security/key-view error:', e);
     return res.status(500).json({ error: 'internal' });
