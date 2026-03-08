@@ -192,8 +192,6 @@ app.use(compression());
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      // Google Sign-In (GIS) loads from accounts.google.com
-      // tokeninfo calls happen server-side, but the client script must be allowed.
       scriptSrc: [
         "'self'",
         "'unsafe-inline'",
@@ -206,14 +204,52 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      // Allow browser to reach Google Identity endpoints
       connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com"],
       frameSrc: ["'self'", "https://accounts.google.com"],
     },
   },
+  // 2026: additional hardening headers
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginResourcePolicy: { policy: 'same-origin' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  hsts: process.env.NODE_ENV === 'production'
+    ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+    : false,
 }));
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
+
+// 2026: Permissions-Policy – disable sensors/camera/mic
+app.use((req, res, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    'geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()'
+  );
+  next();
+});
+
+// 2026: Tiered rate limiting
+// Strict limiter for auth + subscriber key endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests', retryAfter: '15 minutes' },
+  keyGenerator: (req) => req.ip
+});
+// Moderate limiter for all API routes
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests', retryAfter: '15 minutes' }
+});
+// Global safety-net limiter
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
 app.use(limiter);
+app.use('/api', apiLimiter);
+// Apply strict limiter to all auth and key-gate endpoints
+app.use(['/auth/login', '/auth/google', '/api/settings/verify-entry-key'], authLimiter);
 app.use(errorHandler);
 
 // Dev seed bootstrap: create a default admin in non-prod when requested
@@ -264,6 +300,15 @@ const ADMIN_IDLE_TIMEOUT_MINUTES = parseInt(process.env.ADMIN_IDLE_TIMEOUT_MINUT
 const ADMIN_IDLE_TIMEOUT_MS = ADMIN_IDLE_TIMEOUT_MINUTES * 60 * 1000;
 const ADMIN_IDLE_WARNING_MS = (ADMIN_IDLE_TIMEOUT_MINUTES - 1) * 60 * 1000; // Warning at 1 minute before timeout
 
+// Public (non-admin) config endpoint used by the frontend to align timers with the backend.
+// NOTE: does not reveal any secrets.
+app.get('/api/security/config', (req, res) => {
+  return res.json({
+    adminIdleTimeoutMs: ADMIN_IDLE_TIMEOUT_MS,
+    adminIdleTimeoutMinutes: ADMIN_IDLE_TIMEOUT_MINUTES
+  });
+});
+
 // Set dev admin password for development
 if (process.env.NODE_ENV !== 'production') {
   process.env.DEV_ADMIN_PASSWORD = 'Mwitijulius7@Jm';
@@ -304,7 +349,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
+// 2026: cap raw body size to prevent DoS via oversized payloads
+app.use(express.json({ limit: '50kb' }));
 app.use(express.static(__dirname));
 app.use('/public', express.static(path.join(__dirname, 'public'), {
   maxAge: '1y',
@@ -321,12 +367,16 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false, // Allow HTTP for production environments without HTTPS
+    // 2026: HTTPS-only in production; HTTP allowed for local dev
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: 'lax', // Use 'lax' for better compatibility across environments
-    maxAge: 24 * 60 * 60 * 1000
+    // 2026: Strict prevents CSRF via cross-site requests entirely
+    sameSite: 'lax', // keep 'lax' so Google OAuth redirect works
+    // 2026: 8h session (was 24h)
+    maxAge: 8 * 60 * 60 * 1000
   },
-  name: 'sessionId',
+  // 2026: Obfuscate cookie name (don't reveal 'sessionId')
+  name: '__s',
   store: createSessionStore()
 }));
 
@@ -345,7 +395,10 @@ async function loadUsers() {
         const users = await db.collection('users').find({}).toArray();
         if (users && Array.isArray(users) && users.length > 0) {
           const result = {};
-          users.forEach(u => result[u.username] = u);
+          users.forEach(u => {
+            if (!u.role) u.role = 'ADMIN'; // 2026: backward compatibility for legacy owner
+            result[u.username] = u;
+          });
           console.log('Loaded users from MongoDB:', Object.keys(result).length, 'users');
           return result;
         }
@@ -364,6 +417,7 @@ async function loadUsers() {
         const data = await kv.get('users');
         if (data) {
           const parsed = JSON.parse(data);
+          Object.values(parsed).forEach(u => { if (!u.role) u.role = 'ADMIN'; });
           console.log('Loaded users from Vercel KV:', Object.keys(parsed).length, 'users');
           return parsed;
         }
@@ -376,6 +430,7 @@ async function loadUsers() {
     try {
       const dataStr = fs.readFileSync(USERS_FILE, 'utf8');
       const data = JSON.parse(dataStr);
+      Object.values(data).forEach(u => { if (!u.role) u.role = 'ADMIN'; });
       console.log('Loaded users from local file:', Object.keys(data).length, 'users');
       return data;
     } catch (fileErr) {
@@ -821,6 +876,46 @@ function isLocalhostAdminKeyBypassEnabled(req) {
   return !disabled && isLocalhostRequest(req);
 }
 
+// ============================================================
+// 2026: Brute-force lockout (in-memory, per-IP)
+// ============================================================
+const BRUTE_MAX_ATTEMPTS = 5;
+const BRUTE_WINDOW_MS = 15 * 60 * 1000;  // 15 minutes
+const bruteStore = new Map(); // ip → { count, firstAt }
+
+function getBruteRecord(ip) {
+  return bruteStore.get(ip) || { count: 0, firstAt: Date.now() };
+}
+
+function recordFailedAttempt(ip) {
+  const rec = getBruteRecord(ip);
+  const now = Date.now();
+  // Reset window if it expired
+  if (now - rec.firstAt > BRUTE_WINDOW_MS) {
+    bruteStore.set(ip, { count: 1, firstAt: now });
+  } else {
+    bruteStore.set(ip, { count: rec.count + 1, firstAt: rec.firstAt });
+  }
+}
+
+function isLockedOut(ip) {
+  const rec = bruteStore.get(ip);
+  if (!rec) return false;
+  if (Date.now() - rec.firstAt > BRUTE_WINDOW_MS) {
+    bruteStore.delete(ip); // window expired
+    return false;
+  }
+  return rec.count >= BRUTE_MAX_ATTEMPTS;
+}
+
+function clearBruteRecord(ip) {
+  bruteStore.delete(ip);
+}
+
+function getClientIP(req) {
+  return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+}
+
 function requireAuth(req, res, next) {
   console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
 
@@ -919,7 +1014,8 @@ app.get('/api/users', requireAdmin, async (req, res) => {
       email: data?.email || '',
       role: data?.role || 'USER',
       active: data?.active ?? true,
-      adminKeySet: !!(data?.adminKeyHash || data?.adminKeySet)
+      adminKeySet: !!(data?.adminKeyHash || data?.adminKeySet),
+      adminKeyEncExists: !!data?.adminKeyEnc // 2026: Diagnostic flag
     }));
     res.json({ users: list });
   } catch (e) {
@@ -934,7 +1030,8 @@ app.post('/api/users', requireAdmin, async (req, res) => {
     if (!username || !password) return res.status(400).json({ error: 'missing_username_or_password' });
     const users = await loadUsers();
     if (users && users[username]) return res.status(400).json({ error: 'user_exists' });
-    const hash = await bcrypt.hash(password, 10);
+    // 2026: bcrypt cost factor 12 (was 10)
+    const hash = await bcrypt.hash(password, 12);
     users[username] = { name: name || '', email: email || '', passwordHash: hash, active: true, role: role || 'USER' };
     await saveUsers(users);
     return res.json({ success: true, user: { username, name: users[username].name, email: users[username].email, role: users[username].role } });
@@ -1014,7 +1111,8 @@ app.post('/api/users/:username/admin-key', requireAuth, async (req, res) => {
     }
 
     // Hash the admin key
-    const keyHash = await bcrypt.hash(String(adminKey), 10);
+    // 2026: bcrypt cost factor 12
+    const keyHash = await bcrypt.hash(String(adminKey), 12);
     users[username].adminKeyHash = keyHash;
     users[username].adminKeyEnc = encryptText(String(adminKey));
     users[username].adminKeySet = true;
@@ -1161,7 +1259,7 @@ app.post('/api/security/admin-key/set', requireAuth, async (req, res) => {
     const user = users?.[username];
     if (!user) return res.status(404).json({ error: 'user_not_found' });
 
-    user.adminKeyHash = await bcrypt.hash(trimmed, 10);
+    user.adminKeyHash = await bcrypt.hash(trimmed, 12);
     user.adminKeyEnc = encryptText(trimmed);
     user.adminKeySet = true;
 
@@ -1251,6 +1349,139 @@ app.post('/api/security/admin-key/view', requireAuth, async (req, res) => {
   }
 });
 
+// ====================================================================
+// Subscriber Key Gate – endpoints called by login.html BEFORE login
+// (no requireAuth – user is not logged in yet at this point)
+// ====================================================================
+
+// GET /api/settings/security
+// Returns whether a subscriber/entry key is required site-wide.
+// hasEntryKey = true  → gate overlay must be shown before login
+// hasEntryKey = false → proceed straight to the login form
+app.get('/api/settings/security', async (req, res) => {
+  try {
+    // Env-managed key always requires gate
+    if (process.env.ADMIN_ENTRY_KEY) {
+      return res.json({ hasEntryKey: true, mode: 'env' });
+    }
+
+    // Check if ANY user has an admin key set
+    const users = await loadUsers();
+    const anyKeySet = users && Object.values(users).some(u => u.adminKeySet && u.adminKeyHash);
+    return res.json({ hasEntryKey: anyKeySet, mode: anyKeySet ? 'per_user' : 'none' });
+  } catch (e) {
+    console.error('/api/settings/security error:', e);
+    return res.json({ hasEntryKey: false, mode: 'error' });
+  }
+});
+
+// GET /api/settings/check-admin-key-verified
+// Returns whether the current session has already passed the subscriber key gate.
+app.get('/api/settings/check-admin-key-verified', (req, res) => {
+  const verified = req.session?.adminKeyVerified === true;
+  return res.json({ verified });
+});
+
+// POST /api/settings/verify-entry-key
+// Validates the subscriber key for the gate overlay (no login session required).
+// 2026: Brute-force lockout + constant-time comparison (no early-break loop)
+app.post('/api/settings/verify-entry-key', async (req, res) => {
+  try {
+    const ip = getClientIP(req);
+
+    // 2026: Lockout check
+    if (isLockedOut(ip)) {
+      console.warn(`[SECURITY] key_gate_lockout ip=${ip}`);
+      return res.status(429).json({ success: false, error: 'too_many_attempts', message: 'Too many failed attempts. Try again in 15 minutes.' });
+    }
+
+    const provided = String(req.body?.adminEntryKey || '').trim();
+
+    // 2026: Input length cap before any expensive bcrypt call
+    if (!provided || provided.length > 200) {
+      return res.status(400).json({ success: false, error: 'key_required' });
+    }
+
+    // Env-managed global key
+    if (process.env.ADMIN_ENTRY_KEY) {
+      // 2026: Use timingSafeEqual to prevent timing attacks on env key
+      const expected = Buffer.from(String(process.env.ADMIN_ENTRY_KEY));
+      const actual = Buffer.from(provided.padEnd(process.env.ADMIN_ENTRY_KEY.length, '\0'));
+      const ok = expected.length === actual.length && crypto.timingSafeEqual(expected, actual.subarray(0, expected.length));
+      if (!ok) {
+        recordFailedAttempt(ip);
+        console.warn(`[SECURITY] failed_key_gate ip=${ip}`);
+        return res.status(401).json({ success: false, error: 'invalid_key' });
+      }
+      clearBruteRecord(ip);
+      req.session.adminKeyVerified = true;
+      req.session.adminKeyVerifiedAt = Date.now();
+      return res.json({ success: true, mode: 'env' });
+    }
+
+    // Per-user: 2026: constant-time – run ALL comparisons regardless of match
+    const users = await loadUsers();
+    if (!users) return res.status(500).json({ success: false, error: 'storage_error' });
+
+    let matched = false;
+    const comparisons = Object.values(users)
+      .filter(u => u.adminKeyHash)
+      .map(u => bcrypt.compare(provided, u.adminKeyHash));
+
+    // Run all comparisons concurrently (no early break)
+    const results = await Promise.all(comparisons);
+    if (results.some(Boolean)) matched = true;
+
+    if (!matched) {
+      recordFailedAttempt(ip);
+      console.warn(`[SECURITY] failed_key_gate ip=${ip}`);
+      return res.status(401).json({ success: false, error: 'invalid_key' });
+    }
+
+    clearBruteRecord(ip);
+    req.session.adminKeyVerified = true;
+    req.session.adminKeyVerifiedAt = Date.now();
+    return res.json({ success: true, mode: 'per_user' });
+  } catch (e) {
+    console.error('/api/settings/verify-entry-key error:', e);
+    return res.status(500).json({ success: false, error: 'internal' });
+  }
+});
+
+// POST /api/settings/security/key-view (used from admin panel to see stored key)
+app.post('/api/settings/security/key-view', requireAuth, async (req, res) => {
+  try {
+    if (process.env.ADMIN_ENTRY_KEY) {
+      return res.status(403).json({ error: 'env_managed', message: 'Key is managed by environment variable.' });
+    }
+
+    const { username, password } = req.body || {};
+    if (!username || !password) return res.status(400).json({ error: 'username_and_password_required' });
+
+    const users = await loadUsers();
+    const user = users?.[username];
+    if (!user) return res.status(404).json({ error: 'user_not_found' });
+
+    const ok = await bcrypt.compare(String(password), user.passwordHash);
+    if (!ok) return res.status(401).json({ success: false, error: 'invalid_password' });
+
+    // 2026: Diagnosing production key-view issues
+    if (!user.adminKeyEnc) {
+      return res.status(400).json({ success: false, error: 'key_not_encrypted', message: 'No encrypted key found. You may need to set the key again.' });
+    }
+
+    const key = decryptText(user.adminKeyEnc);
+    if (!key) {
+      return res.status(500).json({ success: false, error: 'decryption_failed', message: 'Failed to decrypt key. Ensure SESSION_SECRET matches the environment where the key was created.' });
+    }
+
+    return res.json({ success: true, key });
+  } catch (e) {
+    console.error('/api/settings/security/key-view error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
 // Admin: Categories API
 // Delete category endpoint
 
@@ -1324,8 +1555,21 @@ app.post('/api/admin/migrate-to-mongodb', async (req, res) => {
 
 // Auth routes
 app.post('/auth/login', async (req, res) => {
-  const { username, password } = req.body;
+  const ip = getClientIP(req);
+
+  // 2026: Input length cap – prevent bcrypt DoS via huge strings
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '');
   if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
+  if (username.length > 100 || password.length > 200) {
+    return res.status(400).json({ error: 'invalid_input' });
+  }
+
+  // 2026: Brute-force lockout check
+  if (isLockedOut(ip)) {
+    console.warn(`[SECURITY] login_lockout ip=${ip} username=${username}`);
+    return res.status(429).json({ error: 'too_many_attempts', message: 'Account temporarily locked. Try again in 15 minutes.' });
+  }
 
   const users = await loadUsers();
   const user = users[username];
@@ -1344,6 +1588,7 @@ app.post('/auth/login', async (req, res) => {
   const isEnvAuth = (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD);
 
   if (isDevAuth || isEnvAuth) {
+    clearBruteRecord(ip);
     console.log('Authenticated via Dev/Env admin credentials');
     // Generate JWT token for dev admin
     const token = jwt.sign({
@@ -1351,7 +1596,7 @@ app.post('/auth/login', async (req, res) => {
       email: (user && user.email) || process.env.ALLOWED_EMAIL || 'admin@example.com',
       name: (user && user.name) || 'Admin',
       role: (user && user.role) || 'ADMIN'
-    }, JWT_SECRET, { expiresIn: '24h' });
+    }, JWT_SECRET, { expiresIn: '8h' });
 
     console.log('Login successful for admin (dev password), JWT token generated');
 
@@ -1379,21 +1624,35 @@ app.post('/auth/login', async (req, res) => {
 
   // Temporary login path removed for security
 
-  if (!user) return res.status(401).json({ error: 'invalid credentials' });
+  if (!user) {
+    recordFailedAttempt(ip);
+    console.warn(`[SECURITY] failed_login ip=${ip} username=${username} reason=user_not_found`);
+    return res.status(401).json({ error: 'invalid credentials' });
+  }
 
   // Check if user is active
-  if (user.active === false) return res.status(401).json({ error: 'account disabled' });
+  if (user.active === false) {
+    console.warn(`[SECURITY] failed_login ip=${ip} username=${username} reason=account_disabled`);
+    return res.status(401).json({ error: 'account_disabled' });
+  }
 
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(401).json({ error: 'invalid credentials' });
+  if (!ok) {
+    recordFailedAttempt(ip);
+    console.warn(`[SECURITY] failed_login ip=${ip} username=${username} reason=bad_password`);
+    return res.status(401).json({ error: 'invalid credentials' });
+  }
 
-  // Generate JWT token
+  // Success – clear lockout counter
+  clearBruteRecord(ip);
+
+  // 2026: JWT expiry aligned to session (8h)
   const token = jwt.sign({
     username: username,
     email: user.email,
     name: user.name,
     role: user.role || 'USER'
-  }, JWT_SECRET, { expiresIn: '24h' });
+  }, JWT_SECRET, { expiresIn: '8h' });
 
   console.log('Login successful, JWT token generated for:', username, 'Role:', user.role || 'USER');
 

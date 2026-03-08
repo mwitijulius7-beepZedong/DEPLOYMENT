@@ -446,7 +446,7 @@
                 <div class="admin-key-label" id="adminKeyLabel">Subscriber ID</div>
                 <div class="admin-key-input-wrap">
                     <input class="admin-key-input" id="adminKeyInput" type="password" placeholder="Enter subscriber ID"
-                        autocomplete="off" aria-labelledby="adminKeyLabel" />
+                        autocomplete="off" maxlength="200" aria-labelledby="adminKeyLabel" />
                     <button class="admin-key-toggle" id="adminKeyToggle" type="button" aria-label="Show subscriber ID"
                         title="Show/Hide">
                         <svg id="adminKeyToggleIcon" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -475,13 +475,14 @@
 
         <form class="login-form" id="loginForm">
             <div class="form-group">
-                <input type="text" id="username" class="form-input" placeholder=" " required autocomplete="username">
+                <input type="text" id="username" class="form-input" placeholder=" " required autocomplete="username"
+                    maxlength="100">
                 <label for="username" class="form-label">Username</label>
             </div>
 
             <div class="form-group">
                 <input type="password" id="password" class="form-input" placeholder=" " required
-                    autocomplete="current-password" style="padding-right: 48px;">
+                    autocomplete="current-password" maxlength="200" style="padding-right: 48px;">
                 <label for="password" class="form-label">Password</label>
                 <button type="button" class="password-toggle" id="passwordToggle"
                     aria-label="Toggle password visibility">
