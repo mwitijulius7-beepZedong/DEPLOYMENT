@@ -123,6 +123,66 @@
             return headers;
         }
 
+        /**
+         * Centralized fetch wrapper that handles admin_key_required 401 errors.
+         * When the server returns {error: 'admin_key_required'}, shows the key modal
+         * and automatically retries the request once the key is verified.
+         */
+        async function apiFetch(url, options = {}) {
+            // Always merge auth headers and credentials
+            const mergedOptions = {
+                credentials: 'include',
+                ...options,
+                headers: {
+                    ...getAuthHeaders(),
+                    ...(options.headers || {})
+                }
+            };
+
+            const response = await fetch(url, mergedOptions);
+
+            if (response.status === 401) {
+                let errData = {};
+                try { errData = await response.clone().json(); } catch (_) { }
+
+                const err = errData.error || '';
+                if (err === 'admin_key_required' || err === 'session_expired') {
+                    // Show the admin key modal and wait for verification
+                    const verified = await showAdminKeyModalAndWait();
+                    if (verified) {
+                        // Retry original request
+                        return fetch(url, mergedOptions);
+                    }
+                }
+            }
+
+            return response;
+        }
+
+        /**
+         * Shows the admin key modal and returns a Promise that resolves to
+         * true when the key is verified, or false if dismissed.
+         */
+        function showAdminKeyModalAndWait() {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('admin-key-modal');
+                if (!modal) { resolve(false); return; }
+
+                modal.style.display = 'flex';
+                const keyInput = document.getElementById('modal-admin-key');
+                if (keyInput) { keyInput.value = ''; keyInput.focus(); }
+
+                // Override the gate resolver to also resolve our promise
+                const prevResolver = window.resolveSecurityGate;
+                window.resolveSecurityGate = (success) => {
+                    if (prevResolver) prevResolver(success);
+                    resolve(!!success);
+                    // Restore previous resolver
+                    window.resolveSecurityGate = prevResolver;
+                };
+            });
+        }
+
         // Category management functions - defined directly in head for immediate availability
         async function addCategory() {
             const categoryName = document.getElementById('category-name').value.trim();
@@ -807,15 +867,9 @@
             console.log('Saving general settings with:', { blogTitle, authorName, authorEmail });
 
             try {
-                // Get auth headers
-                const headers = getAuthHeaders();
-                console.log('Auth headers:', headers);
-
                 // Save blog info (title and description) to /api/settings/blog-info
-                const blogResponse = await fetch('/api/settings/blog-info', {
+                const blogResponse = await apiFetch('/api/settings/blog-info', {
                     method: 'POST',
-                    headers: headers,
-                    credentials: 'include',
                     body: JSON.stringify({
                         title: blogTitle,
                         description: blogDescription
@@ -826,10 +880,8 @@
                 console.log('Blog info response:', blogResponse.status, blogData);
 
                 // Save author info to /api/settings/author
-                const authorResponse = await fetch('/api/settings/author', {
+                const authorResponse = await apiFetch('/api/settings/author', {
                     method: 'POST',
-                    headers: headers,
-                    credentials: 'include',
                     body: JSON.stringify({
                         name: authorName,
                         email: authorEmail,
@@ -926,10 +978,8 @@
             };
 
             try {
-                const response = await fetch('/api/about', {
+                const response = await apiFetch('/api/about', {
                     method: 'POST',
-                    headers: getAuthHeaders(),
-                    credentials: 'include',
                     body: JSON.stringify(aboutData)
                 });
 
@@ -991,10 +1041,8 @@
                 const username = me?.user?.username;
                 if (!username) { showSecurityAlert('Not logged in.', 'error'); return; }
 
-                const response = await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
+                const response = await apiFetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
                     method: 'POST',
-                    headers: getAuthHeaders(),
-                    credentials: 'include',
                     body: JSON.stringify({ adminKey: trimmed })
                 });
                 const data = await response.json();
@@ -1218,17 +1266,16 @@
             const systemAlerts = document.getElementById('system-alerts').checked;
 
             try {
-                const response = await fetch('/api/settings/notifications', {
+                const response = await apiFetch('/api/settings/notifications', {
                     method: 'POST',
-                    headers: getAuthHeaders(),
-                    credentials: 'include',
                     body: JSON.stringify({ emailNotifications, commentNotifications, systemAlerts })
                 });
 
                 if (response.ok) {
                     alert('Notification settings saved successfully!');
                 } else {
-                    alert('Failed to save notification settings.');
+                    const data = await response.json();
+                    alert('Failed to save notification settings: ' + (data.error || response.status));
                 }
             } catch (error) {
                 console.error('Error saving notification settings:', error);
@@ -1242,17 +1289,16 @@
             const enableComments = document.getElementById('enable-comments').checked;
 
             try {
-                const response = await fetch('/api/settings/content', {
+                const response = await apiFetch('/api/settings/content', {
                     method: 'POST',
-                    headers: getAuthHeaders(),
-                    credentials: 'include',
                     body: JSON.stringify({ postsPerPage: parseInt(postsPerPage), autoPublish, enableComments })
                 });
 
                 if (response.ok) {
                     alert('Content settings saved successfully!');
                 } else {
-                    alert('Failed to save content settings.');
+                    const data = await response.json();
+                    alert('Failed to save content settings: ' + (data.error || response.status));
                 }
             } catch (error) {
                 console.error('Error saving content settings:', error);
@@ -1270,10 +1316,8 @@
             try {
                 console.log('Saving theme settings:', { primaryColor, accentColor });
 
-                const response = await fetch('/api/settings/theme', {
+                const response = await apiFetch('/api/settings/theme', {
                     method: 'POST',
-                    headers: getAuthHeaders(),
-                    credentials: 'include',
                     body: JSON.stringify({
                         primaryColor,
                         accentColor
@@ -1338,10 +1382,8 @@
 
                 // Save background settings
                 if (finalBackgroundUrl) {
-                    const response = await fetch('/api/settings/background', {
+                    const response = await apiFetch('/api/settings/background', {
                         method: 'POST',
-                        headers: getAuthHeaders(),
-                        credentials: 'include',
                         body: JSON.stringify({
                             backgroundUrl: finalBackgroundUrl
                         })
