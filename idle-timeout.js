@@ -22,7 +22,7 @@ function checkIdleTimeout() {
 
 async function clearAdminKeyVerification() {
   try {
-    await fetch('/api/settings/clear-admin-key-verification', {
+    await fetch('/api/security/admin-key/clear-verification', {
       method: 'POST',
       credentials: 'include'
     });
@@ -42,11 +42,11 @@ async function promptForAdminKey() {
   }
 
   try {
-    const res = await fetch('/api/settings/verify-entry-key', {
+    const res = await fetch('/api/security/admin-key/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ adminEntryKey: entryKey })
+      body: JSON.stringify({ adminKey: entryKey })
     });
 
     const data = await res.json();
