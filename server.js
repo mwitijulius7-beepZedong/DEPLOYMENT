@@ -2409,12 +2409,21 @@ app.post('/api/about', requireAdmin, async (req, res) => {
     // Load existing data to preserve non-editable fields (skills, points)
     const existing = await loadAbout();
 
+    // Map contact safely
+    const inContact = incoming.contact || {};
+    const exContact = existing.contact || {};
+
     // Build the updated about object
     const updated = {
       hero: incoming.hero || existing.hero,
       sections: existing.sections, // start from existing to preserve points
       skills: existing.skills || [],
-      contact: incoming.contact || existing.contact
+      contact: {
+        email: String(inContact.email ?? exContact.email ?? ''),
+        twitter: String(inContact.twitter ?? exContact.twitter ?? ''),
+        linkedin: String(inContact.linkedin ?? exContact.linkedin ?? ''),
+        github: String(inContact.github ?? exContact.github ?? '')
+      }
     };
 
     // Update sections: apply incoming content but preserve 'points' from existing
