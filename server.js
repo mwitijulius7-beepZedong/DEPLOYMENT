@@ -2441,43 +2441,91 @@ app.post('/api/about', requireAdmin, async (req, res) => {
 });
 
 // Get current background image
-app.get('/api/settings/background', (req, res) => {
-  const settings = readSettings();
-  return res.json({ backgroundUrl: settings.backgroundUrl || '' });
+app.get('/api/settings/background', async (req, res) => {
+  try {
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'background' });
+      return res.json({ backgroundUrl: result?.backgroundUrl || '' });
+    }
+    const settings = readSettings();
+    return res.json({ backgroundUrl: settings.backgroundUrl || '' });
+  } catch (e) {
+    console.error('Error reading background settings:', e);
+    return res.json({ backgroundUrl: '' });
+  }
 });
 
 // Set background image
-app.post('/api/settings/background', requireAdmin, (req, res) => {
-  const { backgroundUrl } = req.body;
-  if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
+app.post('/api/settings/background', requireAdmin, async (req, res) => {
+  try {
+    const { backgroundUrl } = req.body;
+    if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
 
-  const settings = readSettings();
-  settings.backgroundUrl = backgroundUrl;
-  // Keep backgrounds in sync if only a single URL is provided
-  if (!Array.isArray(settings.backgrounds) || settings.backgrounds.length === 0) {
-    settings.backgrounds = [backgroundUrl];
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'background' });
+      const existingBackgrounds = result?.backgrounds || [];
+      const backgrounds = (!Array.isArray(existingBackgrounds) || existingBackgrounds.length === 0) ? [backgroundUrl] : existingBackgrounds;
+
+      await db.collection('settings').updateOne(
+        { type: 'background' },
+        { $set: { backgroundUrl, backgrounds, updatedAt: new Date() } },
+        { upsert: true }
+      );
+      return res.json({ success: true, backgroundUrl });
+    }
+
+    const settings = readSettings();
+    settings.backgroundUrl = backgroundUrl;
+    // Keep backgrounds in sync if only a single URL is provided
+    if (!Array.isArray(settings.backgrounds) || settings.backgrounds.length === 0) {
+      settings.backgrounds = [backgroundUrl];
+    }
+    writeSettings(settings);
+
+    return res.json({ success: true, backgroundUrl });
+  } catch (e) {
+    console.error('Error saving background settings:', e);
+    return res.status(500).json({ error: 'internal' });
   }
-  writeSettings(settings);
-
-  return res.json({ success: true, backgroundUrl });
 });
 
 // Multiple backgrounds API
-app.get('/api/settings/backgrounds', (req, res) => {
-  const settings = readSettings();
-  const arr = Array.isArray(settings.backgrounds) ? settings.backgrounds : (settings.backgroundUrl ? [settings.backgroundUrl] : []);
-  return res.json({ backgrounds: arr });
+app.get('/api/settings/backgrounds', async (req, res) => {
+  try {
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'background' });
+      const arr = Array.isArray(result?.backgrounds) ? result.backgrounds : (result?.backgroundUrl ? [result.backgroundUrl] : []);
+      return res.json({ backgrounds: arr });
+    }
+    const settings = readSettings();
+    const arr = Array.isArray(settings.backgrounds) ? settings.backgrounds : (settings.backgroundUrl ? [settings.backgroundUrl] : []);
+    return res.json({ backgrounds: arr });
+  } catch (e) {
+    console.error('Error reading backgrounds settings:', e);
+    return res.json({ backgrounds: [] });
+  }
 });
 
-app.post('/api/settings/backgrounds', requireAdmin, (req, res) => {
+app.post('/api/settings/backgrounds', requireAdmin, async (req, res) => {
   try {
     const { backgrounds } = req.body || {};
     if (!Array.isArray(backgrounds)) return res.status(400).json({ error: 'backgrounds_must_be_array' });
     const urls = backgrounds.map(u => String(u)).filter(u => u.length > 0);
+    const backgroundUrl = urls[0] || '';
+
+    if (process.env.VERCEL && db) {
+      await db.collection('settings').updateOne(
+        { type: 'background' },
+        { $set: { backgroundUrl, backgrounds: urls, updatedAt: new Date() } },
+        { upsert: true }
+      );
+      return res.json({ success: true, backgrounds: urls });
+    }
+
     const settings = readSettings();
     settings.backgrounds = urls;
     // Keep legacy single backgroundUrl aligned to first
-    settings.backgroundUrl = urls[0] || '';
+    settings.backgroundUrl = backgroundUrl;
     writeSettings(settings);
     return res.json({ success: true, backgrounds: urls });
   } catch (e) {
