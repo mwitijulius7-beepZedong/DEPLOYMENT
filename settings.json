@@ -1,5 +1,5 @@
 {
-  "backgroundUrl": "https://res.cloudinary.com/dwbpf2ogp/image/upload/v1769357921/blog/1769357917829_730462-download-free-mao-zedong-wallpaper-1920x1080-meizu.jpg",
+  "backgroundUrl": "http://localhost:3000/uploads/1773304439595_Mao-Zedong.webp",
   "backgrounds": [
     "https://example.com/bg1.jpg",
     "https://example.com/bg2.jpg"
