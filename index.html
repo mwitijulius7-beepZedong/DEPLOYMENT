@@ -299,6 +299,27 @@
             line-height: 1.4;
         }
 
+        /* Post Card Image */
+        .post-card-image-container {
+            width: 100%;
+            height: 180px;
+            overflow: hidden;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            background: var(--bg-tertiary);
+        }
+
+        .post-card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: var(--transition);
+        }
+
+        .post-card:hover .post-card-image {
+            transform: scale(1.05);
+        }
+
         .post-meta {
             color: #9ca3af;
             font-size: 0.8rem;
@@ -468,6 +489,9 @@
                 <div v-else class="posts-grid">
                     <a v-for="post in filteredPosts" :key="post.id" :href="'/post.html?id=' + post.id"
                         class="post-card">
+                        <div v-if="post.image" class="post-card-image-container">
+                            <img :src="post.image" :alt="post.title" class="post-card-image">
+                        </div>
                         <h2 class="post-title">{{ post.title || 'Untitled' }}</h2>
                         <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author || 'Unknown' }} · {{
                             getReadingTime(post.content) }}</div>
