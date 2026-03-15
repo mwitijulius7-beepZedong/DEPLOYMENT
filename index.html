@@ -617,7 +617,7 @@
                 methods: {
                     async loadPosts() {
                         try {
-                            const resp = await fetch('/api/posts');
+                            const resp = await fetch(`/api/posts?t=${new Date().getTime()}`);
                             const data = await resp.json();
                             this.posts = data.posts || [];
                         } catch (e) {
@@ -627,7 +627,7 @@
                     },
                     async loadCategories() {
                         try {
-                            const resp = await fetch('/api/categories');
+                            const resp = await fetch(`/api/categories?t=${new Date().getTime()}`);
                             const data = await resp.json();
                             this.categories = data.categories || [];
                         } catch (e) {
@@ -638,7 +638,7 @@
                     async loadSettings() {
                         try {
                             // Load background settings
-                            const bgResp = await fetch('/api/settings/background');
+                            const bgResp = await fetch(`/api/settings/background?t=${new Date().getTime()}`);
                             const bgData = await bgResp.json();
                             if (bgData.backgroundUrl) {
                                 const appElement = document.getElementById('app');
@@ -655,7 +655,7 @@
 
                         // Load blog info settings (title)
                         try {
-                            const blogResp = await fetch('/api/settings/blog-info');
+                            const blogResp = await fetch(`/api/settings/blog-info?t=${new Date().getTime()}`);
                             const blogData = await blogResp.json();
                             if (blogData.blogInfo && blogData.blogInfo.title) {
                                 this.blogTitle = blogData.blogInfo.title;
