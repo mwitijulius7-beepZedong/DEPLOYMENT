@@ -285,6 +285,7 @@ const ANALYTICS_FILE = path.join(__dirname, 'analytics.json');
 const SECURITY_LOGS_FILE = path.join(__dirname, 'security_logs.json');
 const COMMENTS_FILE = path.join(__dirname, 'comments.json');
 const SUBSCRIPTIONS_FILE = path.join(__dirname, 'subscriptions.json');
+const THEMES_FILE = path.join(__dirname, 'themes.json');
 
 // Google client ID (used to validate id_token audience in /auth/google)
 // For local dev, we fall back to the same client_id used in login.html so Google Sign-In works
@@ -384,7 +385,7 @@ app.use(session({
 }));
 
 app.use(fileUpload({
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB for videos
   useTempFiles: false,
   createParentPath: true
 }));
@@ -819,6 +820,88 @@ async function saveSubscriptions(subscriptions) {
     fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptions, null, 2));
   } catch (e) {
     console.error('Save subscriptions error:', e);
+  }
+}
+
+async function loadThemes() {
+  try {
+    const db = await getMongoDB();
+    if (db) {
+      const themes = await db.collection('themes').find({}).sort({ year: -1, month: -1 }).toArray();
+      return themes.map(t => ({ ...t, id: (t._id || t.id).toString() }));
+    }
+    if (process.env.VERCEL && kv) {
+      const data = await kv.get('themes');
+      return data ? JSON.parse(data) : [];
+    }
+    if (!fs.existsSync(THEMES_FILE)) return [];
+    return JSON.parse(fs.readFileSync(THEMES_FILE, 'utf8')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function saveThemes(themes) {
+  try {
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('themes').deleteMany({});
+      if (themes.length > 0) {
+        const toSave = themes.map(t => {
+          const { id, ...rest } = t;
+          return { ...rest, _id: id };
+        });
+        await mongoDb.collection('themes').insertMany(toSave);
+      }
+      return;
+    }
+    if (process.env.VERCEL && kv) {
+      await kv.set('themes', JSON.stringify(themes));
+      return;
+    }
+    fs.writeFileSync(THEMES_FILE, JSON.stringify(themes, null, 2));
+  } catch (e) {
+    console.error('Save themes error:', e);
+  }
+}
+
+async function sendNewPostNotification(post) {
+  try {
+    const subscriptions = await loadSubscriptions();
+    if (subscriptions.length === 0) return;
+
+    const themes = await loadThemes();
+    const postDate = new Date(post.date);
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const month = monthNames[postDate.getMonth()];
+    const year = postDate.getFullYear();
+
+    const theme = themes.find(t => t.month === month && parseInt(t.year) === year);
+    const themeName = theme ? theme.title : "General";
+
+    const mailOptions = {
+      from: (process.env.SMTP_FROM && String(process.env.SMTP_FROM).trim()) ? String(process.env.SMTP_FROM).trim() : (process.env.ALLOWED_EMAIL || 'noreply@example.com'),
+      bcc: subscriptions.map(s => s.email).join(','),
+      subject: `New Blog Published: ${post.title}`,
+      html: `
+        <div style="font-family: 'Inter', sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+          <h2 style="color: #333;">New Post Alert!</h2>
+          <p>Hi there,</p>
+          <p>A new blog post has just been published under this month's theme: <strong>${themeName}</strong>.</p>
+          <div style="margin: 20px 0; padding: 15px; background: #f9f9f9; border-left: 4px solid #FF5733;">
+            <h3 style="margin: 0; color: #FF5733;">${post.title}</h3>
+            <p style="margin: 10px 0; color: #666;">Check out the latest insights and updates on our blog.</p>
+            <a href="${process.env.BASE_URL || 'http://localhost:3000'}/post.html?id=${post.id}" style="display: inline-block; padding: 10px 20px; background: #FF5733; color: white; text-decoration: none; border-radius: 5px;">Read Full Post</a>
+          </div>
+          <p style="font-size: 12px; color: #999;">You are receiving this because you subscribed to our newsletter. <a href="#">Unsubscribe here</a>.</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Notification sent to ${subscriptions.length} subscribers for post: ${post.title}`);
+  } catch (err) {
+    console.error('Error sending post notification:', err);
   }
 }
 
@@ -2007,17 +2090,19 @@ app.post('/auth/reset', async (req, res) => {
   }
 });
 
-// Posts API
 app.get('/api/posts', async (req, res) => {
   const posts = await loadPosts();
-  return res.json({ posts });
+  const now = new Date();
+  // Filter out soft-deleted posts AND future-dated posts for public view
+  const activePosts = posts.filter(p => !p.isDeleted && new Date(p.date) <= now);
+  return res.json({ posts: activePosts });
 });
 
 app.get('/api/posts/:id', async (req, res) => {
   const id = req.params.id;
   const posts = await loadPosts();
   const post = posts.find(p => p.id.toString() === id.toString());
-  if (!post) return res.status(404).json({ error: 'Post not found' });
+  if (!post || post.isDeleted) return res.status(404).json({ error: 'Post not found' });
   return res.json({ post });
 });
 
@@ -2052,6 +2137,12 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
 
   posts.unshift(post);
   await savePosts(posts);
+
+  // Send notification if it's NOT a draft and NOT a future post
+  if (!post.isDraft && new Date(post.date) <= new Date()) {
+    sendNewPostNotification(post);
+  }
+
   return res.json({ success: true, post });
 });
 
@@ -2096,12 +2187,61 @@ app.delete('/api/posts/:id', requireAdmin, async (req, res) => {
     let posts = await loadPosts();
     const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
     if (idx === -1) return res.status(404).json({ error: 'not found' });
-    posts.splice(idx, 1);
+    
+    // Soft delete
+    posts[idx].isDeleted = true;
+    posts[idx].deletedAt = new Date().toISOString();
+    
     await savePosts(posts);
-    return res.json({ success: true });
+    return res.json({ success: true, message: 'Post moved to trash' });
   } catch (e) {
     console.error('Delete post error:', e);
     return res.status(500).json({ error: 'delete_failed', details: e.message });
+  }
+});
+
+// GET /api/posts/deleted - List soft-deleted posts (admin only)
+app.get('/api/admin/posts/deleted', requireAdmin, async (req, res) => {
+  try {
+    const posts = await loadPosts();
+    const deletedPosts = posts.filter(p => p.isDeleted);
+    return res.json({ success: true, posts: deletedPosts });
+  } catch (e) {
+    return res.status(500).json({ error: 'failed_to_load_deleted_posts' });
+  }
+});
+
+// POST /api/posts/:id/restore - Restore a soft-deleted post (admin only)
+app.post('/api/posts/:id/restore', requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    let posts = await loadPosts();
+    const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
+    if (idx === -1) return res.status(404).json({ error: 'not found' });
+    
+    posts[idx].isDeleted = false;
+    delete posts[idx].deletedAt;
+    
+    await savePosts(posts);
+    return res.json({ success: true, message: 'Post restored' });
+  } catch (e) {
+    return res.status(500).json({ error: 'restore_failed' });
+  }
+});
+
+// DELETE /api/posts/:id/perma - Permanently delete a post (admin only)
+app.delete('/api/posts/:id/perma', requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    let posts = await loadPosts();
+    const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
+    if (idx === -1) return res.status(404).json({ error: 'not found' });
+    
+    posts.splice(idx, 1);
+    await savePosts(posts);
+    return res.json({ success: true, message: 'Post permanently deleted' });
+  } catch (e) {
+    return res.status(500).json({ error: 'permanent_delete_failed' });
   }
 });
 
@@ -2189,14 +2329,18 @@ app.post('/api/posts/:id/comments', async (req, res) => {
 // Upload API with Cloudinary
 app.post('/api/upload', requireAdmin, async (req, res) => {
   try {
-    if (!req.files || !req.files.image) return res.status(400).json({ error: 'no file uploaded' });
-    const image = req.files.image;
-    const MAX_BYTES = 5 * 1024 * 1024;
-    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowed.includes(image.mimetype)) {
+    if (!req.files || (!req.files.image && !req.files.video)) return res.status(400).json({ error: 'no file uploaded' });
+    const file = req.files.image || req.files.video;
+    const isVideo = !!req.files.video;
+    const MAX_BYTES = 100 * 1024 * 1024; // 100MB
+    const allowedImages = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedVideos = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+    const allowed = [...allowedImages, ...allowedVideos];
+
+    if (!allowed.includes(file.mimetype)) {
       return res.status(400).json({ error: 'invalid_file_type', allowed });
     }
-    if (image.size > MAX_BYTES) {
+    if (file.size > MAX_BYTES) {
       return res.status(400).json({ error: 'file_too_large', maxBytes: MAX_BYTES });
     }
 
@@ -2205,48 +2349,110 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
       const result = await new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream(
           {
-            resource_type: 'image',
+            resource_type: 'auto', // Auto-detect image or video
             folder: 'blog',
-            public_id: `${Date.now()}_${path.parse(image.name).name}`,
-            transformation: [{ quality: 'auto', fetch_format: 'auto' }]
+            public_id: `${Date.now()}_${path.parse(file.name).name}`,
+            transformation: isVideo ? [] : [{ quality: 'auto', fetch_format: 'auto' }]
           },
           (error, result) => {
             if (error) reject(error);
             else resolve(result);
           }
-        ).end(image.data);
+        ).end(file.data);
       });
       console.log(`Uploaded to Cloudinary: ${result.secure_url}`);
-      return res.json({ success: true, url: result.secure_url, filename: result.public_id, size: image.size });
+      return res.json({ success: true, url: result.secure_url, filename: result.public_id, size: file.size, isVideo });
     }
 
     // Fallback to Vercel Blob
     if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
-      const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
+      const safe = path.basename(file.name).replace(/[^a-z0-9.\-\_]/gi, '_');
       const filename = Date.now() + '_' + safe;
-      const blob = await put(filename, image.data, {
+      const blob = await put(filename, file.data, {
         access: 'public',
-        contentType: image.mimetype
+        contentType: file.mimetype
       });
       console.log(`Uploaded to Vercel Blob: ${blob.url}`);
-      return res.json({ success: true, url: blob.url, filename, size: image.size });
+      return res.json({ success: true, url: blob.url, filename, size: file.size, isVideo });
     }
 
     // Local development fallback
-    const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
+    const safe = path.basename(file.name).replace(/[^a-z0-9.\-\_]/gi, '_');
     const filename = Date.now() + '_' + safe;
     const dest = path.join(UPLOADS_DIR, filename);
-    if (image.data && Buffer.isBuffer(image.data)) {
-      fs.writeFileSync(dest, image.data);
-    } else if (typeof image.mv === 'function') {
-      await new Promise((resolve, reject) => image.mv(dest, err => err ? reject(err) : resolve()));
+    if (file.data && Buffer.isBuffer(file.data)) {
+      fs.writeFileSync(dest, file.data);
+    } else if (typeof file.mv === 'function') {
+      await new Promise((resolve, reject) => file.mv(dest, err => err ? reject(err) : resolve()));
     }
     const url = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
     console.log(`Uploaded locally: ${dest}`);
-    return res.json({ success: true, url, filename, size: image.size });
+    return res.json({ success: true, url, filename, size: file.size, isVideo });
   } catch (err) {
     console.error('upload error:', err);
     return res.status(500).json({ error: 'upload_failed', details: err.message });
+  }
+});
+
+// Monthly Themes API (Admin only)
+app.get('/api/admin/themes', requireAdmin, async (req, res) => {
+  try {
+    const themes = await loadThemes();
+    res.json({ success: true, themes });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/admin/themes', requireAdmin, async (req, res) => {
+  try {
+    const { month, year, title, description } = req.body;
+    if (!month || !year || !title) return res.status(400).json({ success: false, error: 'Month, year, and title are required' });
+    
+    const themes = await loadThemes();
+    const id = Date.now().toString();
+    const newTheme = { id, month, year, title, description: description || '' };
+    
+    themes.push(newTheme);
+    await saveThemes(themes);
+    res.json({ success: true, theme: newTheme });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/admin/themes/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { month, year, title, description } = req.body;
+    const themes = await loadThemes();
+    const idx = themes.findIndex(t => t.id === id);
+    if (idx === -1) return res.status(404).json({ success: false, error: 'Theme not found' });
+    
+    themes[idx] = { 
+      ...themes[idx], 
+      month: month || themes[idx].month, 
+      year: year || themes[idx].year, 
+      title: title || themes[idx].title, 
+      description: description !== undefined ? description : themes[idx].description 
+    };
+    
+    await saveThemes(themes);
+    res.json({ success: true, theme: themes[idx] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/admin/themes/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    let themes = await loadThemes();
+    themes = themes.filter(t => t.id !== id);
+    await saveThemes(themes);
+    res.json({ success: true, message: 'Theme deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -2617,7 +2823,8 @@ app.get('/api/settings/author', async (req, res) => {
 
     // Local development - always read from local file
     const settings = readSettings();
-    const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+    const defaultAuthor = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+    const author = Object.assign({}, defaultAuthor, settings.author || {});
     return res.json({ author });
   } catch (e) {
     console.error('Error reading author settings:', e);
