@@ -880,6 +880,12 @@
                 ? `<img src="${post.image}" alt="${post.title}" class="post-image">`
                 : '';
 
+            const videoHtml = post.video
+                ? `<div class="post-video-container" style="padding: 0 32px; margin-top: 20px;">
+                    <video src="${post.video}" controls class="post-video" style="width: 100%; border-radius: 12px; box-shadow: var(--shadow-md);"></video>
+                   </div>`
+                : '';
+
             container.innerHTML = `
                 <div class="post-header">
                     <h1 class="post-title">${post.title}</h1>
@@ -889,6 +895,7 @@
                     </div>
                 </div>
                 ${imageHtml}
+                ${videoHtml}
                 <div class="post-content">
                     ${post.content || '<p>No content available.</p>'}
                 </div>
