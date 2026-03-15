@@ -384,7 +384,7 @@ app.use(session({
 }));
 
 app.use(fileUpload({
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB for videos
   useTempFiles: false,
   createParentPath: true
 }));
@@ -2007,17 +2007,18 @@ app.post('/auth/reset', async (req, res) => {
   }
 });
 
-// Posts API
 app.get('/api/posts', async (req, res) => {
   const posts = await loadPosts();
-  return res.json({ posts });
+  // Filter out soft-deleted posts for public view
+  const activePosts = posts.filter(p => !p.isDeleted);
+  return res.json({ posts: activePosts });
 });
 
 app.get('/api/posts/:id', async (req, res) => {
   const id = req.params.id;
   const posts = await loadPosts();
   const post = posts.find(p => p.id.toString() === id.toString());
-  if (!post) return res.status(404).json({ error: 'Post not found' });
+  if (!post || post.isDeleted) return res.status(404).json({ error: 'Post not found' });
   return res.json({ post });
 });
 
@@ -2096,12 +2097,61 @@ app.delete('/api/posts/:id', requireAdmin, async (req, res) => {
     let posts = await loadPosts();
     const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
     if (idx === -1) return res.status(404).json({ error: 'not found' });
-    posts.splice(idx, 1);
+    
+    // Soft delete
+    posts[idx].isDeleted = true;
+    posts[idx].deletedAt = new Date().toISOString();
+    
     await savePosts(posts);
-    return res.json({ success: true });
+    return res.json({ success: true, message: 'Post moved to trash' });
   } catch (e) {
     console.error('Delete post error:', e);
     return res.status(500).json({ error: 'delete_failed', details: e.message });
+  }
+});
+
+// GET /api/posts/deleted - List soft-deleted posts (admin only)
+app.get('/api/admin/posts/deleted', requireAdmin, async (req, res) => {
+  try {
+    const posts = await loadPosts();
+    const deletedPosts = posts.filter(p => p.isDeleted);
+    return res.json({ success: true, posts: deletedPosts });
+  } catch (e) {
+    return res.status(500).json({ error: 'failed_to_load_deleted_posts' });
+  }
+});
+
+// POST /api/posts/:id/restore - Restore a soft-deleted post (admin only)
+app.post('/api/posts/:id/restore', requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    let posts = await loadPosts();
+    const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
+    if (idx === -1) return res.status(404).json({ error: 'not found' });
+    
+    posts[idx].isDeleted = false;
+    delete posts[idx].deletedAt;
+    
+    await savePosts(posts);
+    return res.json({ success: true, message: 'Post restored' });
+  } catch (e) {
+    return res.status(500).json({ error: 'restore_failed' });
+  }
+});
+
+// DELETE /api/posts/:id/perma - Permanently delete a post (admin only)
+app.delete('/api/posts/:id/perma', requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    let posts = await loadPosts();
+    const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
+    if (idx === -1) return res.status(404).json({ error: 'not found' });
+    
+    posts.splice(idx, 1);
+    await savePosts(posts);
+    return res.json({ success: true, message: 'Post permanently deleted' });
+  } catch (e) {
+    return res.status(500).json({ error: 'permanent_delete_failed' });
   }
 });
 
@@ -2189,14 +2239,18 @@ app.post('/api/posts/:id/comments', async (req, res) => {
 // Upload API with Cloudinary
 app.post('/api/upload', requireAdmin, async (req, res) => {
   try {
-    if (!req.files || !req.files.image) return res.status(400).json({ error: 'no file uploaded' });
-    const image = req.files.image;
-    const MAX_BYTES = 5 * 1024 * 1024;
-    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowed.includes(image.mimetype)) {
+    if (!req.files || (!req.files.image && !req.files.video)) return res.status(400).json({ error: 'no file uploaded' });
+    const file = req.files.image || req.files.video;
+    const isVideo = !!req.files.video;
+    const MAX_BYTES = 100 * 1024 * 1024; // 100MB
+    const allowedImages = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedVideos = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+    const allowed = [...allowedImages, ...allowedVideos];
+
+    if (!allowed.includes(file.mimetype)) {
       return res.status(400).json({ error: 'invalid_file_type', allowed });
     }
-    if (image.size > MAX_BYTES) {
+    if (file.size > MAX_BYTES) {
       return res.status(400).json({ error: 'file_too_large', maxBytes: MAX_BYTES });
     }
 
@@ -2205,45 +2259,45 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
       const result = await new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream(
           {
-            resource_type: 'image',
+            resource_type: 'auto', // Auto-detect image or video
             folder: 'blog',
-            public_id: `${Date.now()}_${path.parse(image.name).name}`,
-            transformation: [{ quality: 'auto', fetch_format: 'auto' }]
+            public_id: `${Date.now()}_${path.parse(file.name).name}`,
+            transformation: isVideo ? [] : [{ quality: 'auto', fetch_format: 'auto' }]
           },
           (error, result) => {
             if (error) reject(error);
             else resolve(result);
           }
-        ).end(image.data);
+        ).end(file.data);
       });
       console.log(`Uploaded to Cloudinary: ${result.secure_url}`);
-      return res.json({ success: true, url: result.secure_url, filename: result.public_id, size: image.size });
+      return res.json({ success: true, url: result.secure_url, filename: result.public_id, size: file.size, isVideo });
     }
 
     // Fallback to Vercel Blob
     if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
-      const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
+      const safe = path.basename(file.name).replace(/[^a-z0-9.\-\_]/gi, '_');
       const filename = Date.now() + '_' + safe;
-      const blob = await put(filename, image.data, {
+      const blob = await put(filename, file.data, {
         access: 'public',
-        contentType: image.mimetype
+        contentType: file.mimetype
       });
       console.log(`Uploaded to Vercel Blob: ${blob.url}`);
-      return res.json({ success: true, url: blob.url, filename, size: image.size });
+      return res.json({ success: true, url: blob.url, filename, size: file.size, isVideo });
     }
 
     // Local development fallback
-    const safe = path.basename(image.name).replace(/[^a-z0-9.\-\_]/gi, '_');
+    const safe = path.basename(file.name).replace(/[^a-z0-9.\-\_]/gi, '_');
     const filename = Date.now() + '_' + safe;
     const dest = path.join(UPLOADS_DIR, filename);
-    if (image.data && Buffer.isBuffer(image.data)) {
-      fs.writeFileSync(dest, image.data);
-    } else if (typeof image.mv === 'function') {
-      await new Promise((resolve, reject) => image.mv(dest, err => err ? reject(err) : resolve()));
+    if (file.data && Buffer.isBuffer(file.data)) {
+      fs.writeFileSync(dest, file.data);
+    } else if (typeof file.mv === 'function') {
+      await new Promise((resolve, reject) => file.mv(dest, err => err ? reject(err) : resolve()));
     }
     const url = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
     console.log(`Uploaded locally: ${dest}`);
-    return res.json({ success: true, url, filename, size: image.size });
+    return res.json({ success: true, url, filename, size: file.size, isVideo });
   } catch (err) {
     console.error('upload error:', err);
     return res.status(500).json({ error: 'upload_failed', details: err.message });
