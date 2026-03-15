@@ -803,6 +803,80 @@
             background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
             transform: scale(1.02);
         }
+
+        /* Author Profile Photo Styles */
+        .post-author-img {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            cursor: pointer;
+            transition: transform 0.2s;
+            background: #eee;
+        }
+
+        .post-author-img:hover {
+            transform: scale(1.1);
+        }
+
+        .post-header-with-author {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        /* Lightbox Styles */
+        .lightbox-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .lightbox-modal.active {
+            display: flex;
+        }
+
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 90%;
+            position: relative;
+        }
+
+        .lightbox-image {
+            max-width: 100%;
+            max-height: 80vh;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 5px;
+        }
+
+        .lightbox-info {
+            color: white;
+            text-align: center;
+            margin-top: 15px;
+        }
     </style>
 </head>
 
@@ -833,10 +907,22 @@
         </div>
     </main>
 
+    <!-- Lightbox Modal -->
+    <div id="lightbox" class="lightbox-modal" onclick="closeLightbox(event)">
+        <div class="lightbox-content">
+            <button class="lightbox-close" onclick="closeLightbox(event)">&times;</button>
+            <img id="lightbox-img" class="lightbox-image" alt="Enlarged profile">
+            <div class="lightbox-info">
+                <h3 id="lightbox-author-name">Author</h3>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Get post ID from URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const postId = urlParams.get('id');
+        let globalAuthorInfo = null;
 
         if (!postId) {
             showError('No post ID provided');
@@ -851,6 +937,18 @@
                     throw new Error(`Post not found (${response.status})`);
                 }
                 const data = await response.json();
+                
+                // Load author info
+                try {
+                    const authorResp = await fetch(`/api/settings/author?t=${new Date().getTime()}`);
+                    const authorData = await authorResp.json();
+                    if (authorData.author) {
+                        globalAuthorInfo = authorData.author;
+                    }
+                } catch (e) {
+                    console.error('Failed to load author info:', e);
+                }
+
                 renderPost(data.post);
                 loadComments(id);
             } catch (error) {
@@ -886,9 +984,16 @@
                    </div>`
                 : '';
 
+            const authorImgHtml = globalAuthorInfo && globalAuthorInfo.profilePicture
+                ? `<img src="${globalAuthorInfo.profilePicture}" class="post-author-img" onclick="openLightbox('${globalAuthorInfo.profilePicture}')" title="View author profile" alt="Author">`
+                : '';
+
             container.innerHTML = `
                 <div class="post-header">
-                    <h1 class="post-title">${post.title}</h1>
+                    <div class="post-header-with-author">
+                        ${authorImgHtml}
+                        <h1 class="post-title" style="margin-bottom: 0;">${post.title}</h1>
+                    </div>
                     <div class="post-meta">
                         <span>${date} · ${post.author || 'Admin'}</span>
                         <span>📖 ${readingTime} min read</span>
@@ -1187,6 +1292,32 @@
                 document.body.removeChild(textArea);
                 alert('Link copied to clipboard!');
             });
+        }
+
+        // Lightbox functions
+        function openLightbox(imgUrl) {
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImg = document.getElementById('lightbox-img');
+            const authorName = document.getElementById('lightbox-author-name');
+            
+            if (lightbox && lightboxImg) {
+                lightboxImg.src = imgUrl;
+                if (authorName && globalAuthorInfo) {
+                    authorName.textContent = globalAuthorInfo.name || 'Author';
+                }
+                lightbox.classList.add('active');
+            }
+        }
+
+        function closeLightbox(event) {
+            if (event) {
+                // Only close if clicking backdrop or close button
+                if (event.target.id === 'lightbox' || event.target.classList.contains('lightbox-close')) {
+                    document.getElementById('lightbox').classList.remove('active');
+                }
+            } else {
+                document.getElementById('lightbox').classList.remove('active');
+            }
         }
 
         // Active Tab Highlighting Function
