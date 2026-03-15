@@ -285,6 +285,7 @@ const ANALYTICS_FILE = path.join(__dirname, 'analytics.json');
 const SECURITY_LOGS_FILE = path.join(__dirname, 'security_logs.json');
 const COMMENTS_FILE = path.join(__dirname, 'comments.json');
 const SUBSCRIPTIONS_FILE = path.join(__dirname, 'subscriptions.json');
+const THEMES_FILE = path.join(__dirname, 'themes.json');
 
 // Google client ID (used to validate id_token audience in /auth/google)
 // For local dev, we fall back to the same client_id used in login.html so Google Sign-In works
@@ -819,6 +820,88 @@ async function saveSubscriptions(subscriptions) {
     fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptions, null, 2));
   } catch (e) {
     console.error('Save subscriptions error:', e);
+  }
+}
+
+async function loadThemes() {
+  try {
+    const db = await getMongoDB();
+    if (db) {
+      const themes = await db.collection('themes').find({}).sort({ year: -1, month: -1 }).toArray();
+      return themes.map(t => ({ ...t, id: (t._id || t.id).toString() }));
+    }
+    if (process.env.VERCEL && kv) {
+      const data = await kv.get('themes');
+      return data ? JSON.parse(data) : [];
+    }
+    if (!fs.existsSync(THEMES_FILE)) return [];
+    return JSON.parse(fs.readFileSync(THEMES_FILE, 'utf8')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function saveThemes(themes) {
+  try {
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('themes').deleteMany({});
+      if (themes.length > 0) {
+        const toSave = themes.map(t => {
+          const { id, ...rest } = t;
+          return { ...rest, _id: id };
+        });
+        await mongoDb.collection('themes').insertMany(toSave);
+      }
+      return;
+    }
+    if (process.env.VERCEL && kv) {
+      await kv.set('themes', JSON.stringify(themes));
+      return;
+    }
+    fs.writeFileSync(THEMES_FILE, JSON.stringify(themes, null, 2));
+  } catch (e) {
+    console.error('Save themes error:', e);
+  }
+}
+
+async function sendNewPostNotification(post) {
+  try {
+    const subscriptions = await loadSubscriptions();
+    if (subscriptions.length === 0) return;
+
+    const themes = await loadThemes();
+    const postDate = new Date(post.date);
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const month = monthNames[postDate.getMonth()];
+    const year = postDate.getFullYear();
+
+    const theme = themes.find(t => t.month === month && parseInt(t.year) === year);
+    const themeName = theme ? theme.title : "General";
+
+    const mailOptions = {
+      from: (process.env.SMTP_FROM && String(process.env.SMTP_FROM).trim()) ? String(process.env.SMTP_FROM).trim() : (process.env.ALLOWED_EMAIL || 'noreply@example.com'),
+      bcc: subscriptions.map(s => s.email).join(','),
+      subject: `New Blog Published: ${post.title}`,
+      html: `
+        <div style="font-family: 'Inter', sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+          <h2 style="color: #333;">New Post Alert!</h2>
+          <p>Hi there,</p>
+          <p>A new blog post has just been published under this month's theme: <strong>${themeName}</strong>.</p>
+          <div style="margin: 20px 0; padding: 15px; background: #f9f9f9; border-left: 4px solid #FF5733;">
+            <h3 style="margin: 0; color: #FF5733;">${post.title}</h3>
+            <p style="margin: 10px 0; color: #666;">Check out the latest insights and updates on our blog.</p>
+            <a href="${process.env.BASE_URL || 'http://localhost:3000'}/post.html?id=${post.id}" style="display: inline-block; padding: 10px 20px; background: #FF5733; color: white; text-decoration: none; border-radius: 5px;">Read Full Post</a>
+          </div>
+          <p style="font-size: 12px; color: #999;">You are receiving this because you subscribed to our newsletter. <a href="#">Unsubscribe here</a>.</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Notification sent to ${subscriptions.length} subscribers for post: ${post.title}`);
+  } catch (err) {
+    console.error('Error sending post notification:', err);
   }
 }
 
@@ -2009,8 +2092,9 @@ app.post('/auth/reset', async (req, res) => {
 
 app.get('/api/posts', async (req, res) => {
   const posts = await loadPosts();
-  // Filter out soft-deleted posts for public view
-  const activePosts = posts.filter(p => !p.isDeleted);
+  const now = new Date();
+  // Filter out soft-deleted posts AND future-dated posts for public view
+  const activePosts = posts.filter(p => !p.isDeleted && new Date(p.date) <= now);
   return res.json({ posts: activePosts });
 });
 
@@ -2053,6 +2137,12 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
 
   posts.unshift(post);
   await savePosts(posts);
+
+  // Send notification if it's NOT a draft and NOT a future post
+  if (!post.isDraft && new Date(post.date) <= new Date()) {
+    sendNewPostNotification(post);
+  }
+
   return res.json({ success: true, post });
 });
 
@@ -2301,6 +2391,68 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('upload error:', err);
     return res.status(500).json({ error: 'upload_failed', details: err.message });
+  }
+});
+
+// Monthly Themes API (Admin only)
+app.get('/api/admin/themes', requireAdmin, async (req, res) => {
+  try {
+    const themes = await loadThemes();
+    res.json({ success: true, themes });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/admin/themes', requireAdmin, async (req, res) => {
+  try {
+    const { month, year, title, description } = req.body;
+    if (!month || !year || !title) return res.status(400).json({ success: false, error: 'Month, year, and title are required' });
+    
+    const themes = await loadThemes();
+    const id = Date.now().toString();
+    const newTheme = { id, month, year, title, description: description || '' };
+    
+    themes.push(newTheme);
+    await saveThemes(themes);
+    res.json({ success: true, theme: newTheme });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/admin/themes/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { month, year, title, description } = req.body;
+    const themes = await loadThemes();
+    const idx = themes.findIndex(t => t.id === id);
+    if (idx === -1) return res.status(404).json({ success: false, error: 'Theme not found' });
+    
+    themes[idx] = { 
+      ...themes[idx], 
+      month: month || themes[idx].month, 
+      year: year || themes[idx].year, 
+      title: title || themes[idx].title, 
+      description: description !== undefined ? description : themes[idx].description 
+    };
+    
+    await saveThemes(themes);
+    res.json({ success: true, theme: themes[idx] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/admin/themes/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    let themes = await loadThemes();
+    themes = themes.filter(t => t.id !== id);
+    await saveThemes(themes);
+    res.json({ success: true, message: 'Theme deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -2671,7 +2823,8 @@ app.get('/api/settings/author', async (req, res) => {
 
     // Local development - always read from local file
     const settings = readSettings();
-    const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+    const defaultAuthor = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+    const author = Object.assign({}, defaultAuthor, settings.author || {});
     return res.json({ author });
   } catch (e) {
     console.error('Error reading author settings:', e);
