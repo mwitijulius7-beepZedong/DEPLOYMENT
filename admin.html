@@ -11,6 +11,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script>
         // Define navigation functions IMMEDIATELY in <head> so inline onclick handlers can find them
+        let isSavingPost = false; // Flag to prevent duplicate saves
+
         function hideAllSections() {
             const sections = ['dashboard', 'posts-section', 'users-section', 'analytics-section', 'create-post-section', 'settings-section'];
             sections.forEach(sectionId => {
@@ -462,25 +464,27 @@
 
         async function loadPostsList() {
             console.log('loadPostsList called');
+            const postsList = document.getElementById('posts-list');
+            if (postsList) postsList.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">Loading posts...</div>';
+
             try {
-                const response = await fetch('/api/posts');
+                const response = await apiFetch('/api/posts');
                 const data = await response.json();
-                const postsList = document.getElementById('posts-list');
                 const totalPosts = document.getElementById('total-posts');
 
                 console.log('Posts data:', data);
 
                 if (data.posts && data.posts.length > 0) {
                     postsList.innerHTML = data.posts.map(post => `
-                        <div class="post-item">
+                        <div class="post-item" onclick="editPost('${post.id}')" style="cursor: pointer;">
                             <div class="post-item-header">
                                 <div style="display: flex; align-items: center; gap: 10px;">
-                                    <input type="checkbox" class="post-checkbox" data-post-id="${post.id}" onchange="updateSelectedCount()">
+                                    <input type="checkbox" class="post-checkbox" data-post-id="${post.id}" onchange="updateSelectedCount()" onclick="event.stopPropagation()">
                                     <h4 class="post-item-title" style="margin: 0;">${post.title}</h4>
                                 </div>
                                 <div style="display:flex; gap:8px;">
-                                    <button class="btn-modern sm secondary" onclick="editPost('${post.id}')">Edit</button>
-                                    <button class="btn-modern sm" style="background-color: #dc2626;" onclick="deletePost('${post.id}')">Delete</button>
+                                    <button class="btn-modern sm secondary" onclick="event.stopPropagation(); editPost('${post.id}')">Edit</button>
+                                    <button class="btn-modern sm" style="background-color: #dc2626;" onclick="event.stopPropagation(); deletePost('${post.id}')">Delete</button>
                                 </div>
                             </div>
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
@@ -516,7 +520,7 @@
             console.log('editPost called with ID:', postId);
             try {
                 // Fetch the post data
-                const response = await fetch(`/api/posts/${postId}`);
+                const response = await apiFetch(`/api/posts/${postId}`);
                 const data = await response.json();
 
                 if (!response.ok || !data.post) {
@@ -572,11 +576,8 @@
             console.log('deletePost called with ID:', postId);
             if (confirm('Are you sure you want to delete this post?')) {
                 try {
-                    const headers = getAuthHeaders();
-                    const response = await fetch(`/api/posts/${postId}`, {
-                        method: 'DELETE',
-                        headers: headers,
-                        credentials: 'include'
+                    const response = await apiFetch(`/api/posts/${postId}`, {
+                        method: 'DELETE'
                     });
 
                     console.log('Delete post response status:', response.status);
@@ -767,6 +768,8 @@
         }
 
         async function saveNewPost() {
+            if (isSavingPost) return;
+
             const postId = document.getElementById('edit-post-id').value;
             const title = document.getElementById('post-title').value.trim();
             const content = document.getElementById('post-content').value.trim();
@@ -783,7 +786,14 @@
                 return;
             }
 
+            const saveBtn = document.querySelector('#create-post-section .form-actions .btn-modern:first-child');
+            const originalBtnContent = saveBtn.innerHTML;
+
             try {
+                isSavingPost = true;
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i>⏳</i> Saving...';
+
                 let imageUrl = document.getElementById('preview-img').src || '';
                 let videoUrl = document.getElementById('preview-video').src || '';
 
@@ -845,10 +855,8 @@
                 const url = postId ? `/api/posts/${postId}` : '/api/posts';
                 const method = postId ? 'PUT' : 'POST';
 
-                const response = await fetch(url, {
+                const response = await apiFetch(url, {
                     method: method,
-                    headers: getAuthHeaders(),
-                    credentials: 'include',
                     body: JSON.stringify(postData)
                 });
 
@@ -865,6 +873,12 @@
             } catch (e) {
                 console.error('Error saving post:', e);
                 alert('Error saving post: ' + e.message);
+            } finally {
+                isSavingPost = false;
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalBtnContent;
+                }
             }
         }
 
@@ -3837,10 +3851,14 @@
 
                 <!-- Create Post Section -->
                 <div id="create-post-section" class="section-content" style="display: none;">
-                    <div class="section-header">
-                        <h3 class="section-title">✏️ Create New Post</h3>
-                        <p class="section-description">Write and publish a new blog post with images and rich content.
-                        </p>
+                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <h3 class="section-title">✏️ Create New Post</h3>
+                            <p class="section-description">Write and publish a new blog post with images and rich content.</p>
+                        </div>
+                        <button class="btn-modern secondary" onclick="showPostsSection()">
+                            <i>🔙</i> Back to Posts
+                        </button>
                     </div>
 
                     <div class="section-body">
@@ -4920,7 +4938,7 @@
                             container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-medium);">Loading posts...</div>';
 
                             try {
-                                const response = await fetch('/api/posts');
+                                const response = await apiFetch('/api/posts');
                                 const data = await response.json();
                                 const posts = data.posts || [];
 

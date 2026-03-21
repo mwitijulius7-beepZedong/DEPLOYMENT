@@ -33,7 +33,12 @@ export function togglePostsList() {
 
 export async function loadPostsList() {
     try {
-        const response = await fetch('/api/posts');
+        const response = await fetch('/api/posts', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            },
+            credentials: 'include'
+        });
         const data = await response.json();
         const postsList = document.getElementById('posts-list');
         const totalPosts = document.getElementById('total-posts');
@@ -97,7 +102,12 @@ export async function showCreatePostSection() {
     const categorySelect = document.getElementById('post-category');
     if (categorySelect) {
         try {
-            const response = await fetch('/api/categories');
+            const response = await fetch('/api/categories', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                },
+                credentials: 'include'
+            });
             const data = await response.json();
             if (data.categories) {
                 categorySelect.innerHTML = '<option value="">Select a category</option>';
@@ -126,6 +136,9 @@ export async function deletePost(postId) {
         try {
             const response = await fetch(`/api/posts/${postId}`, {
                 method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                },
                 credentials: 'include'
             });
 
@@ -185,6 +198,9 @@ export async function deleteSelectedPosts() {
         try {
             const response = await fetch(`/api/posts/${postId}`, {
                 method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                },
                 credentials: 'include'
             });
 
@@ -278,6 +294,9 @@ export async function saveNewPost() {
         const response = await fetch('/api/posts', {
             method: 'POST',
             body: formData,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            },
             credentials: 'include'
         });
 
