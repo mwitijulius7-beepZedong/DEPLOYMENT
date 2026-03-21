@@ -1029,6 +1029,29 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ error: 'not authenticated' });
 }
 
+function isUserAdmin(req) {
+  // Check session first
+  if (req.session && req.session.user && String(req.session.user.role || 'USER').toUpperCase() === 'ADMIN') {
+    return true;
+  }
+
+  // Check Authorization header for JWT
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      if (String(decoded.role || 'USER').toUpperCase() === 'ADMIN') {
+        return true;
+      }
+    } catch (e) {
+      // Ignore verification errors here
+    }
+  }
+
+  return false;
+}
+
 function requireAdminRole(req, res, next) {
   const user = req.session?.user || req.user;
   if (!user) return res.status(401).json({ error: 'not authenticated' });
@@ -2091,19 +2114,52 @@ app.post('/auth/reset', async (req, res) => {
 });
 
 app.get('/api/posts', async (req, res) => {
-  const posts = await loadPosts();
-  const now = new Date();
-  // Filter out soft-deleted posts AND future-dated posts for public view
-  const activePosts = posts.filter(p => !p.isDeleted && new Date(p.date) <= now);
-  return res.json({ posts: activePosts });
+  try {
+    const posts = await loadPosts();
+    const isAdmin = isUserAdmin(req);
+    const now = new Date();
+
+    const filteredPosts = posts.filter(p => {
+      // Basic filter: not deleted
+      if (p.isDeleted) return false;
+
+      // If admin, show everything (including drafts and future posts)
+      if (isAdmin) return true;
+
+      // For regular readers: must not be draft and must be published (date <= now)
+      return !p.isDraft && new Date(p.date) <= now;
+    });
+
+    return res.json({ posts: filteredPosts });
+  } catch (error) {
+    console.error('Error in GET /api/posts:', error);
+    return res.status(500).json({ error: 'Failed to load posts' });
+  }
 });
 
 app.get('/api/posts/:id', async (req, res) => {
-  const id = req.params.id;
-  const posts = await loadPosts();
-  const post = posts.find(p => p.id.toString() === id.toString());
-  if (!post || post.isDeleted) return res.status(404).json({ error: 'Post not found' });
-  return res.json({ post });
+  try {
+    const id = req.params.id;
+    const posts = await loadPosts();
+    const post = posts.find(p => p.id.toString() === id.toString());
+
+    if (!post || post.isDeleted) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    const isAdmin = isUserAdmin(req);
+    const now = new Date();
+
+    // Restricted access for non-admins: hide drafts and future posts
+    if (!isAdmin && (post.isDraft || new Date(post.date) > now)) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    return res.json({ post });
+  } catch (error) {
+    console.error('Error in GET /api/posts/:id:', error);
+    return res.status(500).json({ error: 'Failed to load post' });
+  }
 });
 
 app.post('/api/posts', requireAdmin, async (req, res) => {
