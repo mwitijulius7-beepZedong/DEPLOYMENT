@@ -35,3 +35,9 @@ output.css
 test.html
 .vercel
 .codebuddy
+
+# Temporary diagnostic scripts
+temp-*.js
+
+# User-uploaded media
+uploads/
