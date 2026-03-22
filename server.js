@@ -3394,13 +3394,30 @@ app.post('/api/settings/content', requireAdmin, async (req, res) => {
 // Categories API
 app.get('/api/categories', async (req, res) => {
   try {
-    console.log('Loading categories - DB connected:', !!db);
     const categories = await loadCategories();
-    console.log('Categories loaded:', categories.length);
-    return res.json({ categories, debug: { dbConnected: !!db, count: categories.length } });
+    const isAdmin = isUserAdmin(req);
+
+    if (isAdmin) {
+      return res.json({ categories });
+    }
+
+    // For readers, only show categories with at least one published post
+    const posts = await loadPosts();
+    const now = new Date();
+
+    const publishedCategoryIds = new Set(
+      posts
+        .filter(p => !p.isDeleted && !p.isDraft && new Date(p.date) <= now)
+        .map(p => p.categoryId ? p.categoryId.toString() : null)
+        .filter(id => id !== null)
+    );
+
+    const filteredCategories = categories.filter(c => publishedCategoryIds.has(c.id.toString()));
+
+    return res.json({ categories: filteredCategories });
   } catch (error) {
     console.error('Categories load error:', error);
-    return res.json({ categories: [], error: error.message });
+    return res.status(500).json({ categories: [], error: error.message });
   }
 });
 
