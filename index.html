@@ -422,6 +422,80 @@
         .skip-link:focus {
             top: 0;
         }
+
+        /* Author Profile Photo Styles */
+        .post-author-img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+            background: #eee;
+        }
+
+        .post-author-img:hover {
+            transform: scale(1.1);
+        }
+
+        .post-header-with-author {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 0.375rem;
+        }
+
+        /* Lightbox Styles */
+        .lightbox-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .lightbox-modal.active {
+            display: flex;
+        }
+
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 90%;
+            position: relative;
+        }
+
+        .lightbox-image {
+            max-width: 100%;
+            max-height: 80vh;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 5px;
+        }
+
+        .lightbox-info {
+            color: white;
+            text-align: center;
+            margin-top: 15px;
+        }
     </style>
 </head>
 
@@ -498,7 +572,15 @@
                                 VIDEO
                             </div>
                         </div>
-                        <h2 class="post-title">{{ post.title || 'Untitled' }}</h2>
+                        <div class="post-header-with-author">
+                            <img v-if="authorInfo && authorInfo.profilePicture" 
+                                 :src="authorInfo.profilePicture" 
+                                 class="post-author-img" 
+                                 @click.prevent="openLightbox(authorInfo.profilePicture)"
+                                 title="View author profile"
+                                 alt="Author">
+                            <h2 class="post-title">{{ post.title || 'Untitled' }}</h2>
+                        </div>
                         <div class="post-meta">{{ formatDate(post.date) }} · {{ post.author || 'Unknown' }} · {{
                             getReadingTime(post.content) }}</div>
                         <p class="post-excerpt">{{ getExcerpt(post.content) }}</p>
@@ -517,6 +599,17 @@
                                 {{ post.dislikes || 0 }}</span>
                         </div>
                     </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lightbox Modal -->
+        <div id="lightbox" class="lightbox-modal" :class="{ active: isLightboxOpen }" @click.self="closeLightbox">
+            <div class="lightbox-content">
+                <button class="lightbox-close" @click="closeLightbox">&times;</button>
+                <img :src="lightboxImg" class="lightbox-image" alt="Enlarged profile">
+                <div class="lightbox-info">
+                    <h3>{{ authorInfo ? authorInfo.name : 'Author' }}</h3>
                 </div>
             </div>
         </div>
@@ -542,7 +635,10 @@
                         selectedCategory: '',
                         selectedTag: '',
                         selectedArchive: '',
-                        selectedDate: ''
+                        selectedDate: '',
+                        authorInfo: null,
+                        lightboxImg: '',
+                        isLightboxOpen: false
                     };
                 },
                 mounted() {
@@ -669,6 +765,17 @@
                         } catch (e) {
                             console.error('Failed to load blog info settings:', e);
                         }
+
+                        // Load author settings for profile photo
+                        try {
+                            const authorResp = await fetch(`/api/settings/author?t=${new Date().getTime()}`);
+                            const authorData = await authorResp.json();
+                            if (authorData.author) {
+                                this.authorInfo = authorData.author;
+                            }
+                        } catch (e) {
+                            console.error('Failed to load author info settings:', e);
+                        }
                     },
                     clearFilters() {
                         this.searchQuery = '';
@@ -748,6 +855,14 @@
                         } catch (e) {
                             console.error('Reaction error:', e);
                         }
+                    },
+                    openLightbox(imgUrl) {
+                        console.log('Opening lightbox for:', imgUrl);
+                        this.lightboxImg = imgUrl;
+                        this.isLightboxOpen = true;
+                    },
+                    closeLightbox() {
+                        this.isLightboxOpen = false;
                     }
                 }
             }).mount('#app');
