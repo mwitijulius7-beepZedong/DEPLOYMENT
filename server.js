@@ -2116,6 +2116,7 @@ app.post('/auth/reset', async (req, res) => {
 app.get('/api/posts', async (req, res) => {
   try {
     const posts = await loadPosts();
+    const includeDrafts = req.query.include_drafts === 'true';
     const isAdmin = isUserAdmin(req);
     const now = new Date();
 
@@ -2123,11 +2124,13 @@ app.get('/api/posts', async (req, res) => {
       // Basic filter: not deleted
       if (p.isDeleted) return false;
 
-      // If admin, show everything (including drafts and future posts)
-      if (isAdmin) return true;
+      // Only include drafts if admin AND explicitly requested
+      if (p.isDraft) return isAdmin && includeDrafts;
 
-      // For regular readers: must not be draft and must be published (date <= now)
-      return !p.isDraft && new Date(p.date) <= now;
+      // For regular readers: must be published (date <= now)
+      // Admins always see all non-draft posts
+      if (isAdmin) return true;
+      return new Date(p.date) <= now;
     });
 
     return res.json({ posts: filteredPosts });
@@ -2166,10 +2169,7 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
   const body = req.body;
   if (!body || !body.title || !body.content) return res.status(400).json({ error: 'missing title or content' });
 
-  const posts = await loadPosts();
-  const id = Date.now();
   const post = {
-    id,
     title: body.title,
     author: body.author || (req.session.user && req.session.user.name) || 'Admin',
     content: body.content,
@@ -2178,77 +2178,123 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
     image: body.image || '',
     featured: !!body.featured,
     isDraft: !!body.isDraft,
-    categoryId: null,
+    categoryId: body.categoryId || null,
     likes: 0,
     dislikes: 0
   };
 
-  if (body && ('categoryId' in body) && body.categoryId != null) {
-    post.categoryId = body.categoryId;
+  try {
+    if (db) {
+      // If featured, reset others
+      if (post.featured) {
+        await db.collection('posts').updateMany({}, { $set: { featured: false } });
+      }
+      const result = await db.collection('posts').insertOne(post);
+      post.id = result.insertedId.toString();
+    } else {
+      // Fallback for local/KV
+      const posts = await loadPosts();
+      post.id = Date.now().toString();
+      if (post.featured) posts.forEach(p => p.featured = false);
+      posts.unshift(post);
+      await savePosts(posts);
+    }
+
+    // Send notification if it's NOT a draft
+    if (!post.isDraft && new Date(post.date) <= new Date()) {
+      sendNewPostNotification(post);
+    }
+
+    return res.json({ success: true, post });
+  } catch (error) {
+    console.error('Error creating post:', error);
+    return res.status(500).json({ error: 'internal_error' });
   }
-
-  if (post.featured) {
-    posts.forEach(p => p.featured = false);
-  }
-
-  posts.unshift(post);
-  await savePosts(posts);
-
-  // Send notification if it's NOT a draft and NOT a future post
-  if (!post.isDraft && new Date(post.date) <= new Date()) {
-    sendNewPostNotification(post);
-  }
-
-  return res.json({ success: true, post });
 });
 
 // PUT /api/posts/:id - update (admin only)
 app.put('/api/posts/:id', requireAdmin, async (req, res) => {
   const id = req.params.id;
   const body = req.body;
-  const posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id.toString() === id.toString());
-  if (idx === -1) return res.status(404).json({ error: 'not found' });
 
-  const updated = {
-    ...posts[idx],
-    title: body.title || posts[idx].title,
-    author: body.author || posts[idx].author,
-    content: body.content || posts[idx].content,
-    tags: Array.isArray(body.tags) ? body.tags : posts[idx].tags,
-    image: body.image || posts[idx].image,
-    featured: !!body.featured,
-    isDraft: 'isDraft' in body ? !!body.isDraft : posts[idx].isDraft,
-    categoryId: posts[idx].categoryId,
-    likes: typeof posts[idx].likes === 'number' ? posts[idx].likes : 0,
-    dislikes: typeof posts[idx].dislikes === 'number' ? posts[idx].dislikes : 0
-  };
+  try {
+    if (db) {
+      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const existing = await db.collection('posts').findOne(filter);
+      if (!existing) return res.status(404).json({ error: 'not found' });
 
-  if ('categoryId' in body) {
-    updated.categoryId = body.categoryId == null ? null : body.categoryId;
+      const updatedFields = {};
+      if (body.title !== undefined) updatedFields.title = body.title;
+      if (body.author !== undefined) updatedFields.author = body.author;
+      if (body.content !== undefined) updatedFields.content = body.content;
+      if (body.tags !== undefined) updatedFields.tags = body.tags;
+      if (body.image !== undefined) updatedFields.image = body.image;
+      if (body.featured !== undefined) {
+        updatedFields.featured = !!body.featured;
+        if (updatedFields.featured) {
+          await db.collection('posts').updateMany({ _id: { $ne: existing._id } }, { $set: { featured: false } });
+        }
+      }
+      if (body.isDraft !== undefined) updatedFields.isDraft = !!body.isDraft;
+      if ('categoryId' in body) updatedFields.categoryId = body.categoryId;
+      
+      updatedFields.updatedAt = new Date().toISOString();
+
+      await db.collection('posts').updateOne(filter, { $set: updatedFields });
+      return res.json({ success: true, post: { ...existing, ...updatedFields } });
+    } else {
+      const posts = await loadPosts();
+      const idx = posts.findIndex(p => p.id.toString() === id.toString());
+      if (idx === -1) return res.status(404).json({ error: 'not found' });
+
+      const updated = {
+        ...posts[idx],
+        title: body.title || posts[idx].title,
+        author: body.author || posts[idx].author,
+        content: body.content || posts[idx].content,
+        tags: Array.isArray(body.tags) ? body.tags : posts[idx].tags,
+        image: body.image || posts[idx].image,
+        featured: !!body.featured,
+        isDraft: 'isDraft' in body ? !!body.isDraft : posts[idx].isDraft,
+        updatedAt: new Date().toISOString()
+      };
+
+      if ('categoryId' in body) {
+        updated.categoryId = body.categoryId == null ? null : body.categoryId;
+      }
+
+      if (updated.featured) {
+        posts.forEach(p => p.featured = false);
+      }
+
+      posts[idx] = updated;
+      await savePosts(posts);
+      return res.json({ success: true, post: updated });
+    }
+  } catch (error) {
+    console.error('Error updating post:', error);
+    return res.status(500).json({ error: 'internal_error' });
   }
-
-  if (updated.featured) {
-    posts.forEach(p => p.featured = false);
-  }
-
-  posts[idx] = updated;
-  await savePosts(posts);
-  return res.json({ success: true, post: updated });
 });
 
 app.delete('/api/posts/:id', requireAdmin, async (req, res) => {
   try {
     const id = req.params.id;
-    let posts = await loadPosts();
-    const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
-    if (idx === -1) return res.status(404).json({ error: 'not found' });
-    
-    // Soft delete
-    posts[idx].isDeleted = true;
-    posts[idx].deletedAt = new Date().toISOString();
-    
-    await savePosts(posts);
+    if (db) {
+      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const result = await db.collection('posts').updateOne(filter, { 
+        $set: { isDeleted: true, deletedAt: new Date().toISOString() } 
+      });
+      if (result.matchedCount === 0) return res.status(404).json({ error: 'not found' });
+    } else {
+      let posts = await loadPosts();
+      const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
+      if (idx === -1) return res.status(404).json({ error: 'not found' });
+      
+      posts[idx].isDeleted = true;
+      posts[idx].deletedAt = new Date().toISOString();
+      await savePosts(posts);
+    }
     return res.json({ success: true, message: 'Post moved to trash' });
   } catch (e) {
     console.error('Delete post error:', e);
@@ -2465,12 +2511,23 @@ app.post('/api/admin/themes', requireAdmin, async (req, res) => {
     const { month, year, title, description } = req.body;
     if (!month || !year || !title) return res.status(400).json({ success: false, error: 'Month, year, and title are required' });
     
-    const themes = await loadThemes();
-    const id = Date.now().toString();
-    const newTheme = { id, month, year, title, description: description || '' };
+    const newTheme = { 
+      month, 
+      year: parseInt(year), 
+      title, 
+      description: (description || '').trim(),
+      createdAt: new Date().toISOString()
+    };
     
-    themes.push(newTheme);
-    await saveThemes(themes);
+    if (db) {
+      const result = await db.collection('themes').insertOne(newTheme);
+      newTheme.id = result.insertedId.toString();
+    } else {
+      const themes = await loadThemes();
+      newTheme.id = Date.now().toString();
+      themes.push(newTheme);
+      await saveThemes(themes);
+    }
     res.json({ success: true, theme: newTheme });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -2481,20 +2538,26 @@ app.put('/api/admin/themes/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { month, year, title, description } = req.body;
-    const themes = await loadThemes();
-    const idx = themes.findIndex(t => t.id === id);
-    if (idx === -1) return res.status(404).json({ success: false, error: 'Theme not found' });
     
-    themes[idx] = { 
-      ...themes[idx], 
-      month: month || themes[idx].month, 
-      year: year || themes[idx].year, 
-      title: title || themes[idx].title, 
-      description: description !== undefined ? description : themes[idx].description 
-    };
+    const updatedFields = {};
+    if (month) updatedFields.month = month;
+    if (year) updatedFields.year = parseInt(year);
+    if (title) updatedFields.title = title;
+    if (description !== undefined) updatedFields.description = description.trim();
+    updatedFields.updatedAt = new Date().toISOString();
     
-    await saveThemes(themes);
-    res.json({ success: true, theme: themes[idx] });
+    if (db) {
+      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const result = await db.collection('themes').updateOne(filter, { $set: updatedFields });
+      if (result.matchedCount === 0) return res.status(404).json({ success: false, error: 'Theme not found' });
+    } else {
+      const themes = await loadThemes();
+      const idx = themes.findIndex(t => t.id.toString() === id.toString());
+      if (idx === -1) return res.status(404).json({ success: false, error: 'Theme not found' });
+      themes[idx] = { ...themes[idx], ...updatedFields };
+      await saveThemes(themes);
+    }
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -2503,9 +2566,15 @@ app.put('/api/admin/themes/:id', requireAdmin, async (req, res) => {
 app.delete('/api/admin/themes/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    let themes = await loadThemes();
-    themes = themes.filter(t => t.id !== id);
-    await saveThemes(themes);
+    if (db) {
+      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const result = await db.collection('themes').deleteOne(filter);
+      if (result.deletedCount === 0) return res.status(404).json({ success: false, error: 'Theme not found' });
+    } else {
+      let themes = await loadThemes();
+      themes = themes.filter(t => t.id.toString() !== id.toString());
+      await saveThemes(themes);
+    }
     res.json({ success: true, message: 'Theme deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -3423,67 +3492,80 @@ app.get('/api/categories', async (req, res) => {
 
 app.post('/api/categories', requireAdmin, async (req, res) => {
   try {
-    console.log('Creating category - DB connected:', !!db, 'Body:', req.body);
     const { name, description } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'missing name' });
 
-    const categories = await loadCategories();
-    if (!Array.isArray(categories)) {
-      console.error('loadCategories did not return an array:', categories);
-      return res.status(500).json({ error: 'invalid categories format' });
-    }
-
-    const id = String(Date.now());
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
     const category = {
-      id,
       name: name.trim(),
       slug,
-      description: description ? description.trim() : ''
+      description: (description || '').trim(),
+      createdAt: new Date().toISOString()
     };
 
-    categories.push(category);
-    console.log('Saving categories:', categories.length, 'New category:', category);
-    await saveCategories(categories);
-    console.log('Category saved successfully');
-    return res.json({ success: true, category, categories });
+    if (db) {
+      const result = await db.collection('categories').insertOne(category);
+      category.id = result.insertedId.toString();
+    } else {
+      const categories = await loadCategories();
+      category.id = Date.now().toString();
+      categories.push(category);
+      await saveCategories(categories);
+    }
+
+    return res.json({ success: true, category });
   } catch (error) {
     console.error('Category creation error:', error);
-    return res.status(500).json({ error: error.message || 'failed to create category' });
+    return res.status(500).json({ error: 'failed_to_create_category' });
   }
 });
 
 app.put('/api/categories/:id', requireAdmin, async (req, res) => {
-  const id = req.params.id;
-  const { name, description } = req.body;
-  if (!name) return res.status(400).json({ error: 'missing name' });
+  try {
+    const id = req.params.id;
+    const { name, description } = req.body;
+    if (!name) return res.status(400).json({ error: 'missing name' });
 
-  const categories = await loadCategories();
-  const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
-  if (idx === -1) return res.status(404).json({ error: 'not found' });
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const updatedFields = {
+      name: name.trim(),
+      slug,
+      description: description ? description.trim() : '',
+      updatedAt: new Date().toISOString()
+    };
 
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
-  categories[idx] = {
-    ...categories[idx],
-    name: name.trim(),
-    slug,
-    description: description ? description.trim() : ''
-  };
-
-  await saveCategories(categories);
-  return res.json({ success: true, category: categories[idx] });
+    if (db) {
+      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const result = await db.collection('categories').updateOne(filter, { $set: updatedFields });
+      if (result.matchedCount === 0) return res.status(404).json({ error: 'not found' });
+    } else {
+      const categories = await loadCategories();
+      const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
+      if (idx === -1) return res.status(404).json({ error: 'not found' });
+      categories[idx] = { ...categories[idx], ...updatedFields };
+      await saveCategories(categories);
+    }
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Category update error:', error);
+    return res.status(500).json({ error: 'internal_error' });
+  }
 });
 
 app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
   try {
     const id = req.params.id;
-    let categories = await loadCategories();
-    const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
-    if (idx === -1) return res.status(404).json({ error: 'not found' });
-    categories.splice(idx, 1);
-    await saveCategories(categories);
+    if (db) {
+      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const result = await db.collection('categories').deleteOne(filter);
+      if (result.deletedCount === 0) return res.status(404).json({ error: 'not found' });
+    } else {
+      let categories = await loadCategories();
+      const idx = categories.findIndex(c => c.id.toString() === id || c.id === parseInt(id, 10));
+      if (idx === -1) return res.status(404).json({ error: 'not found' });
+      categories.splice(idx, 1);
+      await saveCategories(categories);
+    }
     return res.json({ success: true });
   } catch (e) {
     console.error('Delete category error:', e);
