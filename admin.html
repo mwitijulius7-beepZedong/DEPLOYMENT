@@ -311,9 +311,7 @@
 
         async function populatePostCategoryDropdown() {
             try {
-                const response = await fetch('/api/categories', {
-                    credentials: 'include'
-                });
+                const response = await apiFetch('/api/categories');
                 const data = await response.json();
 
                 const selectElement = document.getElementById('post-category');
