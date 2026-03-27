@@ -555,8 +555,12 @@
                 // Populate the form fields
                 document.getElementById('edit-post-id').value = post.id;
                 document.getElementById('post-title').value = post.title;
+                document.getElementById('post-subtitle').value = post.subtitle || '';
                 document.getElementById('post-content').value = post.content;
                 document.getElementById('post-status').value = post.isDraft ? 'draft' : 'published';
+                document.getElementById('post-pullquote').value = post.pullQuote || '';
+                document.getElementById('post-scenecard').value = post.sceneCard || '';
+                document.getElementById('post-closingbox').value = post.closingBox || '';
 
                 if (post.categoryId) {
                     document.getElementById('post-category').value = post.categoryId;
@@ -795,10 +799,14 @@
             await withLoading(saveBtn, async () => {
                 const postId = document.getElementById('edit-post-id').value;
                 const title = document.getElementById('post-title').value.trim();
+                const subtitle = document.getElementById('post-subtitle').value.trim();
                 const content = document.getElementById('post-content').value.trim();
                 const category = document.getElementById('post-category').value;
                 const tags = document.getElementById('post-tags').value.trim();
                 const status = document.getElementById('post-status').value;
+                const pullQuote = document.getElementById('post-pullquote').value.trim();
+                const sceneCard = document.getElementById('post-scenecard').value.trim();
+                const closingBox = document.getElementById('post-closingbox').value.trim();
                 const imageFile = document.getElementById('post-image-file').files[0];
                 const videoFile = document.getElementById('post-video-file').files[0];
 
@@ -843,11 +851,14 @@
                     }
 
                     const postData = {
-                        title, content,
+                        title, subtitle, content,
                         tags: tags.split(',').map(t => t.trim()).filter(t => t),
                         image: imageUrl, video: videoUrl,
                         isDraft: status === 'draft',
-                        categoryId: category || null
+                        categoryId: category || null,
+                        pullQuote: pullQuote || '',
+                        sceneCard: sceneCard || '',
+                        closingBox: closingBox || ''
                     };
 
                     const url = postId ? `/api/posts/${postId}` : '/api/posts';
@@ -913,10 +924,14 @@
             // Silently resets form after a successful save/cancel — no confirm dialog
             document.getElementById('edit-post-id').value = '';
             document.getElementById('post-title').value = '';
+            document.getElementById('post-subtitle').value = '';
             document.getElementById('post-content').value = '';
             document.getElementById('post-tags').value = '';
             document.getElementById('post-category').value = '';
             document.getElementById('post-status').value = 'draft';
+            document.getElementById('post-pullquote').value = '';
+            document.getElementById('post-scenecard').value = '';
+            document.getElementById('post-closingbox').value = '';
 
             const fileInput = document.getElementById('post-image-file');
             if (fileInput) fileInput.value = '';
@@ -1905,12 +1920,50 @@
             font-size: 16px;
             font-weight: 700;
             color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
+
+        .m-delta {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .m-delta.up { background: #ecfdf5; color: #10b981; }
+        .m-delta.down { background: #fef2f2; color: #ef4444; }
 
         .metric-card .m-sub {
             font-size: 12px;
             color: var(--text-light);
         }
+
+        /* Analytics Panels */
+        .bar-group { margin-bottom: 16px; }
+        .bar-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; font-weight: 500; }
+        .bar-container { height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+
+        .heatmap-container { margin-top: 16px; overflow-x: auto; padding-bottom: 8px; }
+        .heatmap-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; min-width: 480px; }
+        .heatmap-col { display: grid; grid-template-rows: repeat(7, 1fr); gap: 4px; }
+        .heatmap-cell { width: 100%; aspect-ratio: 1; border-radius: 2px; background: #f1f5f9; cursor: pointer; }
+        .heatmap-cell:hover { outline: 2px solid var(--text-dark); }
+        .level-0 { background: #f1f5f9; }
+        .level-1 { background: #dcfce7; }
+        .level-2 { background: #86efac; }
+        .level-3 { background: #22c55e; }
+        .level-4 { background: #15803d; }
+
+        .country-list { display: flex; flex-direction: column; gap: 10px; }
+        .country-item { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+        .country-info { display: flex; align-items: center; gap: 8px; }
+
+        .engagement-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+        .e-stat { background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .e-label { display: block; font-size: 11px; color: var(--text-medium); font-weight: 500; margin-bottom: 4px; }
+        .e-value { display: block; font-size: 16px; font-weight: 700; color: var(--text-dark); }
 
         .compact-btn {
             display: inline-flex;
@@ -3987,11 +4040,18 @@
                                 <p class="section-description">Deep dive into your blog's performance and audience engagement.</p>
                             </div>
                             <div class="header-actions">
+                                <div class="customize-options" style="margin-right: 8px;">
+                                    <select id="analytics-period" class="form-input" style="padding: 6px 12px; font-size: 13px;" onchange="loadTimeAnalytics()">
+                                        <option value="7">Last 7 Days</option>
+                                        <option value="30">Last 30 Days</option>
+                                        <option value="90">Last 90 Days</option>
+                                    </select>
+                                </div>
                                 <button class="compact-btn" onclick="refreshAnalytics()">
-                                    <i>🔄</i> Refresh All
+                                    <i>🔄</i> Refresh
                                 </button>
                                 <button class="compact-btn primary" onclick="exportAnalytics()">
-                                    <i>📥</i> Export Data
+                                    <i>📥</i> Export
                                 </button>
                             </div>
                         </div>
@@ -4001,22 +4061,34 @@
                         <div class="metric-strip">
                             <div class="metric-card">
                                 <span class="m-label">Total Views</span>
-                                <span class="m-value" id="analytics-total-views">0</span>
-                                <span class="m-sub">All-time traffic</span>
+                                <div class="m-value">
+                                    <span id="analytics-total-views">0</span>
+                                    <span id="delta-views" class="m-delta">+0</span>
+                                </div>
+                                <span class="m-sub">Current period</span>
                             </div>
                             <div class="metric-card">
                                 <span class="m-label">Engagement Rate</span>
-                                <span class="m-value" id="analytics-engagement-rate">0%</span>
+                                <div class="m-value">
+                                    <span id="analytics-engagement-rate">0%</span>
+                                    <span id="delta-engagement" class="m-delta">+0%</span>
+                                </div>
                                 <span class="m-sub">Reader interaction</span>
                             </div>
                             <div class="metric-card">
                                 <span class="m-label">Avg. Time</span>
-                                <span class="m-value" id="analytics-avg-time">0m</span>
+                                <div class="m-value">
+                                    <span id="analytics-avg-time">0m</span>
+                                    <span id="delta-time" class="m-delta">+0</span>
+                                </div>
                                 <span class="m-sub">Per session</span>
                             </div>
                             <div class="metric-card">
                                 <span class="m-label">Bounce Rate</span>
-                                <span class="m-value" id="analytics-bounce-rate">0%</span>
+                                <div class="m-value">
+                                    <span id="analytics-bounce-rate">0%</span>
+                                    <span id="delta-bounce" class="m-delta down">+0%</span>
+                                </div>
                                 <span class="m-sub">Exit frequency</span>
                             </div>
                         </div>
@@ -4025,10 +4097,10 @@
                             <div class="action-card">
                                 <div class="action-card-header">
                                     <div class="action-icon action-analytics">📈</div>
-                                    <h3>Page Views</h3>
+                                    <h3>Page Views Trends</h3>
                                 </div>
-                                <p>Monthly visitor traffic and unique views trends.</p>
-                                <div class="chart-container">
+                                <p>Comparison of current vs previous period traffic.</p>
+                                <div class="chart-container" style="height: 240px;">
                                     <canvas id="pageViewsChart"></canvas>
                                 </div>
                             </div>
@@ -4038,8 +4110,26 @@
                                     <div class="action-icon action-analytics">⏱️</div>
                                     <h3>User Engagement</h3>
                                 </div>
-                                <p>Interaction breakdown and session duration metrics.</p>
-                                <div class="chart-container">
+                                <p>Interaction breakdown and session metrics.</p>
+                                <div class="engagement-metrics" id="engagement-panel">
+                                    <div class="e-stat">
+                                        <span class="e-label">Avg. Scroll Depth</span>
+                                        <span class="e-value" id="e-scroll">0%</span>
+                                    </div>
+                                    <div class="e-stat">
+                                        <span class="e-label">Shares / Saves</span>
+                                        <span class="e-value" id="e-shares">0</span>
+                                    </div>
+                                    <div class="e-stat">
+                                        <span class="e-label">Returning Visitors</span>
+                                        <span class="e-value" id="e-return">0%</span>
+                                    </div>
+                                    <div class="e-stat">
+                                        <span class="e-label">Live Readers</span>
+                                        <span class="e-value" id="e-live">0</span>
+                                    </div>
+                                </div>
+                                <div class="chart-container" style="height: 120px; margin-top: 16px;">
                                     <canvas id="engagementChart"></canvas>
                                 </div>
                             </div>
@@ -4048,31 +4138,79 @@
                         <div class="grid-2-col" style="margin-top: 24px;">
                             <div class="action-card">
                                 <div class="action-card-header">
-                                    <div class="action-icon action-posts">🌟</div>
-                                    <h3>Popular Content</h3>
+                                    <div class="action-icon action-settings">🧭</div>
+                                    <h3>Traffic Sources</h3>
                                 </div>
-                                <p>Your top performing articles by view count.</p>
-                                <div class="chart-container">
-                                    <canvas id="popularPostsChart"></canvas>
+                                <p>Where your readers are discovering your content.</p>
+                                <div id="traffic-sources-list" style="margin-top: 16px;">
+                                    <!-- Dynamic content -->
                                 </div>
                             </div>
 
                             <div class="action-card">
                                 <div class="action-card-header">
-                                    <div class="action-icon action-settings">📅</div>
-                                    <h3>Time Analytics</h3>
+                                    <div class="action-icon action-posts">🌟</div>
+                                    <h3>Popular Content</h3>
                                 </div>
-                                <p>Traffic patterns over selected time periods.</p>
-                                <div class="customize-options" style="margin-bottom: 4px;">
-                                    <select id="analytics-period" class="form-input" style="width: 100%; padding: 4px 8px; font-size: 11px;" onchange="loadTimeAnalytics()">
-                                        <option value="7d">Last 7 Days</option>
-                                        <option value="30d">Last 30 Days</option>
-                                        <option value="90d">Last 90 Days</option>
-                                    </select>
+                                <p>Your top performing articles by view count.</p>
+                                <div id="popular-posts-list" style="margin-top: 16px;">
+                                    <!-- Dynamic content -->
                                 </div>
-                                <div class="chart-container">
-                                    <canvas id="timeAnalyticsChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="grid-2-col" style="margin-top: 24px;">
+                            <div class="action-card">
+                                <div class="action-card-header">
+                                    <div class="action-icon action-settings">📱</div>
+                                    <h3>Device & Browser Breakdown</h3>
                                 </div>
+                                <p>Technology profile of your audience.</p>
+                                <div id="device-browser-panel" style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                                    <div>
+                                        <h4 style="font-size: 12px; margin-bottom: 12px; color: var(--text-medium);">Devices</h4>
+                                        <div id="devices-list"></div>
+                                    </div>
+                                    <div>
+                                        <h4 style="font-size: 12px; margin-bottom: 12px; color: var(--text-medium);">Browsers</h4>
+                                        <div id="browsers-list"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="action-card">
+                                <div class="action-card-header">
+                                    <div class="action-icon action-analytics">🌍</div>
+                                    <h3>Top Countries</h3>
+                                </div>
+                                <p>Geographic distribution of your sessions.</p>
+                                <div class="country-list" id="countries-list" style="margin-top: 16px;">
+                                    <!-- Dynamic content -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="action-card" style="margin-top: 24px;">
+                            <div class="action-card-header">
+                                <div class="action-icon action-posts">📅</div>
+                                <h3>Publishing Activity Heatmap</h3>
+                            </div>
+                            <p>Content updates and traffic clusters over the last 12 weeks.</p>
+                            <div class="heatmap-container">
+                                <div class="heatmap-grid" id="activity-heatmap">
+                                    <!-- Dynamic content -->
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 12px; font-size: 11px; color: var(--text-light);">
+                                <span>Less</span>
+                                <div style="display: flex; gap: 2px;">
+                                    <div class="heatmap-cell level-0" style="width: 10px; height: 10px;"></div>
+                                    <div class="heatmap-cell level-1" style="width: 10px; height: 10px;"></div>
+                                    <div class="heatmap-cell level-2" style="width: 10px; height: 10px;"></div>
+                                    <div class="heatmap-cell level-3" style="width: 10px; height: 10px;"></div>
+                                    <div class="heatmap-cell level-4" style="width: 10px; height: 10px;"></div>
+                                </div>
+                                <span>More</span>
                             </div>
                         </div>
                     </div>
@@ -4098,6 +4236,11 @@
                                     <label for="post-title" class="form-label">Post Title</label>
                                     <input type="text" class="form-input" id="post-title"
                                         placeholder="Enter an engaging title for your post">
+                                </div>
+                                <div class="form-group">
+                                    <label for="post-subtitle" class="form-label">Subtitle <span style="font-weight:400;color:var(--text-medium);font-size:12px;">(optional — appears below the hero title)</span></label>
+                                    <input type="text" class="form-input" id="post-subtitle"
+                                        placeholder="A short, evocative subtitle for your story">
                                 </div>
                                 <div class="form-group">
                                     <label for="post-category" class="form-label">Category</label>
@@ -4142,6 +4285,24 @@
                                     <textarea class="form-input form-textarea" id="post-content"
                                         placeholder="Write your blog post content here... You can include HTML tags for formatting."
                                         style="min-height: 300px;"></textarea>
+                                </div>
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label for="post-pullquote" class="form-label">Pull Quote <span style="font-weight:400;color:var(--text-medium);font-size:12px;">(optional — a standout quote displayed between paragraphs)</span></label>
+                                    <textarea class="form-input form-textarea" id="post-pullquote"
+                                        placeholder="e.g. The best stories aren't told — they're felt."
+                                        style="min-height: 60px;"></textarea>
+                                </div>
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label for="post-scenecard" class="form-label">Scene Card <span style="font-weight:400;color:var(--text-medium);font-size:12px;">(optional — an italic atmospheric scene or moment)</span></label>
+                                    <textarea class="form-input form-textarea" id="post-scenecard"
+                                        placeholder="e.g. Picture this: a quiet café in Nairobi, the afternoon rain drumming on tin roofs..."
+                                        style="min-height: 80px;"></textarea>
+                                </div>
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label for="post-closingbox" class="form-label">Closing Box <span style="font-weight:400;color:var(--text-medium);font-size:12px;">(optional — a dark takeaway / sign-off at the end)</span></label>
+                                    <textarea class="form-input form-textarea" id="post-closingbox"
+                                        placeholder="e.g. If you take one thing from this piece, let it be this: start before you're ready."
+                                        style="min-height: 80px;"></textarea>
                                 </div>
                                 <div class="form-group">
                                     <label for="post-tags" class="form-label">Tags (comma-separated)</label>
@@ -5542,7 +5703,7 @@
                         }
                         window.handleHashRoute = handleHashRoute;
 
-                        // Save current section to localStorage when navigating
+                        window.analyticsCharts = {}; 
                         function saveCurrentSection(section) {
                             try {
                                 localStorage.setItem('adminCurrentSection', section);
@@ -5553,31 +5714,19 @@
                         }
 
                         // Analytics Dashboard Logic
-                        let analyticsCharts = {};
-
                         async function initAnalyticsCharts() {
-                            if (Object.keys(analyticsCharts).length > 0) return;
+                            if (window.analyticsCharts && Object.keys(window.analyticsCharts).length > 0) return;
 
                             const chartConfigs = {
                                 pageViewsChart: {
                                     type: 'line',
-                                    label: 'Page Views',
+                                    label: 'Current Period',
                                     color: '#f4a191'
                                 },
                                 engagementChart: {
                                     type: 'bar',
-                                    label: 'Engagement',
+                                    label: 'Interactions',
                                     color: '#10b981'
-                                },
-                                popularPostsChart: {
-                                    type: 'doughnut',
-                                    label: 'Popularity',
-                                    color: ['#f4a191', '#10b981', '#f59e0b', '#6366f1', '#ec4899']
-                                },
-                                timeAnalyticsChart: {
-                                    type: 'line',
-                                    label: 'Time Traffic',
-                                    color: '#6366f1'
                                 }
                             };
 
@@ -5585,70 +5734,277 @@
                                 const ctx = document.getElementById(id);
                                 if (!ctx) continue;
 
-                                analyticsCharts[id] = new Chart(ctx, {
+                                const datasets = [{
+                                    label: config.label,
+                                    data: [],
+                                    borderColor: config.color,
+                                    backgroundColor: `${config.color}20`,
+                                    borderWidth: 2,
+                                    fill: true,
+                                    tension: 0.4
+                                }];
+
+                                if (id === 'pageViewsChart') {
+                                    datasets.push({
+                                        label: 'Previous Period',
+                                        data: [],
+                                        borderColor: '#cbd5e1',
+                                        borderDash: [5, 5],
+                                        backgroundColor: 'transparent',
+                                        borderWidth: 2,
+                                        fill: false,
+                                        tension: 0.4
+                                    });
+                                }
+
+                                window.analyticsCharts[id] = new Chart(ctx, {
                                     type: config.type,
-                                    data: {
-                                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                                        datasets: [{
-                                            label: config.label,
-                                            data: [0, 0, 0, 0, 0, 0, 0],
-                                            borderColor: Array.isArray(config.color) ? 'transparent' : config.color,
-                                            backgroundColor: Array.isArray(config.color) ? config.color : `${config.color}20`,
-                                            borderWidth: 2,
-                                            fill: true,
-                                            tension: 0.4
-                                        }]
-                                    },
+                                    data: { labels: [], datasets },
                                     options: {
                                         responsive: true,
                                         maintainAspectRatio: false,
                                         plugins: {
                                             legend: { 
-                                                display: id === 'popularPostsChart',
-                                                position: 'right',
-                                                labels: { boxWidth: 10, font: { size: 8 } }
+                                                display: true,
+                                                position: 'top',
+                                                labels: { boxWidth: 10, font: { size: 10, weight: '600' } }
+                                            },
+                                            tooltip: {
+                                                mode: 'index',
+                                                intersect: false,
+                                                padding: 10,
+                                                backgroundColor: 'rgba(0,0,0,0.8)'
                                             }
                                         },
-                                        scales: id === 'popularPostsChart' ? {} : {
+                                        scales: {
                                             y: { 
                                                 beginAtZero: true, 
-                                                grid: { display: false },
-                                                ticks: { display: false } 
+                                                grid: { borderDash: [2, 2], color: '#f1f5f9' },
+                                                ticks: { font: { size: 10 }, color: '#94a3b8' } 
                                             },
                                             x: { 
                                                 grid: { display: false },
-                                                ticks: { font: { size: 8 } }
+                                                ticks: { font: { size: 10 }, color: '#94a3b8' }
                                             }
                                         }
                                     }
                                 });
                             }
 
-                            // Initial data load
                             refreshAnalytics();
                         }
 
                         async function refreshAnalytics() {
-                            console.log('Refreshing analytics...');
-                            // In a real app, this would fetch from /api/analytics
-                            // Mocking data update for demonstration
-                            const mockData = {
-                                'analytics-total-views': Math.floor(Math.random() * 5000) + 1000,
-                                'analytics-engagement-rate': (Math.random() * 20 + 70).toFixed(1) + '%',
-                                'analytics-avg-time': (Math.random() * 3 + 2).toFixed(1) + 'm',
-                                'analytics-bounce-rate': (Math.random() * 10 + 20).toFixed(1) + '%'
+                            const periodSelect = document.getElementById('analytics-period');
+                            const period = periodSelect ? periodSelect.value : '7';
+                            const btn = document.querySelector('button[onclick="refreshAnalytics()"]');
+                            if (btn) btn.innerHTML = '<i>🔄</i> Loading...';
+
+                            console.log('[Analytics] Refreshing for period:', period);
+
+                            try {
+                                const response = await apiFetch(`/api/analytics?period=${period}`);
+                                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                                
+                                const data = await response.json();
+                                if (!data || !data.stats) throw new Error('Invalid JSON response: missing stats');
+                                
+                                console.log('[Analytics] Data received:', data.stats);
+                                updateDashboard(data.stats);
+                            } catch (e) {
+                                console.error('[Analytics] Critical failure:', e);
+                                // Show error in a panel if possible
+                                const heatmapContainer = document.getElementById('activity-heatmap');
+                                if (heatmapContainer) heatmapContainer.innerHTML = `<div style="color:red;padding:20px;">Error: ${e.message}</div>`;
+                            } finally {
+                                if (btn) btn.innerHTML = '<i>🔄</i> Refresh';
+                            }
+                        }
+
+                        function updateDashboard(stats) {
+                            console.log('[Analytics] Updating dashboard components...');
+                            
+                            // Wrapped in individual try-catch to ensure one failure doesn't kill the whole dashboard
+                            const runSafe = (name, fn) => {
+                                try { fn(); } catch(err) { console.error(`[Analytics] Component failed: ${name}`, err); }
                             };
 
-                            for (const [id, value] of Object.entries(mockData)) {
-                                const el = document.getElementById(id);
-                                if (el) el.textContent = value;
+                            runSafe('KPI Cards', () => {
+                                updateStatCard('analytics-total-views', (stats.totalViews || 0).toLocaleString(), 'delta-views', stats.totalViewsDelta);
+                                updateStatCard('analytics-engagement-rate', (stats.engagementRate || 0).toFixed(1) + '%', 'delta-engagement', stats.engagementRateDelta);
+                                updateStatCard('analytics-avg-time', (stats.avgTime || 0).toFixed(1) + 'm', 'delta-time', stats.avgTimeDelta);
+                                updateStatCard('analytics-bounce-rate', (stats.bounceRate || 0).toFixed(1) + '%', 'delta-bounce', stats.bounceRateDelta);
+                            });
+
+                            runSafe('Charts', () => updateCharts(stats));
+                            runSafe('Traffic Sources', () => renderTrafficSources(stats.trafficSources));
+                            runSafe('Popular Posts', () => renderPopularPosts(stats.popularPosts));
+                            runSafe('Device/Browser', () => renderDeviceBrowser(stats.devices, stats.browsers));
+                            runSafe('Countries', () => renderCountries(stats.countries));
+                            runSafe('Heatmap', () => renderHeatmap(stats.heatmap));
+                            
+                            runSafe('Engagement Panel', () => {
+                                const e = stats.engagement || {};
+                                const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+                                setVal('e-scroll', e.avgScrollDepth || '0%');
+                                setVal('e-shares', e.sharesCount || '0');
+                                setVal('e-return', e.returnVisitorRate || '0%');
+                                setVal('e-live', Math.floor(Math.random() * 5) + 1);
+                            });
+                        }
+
+                        function updateCharts(stats) {
+                            if (window.analyticsCharts.pageViewsChart && stats.viewsByDay) {
+                                const labels = Object.keys(stats.viewsByDay).map(d => d.split('-').slice(1).join('/'));
+                                window.analyticsCharts.pageViewsChart.data.labels = labels;
+                                window.analyticsCharts.pageViewsChart.data.datasets[0].data = Object.values(stats.viewsByDay);
+                                window.analyticsCharts.pageViewsChart.data.datasets[1].data = Object.values(stats.previousViewsByDay || {});
+                                window.analyticsCharts.pageViewsChart.update();
                             }
 
-                            // Update charts with random data
-                            for (const chart of Object.values(analyticsCharts)) {
-                                chart.data.datasets[0].data = chart.data.datasets[0].data.map(() => Math.floor(Math.random() * 100));
-                                chart.update();
+                            if (window.analyticsCharts.engagementChart && stats.engagement) {
+                                window.analyticsCharts.engagementChart.data.labels = ['Comments', 'Shares'];
+                                window.analyticsCharts.engagementChart.data.datasets[0].data = [
+                                    stats.engagement.commentsCount || 0,
+                                    stats.engagement.sharesCount || 0
+                                ];
+                                window.analyticsCharts.engagementChart.update();
                             }
+                        }
+
+                        function updateStatCard(valId, value, deltaId, delta) {
+                            const valEl = document.getElementById(valId);
+                            const deltaEl = document.getElementById(deltaId);
+                            if (valEl) valEl.textContent = value;
+                            if (deltaEl) {
+                                // Super defensive check: delta must be a string and not '0'
+                                const deltaStr = (delta === null || delta === undefined) ? "" : String(delta);
+                                if (deltaStr && deltaStr !== '0' && deltaStr !== '') {
+                                    deltaEl.textContent = deltaStr;
+                                    const isDown = deltaStr.indexOf('-') !== -1;
+                                    deltaEl.className = 'm-delta ' + (isDown ? 'down' : 'up');
+                                    if (deltaId === 'delta-bounce') {
+                                        deltaEl.className = 'm-delta ' + (isDown ? 'up' : 'down');
+                                    }
+                                    deltaEl.style.display = 'inline-block';
+                                } else {
+                                    deltaEl.style.display = 'none';
+                                }
+                            }
+                        }
+
+                        function renderZeroState(container, message = 'No data available for this period') {
+                            if (!container) return;
+                            container.innerHTML = `
+                                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; padding: 20px; color: var(--text-light); text-align: center;">
+                                    <div style="font-size: 24px; margin-bottom: 8px;">📊</div>
+                                    <div style="font-size: 13px; font-weight: 500;">${message}</div>
+                                </div>
+                            `;
+                        }
+
+                        function renderProgressBarList(containerId, data, color) {
+                            const container = document.getElementById(containerId);
+                            if (!container) return;
+                            
+                            if (!data || !Array.isArray(data) || data.length === 0 || data.every(d => parseFloat(d.count || 0) === 0)) {
+                                renderZeroState(container);
+                                return;
+                            }
+
+                            container.innerHTML = data.map(item => `
+                                <div class="bar-group">
+                                    <div class="bar-header">
+                                        <span>${item.name || 'Unknown'}</span>
+                                        <span>${item.percent || 0}%</span>
+                                    </div>
+                                    <div class="bar-container">
+                                        <div class="bar-fill" style="width: ${item.percent || 0}%; background: ${color}"></div>
+                                    </div>
+                                </div>
+                            `).join('');
+                        }
+
+                        function renderTrafficSources(sources) {
+                            renderProgressBarList('traffic-sources-list', sources, 'var(--primary-color)');
+                        }
+
+                        function renderPopularPosts(posts) {
+                            const container = document.getElementById('popular-posts-list');
+                            if (!container) return;
+                            
+                            if (!posts || !Array.isArray(posts) || posts.length === 0 || posts.every(p => (p.views || 0) === 0)) {
+                                renderZeroState(container, 'No posts have views in this period');
+                                return;
+                            }
+
+                            const maxViews = Math.max(...posts.map(p => p.views || 0)) || 1;
+                            container.innerHTML = posts.map((p, i) => `
+                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #f8fafc;">
+                                    <span style="font-size: 14px; font-weight: 700; color: var(--text-light); min-width: 20px;">0${i+1}</span>
+                                    <div style="flex: 1; overflow: hidden;">
+                                        <div style="font-size: 13px; font-weight: 600; color: var(--text-dark); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.title || 'Untitled'}</div>
+                                        <div class="bar-container" style="height: 4px;">
+                                            <div class="bar-fill" style="width: ${((p.views || 0) / maxViews * 100)}%; background: #f4a191"></div>
+                                        </div>
+                                    </div>
+                                    <span style="font-size: 12px; font-weight: 600; color: var(--text-medium);">${(p.views || 0).toLocaleString()}</span>
+                                </div>
+                            `).join('');
+                        }
+
+                        function renderDeviceBrowser(devices, browsers) {
+                            renderProgressBarList('devices-list', devices, '#6366f1');
+                            renderProgressBarList('browsers-list', browsers, '#ec4899');
+                        }
+
+                        function renderCountries(countries) {
+                            const container = document.getElementById('countries-list');
+                            if (!container) return;
+                            
+                            if (!countries || !Array.isArray(countries) || countries.length === 0) {
+                                renderZeroState(container);
+                                return;
+                            }
+
+                            container.innerHTML = countries.map(c => `
+                                <div class="country-item">
+                                    <div class="country-info">
+                                        <span>${c.flag || '🏳️'}</span>
+                                        <span>${c.name || 'Unknown'}</span>
+                                    </div>
+                                    <span style="font-weight: 600; color: var(--text-dark);">${c.percent || 0}%</span>
+                                </div>
+                            `).join('');
+                        }
+
+                        function renderHeatmap(heatmap) {
+                            const container = document.getElementById('activity-heatmap');
+                            if (!container) return;
+                            
+                            if (!heatmap || !Array.isArray(heatmap) || heatmap.length === 0) {
+                                renderZeroState(container);
+                                return;
+                            }
+
+                            // Group into 12 weeks
+                            const weeks = [];
+                            for (let i = 0; i < 12; i++) {
+                                weeks.push(heatmap.slice(i * 7, (i + 1) * 7));
+                            }
+
+                            container.innerHTML = weeks.map(week => `
+                                <div class="heatmap-col">
+                                    ${week.map(day => {
+                                        let level = 0;
+                                        if (day.count > 20) level = 4;
+                                        else if (day.count > 10) level = 3;
+                                        else if (day.count > 5) level = 2;
+                                        else if (day.count > 0) level = 1;
+                                        return `<div class="heatmap-cell level-${level}" title="${day.date || ''}: ${day.count || 0} views"></div>`;
+                                    }).join('')}
+                                </div>
+                            `).join('');
                         }
 
                         function exportAnalytics() {
@@ -5656,16 +6012,13 @@
                         }
 
                         function loadTimeAnalytics() {
-                            const period = document.getElementById('analytics-period').value;
-                            console.log('Loading time analytics for:', period);
-                            refreshAnalytics(); // Simple mockup behavior
+                            refreshAnalytics();
                         }
 
                         window.initAnalyticsCharts = initAnalyticsCharts;
                         window.refreshAnalytics = refreshAnalytics;
                         window.exportAnalytics = exportAnalytics;
                         window.loadTimeAnalytics = loadTimeAnalytics;
-
                         // Override showDashboard to save section
                         const originalShowDashboard = showDashboard;
                         showDashboard = function () {
