@@ -7,875 +7,798 @@
     <title>Post - zedong254ke Blog</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <style>
+        /* ═══════════════════════════════════════════════════════
+           EDITORIAL MAGAZINE THEME
+           Fonts: Lora (serif) + DM Sans (sans)
+           Palette: Cream #FAF7F2 · Navy #1B2A4A · Red #C0392B
+           ═══════════════════════════════════════════════════════ */
+
         :root {
-            /* Modern Color Palette with Enhanced Accessibility */
-            --primary-color: #6366f1;
-            --primary-hover: #4f46e5;
-            --primary-light: #e0e7ff;
-            --primary-dark: #4338ca;
-            --accent-color: #06b6d4;
-            --accent-hover: #0891b2;
-            --accent-light: #cffafe;
-            --accent-dark: #0e7490;
-
-            /* Background Colors */
-            --bg-color: #ffffff;
-            --bg-secondary: #f8fafc;
-            --bg-tertiary: #f1f5f9;
-            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
-            --bg-gradient-subtle: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
-
-            /* Card and Surface Colors */
-            --card-bg: #ffffff;
-            --card-bg-hover: #fafbfc;
-            --surface-bg: #f8fafc;
-            --surface-border: #e2e8f0;
-
-            /* Text Colors with High Contrast */
-            --text-dark: #0f172a;
-            --text-medium: #475569;
-            --text-light: #64748b;
-            --text-muted: #94a3b8;
-            --text-inverse: #ffffff;
-
-            /* Border Colors */
-            --border-color: #e2e8f0;
-            --border-light: #f1f5f9;
-            --border-medium: #cbd5e1;
-            --border-dark: #94a3b8;
-
-            /* Shadow System */
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
-            --shadow-glow-accent: 0 0 20px rgba(6, 182, 212, 0.15);
-
-            /* Border Radius System */
-            --border-radius: 16px;
-            --border-radius-sm: 8px;
-            --border-radius-lg: 24px;
-            --border-radius-xl: 32px;
-
-            /* Transition System */
-            --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-
-            /* Typography System */
-            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            --font-family-heading: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            --font-family-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
-
-            /* Font Sizes */
-            --font-size-xs: 0.75rem;
-            --font-size-sm: 0.875rem;
-            --font-size-base: 1rem;
-            --font-size-lg: 1.25rem;
-            --font-size-xl: 1.5rem;
-            --font-size-2xl: 1.75rem;
-            --font-size-3xl: 2rem;
-            --font-size-4xl: 2.5rem;
-            --font-size-5xl: 3.5rem;
-
-            /* Font Weights */
-            --font-weight-normal: 400;
-            --font-weight-medium: 500;
-            --font-weight-semibold: 600;
-            --font-weight-bold: 700;
-            --font-weight-extrabold: 800;
-
-            /* Line Heights */
-            --line-height-tight: 1.25;
-            --line-height-snug: 1.375;
-            --line-height-normal: 1.6;
-            --line-height-relaxed: 1.625;
-            --line-height-loose: 2;
-
-            /* Spacing Scale */
-            --space-1: 0.25rem;
-            --space-2: 0.5rem;
-            --space-3: 0.75rem;
-            --space-4: 1rem;
-            --space-5: 1.25rem;
-            --space-6: 1.5rem;
-            --space-8: 2rem;
-            --space-10: 2.5rem;
-            --space-12: 3rem;
-            --space-16: 4rem;
-            --space-20: 5rem;
-            --space-24: 6rem;
-
-            /* Z-Index Scale */
-            --z-dropdown: 1000;
-            --z-sticky: 1020;
-            --z-fixed: 1030;
-            --z-modal-backdrop: 1040;
-            --z-modal: 1050;
-            --z-popover: 1060;
-            --z-tooltip: 1070;
+            --cream: #FAF7F2;
+            --cream-dark: #F0EBE3;
+            --cream-warm: #F5F0E8;
+            --navy: #1B2A4A;
+            --navy-light: #2C3E5A;
+            --navy-dark: #0F1B2D;
+            --red: #C0392B;
+            --red-dark: #96281B;
+            --red-light: #E74C3C;
+            --text-body: #2D2D2D;
+            --text-secondary: #5A5A5A;
+            --text-muted: #8A8A8A;
+            --border-subtle: rgba(27, 42, 74, 0.1);
+            --border-warm: rgba(192, 57, 43, 0.15);
+            --serif: 'Lora', Georgia, 'Times New Roman', serif;
+            --sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-dark);
-            line-height: 1.6;
+            font-family: var(--serif);
+            background-color: var(--cream);
+            color: var(--text-body);
+            line-height: 1.8;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        /* Reading Progress Bar */
+        /* ─── Reading Progress ─── */
         .reading-progress {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
-            height: 4px;
-            background: var(--bg-secondary);
+            height: 3px;
+            background: transparent;
             z-index: 1000;
-            transform: translateX(-100%);
-            transition: transform 0.1s ease;
         }
-
         .reading-progress-bar {
             height: 100%;
-            background: linear-gradient(90deg, var(--primary-color) 0%, var(--accent-color) 100%);
-            border-radius: 0 2px 2px 0;
+            background: var(--red);
+            width: 0%;
+            transition: width 0.1s ease;
         }
 
-        /* Header Styles */
-        header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-            box-shadow: var(--shadow-md);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        /* ─── Header / Navigation ─── */
+        .site-header {
+            background: var(--navy);
+            border-bottom: 3px solid var(--red);
         }
-
-        .header-container {
-            max-width: 1200px;
+        .header-inner {
+            max-width: 1100px;
             margin: 0 auto;
-            padding: 0 24px;
-            height: 80px;
+            padding: 0 32px;
+            height: 64px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-
         .logo {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 14px;
             text-decoration: none;
-            color: white;
+            color: var(--cream);
         }
-
         .logo img {
-            width: 48px;
-            height: 48px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            border: 3px solid white;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            border: 2px solid rgba(255,255,255,0.3);
         }
-
-        .logo .logo-title {
-            font-size: 24px;
+        .logo-title {
+            font-family: var(--serif);
+            font-size: 20px;
             font-weight: 600;
+            letter-spacing: -0.02em;
         }
-
-        nav {
+        .site-nav {
             display: flex;
             align-items: center;
-            gap: 32px;
-            flex-wrap: wrap;
+            gap: 8px;
         }
-
-        nav a {
-            color: white;
+        .site-nav a, .site-nav button {
+            font-family: var(--sans);
+            color: rgba(250, 247, 242, 0.75);
             text-decoration: none;
-            font-weight: 500;
-            transition: var(--transition);
-            padding: 8px 16px;
-            border-radius: 8px;
-        }
-
-        nav a:hover,
-        nav a:focus-visible {
-            background: rgba(255, 255, 255, 0.2);
-            outline: 2px solid rgba(255, 255, 255, 0.5);
-            outline-offset: 2px;
-        }
-
-        /* Active Tab Highlighting */
-        nav a.active-tab {
-            background: rgba(255, 255, 255, 0.4);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            font-weight: 600;
-        }
-
-        .back-btn {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
             font-size: 14px;
             font-weight: 500;
-            transition: var(--transition);
-            margin-left: 16px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        .site-nav a:hover, .site-nav button:hover {
+            color: var(--cream);
+            background: rgba(255,255,255,0.08);
+        }
+        .back-link {
+            border: 1px solid rgba(255,255,255,0.15) !important;
+        }
+        .back-link:hover {
+            border-color: rgba(255,255,255,0.3) !important;
         }
 
-        .back-btn:hover,
-        .back-btn:focus-visible {
-            background: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.5);
-            outline: 2px solid rgba(255, 255, 255, 0.5);
-            outline-offset: 2px;
-        }
-
-        .back-btn:focus-visible {
-            outline: 2px solid rgba(255, 255, 255, 0.8);
-        }
-
-        /* Main Content */
-        main {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 24px;
-        }
-
-        .post-container {
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            overflow: hidden;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .post-header {
-            padding: 48px 32px;
-            border-bottom: 1px solid var(--border-color);
-            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255, 255, 255, 0.8) 100%);
+        /* ─── Hero Section ─── */
+        .post-hero {
+            background: var(--navy);
+            color: var(--cream);
+            padding: 72px 32px 80px;
+            text-align: center;
             position: relative;
             overflow: hidden;
         }
-
-        .post-header::before {
+        .post-hero::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.03) 0%, rgba(6, 182, 212, 0.03) 100%);
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse at 30% 0%, rgba(192,57,43,0.08) 0%, transparent 60%),
+                        radial-gradient(ellipse at 70% 100%, rgba(250,247,242,0.04) 0%, transparent 50%);
             pointer-events: none;
         }
-
-        .post-title {
-            font-size: 2rem;
-            font-weight: 800;
-            margin-bottom: 20px;
-            color: var(--text-dark);
-            line-height: 1.2;
+        .hero-inner {
+            max-width: 720px;
+            margin: 0 auto;
             position: relative;
-            z-index: 1;
-            letter-spacing: -0.02em;
+            z-index: 10;
         }
-
-        .post-meta {
+        .hero-category {
+            font-family: var(--sans);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--red-light);
+            margin-bottom: 24px;
+            display: inline-block;
+        }
+        .hero-title {
+            font-family: var(--serif);
+            font-size: 2.8rem;
+            font-weight: 700;
+            line-height: 1.15;
+            letter-spacing: -0.025em;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+        .hero-subtitle {
+            font-family: var(--serif);
+            font-size: 1.2rem;
+            font-weight: 400;
+            font-style: italic;
+            line-height: 1.5;
+            color: rgba(250, 247, 242, 0.7);
+            margin-bottom: 32px;
+            max-width: 580px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .hero-meta {
+            font-family: var(--sans);
+            font-size: 13px;
+            color: rgba(250, 247, 242, 0.5);
             display: flex;
-            gap: 24px;
+            justify-content: center;
             align-items: center;
-            font-size: 16px;
-            color: var(--text-medium);
-            margin-bottom: 0;
-            position: relative;
-            z-index: 1;
+            gap: 20px;
             flex-wrap: wrap;
         }
-
-        .post-meta span {
-            display: flex;
-            align-items: center;
-            gap: 6px;
+        .hero-meta .divider {
+            width: 4px;
+            height: 4px;
+            background: var(--red);
+            border-radius: 50%;
         }
-
-        .post-image {
-            width: 100%;
-            height: 400px;
+        .hero-author-img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
             object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.2);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .hero-author-img:hover { transform: scale(1.15); }
+
+        /* ─── Featured Image ─── */
+        .featured-image-wrap {
+            max-width: 1100px;
+            margin: 40px auto 0;
+            padding: 0 32px;
+            position: relative;
+            z-index: 2;
+        }
+        .featured-image {
+            width: 100%;
+            height: auto;
+            max-height: 480px;
+            object-fit: cover;
+            border-radius: 8px;
+            box-shadow: 0 20px 60px rgba(15, 27, 45, 0.25);
         }
 
-        .post-content {
-            padding: 48px 32px;
-            font-size: 1.1rem;
-            line-height: 1.7;
-            color: var(--text-dark);
-            letter-spacing: 0.01em;
+        /* ─── Article Body ─── */
+        .article-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 56px 32px 64px;
         }
 
-        .post-content h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin: 40px 0 16px 0;
-            color: var(--text-dark);
-            line-height: 1.3;
-            letter-spacing: -0.02em;
+        .article-content {
+            font-family: var(--serif);
+            font-size: 1.2rem;
+            line-height: 1.85;
+            color: var(--text-body);
         }
 
-        .post-content h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin: 32px 0 12px 0;
-            color: var(--text-dark);
-            line-height: 1.4;
-            letter-spacing: -0.01em;
+        .article-content p, 
+        .article-content h2, 
+        .article-content h3, 
+        .article-content ul, 
+        .article-content ol,
+        .article-content blockquote:not(.pull-quote),
+        .article-content pre {
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
         }
-
-        .post-content p {
-            margin-bottom: 24px;
+        .article-content p {
+            margin-bottom: 28px;
             text-align: justify;
             hyphens: auto;
         }
 
-        .post-content ul,
-        .post-content ol {
-            margin-bottom: 24px;
-            padding-left: 32px;
+        /* Drop Cap — first paragraph */
+        .article-content .drop-cap::first-letter {
+            font-family: var(--serif);
+            font-weight: 700;
+            font-size: 4.2em;
+            float: left;
+            line-height: 0.8;
+            margin: 6px 14px 0 0;
+            color: var(--red);
         }
 
-        .post-content li {
-            margin-bottom: 12px;
-            line-height: 1.7;
+        /* Section headings */
+        .article-content h2 {
+            font-family: var(--serif);
+            font-size: 1.65rem;
+            font-weight: 700;
+            color: var(--navy);
+            margin: 56px 0 20px;
+            line-height: 1.25;
+            letter-spacing: -0.02em;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--red);
+        }
+        .article-content h3 {
+            font-family: var(--serif);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--navy);
+            margin: 40px 0 16px;
+            line-height: 1.3;
         }
 
-        .post-content blockquote {
-            border-left: 5px solid var(--primary-color);
-            padding: 24px 32px 24px 40px;
-            margin: 32px 0;
-            font-style: italic;
-            color: var(--text-medium);
-            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255, 255, 255, 0.8) 100%);
-            border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
-            position: relative;
+        /* Lists */
+        .article-content ul, .article-content ol {
+            margin-bottom: 28px;
+            padding-left: 28px;
+        }
+        .article-content li {
+            margin-bottom: 10px;
+            line-height: 1.75;
         }
 
-        .post-content blockquote::before {
-            content: '"';
-            font-size: 4rem;
-            color: var(--primary-color);
-            opacity: 0.1;
-            position: absolute;
-            top: -10px;
-            left: 8px;
-            font-family: serif;
-        }
-
-        .post-content code {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e2e8f0 100%);
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-family: var(--font-mono);
+        /* Inline code */
+        .article-content code {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
             font-size: 0.85em;
-            border: 1px solid var(--border-color);
-            color: #374151;
+            background: var(--cream-dark);
+            padding: 2px 7px;
+            border-radius: 4px;
+            border: 1px solid var(--border-subtle);
+            color: var(--navy);
         }
-
-        .post-content pre {
-            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+        .article-content pre {
+            background: var(--navy-dark);
             padding: 24px;
-            border-radius: 12px;
+            border-radius: 6px;
             overflow-x: auto;
             margin: 32px 0;
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow-md);
+            border-left: 4px solid var(--red);
         }
-
-        .post-content pre code {
+        .article-content pre code {
             background: none;
+            border: none;
             padding: 0;
-            color: #f9fafb;
+            color: var(--cream);
             font-size: 0.9em;
             line-height: 1.6;
         }
 
-        .post-tags {
-            padding: 0 32px 32px;
-            border-top: 1px solid #e9ecef;
+        /* ─── Pull Quote ─── */
+        .pull-quote {
+            margin: 56px auto;
+            max-width: 1000px;
+            padding: 40px 48px;
+            text-align: center;
+            position: relative;
+            border-top: 1px solid var(--border-subtle);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .pull-quote::before {
+            content: '\201C';
+            font-family: var(--serif);
+            font-size: 5rem;
+            color: var(--red);
+            opacity: 0.2;
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            line-height: 1;
+        }
+        .pull-quote p {
+            font-family: var(--serif);
+            font-size: 1.5rem;
+            font-style: italic;
+            font-weight: 500;
+            line-height: 1.5;
+            color: var(--navy);
+            text-align: center !important;
+            margin-bottom: 0 !important;
         }
 
+        /* Existing blockquotes also get editorial style */
+        .article-content blockquote:not(.pull-quote) {
+            margin: 40px 0;
+            padding: 24px 28px;
+            border-left: 4px solid var(--red);
+            background: var(--cream-warm);
+            border-radius: 0 6px 6px 0;
+            font-style: italic;
+            color: var(--text-secondary);
+        }
+
+        /* ─── Scene Card ─── */
+        .scene-card {
+            margin: 48px 0;
+            padding: 32px 36px;
+            background: linear-gradient(135deg, var(--cream-warm) 0%, var(--cream-dark) 100%);
+            border-left: 4px solid var(--red);
+            border-radius: 0 8px 8px 0;
+            font-style: italic;
+            color: var(--text-secondary);
+            line-height: 1.9;
+            position: relative;
+        }
+        .scene-card::before {
+            content: '✦';
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            font-size: 20px;
+            color: var(--red);
+            font-style: normal;
+            background: var(--cream);
+            padding: 0 8px;
+        }
+        .scene-card p {
+            margin-bottom: 12px !important;
+            text-align: left !important;
+        }
+        .scene-card p:last-child { margin-bottom: 0 !important; }
+
+        /* ─── Dark Closing Box ─── */
+        .closing-box {
+            margin: 64px 0 48px;
+            padding: 40px 40px;
+            background: var(--navy);
+            color: var(--cream);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        .closing-box::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--red);
+        }
+        .closing-box h3 {
+            font-family: var(--serif);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #fff !important;
+            margin: 0 0 16px !important;
+            padding: 0 !important;
+            border: none !important;
+        }
+        .closing-box p {
+            font-family: var(--serif);
+            font-size: 1rem;
+            line-height: 1.75;
+            color: rgba(250, 247, 242, 0.85) !important;
+            margin-bottom: 12px !important;
+            text-align: left !important;
+        }
+        .closing-box p:last-child { margin-bottom: 0 !important; }
+
+        /* ─── Tags ─── */
+        .post-tags {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 32px 40px;
+        }
         .tags-list {
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
         }
-
         .tag {
-            padding: 6px 16px;
-            border-radius: 20px;
-            background: #FFF5F3;
-            border: 1px solid var(--primary-color);
-            color: var(--text-dark);
-            font-size: 14px;
+            font-family: var(--sans);
+            padding: 5px 14px;
+            border-radius: 4px;
+            background: var(--cream-dark);
+            border: 1px solid var(--border-subtle);
+            color: var(--navy);
+            font-size: 13px;
             font-weight: 500;
             text-decoration: none;
-            transition: var(--transition);
+            transition: all 0.2s ease;
         }
-
         .tag:hover {
-            background: #FFE8E3;
+            background: var(--navy);
+            color: var(--cream);
+            border-color: var(--navy);
         }
 
-        /* Loading & Error States */
-        .loading {
-            text-align: center;
-            padding: 80px 20px;
-            color: var(--text-medium);
-        }
-
-        .error {
-            text-align: center;
-            padding: 80px 20px;
-            color: #dc2626;
-        }
-
-        .error h2 {
-            color: #dc2626;
-            margin-bottom: 16px;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .header-container {
-                padding: 0 16px;
-            }
-
-            .logo .logo-title {
-                font-size: 20px;
-            }
-
-            nav {
-                gap: 16px;
-            }
-
-            nav a span {
-                display: none;
-            }
-
-            main {
-                padding: 24px 16px;
-            }
-
-            .post-header {
-                padding: 24px;
-            }
-
-            .post-title {
-                font-size: 2rem;
-            }
-
-            .post-content {
-                padding: 24px;
-                font-size: 16px;
-            }
-
-            .post-image {
-                height: 250px;
-            }
-        }
-
-        .social-share {
-            padding: 32px;
-            border-top: 1px solid var(--border-color);
-            border-bottom: 1px solid var(--border-color);
-            margin: 32px 0;
-            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255, 255, 255, 0.5) 100%);
-            border-radius: var(--border-radius);
-        }
-
-        /* Reactions Section */
+        /* ─── Reactions ─── */
         .post-reactions {
             display: flex;
             justify-content: center;
             gap: 16px;
-            margin: 24px 0;
+            padding: 32px;
+            max-width: 700px;
+            margin: 0 auto;
         }
-
         .reaction-btn {
+            font-family: var(--sans);
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 10px 20px;
-            border: 1px solid var(--border-color);
-            border-radius: 30px;
-            background: var(--card-bg);
-            color: var(--text-dark);
-            font-size: 16px;
+            padding: 10px 24px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--text-body);
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
-            transition: var(--transition);
-            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
         }
+        .reaction-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .reaction-btn.like-btn:hover, .reaction-btn.like-btn.active { border-color: #22c55e; color: #16a34a; background: #f0fdf4; }
+        .reaction-btn.dislike-btn:hover, .reaction-btn.dislike-btn.active { border-color: #ef4444; color: #dc2626; background: #fef2f2; }
 
-        .reaction-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
+        /* ─── Social Share ─── */
+        .social-share {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 32px;
+            border-top: 1px solid var(--border-subtle);
+            border-bottom: 1px solid var(--border-subtle);
         }
-
-        .reaction-btn.like-btn:hover {
-            border-color: #22c55e;
-            color: #16a34a;
-            background: #f0fdf4;
-        }
-
-        .reaction-btn.dislike-btn:hover {
-            border-color: #ef4444;
-            color: #dc2626;
-            background: #fef2f2;
-        }
-
         .social-share h3 {
-            font-size: 1.25rem;
+            font-family: var(--sans);
+            font-size: 14px;
             font-weight: 600;
-            margin-bottom: 16px;
-            color: var(--text-dark);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
             text-align: center;
+            margin-bottom: 16px;
         }
-
         .share-buttons {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             justify-content: center;
             flex-wrap: wrap;
         }
-
         .share-btn {
+            font-family: var(--sans);
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 10px 16px;
-            border: 1px solid var(--border-color);
-            border-radius: var(--border-radius-sm);
-            background: var(--card-bg);
-            color: var(--text-dark);
+            gap: 6px;
+            padding: 8px 16px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--navy);
             text-decoration: none;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
-            transition: var(--transition);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .share-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-            border-color: var(--primary-color);
-        }
-
-        .share-btn.twitter:hover {
-            background: #1da1f2;
-            color: white;
-            border-color: #1da1f2;
-        }
-
-        .share-btn.linkedin:hover {
-            background: #0077b5;
-            color: white;
-            border-color: #0077b5;
-        }
-
-        .share-btn.facebook:hover {
-            background: #1877f2;
-            color: white;
-            border-color: #1877f2;
-        }
-
-        .share-btn.copy-link:hover {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-
-        /* Comments Section */
-        .comments-section {
-            padding: 32px;
-            margin-top: 32px;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .comments-section h3,
-        .comments-section h4 {
-            color: var(--text-dark);
-            margin-bottom: 24px;
-        }
-
-        .comments-list {
-            margin-bottom: 32px;
-        }
-
-        .comment {
-            background: var(--bg-secondary);
-            padding: 16px 20px;
-            border-radius: var(--border-radius-sm);
-            margin-bottom: 16px;
-            border: 1px solid var(--border-color);
-        }
-
-        .comment-meta {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
-            margin-bottom: 8px;
-            color: var(--text-medium);
-        }
-
-        .comment-meta strong {
-            color: var(--text-dark);
-        }
-
-        .comment-body {
-            color: var(--text-dark);
-            line-height: 1.5;
-        }
-
-        .comment-form-container {
-            background: var(--bg-tertiary);
-            padding: 24px;
-            border-radius: var(--border-radius-sm);
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--text-dark);
-            font-weight: 500;
-        }
-
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-family: inherit;
-        }
-
-        .submit-comment-btn {
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
             cursor: pointer;
-            font-weight: 600;
-            transition: background 0.2s;
+            transition: all 0.2s ease;
         }
+        .share-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+        .share-btn.twitter:hover { background: #1da1f2; color: #fff; border-color: #1da1f2; }
+        .share-btn.linkedin:hover { background: #0077b5; color: #fff; border-color: #0077b5; }
+        .share-btn.facebook:hover { background: #1877f2; color: #fff; border-color: #1877f2; }
+        .share-btn.copy-link:hover { background: var(--navy); color: var(--cream); border-color: var(--navy); }
 
-        .submit-comment-btn:hover {
-            background: var(--primary-hover);
-        }
-
-        /* Smooth scroll */
-        html {
-            scroll-behavior: smooth;
-        }
-
-        /* Micro-interactions */
-        .post-header {
-            animation: fadeInUp 1s ease-out;
-        }
-
-        .post-image {
-            animation: fadeInUp 0.8s ease-out 0.2s both;
-            opacity: 0;
-            transform: translateY(30px);
-        }
-
-        .post-content {
-            animation: fadeInUp 0.8s ease-out 0.4s both;
-            opacity: 0;
-            transform: translateY(30px);
-        }
-
-        .social-share {
-            animation: fadeInUp 0.8s ease-out 0.6s both;
-            opacity: 0;
-            transform: translateY(30px);
-        }
-
-        .post-tags {
-            animation: fadeInUp 0.8s ease-out 0.8s both;
-            opacity: 0;
-            transform: translateY(30px);
-        }
-
-        @keyframes fadeInUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Loading skeleton animation */
-        .loading-skeleton {
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
-        }
-
-        /* Enhanced hover effects */
-        .tag:hover {
-            transform: translateY(-2px) scale(1.05);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .share-btn:hover {
-            transform: translateY(-4px) scale(1.02);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-        }
-
-        /* Navigation hover effects */
-        nav a {
-            position: relative;
-            overflow: hidden;
-        }
-
-        nav a::before {
-            content: '';
-            position: absolute;
+        /* ─── Comments Drawer ─── */
+        .comments-drawer {
+            position: fixed;
             top: 0;
-            left: -100%;
-            width: 100%;
+            right: -450px;
+            width: 450px;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s ease;
-        }
-
-        nav a:hover::before {
-            left: 100%;
-        }
-
-        /* Logo hover effect */
-        .logo:hover {
-            transform: scale(1.05);
-        }
-
-        .logo img:hover {
-            transform: rotate(5deg) scale(1.1);
-        }
-
-        /* Back button hover */
-        .back-btn:hover {
-            transform: translateX(-4px);
-        }
-
-        /* Post content hover effects */
-        .post-content blockquote:hover {
-            transform: translateX(4px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .post-content code:hover {
-            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-            transform: scale(1.02);
-        }
-
-        /* Author Profile Photo Styles */
-        .post-author-img {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            cursor: pointer;
-            transition: transform 0.2s;
-            background: #eee;
-        }
-
-        .post-author-img:hover {
-            transform: scale(1.1);
-        }
-
-        .post-header-with-author {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            z-index: 3000;
+            box-shadow: -10px 0 40px rgba(0,0,0,0.1);
+            transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 20px;
+            flex-direction: column;
+            border-left: 1px solid rgba(0,0,0,0.05);
         }
-
-        /* Lightbox Styles */
-        .lightbox-modal {
-            display: none;
+        .comments-drawer.active {
+            right: 0;
+        }
+        .comments-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(15, 27, 45, 0.2);
+            backdrop-filter: blur(4px);
+            z-index: 2999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .comments-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .drawer-header {
+            padding: 24px 32px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+        }
+        .drawer-header h3 {
+            font-family: var(--serif);
+            font-size: 1.4rem;
+            margin: 0;
+            color: var(--navy);
+        }
+        .close-drawer-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 8px;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .close-drawer-btn:hover { color: var(--red); }
+
+        .drawer-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px;
+        }
+
+        /* Comments List inside drawer */
+        .comment {
+            background: #f8fafc;
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border-subtle);
+        }
+        .comment-meta {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--sans);
+            font-size: 12px;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+        }
+        .comment-meta strong { color: var(--navy); }
+        .comment-body { color: var(--text-body); line-height: 1.5; font-size: 14px; }
+
+        .drawer-footer {
+            padding: 24px 32px;
+            border-top: 1px solid var(--border-subtle);
+            background: #fff;
+        }
+        .comment-form-container h4 {
+            font-family: var(--serif);
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            color: var(--navy);
+        }
+        .form-group { margin-bottom: 12px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-family: var(--sans);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            font-family: var(--sans);
+            font-size: 14px;
+            background: #fcfcfd;
+            transition: all 0.2s;
+        }
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--red);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(192,57,43,0.05);
+        }
+        .submit-comment-btn {
+            width: 100%;
+            font-family: var(--sans);
+            background: var(--navy);
+            color: #fff;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .submit-comment-btn:hover { background: var(--red); }
+
+        /* ─── Comment Toggle Area ─── */
+        .comments-toggle-section {
+            max-width: 800px;
+            margin: 48px auto;
+            padding: 40px 32px;
+            text-align: center;
+            border-top: 1px solid var(--border-subtle);
+        }
+        .comments-toggle-btn {
+            font-family: var(--sans);
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 40px;
+            background: var(--navy);
+            color: var(--cream);
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px rgba(15, 27, 45, 0.15);
+        }
+        .comments-toggle-btn:hover {
+            transform: translateY(-4px);
+            background: var(--red);
+            box-shadow: 0 15px 35px rgba(192, 57, 43, 0.25);
+        }
+        .comments-toggle-btn .comment-count-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        /* ─── Loading & Error ─── */
+        .loading {
+            text-align: center;
+            padding: 120px 20px;
+            font-family: var(--sans);
+            color: var(--text-muted);
+        }
+        .error {
+            text-align: center;
+            padding: 120px 20px;
+            font-family: var(--sans);
+            color: var(--red);
+        }
+        .error h2 { font-family: var(--serif); color: var(--red); margin-bottom: 12px; }
+
+        /* ─── Footer ─── */
+        .site-footer {
+            background: var(--navy-dark);
+            color: rgba(250, 247, 242, 0.4);
+            text-align: center;
+            padding: 32px;
+            font-family: var(--sans);
+            font-size: 13px;
+        }
+
+        /* ─── Lightbox ─── */
+        .lightbox-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(15, 27, 45, 0.92);
             z-index: 2000;
             justify-content: center;
             align-items: center;
-            backdrop-filter: blur(5px);
+            backdrop-filter: blur(8px);
         }
-
-        .lightbox-modal.active {
-            display: flex;
-        }
-
+        .lightbox-modal.active { display: flex; }
         .lightbox-content {
             max-width: 90%;
             max-height: 90%;
             position: relative;
         }
-
         .lightbox-image {
             max-width: 100%;
             max-height: 80vh;
             border-radius: 8px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
-
         .lightbox-close {
             position: absolute;
-            top: -40px;
-            right: 0;
-            color: white;
-            font-size: 30px;
+            top: -40px; right: 0;
+            color: var(--cream);
+            font-size: 28px;
             cursor: pointer;
             background: none;
             border: none;
             padding: 5px;
         }
-
         .lightbox-info {
-            color: white;
+            color: var(--cream);
             text-align: center;
-            margin-top: 15px;
+            margin-top: 12px;
+            font-family: var(--sans);
+        }
+
+        /* ─── Animations ─── */
+        .post-hero { animation: fadeIn 0.8s ease-out; }
+        .featured-image-wrap { animation: slideUp 0.7s ease-out 0.2s both; }
+        .article-content { animation: fadeIn 0.8s ease-out 0.3s both; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 768px) {
+            .header-inner { padding: 0 16px; }
+            .logo-title { font-size: 17px; }
+            .site-nav a span { display: none; }
+            .post-hero { padding: 48px 20px 44px; }
+            .hero-title { font-size: 2rem; }
+            .hero-subtitle { font-size: 1.05rem; }
+            .featured-image-wrap { padding: 0 16px; margin-top: 24px; }
+            .article-container { padding: 36px 20px 48px; }
+            .article-content { font-size: 1rem; }
+            .article-content h2 { font-size: 1.4rem; }
+            .pull-quote { margin: 40px -8px; padding: 28px 20px; }
+            .pull-quote p { font-size: 1.2rem; }
+            .scene-card { padding: 24px 20px; }
+            .closing-box { padding: 28px 24px; }
+            .post-reactions { flex-direction: column; align-items: center; }
         }
     </style>
 </head>
@@ -886,26 +809,24 @@
         <div class="reading-progress-bar"></div>
     </div>
 
-    <header>
-        <div class="header-container">
+    <header class="site-header">
+        <div class="header-inner">
             <a href="/" class="logo">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile picture">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile">
                 <span class="logo-title">zedong254ke</span>
             </a>
-            <nav>
-                <a href="/"><span>Home</span>🏠</a>
-                <a href="/" class="active-tab"><span>Blog</span>📝</a>
-                <a href="/about.html"><span>About</span>ℹ️</a>
-                <button class="back-btn" onclick="goBack()">← Back to Blog</button>
+            <nav class="site-nav">
+                <a href="/"><span>Home </span>🏠</a>
+                <a href="/"><span>Blog </span>📝</a>
+                <a href="/about.html"><span>About </span>ℹ️</a>
+                <button class="back-link" onclick="goBack()">← Back</button>
             </nav>
         </div>
     </header>
 
-    <main>
-        <div id="post-container" class="post-container">
-            <!-- Post content will be loaded here -->
-        </div>
-    </main>
+    <div id="post-root">
+        <!-- Post content rendered here by JS -->
+    </div>
 
     <!-- Lightbox Modal -->
     <div id="lightbox" class="lightbox-modal" onclick="closeLightbox(event)">
@@ -918,11 +839,44 @@
         </div>
     </div>
 
+    <div id="comments-overlay" class="comments-overlay" onclick="closeCommentsDrawer()"></div>
+    <div id="comments-drawer" class="comments-drawer">
+        <div class="drawer-header">
+            <h3>Discussion</h3>
+            <button class="close-drawer-btn" onclick="closeCommentsDrawer()">&times;</button>
+        </div>
+        <div id="comments-list" class="drawer-content">
+            <!-- Comments will be loaded here -->
+        </div>
+        <div class="drawer-footer">
+            <div class="comment-form-container">
+                <h4>Leave a Comment</h4>
+                <form id="comment-form" onsubmit="submitComment(event)">
+                    <div class="form-group">
+                        <label for="comment-name">Name</label>
+                        <input type="text" id="comment-name" required placeholder="Your name">
+                    </div>
+                    <div class="form-group">
+                        <label for="comment-content">Comment</label>
+                        <textarea id="comment-content" rows="3" required placeholder="What are your thoughts?"></textarea>
+                    </div>
+                    <button type="submit" class="submit-comment-btn" id="submit-comment-btn">Post Comment</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        &copy; 2026 zedong254ke &middot; All rights reserved
+    </footer>
+
     <script>
-        // Get post ID from URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const postId = urlParams.get('id');
         let globalAuthorInfo = null;
+
+        // Show loading
+        document.getElementById('post-root').innerHTML = '<div class="loading"><h2>Loading...</h2></div>';
 
         if (!postId) {
             showError('No post ID provided');
@@ -933,18 +887,13 @@
         async function loadPost(id) {
             try {
                 const response = await fetch(`/api/posts/${id}`);
-                if (!response.ok) {
-                    throw new Error(`Post not found (${response.status})`);
-                }
+                if (!response.ok) throw new Error(`Post not found (${response.status})`);
                 const data = await response.json();
-                
-                // Load author info
+
                 try {
-                    const authorResp = await fetch(`/api/settings/author?t=${new Date().getTime()}`);
+                    const authorResp = await fetch(`/api/settings/author?t=${Date.now()}`);
                     const authorData = await authorResp.json();
-                    if (authorData.author) {
-                        globalAuthorInfo = authorData.author;
-                    }
+                    if (authorData.author) globalAuthorInfo = authorData.author;
                 } catch (e) {
                     console.error('Failed to load author info:', e);
                 }
@@ -958,103 +907,181 @@
         }
 
         function renderPost(post) {
-            const container = document.getElementById('post-container');
+            const root = document.getElementById('post-root');
 
             const date = new Date(post.date).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
+                year: 'numeric', month: 'long', day: 'numeric'
             });
 
-            // Calculate reading time (rough estimate: 200 words per minute)
+            // Reading time
             const wordCount = post.content ? post.content.split(/\s+/).length : 0;
             const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
+            // Author image
+            const authorImg = (globalAuthorInfo && globalAuthorInfo.profilePicture)
+                ? `<img src="${globalAuthorInfo.profilePicture}" class="hero-author-img" onclick="openLightbox('${globalAuthorInfo.profilePicture}')" title="View author" alt="Author">`
+                : '';
+
+            // Category name (if stored)
+            const categoryHtml = post.categoryName
+                ? `<span class="hero-category">${post.categoryName}</span>`
+                : '';
+
+            // Subtitle
+            const subtitleHtml = post.subtitle
+                ? `<p class="hero-subtitle">${post.subtitle}</p>`
+                : '';
+
+            // Featured image
+            const imageHtml = post.image
+                ? `<div class="featured-image-wrap"><img src="${post.image}" alt="${post.title}" class="featured-image"></div>`
+                : '';
+
+            // Featured video
+            const videoHtml = post.video
+                ? `<div style="max-width:900px;margin:24px auto 0;padding:0 32px;"><video src="${post.video}" controls style="width:100%;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.15);"></video></div>`
+                : '';
+
+            // ── Process content for editorial elements ──
+
+            // Apply drop cap to the first paragraph
+            let processedContent = post.content || '<p>No content available.</p>';
+
+            // Find the first <p> tag and add drop-cap class
+            processedContent = processedContent.replace(
+                /(<p[^>]*>)/i,
+                (match, tag, offset) => {
+                    if (offset === processedContent.indexOf(match)) {
+                        return tag.includes('class=')
+                            ? tag.replace('class="', 'class="drop-cap ')
+                            : tag.replace('>', ' class="drop-cap">');
+                    }
+                    return match;
+                }
+            );
+
+            // Pull quote — injected after the 2nd or 3rd paragraph
+            let pullQuoteHtml = '';
+            if (post.pullQuote) {
+                pullQuoteHtml = `<div class="pull-quote"><p>${post.pullQuote}</p></div>`;
+            }
+
+            // Scene card
+            let sceneCardHtml = '';
+            if (post.sceneCard) {
+                sceneCardHtml = `<div class="scene-card"><p>${post.sceneCard}</p></div>`;
+            }
+
+            // Insert pull quote after the 2nd paragraph, scene card after the 4th
+            if (pullQuoteHtml || sceneCardHtml) {
+                const parts = processedContent.split(/<\/p>/i);
+                const result = [];
+                for (let i = 0; i < parts.length; i++) {
+                    result.push(parts[i]);
+                    if (i < parts.length - 1) result.push('</p>');
+                    if (i === 1 && pullQuoteHtml) result.push(pullQuoteHtml);
+                    if (i === 3 && sceneCardHtml) result.push(sceneCardHtml);
+                }
+                // If content had fewer paragraphs, append at the end
+                if (parts.length <= 2 && pullQuoteHtml && !processedContent.includes('pull-quote')) {
+                    result.push(pullQuoteHtml);
+                }
+                if (parts.length <= 4 && sceneCardHtml && !processedContent.includes('scene-card')) {
+                    result.push(sceneCardHtml);
+                }
+                processedContent = result.join('');
+            }
+
+            // Closing box
+            let closingBoxHtml = '';
+            if (post.closingBox) {
+                closingBoxHtml = `<div class="closing-box"><h3>The Takeaway</h3><p>${post.closingBox}</p></div>`;
+            }
+
+            // Tags
             const tags = post.tags && post.tags.length > 0
                 ? post.tags.map(tag => `<a href="/?search=${encodeURIComponent(tag)}" class="tag">${tag}</a>`).join('')
                 : '';
 
-            const imageHtml = post.image
-                ? `<img src="${post.image}" alt="${post.title}" class="post-image">`
-                : '';
-
-            const videoHtml = post.video
-                ? `<div class="post-video-container" style="padding: 0 32px; margin-top: 20px;">
-                    <video src="${post.video}" controls class="post-video" style="width: 100%; border-radius: 12px; box-shadow: var(--shadow-md);"></video>
-                   </div>`
-                : '';
-
-            const authorImgHtml = globalAuthorInfo && globalAuthorInfo.profilePicture
-                ? `<img src="${globalAuthorInfo.profilePicture}" class="post-author-img" onclick="openLightbox('${globalAuthorInfo.profilePicture}')" title="View author profile" alt="Author">`
-                : '';
-
-            container.innerHTML = `
-                <div class="post-header">
-                    <div class="post-header-with-author">
-                        ${authorImgHtml}
-                        <h1 class="post-title" style="margin-bottom: 0;">${post.title}</h1>
-                    </div>
-                    <div class="post-meta">
-                        <span>${date} · ${post.author || 'Admin'}</span>
-                        <span>📖 ${readingTime} min read</span>
+            root.innerHTML = `
+                <div class="post-hero">
+                    <div class="hero-inner">
+                        ${categoryHtml}
+                        <h1 class="hero-title">${post.title}</h1>
+                        ${subtitleHtml}
+                        <div class="hero-meta">
+                            ${authorImg}
+                            <span>${post.author || 'Admin'}</span>
+                            <span class="divider"></span>
+                            <span>${date}</span>
+                            <span class="divider"></span>
+                            <span>${readingTime} min read</span>
+                        </div>
                     </div>
                 </div>
                 ${imageHtml}
                 ${videoHtml}
-                <div class="post-content">
-                    ${post.content || '<p>No content available.</p>'}
-                </div>
+                <article class="article-container">
+                    <div class="article-content">
+                        ${processedContent}
+                        ${closingBoxHtml}
+                    </div>
+                </article>
                 <div class="post-reactions">
-                    <button class="reaction-btn like-btn" onclick="likePost(${post.id})" id="like-btn">
+                    <button class="reaction-btn like-btn" onclick="likePost('${post.id}')" id="like-btn">
                         <span>👍</span> <span id="like-count">${post.likes || 0}</span>
                     </button>
-                    <button class="reaction-btn dislike-btn" onclick="dislikePost(${post.id})" id="dislike-btn">
+                    <button class="reaction-btn dislike-btn" onclick="dislikePost('${post.id}')" id="dislike-btn">
                         <span>👎</span> <span id="dislike-count">${post.dislikes || 0}</span>
                     </button>
                 </div>
                 <div class="social-share">
-                    <h3>Share this post</h3>
+                    <h3>Share This Story</h3>
                     <div class="share-buttons">
                         <button class="share-btn twitter" onclick="shareOnTwitter('${post.title}', '${window.location.href}')">
-                            <span>🐦</span> Twitter
+                            🐦 Twitter
                         </button>
                         <button class="share-btn linkedin" onclick="shareOnLinkedIn('${post.title}', '${window.location.href}')">
-                            <span>💼</span> LinkedIn
+                            💼 LinkedIn
                         </button>
                         <button class="share-btn facebook" onclick="shareOnFacebook('${window.location.href}')">
-                            <span>📘</span> Facebook
+                            📘 Facebook
                         </button>
                         <button class="share-btn copy-link" onclick="copyLink()">
-                            <span>🔗</span> Copy Link
+                            🔗 Copy Link
                         </button>
                     </div>
                 </div>
                 ${tags ? `<div class="post-tags"><div class="tags-list">${tags}</div></div>` : ''}
-                <div class="comments-section" id="comments-section">
-                    <h3>Comments</h3>
-                    <div id="comments-list" class="comments-list">
-                        <p>Loading comments...</p>
-                    </div>
-                    <div class="comment-form-container">
-                        <h4>Leave a Comment</h4>
-                        <form id="comment-form" onsubmit="submitComment(event)">
-                            <div class="form-group">
-                                <label for="comment-name">Name</label>
-                                <input type="text" id="comment-name" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="comment-content">Comment</label>
-                                <textarea id="comment-content" rows="4" required></textarea>
-                            </div>
-                            <button type="submit" class="submit-comment-btn" id="submit-comment-btn">Post Comment</button>
-                        </form>
-                    </div>
+                <div class="comments-toggle-section">
+                    <button class="comments-toggle-btn" onclick="openCommentsDrawer()">
+                        <span>💬</span>
+                        <span>Show Comments</span>
+                        <span id="comment-count-badge" class="comment-count-badge">0</span>
+                    </button>
                 </div>
             `;
 
+            // Update page title
+            document.title = `${post.title} — zedong254ke`;
+
+            // Reaction state
             const reactionKey = `reaction_${post.id}`;
-            const currentReaction = localStorage.getItem(reactionKey);
-            updateReactionButtons(currentReaction);
+            updateReactionButtons(localStorage.getItem(reactionKey));
+        }
+
+        // ── Comments Drawer Logic ──
+        function openCommentsDrawer() {
+            document.getElementById('comments-drawer').classList.add('active');
+            document.getElementById('comments-overlay').classList.add('active');
+            document.body.style.overflow = 'hidden'; // Prevent scroll
+            loadComments(postId);
+        }
+
+        function closeCommentsDrawer() {
+            document.getElementById('comments-drawer').classList.remove('active');
+            document.getElementById('comments-overlay').classList.remove('active');
+            document.body.style.overflow = ''; // Restore scroll
         }
 
         async function loadComments(postId) {
@@ -1062,14 +1089,19 @@
                 const response = await fetch(`/api/posts/${postId}/comments`);
                 const data = await response.json();
                 const list = document.getElementById('comments-list');
+                const badge = document.getElementById('comment-count-badge');
+                
                 if (data.success) {
+                    if (badge) badge.textContent = data.comments.length;
+                    
                     if (data.comments.length === 0) {
-                        list.innerHTML = '<p class="no-comments" style="color: var(--text-medium);">No comments yet. Be the first to share your thoughts!</p>';
+                        list.innerHTML = '<div style="text-align:center;padding:40px 0;opacity:0.6;"><p>No comments yet. Be the first to start the conversation!</p></div>';
                     } else {
                         list.innerHTML = data.comments.map(c => `
                             <div class="comment">
                                 <div class="comment-meta">
-                                    <strong>${c.name}</strong> <span>${new Date(c.date).toLocaleDateString()}</span>
+                                    <strong>${c.name}</strong>
+                                    <span>${new Date(c.date).toLocaleDateString()}</span>
                                 </div>
                                 <div class="comment-body">${c.content}</div>
                             </div>
@@ -1078,13 +1110,14 @@
                 }
             } catch (e) {
                 console.error('Failed to load comments:', e);
-                document.getElementById('comments-list').innerHTML = '<p class="error" style="padding: 0; text-align: left;">Failed to load comments.</p>';
+                document.getElementById('comments-list').innerHTML = '<p style="color:var(--red);">Failed to load comments.</p>';
             }
         }
 
         async function submitComment(e) {
             e.preventDefault();
             const btn = document.getElementById('submit-comment-btn');
+            const originalText = btn.textContent;
             btn.disabled = true;
             btn.textContent = 'Posting...';
 
@@ -1109,234 +1142,133 @@
                 alert('An error occurred.');
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Post Comment';
+                btn.textContent = originalText;
             }
         }
 
-        function showError(message) {
-            const container = document.getElementById('post-container');
-            container.innerHTML = `
-                <div class="error">
-                    <h2>Post Not Found</h2>
-                    <p>${message}</p>
-                    <button class="back-btn" onclick="goBack()" style="margin-top: 20px;">← Back to Blog</button>
-                </div>
-            `;
-        }
-
+        // ── Reactions ──
         async function likePost(id) {
             try {
                 const reactionKey = `reaction_${id}`;
-                const currentReaction = localStorage.getItem(reactionKey);
-
-                if (currentReaction === 'like') {
-                    // Undo like
-                    const response = await fetch(`/api/posts/${id}/like`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'remove' })
-                    });
-                    const data = await response.json();
-                    if (response.ok && data.success) {
-                        document.getElementById('like-count').textContent = data.likes;
-                        localStorage.removeItem(reactionKey);
-                        updateReactionButtons(null);
-                    }
+                const current = localStorage.getItem(reactionKey);
+                if (current === 'like') {
+                    const r = await fetch(`/api/posts/${id}/like`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'remove' }) });
+                    const d = await r.json();
+                    if (r.ok && d.success) { document.getElementById('like-count').textContent = d.likes; localStorage.removeItem(reactionKey); updateReactionButtons(null); }
                 } else {
-                    // If disliked, undo dislike first
-                    if (currentReaction === 'dislike') {
-                        await fetch(`/api/posts/${id}/dislike`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'remove' })
-                        }).then(r => r.json()).then(d => {
-                            if (d.success) document.getElementById('dislike-count').textContent = d.dislikes;
-                        });
+                    if (current === 'dislike') {
+                        const r2 = await fetch(`/api/posts/${id}/dislike`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'remove' }) });
+                        const d2 = await r2.json();
+                        if (d2.success) document.getElementById('dislike-count').textContent = d2.dislikes;
                     }
-                    // Add like
-                    const response = await fetch(`/api/posts/${id}/like`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'add' })
-                    });
-                    const data = await response.json();
-                    if (response.ok && data.success) {
-                        document.getElementById('like-count').textContent = data.likes;
-                        localStorage.setItem(reactionKey, 'like');
-                        updateReactionButtons('like');
-                    }
+                    const r = await fetch(`/api/posts/${id}/like`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add' }) });
+                    const d = await r.json();
+                    if (r.ok && d.success) { document.getElementById('like-count').textContent = d.likes; localStorage.setItem(reactionKey, 'like'); updateReactionButtons('like'); }
                 }
-            } catch (err) {
-                console.error('Error liking post:', err);
-            }
+            } catch (err) { console.error('Error liking:', err); }
         }
 
         async function dislikePost(id) {
             try {
                 const reactionKey = `reaction_${id}`;
-                const currentReaction = localStorage.getItem(reactionKey);
-
-                if (currentReaction === 'dislike') {
-                    // Undo dislike
-                    const response = await fetch(`/api/posts/${id}/dislike`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'remove' })
-                    });
-                    const data = await response.json();
-                    if (response.ok && data.success) {
-                        document.getElementById('dislike-count').textContent = data.dislikes;
-                        localStorage.removeItem(reactionKey);
-                        updateReactionButtons(null);
-                    }
+                const current = localStorage.getItem(reactionKey);
+                if (current === 'dislike') {
+                    const r = await fetch(`/api/posts/${id}/dislike`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'remove' }) });
+                    const d = await r.json();
+                    if (r.ok && d.success) { document.getElementById('dislike-count').textContent = d.dislikes; localStorage.removeItem(reactionKey); updateReactionButtons(null); }
                 } else {
-                    // If liked, undo like first
-                    if (currentReaction === 'like') {
-                        await fetch(`/api/posts/${id}/like`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'remove' })
-                        }).then(r => r.json()).then(d => {
-                            if (d.success) document.getElementById('like-count').textContent = d.likes;
-                        });
+                    if (current === 'like') {
+                        const r2 = await fetch(`/api/posts/${id}/like`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'remove' }) });
+                        const d2 = await r2.json();
+                        if (d2.success) document.getElementById('like-count').textContent = d2.likes;
                     }
-                    // Add dislike
-                    const response = await fetch(`/api/posts/${id}/dislike`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'add' })
-                    });
-                    const data = await response.json();
-                    if (response.ok && data.success) {
-                        document.getElementById('dislike-count').textContent = data.dislikes;
-                        localStorage.setItem(reactionKey, 'dislike');
-                        updateReactionButtons('dislike');
-                    }
+                    const r = await fetch(`/api/posts/${id}/dislike`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add' }) });
+                    const d = await r.json();
+                    if (r.ok && d.success) { document.getElementById('dislike-count').textContent = d.dislikes; localStorage.setItem(reactionKey, 'dislike'); updateReactionButtons('dislike'); }
                 }
-            } catch (err) {
-                console.error('Error disliking post:', err);
-            }
+            } catch (err) { console.error('Error disliking:', err); }
         }
 
-        function updateReactionButtons(activeReaction) {
-            const likeBtn = document.getElementById('like-btn');
-            const dislikeBtn = document.getElementById('dislike-btn');
-            if (!likeBtn || !dislikeBtn) return;
-
-            if (activeReaction === 'like') {
-                likeBtn.classList.add('active');
-                dislikeBtn.classList.remove('active');
-            } else if (activeReaction === 'dislike') {
-                dislikeBtn.classList.add('active');
-                likeBtn.classList.remove('active');
-            } else {
-                likeBtn.classList.remove('active');
-                dislikeBtn.classList.remove('active');
-            }
+        function updateReactionButtons(active) {
+            const like = document.getElementById('like-btn');
+            const dislike = document.getElementById('dislike-btn');
+            if (!like || !dislike) return;
+            like.classList.toggle('active', active === 'like');
+            dislike.classList.toggle('active', active === 'dislike');
         }
 
-        function goBack() {
-            window.location.href = '/';
+        // ── Utilities ──
+        function showError(message) {
+            document.getElementById('post-root').innerHTML = `
+                <div class="error">
+                    <h2>Post Not Found</h2>
+                    <p>${message}</p>
+                    <button onclick="goBack()" style="margin-top:20px;font-family:var(--sans);padding:10px 20px;background:var(--navy);color:var(--cream);border:none;border-radius:6px;cursor:pointer;">← Back to Blog</button>
+                </div>
+            `;
         }
 
-        // Show loading state initially
-        document.getElementById('post-container').innerHTML = `
-            <div class="loading">
-                <h2>Loading post...</h2>
-            </div>
-        `;
+        function goBack() { window.location.href = '/'; }
 
-        // Reading Progress Bar functionality
+        // Reading progress
         function updateReadingProgress() {
             const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
             const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-            const scrollPercent = (scrollTop / docHeight) * 100;
-            const progressBar = document.querySelector('.reading-progress-bar');
-            if (progressBar) {
-                progressBar.style.transform = `translateX(${scrollPercent - 100}%)`;
-            }
+            const percent = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+            const bar = document.querySelector('.reading-progress-bar');
+            if (bar) bar.style.width = percent + '%';
         }
-
         window.addEventListener('scroll', updateReadingProgress);
         window.addEventListener('load', updateReadingProgress);
 
-        // Social sharing functions
+        // Social sharing
         function shareOnTwitter(title, url) {
-            const text = encodeURIComponent(`Check out this post: ${title}`);
-            const shareUrl = `https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`;
-            window.open(shareUrl, '_blank', 'width=600,height=400');
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out: ' + title)}&url=${encodeURIComponent(url)}`, '_blank', 'width=600,height=400');
         }
-
         function shareOnLinkedIn(title, url) {
-            const shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
-            window.open(shareUrl, '_blank', 'width=600,height=400');
+            window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank', 'width=600,height=400');
         }
-
         function shareOnFacebook(url) {
-            const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-            window.open(shareUrl, '_blank', 'width=600,height=400');
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank', 'width=600,height=400');
         }
-
         function copyLink() {
-            navigator.clipboard.writeText(window.location.href).then(() => {
-                // Simple feedback - you could enhance this with a toast notification
-                alert('Link copied to clipboard!');
-            }).catch(err => {
-                console.error('Failed to copy link: ', err);
-                // Fallback for older browsers
-                const textArea = document.createElement('textarea');
-                textArea.value = window.location.href;
-                document.body.appendChild(textArea);
-                textArea.select();
+            navigator.clipboard.writeText(window.location.href).then(() => alert('Link copied!')).catch(() => {
+                const t = document.createElement('textarea');
+                t.value = window.location.href;
+                document.body.appendChild(t);
+                t.select();
                 document.execCommand('copy');
-                document.body.removeChild(textArea);
-                alert('Link copied to clipboard!');
+                document.body.removeChild(t);
+                alert('Link copied!');
             });
         }
 
-        // Lightbox functions
+        // Lightbox
         function openLightbox(imgUrl) {
-            const lightbox = document.getElementById('lightbox');
-            const lightboxImg = document.getElementById('lightbox-img');
-            const authorName = document.getElementById('lightbox-author-name');
-            
-            if (lightbox && lightboxImg) {
-                lightboxImg.src = imgUrl;
-                if (authorName && globalAuthorInfo) {
-                    authorName.textContent = globalAuthorInfo.name || 'Author';
-                }
-                lightbox.classList.add('active');
+            const lb = document.getElementById('lightbox');
+            const img = document.getElementById('lightbox-img');
+            const name = document.getElementById('lightbox-author-name');
+            if (lb && img) {
+                img.src = imgUrl;
+                if (name && globalAuthorInfo) name.textContent = globalAuthorInfo.name || 'Author';
+                lb.classList.add('active');
             }
         }
-
         function closeLightbox(event) {
-            if (event) {
-                // Only close if clicking backdrop or close button
-                if (event.target.id === 'lightbox' || event.target.classList.contains('lightbox-close')) {
-                    document.getElementById('lightbox').classList.remove('active');
-                }
-            } else {
-                document.getElementById('lightbox').classList.remove('active');
-            }
+            if (event && event.target.id !== 'lightbox' && !event.target.classList.contains('lightbox-close')) return;
+            document.getElementById('lightbox').classList.remove('active');
         }
 
-        // Active Tab Highlighting Function
+        // Active tab highlighting
         function highlightActiveTab() {
-            const currentPath = window.location.pathname;
-            const navLinks = document.querySelectorAll('nav a');
-
-            navLinks.forEach(link => {
-                const href = link.getAttribute('href');
-
+            const path = window.location.pathname;
+            document.querySelectorAll('.site-nav a').forEach(link => {
                 link.classList.remove('active');
-                link.classList.remove('active-tab');
-
-                if (href === '/' && (currentPath === '/' || currentPath === '/index.html')) {
-                    if (link.textContent.includes('Home')) {
-                        link.classList.add('active', 'active-tab');
-                    }
-                } else if (href && href !== '/' && currentPath.includes(href.replace('/', '').replace('.html', ''))) {
-                    link.classList.add('active', 'active-tab');
+                const href = link.getAttribute('href');
+                if (href === '/' && (path === '/' || path === '/index.html')) {
+                    if (link.textContent.includes('Home')) link.classList.add('active');
+                } else if (href && href !== '/' && path.includes(href.replace('/', '').replace('.html', ''))) {
+                    link.classList.add('active');
                 }
             });
         }

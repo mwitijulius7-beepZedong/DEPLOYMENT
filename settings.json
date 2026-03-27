@@ -1,12 +1,12 @@
 {
-  "backgroundUrl": "http://localhost:3000/uploads/1773304439595_Mao-Zedong.webp",
+  "backgroundUrl": "http://localhost:3000/uploads/1774216553618_background-cropped.jpg",
   "backgrounds": [
     "https://example.com/bg1.jpg",
     "https://example.com/bg2.jpg"
   ],
   "theme": {
-    "primaryColor": "#FF5733",
-    "accentColor": "#4A9B9B"
+    "primaryColor": "#f4a191",
+    "accentColor": "#4a9b9b"
   },
   "author": {
     "name": "zedong254ke",

@@ -86,49 +86,37 @@ async function addCategory() {
     const categoryName = document.getElementById('category-name').value.trim();
     const categoryDescription = document.getElementById('category-description').value.trim();
     const addButton = document.getElementById('btn-add-category');
-    let originalContent;
 
     if (!categoryName) {
         alert('Please enter a category name.');
         return;
     }
 
-    // Disable button and show loading state
-    if (addButton) {
-        originalContent = addButton.innerHTML;
-        addButton.disabled = true;
-        addButton.textContent = 'Adding...';
-    }
+    await withLoading(addButton, async () => {
+        try {
+            const response = await fetch('/api/categories', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                credentials: 'include',
+                body: JSON.stringify({ name: categoryName, description: categoryDescription })
+            });
 
-    try {
-        const response = await fetch('/api/categories', {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            credentials: 'include',
-            body: JSON.stringify({ name: categoryName, description: categoryDescription })
-        });
+            const data = await response.json();
 
-        const data = await response.json();
-
-        if (response.ok) {
-            alert('Category added successfully!');
-            document.getElementById('category-name').value = '';
-            document.getElementById('category-description').value = '';
-            await loadCategories(); // Refresh the list
-        } else {
-            const errorMessage = data.error || data.message || 'Failed to add category.';
-            alert(`Error: ${errorMessage}`);
+            if (response.ok) {
+                alert('Category added successfully!');
+                document.getElementById('category-name').value = '';
+                document.getElementById('category-description').value = '';
+                await loadCategories(); // Refresh the list
+            } else {
+                const errorMessage = data.error || data.message || 'Failed to add category.';
+                alert(`Error: ${errorMessage}`);
+            }
+        } catch (error) {
+            console.error('Error adding category:', error);
+            alert('Network error: Failed to add category. Please check your connection and try again.');
         }
-    } catch (error) {
-        console.error('Error adding category:', error);
-        alert('Network error: Failed to add category. Please check your connection and try again.');
-    } finally {
-        // Re-enable button and restore text
-        if (addButton) {
-            addButton.disabled = false;
-            addButton.innerHTML = originalContent || '<i>➕</i> Add Category';
-        }
-    }
+    }, 'Adding...');
 }
 
 function editCategory(categoryId) {
@@ -138,40 +126,29 @@ function editCategory(categoryId) {
 async function deleteCategory(categoryId) {
     if (confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
         const deleteButton = event?.target;
-        const originalText = deleteButton?.textContent;
 
-        // Disable button and show loading state
-        if (deleteButton) {
-            deleteButton.disabled = true;
-            deleteButton.textContent = 'Deleting...';
-        }
+        await withLoading(deleteButton, async () => {
+            try {
+                const response = await fetch(`/api/categories/${categoryId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders(),
+                    credentials: 'include'
+                });
 
-        try {
-            const response = await fetch(`/api/categories/${categoryId}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders(),
-                credentials: 'include'
-            });
+                const data = await response.json();
 
-            const data = await response.json();
-
-            if (response.ok) {
-                alert('Category deleted successfully!');
-                await loadCategories(); // Refresh the list
-            } else {
-                const errorMessage = data.error || data.message || 'Failed to delete category.';
-                alert(`Error: ${errorMessage}`);
+                if (response.ok) {
+                    alert('Category deleted successfully!');
+                    await loadCategories(); // Refresh the list
+                } else {
+                    const errorMessage = data.error || data.message || 'Failed to delete category.';
+                    alert(`Error: ${errorMessage}`);
+                }
+            } catch (error) {
+                console.error('Error deleting category:', error);
+                alert('Network error: Failed to delete category. Please check your connection and try again.');
             }
-        } catch (error) {
-            console.error('Error deleting category:', error);
-            alert('Network error: Failed to delete category. Please check your connection and try again.');
-        } finally {
-            // Re-enable button and restore text
-            if (deleteButton) {
-                deleteButton.disabled = false;
-                deleteButton.textContent = originalText || 'Delete';
-            }
-        }
+        }, 'Deleting...');
     }
 }
 
@@ -197,6 +174,7 @@ function updateSelectedCategoriesCount() {
 async function deleteSelectedCategories() {
     const categoryCheckboxes = document.querySelectorAll('.category-checkbox:checked');
     const selectedIds = Array.from(categoryCheckboxes).map(cb => cb.getAttribute('data-category-id'));
+    const deleteButton = document.getElementById('delete-selected-categories');
 
     if (selectedIds.length === 0) {
         alert('No categories selected.');
@@ -207,38 +185,39 @@ async function deleteSelectedCategories() {
         return;
     }
 
-    let successCount = 0;
-    let errorCount = 0;
+    await withLoading(deleteButton, async () => {
+        let successCount = 0;
+        let errorCount = 0;
 
-    for (const categoryId of selectedIds) {
-        try {
-            const response = await fetch(`/api/categories/${categoryId}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders(),
-                credentials: 'include'
-            });
+        for (const categoryId of selectedIds) {
+            try {
+                const response = await fetch(`/api/categories/${categoryId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders(),
+                    credentials: 'include'
+                });
 
-            if (response.ok) {
-                successCount++;
-            } else {
+                if (response.ok) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            } catch (error) {
+                console.error('Error deleting category:', error);
                 errorCount++;
             }
-        } catch (error) {
-            console.error('Error deleting category:', error);
-            errorCount++;
         }
-    }
 
-    if (successCount > 0) {
-        alert(`${successCount} categor(y/ies) deleted successfully!`);
-        loadCategories(); // Refresh the list
-    }
+        if (successCount > 0) {
+            alert(`${successCount} categor(y/ies) deleted successfully!`);
+            loadCategories(); // Refresh the list
+        }
 
-    if (errorCount > 0) {
-        alert(`Failed to delete ${errorCount} categor(y/ies).`);
-    }
+        if (errorCount > 0) {
+            alert(`Failed to delete ${errorCount} categor(y/ies).`);
+        }
+    }, 'Deleting...');
 }
-
 async function saveAuthorInfo() {
     const authorName = document.getElementById('author-name').value;
     const authorEmail = document.getElementById('author-email').value;
@@ -250,58 +229,65 @@ async function saveAuthorInfo() {
     const authorLinkedin = document.getElementById('author-linkedin').value;
     const authorInstagram = document.getElementById('author-instagram').value;
     const authorWebsite = document.getElementById('author-website').value;
+    const saveButton = event?.target || document.querySelector('#about-panel .btn-modern');
 
-    try {
-        const response = await fetch('/api/settings/author', {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            credentials: 'include',
-            body: JSON.stringify({
-                name: authorName,
-                email: authorEmail,
-                bio: authorBio,
-                phone: authorPhone,
-                whatsapp: authorWhatsapp,
-                twitter: authorTwitter,
-                facebook: authorFacebook,
-                linkedin: authorLinkedin,
-                instagram: authorInstagram,
-                website: authorWebsite
-            })
-        });
+    await withLoading(saveButton, async () => {
+        try {
+            const response = await fetch('/api/settings/author', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                credentials: 'include',
+                body: JSON.stringify({
+                    name: authorName,
+                    email: authorEmail,
+                    bio: authorBio,
+                    phone: authorPhone,
+                    whatsapp: authorWhatsapp,
+                    twitter: authorTwitter,
+                    facebook: authorFacebook,
+                    linkedin: authorLinkedin,
+                    instagram: authorInstagram,
+                    website: authorWebsite
+                })
+            });
 
-        if (response.ok) {
-            alert('Author information saved successfully!');
-        } else {
-            alert('Failed to save author information.');
+            if (response.ok) {
+                alert('Author information saved successfully!');
+            } else {
+                alert('Failed to save author information.');
+            }
+        } catch (error) {
+            console.error('Error saving author information:', error);
+            alert('Error saving author information.');
         }
-    } catch (error) {
-        console.error('Error saving author information:', error);
-        alert('Error saving author information.');
-    }
+    });
 }
+
 
 async function saveSecuritySettings() {
     const adminEntryKey = document.getElementById('admin-entry-key').value;
     const sessionTimeout = document.getElementById('session-timeout').value;
+    const saveButton = event?.target || document.querySelector('#security-panel .btn-modern');
 
-    try {
-        const response = await fetch('/api/settings/security', {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            credentials: 'include',
-            body: JSON.stringify({ adminEntryKey, sessionTimeout: parseInt(sessionTimeout) })
-        });
+    await withLoading(saveButton, async () => {
+        try {
+            const response = await fetch('/api/settings/security', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                credentials: 'include',
+                body: JSON.stringify({ adminEntryKey, sessionTimeout: parseInt(sessionTimeout) })
+            });
 
-        if (response.ok) {
-            alert('Security settings saved successfully!');
-        } else {
-            alert('Failed to save security settings.');
+            if (response.ok) {
+                alert('Security settings saved successfully!');
+            } else {
+                alert('Failed to save security settings.');
+            }
+        } catch (error) {
+            console.error('Error saving security settings:', error);
+            alert('Error saving security settings.');
         }
-    } catch (error) {
-        console.error('Error saving security settings:', error);
-        alert('Error saving security settings.');
-    }
+    });
 }
 
 async function viewCurrentKey() {
@@ -342,53 +328,60 @@ async function saveNotificationSettings() {
     const emailNotifications = document.getElementById('email-notifications').checked;
     const commentNotifications = document.getElementById('comment-notifications').checked;
     const systemAlerts = document.getElementById('system-alerts').checked;
+    const saveButton = event?.target || document.querySelector('#notifications-panel .btn-modern');
 
-    try {
-        const response = await fetch('/api/settings/notifications', {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            credentials: 'include',
-            body: JSON.stringify({ emailNotifications, commentNotifications, systemAlerts })
-        });
+    await withLoading(saveButton, async () => {
+        try {
+            const response = await fetch('/api/settings/notifications', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                credentials: 'include',
+                body: JSON.stringify({ emailNotifications, commentNotifications, systemAlerts })
+            });
 
-        if (response.ok) {
-            alert('Notification settings saved successfully!');
-        } else {
-            alert('Failed to save notification settings.');
+            if (response.ok) {
+                alert('Notification settings saved successfully!');
+            } else {
+                alert('Failed to save notification settings.');
+            }
+        } catch (error) {
+            console.error('Error saving notification settings:', error);
+            alert('Error saving notification settings.');
         }
-    } catch (error) {
-        console.error('Error saving notification settings:', error);
-        alert('Error saving notification settings.');
-    }
+    });
 }
 
 async function saveContentSettings() {
     const postsPerPage = document.getElementById('posts-per-page').value;
     const autoPublish = document.getElementById('auto-publish').checked;
     const enableComments = document.getElementById('enable-comments').checked;
+    const saveButton = event?.target || document.querySelector('#content-panel .btn-modern');
 
-    try {
-        const response = await fetch('/api/settings/content', {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            credentials: 'include',
-            body: JSON.stringify({ postsPerPage: parseInt(postsPerPage), autoPublish, enableComments })
-        });
+    await withLoading(saveButton, async () => {
+        try {
+            const response = await fetch('/api/settings/content', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                credentials: 'include',
+                body: JSON.stringify({ postsPerPage: parseInt(postsPerPage), autoPublish, enableComments })
+            });
 
-        if (response.ok) {
-            alert('Content settings saved successfully!');
-        } else {
-            alert('Failed to save content settings.');
+            if (response.ok) {
+                alert('Content settings saved successfully!');
+            } else {
+                alert('Failed to save content settings.');
+            }
+        } catch (error) {
+            console.error('Error saving content settings:', error);
+            alert('Error saving content settings.');
         }
-    } catch (error) {
-        console.error('Error saving content settings:', error);
-        alert('Error saving content settings.');
-    }
+    });
 }
 
 async function handleProfilePictureUpload() {
     const fileInput = document.getElementById('profile-picture-file');
     const file = fileInput.files[0];
+    const uploadButton = event?.target || document.querySelector('#about-panel button[onclick="handleProfilePictureUpload()"]');
 
     if (!file) {
         alert('Please select a file first.');
@@ -407,37 +400,39 @@ async function handleProfilePictureUpload() {
         return;
     }
 
-    const formData = new FormData();
-    formData.append('profilePicture', file);
+    await withLoading(uploadButton, async () => {
+        const formData = new FormData();
+        formData.append('profilePicture', file);
 
-    const token = localStorage.getItem('token');
-    const headers = {};
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    try {
-        const response = await fetch('/api/settings/author/profile-picture', {
-            method: 'POST',
-            headers: headers,
-            credentials: 'include',
-            body: formData
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            alert('Profile picture uploaded successfully!');
-            // Update the header logo if needed
-            if (data.profilePictureUrl) {
-                document.querySelector('.logo img').src = data.profilePictureUrl;
-            }
-        } else {
-            alert('Failed to upload profile picture.');
+        const token = localStorage.getItem('token');
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
-    } catch (error) {
-        console.error('Error uploading profile picture:', error);
-        alert('Error uploading profile picture.');
-    }
+
+        try {
+            const response = await fetch('/api/settings/author/profile-picture', {
+                method: 'POST',
+                headers: headers,
+                credentials: 'include',
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                alert('Profile picture uploaded successfully!');
+                // Update the header logo if needed
+                if (data.profilePictureUrl) {
+                    document.querySelector('.logo img').src = data.profilePictureUrl;
+                }
+            } else {
+                alert('Failed to upload profile picture.');
+            }
+        } catch (error) {
+            console.error('Error uploading profile picture:', error);
+            alert('Error uploading profile picture.');
+        }
+    }, 'Uploading...');
 }
 
 // Expose functions to window for HTML onclick handlers
