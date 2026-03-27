@@ -33,7 +33,7 @@ export function togglePostsList() {
 
 export async function loadPostsList() {
     try {
-        const response = await fetch('/api/posts', {
+        const response = await fetch('/api/posts?include_drafts=true', {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('authToken')}`
             },
