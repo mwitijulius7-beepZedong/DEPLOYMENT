@@ -2657,6 +2657,51 @@ app.post('/api/posts/:id/comments/:commentId/restore', requireAdmin, async (req,
   }
 });
 
+// Like/dislike comment
+app.post('/api/posts/:id/comments/:commentId/:type', async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const commentId = req.params.commentId;
+    const type = req.params.type; // 'like' or 'dislike'
+    const { action } = req.body; // 'add' or 'remove'
+    
+    const allComments = await loadComments();
+    const idx = allComments.findIndex(c => c.id.toString() === commentId && c.postId.toString() === postId);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'comment_not_found' });
+    }
+    
+    const comment = allComments[idx];
+    comment.likes = comment.likes || 0;
+    comment.dislikes = comment.dislikes || 0;
+    const prevType = comment.userReaction || null;
+    
+    if (action === 'add') {
+      // Adding a reaction
+      if (prevType) {
+        // Remove previous reaction
+        if (prevType === 'like') comment.likes = Math.max(0, comment.likes - 1);
+        else comment.dislikes = Math.max(0, comment.dislikes - 1);
+      }
+      // Add new reaction
+      if (type === 'like') comment.likes++;
+      else comment.dislikes++;
+      comment.userReaction = type;
+    } else {
+      // Removing a reaction
+      if (type === 'like') comment.likes = Math.max(0, comment.likes - 1);
+      else comment.dislikes = Math.max(0, comment.dislikes - 1);
+      comment.userReaction = null;
+    }
+    
+    await saveComments(allComments);
+    return res.json({ success: true, likes: comment.likes, dislikes: comment.dislikes });
+  } catch (e) {
+    console.error('Error toggling comment like:', e);
+    return res.status(500).json({ error: 'failed_to_toggle_like' });
+  }
+});
+
 // Upload API with Cloudinary
 app.post('/api/upload', requireAdmin, async (req, res) => {
   try {
