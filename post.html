@@ -7,7 +7,7 @@
     <title>Post - zedong254ke Blog</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Roboto:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         /* ═══════════════════════════════════════════════════════
            EDITORIAL MAGAZINE THEME
@@ -1061,6 +1061,17 @@
                     </button>
                 </div>
             `;
+
+            // Apply per-post font if specified
+            if (post.fontFamily) {
+                const contentEl = root.querySelector('.article-content');
+                if (contentEl) {
+                    const fontVal = post.fontFamily === 'monospace'
+                        ? "'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace"
+                        : `'${post.fontFamily}', var(--serif)`;
+                    contentEl.style.fontFamily = fontVal;
+                }
+            }
 
             // Update page title
             document.title = `${post.title} — zedong254ke`;
