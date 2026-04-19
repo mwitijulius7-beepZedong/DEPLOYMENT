@@ -635,12 +635,7 @@
         }
 
         async function sharePost(postId, postTitle) {
-            const platforms = [];
-            if (confirm('Share to LinkedIn?')) platforms.push('linkedin');
-            if (confirm('Share to Twitter/X?')) platforms.push('twitter');
-            if (confirm('Share to Facebook?')) platforms.push('facebook');
-
-            if (platforms.length === 0) return;
+            const platforms = ['linkedin', 'twitter', 'facebook'];
 
             try {
                 const response = await apiFetch('/api/share', {
@@ -651,13 +646,13 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    let msg = `"${postTitle}" shared!\n\nOpen these links to post:`;
+                    // Open all share windows at once
                     for (const r of data.results) {
-                        if (r.success && r.twitterUrl) msg += `\n🐦 ${r.twitterUrl}`;
-                        if (r.success && r.facebookUrl) msg += `\n📘 ${r.facebookUrl}`;
-                        if (r.success && r.linkedinUrl) msg += `\n💼 ${r.linkedinUrl}`;
+                        if (r.success && r.twitterUrl) window.open(r.twitterUrl, '_blank');
+                        if (r.success && r.facebookUrl) window.open(r.facebookUrl, '_blank');
+                        if (r.success && r.linkedinUrl) window.open(r.linkedinUrl, '_blank');
                     }
-                    alert(msg);
+                    alert(`"${postTitle}" shared to all platforms! ✨`);
                 } else {
                     alert('Failed: ' + data.error);
                 }
@@ -908,7 +903,18 @@
                     const data = await response.json();
 
                     if (response.ok) {
+                        const isPublishing = status === 'published' && !postId;
                         alert(postId ? 'Post updated successfully!' : 'Post saved successfully!');
+                        
+                        // Auto-share if publishing new post
+                        if (isPublishing) {
+                            const shareNow = confirm('Post published! Share to social media now?');
+                            if (shareNow) {
+                                const newId = data.post?.id || postId;
+                                if (newId) sharePost(newId, title);
+                            }
+                        }
+                        
                         resetPostForm();
                         if (typeof loadPostsList === 'function') await loadPostsList();
                         showPostsSection();
