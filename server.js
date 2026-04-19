@@ -4397,7 +4397,58 @@ app.get('/post.html', (req, res) => {
 });
 
 app.get('/about.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'about.html'));
+    res.sendFile(path.join(__dirname, 'about.html'));
+});
+
+// Social sharing endpoint
+app.post('/api/share', async (req, res) => {
+    const { postId, platforms } = req.body;
+    if (!postId || !platforms || !Array.isArray(platforms)) {
+        return res.status(400).json({ error: 'postId and platforms array required' });
+    }
+
+    try {
+        const posts = JSON.parse(fs.readFileSync(path.join(__dirname, 'posts.json'), 'utf8'));
+        const post = posts.find(p => p.id == postId);
+        if (!post) {
+            return res.status(404).json({ error: 'Post not found' });
+        }
+
+        const settings = readSettings();
+        const author = settings.author || {};
+        const social = author.social || {};
+
+        const postUrl = `${req.protocol}://${req.get('host')}/post.html?id=${postId}`;
+        const shareResults = [];
+
+        for (const platform of platforms) {
+            try {
+                let result = { platform, success: false, error: null };
+
+                if (platform === 'twitter' && social.twitter) {
+                    const tweetText = encodeURIComponent(`${post.title}\n\n${postUrl}`);
+                    result.twitterUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
+                    result.success = true;
+                } else if (platform === 'facebook' && social.facebook) {
+                    result.facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(postUrl)}`;
+                    result.success = true;
+                } else if (platform === 'linkedin' && social.linkedin) {
+                    result.linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`;
+                    result.success = true;
+                } else {
+                    result.error = 'Not configured';
+                }
+
+                shareResults.push(result);
+            } catch (e) {
+                shareResults.push({ platform, success: false, error: e.message });
+            }
+        }
+
+        return res.json({ success: true, results: shareResults, postUrl });
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
 });
 
 if (process.env.NODE_ENV !== 'production') {
