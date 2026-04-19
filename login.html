@@ -783,13 +783,37 @@
             }
         }
 
-        // Initialize Google Sign-In
-        googleBtn.addEventListener('click', () => {
-            hideError();
+        // Initialize Google Sign-In once
+        let googleSignInInitialized = false;
+
+        function initGoogleSignIn() {
+            if (googleSignInInitialized) return;
+            if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) return;
+
             google.accounts.id.initialize({
                 client_id: '338774598801-rmbjl0aprte0l23ja5u3t3fm222jkbq1.apps.googleusercontent.com',
-                callback: handleSignInResponse
+                callback: handleSignInResponse,
+                auto_select: false,
+                cancel_on_tap_outside: false
             });
+            googleSignInInitialized = true;
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initGoogleSignIn);
+        } else {
+            initGoogleSignIn();
+        }
+
+        // Handle Google sign-in button click
+        googleBtn.addEventListener('click', () => {
+            hideError();
+            if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
+                showError('Google Sign-In is loading. Please wait and try again.');
+                return;
+            }
+            initGoogleSignIn();
             google.accounts.id.prompt();
         });
 

@@ -870,20 +870,38 @@ async function saveSecurityLogs(logs) {
   }
 }
 
+let commentsCache = null;
+let commentsCacheTime = 0;
+const CACHE_TTL = 5000; // 5 seconds
+
 async function loadComments() {
+  const now = Date.now();
+  if (commentsCache && now - commentsCacheTime < CACHE_TTL) {
+    return commentsCache;
+  }
   try {
     const db = await getMongoDB();
     if (db) {
       const comments = await db.collection('comments').find({}).toArray();
-      return comments.map(c => ({ ...c, id: c._id || c.id }));
+      commentsCache = comments.map(c => ({ ...c, id: c._id || c.id }));
+      commentsCacheTime = now;
+      return commentsCache;
     }
-    return JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf8')) || [];
+    commentsCache = JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf8')) || [];
+    commentsCacheTime = now;
+    return commentsCache || [];
   } catch (e) {
     return [];
   }
 }
 
+function invalidateCommentsCache() {
+  commentsCache = null;
+  commentsCacheTime = 0;
+}
+
 async function saveComments(comments) {
+  invalidateCommentsCache();
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -2524,12 +2542,16 @@ app.post('/api/posts/:id/dislike', async (req, res) => {
   return res.json({ success: true, dislikes: posts[idx].dislikes });
 });
 
-// Comments API
+// Comments API - Consolidated endpoints
 app.get('/api/posts/:id/comments', async (req, res) => {
   try {
-    const id = req.params.id;
+    const postId = req.params.id;
+    const includeDeleted = req.query.includeDeleted === 'true';
     const allComments = await loadComments();
-    const postComments = allComments.filter(c => c.postId === id);
+    let postComments = allComments.filter(c => String(c.postId) === postId);
+    if (!includeDeleted) {
+      postComments = postComments.filter(c => !c.deleted);
+    }
     return res.json({ success: true, comments: postComments });
   } catch (e) {
     console.error('Error loading comments:', e);
@@ -2539,10 +2561,10 @@ app.get('/api/posts/:id/comments', async (req, res) => {
 
 app.post('/api/posts/:id/comments', async (req, res) => {
   try {
-    const id = req.params.id;
-    const { name, content } = req.body;
+    const postId = req.params.id;
+    const { name, email, content } = req.body;
     if (!name || !content) {
-      return res.status(400).json({ error: 'name_and_content_required' });
+      return res.status(400).json({ error: 'name_email_and_content_required' });
     }
 
     let imageUrl = null;
@@ -2562,22 +2584,121 @@ app.post('/api/posts/:id/comments', async (req, res) => {
     const allComments = await loadComments();
     const newComment = {
       id: Date.now().toString(),
-      postId: id,
-      name,
-      content,
+      postId: postId,
+      name: name.trim(),
+      email: email ? email.trim() : '',
+      content: content.trim(),
       image: imageUrl,
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      approved: false
     };
     allComments.push(newComment);
     await saveComments(allComments);
 
-    // Record interaction for analytics
-    await recordInteraction('comment', id, null, req);
+    await recordInteraction('comment', postId, null, req);
 
-    return res.json({ success: true, comment: newComment });
+    return res.json({ success: true, comment: { ...newComment, email: undefined } });
   } catch (e) {
     console.error('Error posting comment:', e);
     return res.status(500).json({ error: 'failed_to_post_comment' });
+  }
+});
+
+// Soft delete comment (admin only)
+app.delete('/api/posts/:id/comments/:commentId', requireAdmin, async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const commentId = req.params.commentId;
+    const allComments = await loadComments();
+    const idx = allComments.findIndex(c => c.id.toString() === commentId && c.postId.toString() === postId);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'comment_not_found' });
+    }
+    allComments[idx].deleted = true;
+    allComments[idx].deletedAt = new Date().toISOString();
+    await saveComments(allComments);
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Error deleting comment:', e);
+    return res.status(500).json({ error: 'failed_to_delete_comment' });
+  }
+});
+
+// Get all comments for admin (includes deleted) - with limit for performance
+app.get('/api/admin/comments', requireAdmin, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const allComments = await loadComments();
+    const sorted = allComments.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, limit);
+    return res.json({ success: true, comments: sorted, total: allComments.length });
+  } catch (e) {
+    console.error('Error loading all comments:', e);
+    return res.status(500).json({ error: 'failed_to_load_comments' });
+  }
+});
+
+// Restore soft-deleted comment (admin only)
+app.post('/api/posts/:id/comments/:commentId/restore', requireAdmin, async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const commentId = req.params.commentId;
+    const allComments = await loadComments();
+    const idx = allComments.findIndex(c => c.id.toString() === commentId && c.postId.toString() === postId);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'comment_not_found' });
+    }
+    allComments[idx].deleted = false;
+    allComments[idx].deletedAt = null;
+    await saveComments(allComments);
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Error restoring comment:', e);
+    return res.status(500).json({ error: 'failed_to_restore_comment' });
+  }
+});
+
+// Like/dislike comment
+app.post('/api/posts/:id/comments/:commentId/:type', async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const commentId = req.params.commentId;
+    const type = req.params.type; // 'like' or 'dislike'
+    const { action } = req.body; // 'add' or 'remove'
+    
+    const allComments = await loadComments();
+    const idx = allComments.findIndex(c => c.id.toString() === commentId && c.postId.toString() === postId);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'comment_not_found' });
+    }
+    
+    const comment = allComments[idx];
+    comment.likes = comment.likes || 0;
+    comment.dislikes = comment.dislikes || 0;
+    const prevType = comment.userReaction || null;
+    
+    if (action === 'add') {
+      // Adding a reaction
+      if (prevType) {
+        // Remove previous reaction
+        if (prevType === 'like') comment.likes = Math.max(0, comment.likes - 1);
+        else comment.dislikes = Math.max(0, comment.dislikes - 1);
+      }
+      // Add new reaction
+      if (type === 'like') comment.likes++;
+      else comment.dislikes++;
+      comment.userReaction = type;
+    } else {
+      // Removing a reaction
+      if (type === 'like') comment.likes = Math.max(0, comment.likes - 1);
+      else comment.dislikes = Math.max(0, comment.dislikes - 1);
+      comment.userReaction = null;
+    }
+    
+    await saveComments(allComments);
+    return res.json({ success: true, likes: comment.likes, dislikes: comment.dislikes });
+  } catch (e) {
+    console.error('Error toggling comment like:', e);
+    return res.status(500).json({ error: 'failed_to_toggle_like' });
   }
 });
 
@@ -3984,14 +4105,14 @@ app.get('/api/subscriptions', requireAdmin, async (req, res) => {
   }
 });
 
-// Comments API
+// Comments API - Extended endpoints with nested replies
 app.get('/api/comments/:postId', async (req, res) => {
   try {
-    const postId = parseInt(req.params.postId, 10);
+    const postId = req.params.postId;
     const comments = await loadComments();
-    const postComments = comments.filter(c => c.postId === postId && !c.parentId).map(comment => ({
+    const postComments = comments.filter(c => String(c.postId) === postId && !c.parentId).map(comment => ({
       ...comment,
-      replies: comments.filter(c => c.parentId === comment.id)
+      replies: comments.filter(c => String(c.parentId) === String(comment.id))
     }));
     return res.json({ comments: postComments });
   } catch (e) {
@@ -4022,32 +4143,31 @@ app.post('/api/comments', async (req, res) => {
     }
 
     const comments = await loadComments();
+    const commentId = Date.now().toString();
     const comment = {
-      id: Date.now(),
-      postId: parseInt(postId, 10),
+      id: commentId,
+      postId: String(postId),
       name: name.trim(),
       email: email.trim(),
       content: content.trim(),
       image: imageUrl,
-      parentId: parentId ? parseInt(parentId, 10) : null,
+      parentId: parentId ? String(parentId) : null,
       date: new Date().toISOString(),
-      approved: false // Admin approval required
+      approved: false
     };
 
     comments.push(comment);
     await saveComments(comments);
 
-    // Record interaction for analytics
-    await recordInteraction('comment', postId, null, req);
+    await recordInteraction('comment', String(postId), null, req);
 
-    // Handle subscription if requested
     if (subscribe) {
       const subscriptions = await loadSubscriptions();
-      const existingSub = subscriptions.find(s => s.email === email && s.postId === comment.postId);
+      const existingSub = subscriptions.find(s => s.email === email && String(s.postId) === String(postId));
       if (!existingSub) {
         subscriptions.push({
           id: Date.now(),
-          postId: comment.postId,
+          postId: String(postId),
           email: email.trim(),
           name: name.trim(),
           subscribedAt: new Date().toISOString()
@@ -4065,22 +4185,22 @@ app.post('/api/comments', async (req, res) => {
 
 app.post('/api/comments/:id/approve', requireAdmin, async (req, res) => {
   try {
-    const commentId = parseInt(req.params.id, 10);
+    const commentId = req.params.id;
     const comments = await loadComments();
-    const comment = comments.find(c => c.id === commentId);
+    const comment = comments.find(c => String(c.id) === commentId);
     if (!comment) return res.status(404).json({ error: 'Comment not found' });
 
     comment.approved = true;
     await saveComments(comments);
 
-    // Send notification email if this is an admin reply
     if (comment.parentId) {
-      const parentComment = comments.find(c => c.id === comment.parentId);
-      if (parentComment) {
+      const parentComment = comments.find(c => String(c.id) === String(comment.parentId));
+      if (parentComment && parentComment.email) {
         const subscriptions = await loadSubscriptions();
-        const subscriber = subscriptions.find(s => s.email === parentComment.email && s.postId === comment.postId);
+        const subscriber = subscriptions.find(s => s.email === parentComment.email && String(s.postId) === String(comment.postId));
         if (subscriber) {
-          await sendNotificationEmail(parentComment.email, comment, parentComment);
+          const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+          await sendNotificationEmail(parentComment.email, comment, parentComment, baseUrl);
         }
       }
     }
@@ -4094,9 +4214,9 @@ app.post('/api/comments/:id/approve', requireAdmin, async (req, res) => {
 
 app.delete('/api/comments/:id', requireAdmin, async (req, res) => {
   try {
-    const commentId = parseInt(req.params.id, 10);
+    const commentId = req.params.id;
     const comments = await loadComments();
-    const filteredComments = comments.filter(c => c.id !== commentId && c.parentId !== commentId);
+    const filteredComments = comments.filter(c => String(c.id) !== commentId && String(c.parentId) !== commentId);
     await saveComments(filteredComments);
     return res.json({ success: true });
   } catch (e) {
@@ -4106,13 +4226,13 @@ app.delete('/api/comments/:id', requireAdmin, async (req, res) => {
 });
 
 // Helper function to send notification emails
-async function sendNotificationEmail(toEmail, replyComment, originalComment) {
+async function sendNotificationEmail(toEmail, replyComment, originalComment, baseUrl = '') {
   try {
     const posts = await loadPosts();
-    const post = posts.find(p => p.id === replyComment.postId);
+    const post = posts.find(p => String(p.id) === String(replyComment.postId));
 
     const mailOptions = {
-      from: process.env.SMTP_USER || 'noreply@yourblog.com',
+      from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@yourblog.com',
       to: toEmail,
       subject: `New reply to your comment on "${post?.title || 'Blog Post'}"`,
       html: `
@@ -4128,7 +4248,7 @@ async function sendNotificationEmail(toEmail, replyComment, originalComment) {
           <p>${replyComment.content}</p>
           <p><em>By: ${replyComment.name}</em></p>
         </div>
-        <p><a href="${req.protocol}://${req.get('host')}/post.html?id=${replyComment.postId}">View the full discussion</a></p>
+        <p><a href="${baseUrl}/post.html?id=${replyComment.postId}">View the full discussion</a></p>
         <p>If you no longer wish to receive these notifications, you can unsubscribe from the blog post page.</p>
       `
     };
