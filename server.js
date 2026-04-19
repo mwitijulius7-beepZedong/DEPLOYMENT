@@ -741,6 +741,104 @@ async function saveAnalytics(analytics) {
   }
 }
 
+/**
+ * Centrally records a user interaction for the analytics dashboard
+ */
+async function recordInteraction(type, target, value = '', req = null) {
+  try {
+    const analytics = await loadAnalytics();
+    if (!analytics.interactions) analytics.interactions = [];
+    
+    const interaction = {
+      id: Date.now(),
+      type: type,
+      target: String(target || ''),
+      value: String(value || ''),
+      ip: req ? (req.ip || req.connection.remoteAddress) : 'system',
+      userAgent: req ? (req.get('User-Agent') || '') : 'system',
+      timestamp: new Date().toISOString()
+    };
+    
+    analytics.interactions.push(interaction);
+    await saveAnalytics(analytics);
+    console.log(`[Analytics] Recorded interaction: ${type} on ${target}`);
+  } catch (e) {
+    console.error('Failed to record interaction:', e);
+  }
+}
+
+/**
+ * Records a page view for analytics
+ */
+async function recordPageView(target, req) {
+  try {
+    const analytics = await loadAnalytics();
+    if (!analytics.pageViews) analytics.pageViews = [];
+
+    const view = {
+      target: String(target || 'home'),
+      ip: req ? (req.ip || req.connection.remoteAddress) : 'unknown',
+      userAgent: req ? (req.get('User-Agent') || '') : 'unknown',
+      timestamp: new Date().toISOString()
+    };
+
+    analytics.pageViews.push(view);
+    await saveAnalytics(analytics);
+  } catch (e) {
+    console.error('Failed to record page view:', e);
+  }
+}
+
+/**
+ * Helper to upload a file to the configured storage (Cloudinary, Vercel Blob, or Local)
+ */
+async function uploadFileToStorage(file, folder = 'blog') {
+  const isVideo = file.mimetype.startsWith('video/');
+  
+  // Use Cloudinary if configured
+  if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
+    const result = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'auto',
+          folder: folder,
+          public_id: `${Date.now()}_${path.parse(file.name).name}`,
+          transformation: isVideo ? [] : [{ quality: 'auto', fetch_format: 'auto' }]
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      ).end(file.data);
+    });
+    return { url: result.secure_url, filename: result.public_id };
+  }
+
+  // Fallback to Vercel Blob
+  if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
+    const safe = path.basename(file.name).replace(/[^a-z0-9.\-\_]/gi, '_');
+    const filename = Date.now() + '_' + safe;
+    const blob = await put(filename, file.data, {
+      access: 'public',
+      contentType: file.mimetype
+    });
+    return { url: blob.url, filename };
+  }
+
+  // Local development fallback
+  const safe = path.basename(file.name).replace(/[^a-z0-9.\-\_]/gi, '_');
+  const filename = Date.now() + '_' + safe;
+  const dest = path.join(UPLOADS_DIR, filename);
+  
+  if (file.data && Buffer.isBuffer(file.data)) {
+    fs.writeFileSync(dest, file.data);
+  } else if (typeof file.mv === 'function') {
+    await new Promise((resolve, reject) => file.mv(dest, err => err ? reject(err) : resolve()));
+  }
+  
+  return { url: `/uploads/${filename}`, filename };
+}
+
 async function loadSecurityLogs() {
   try {
     const db = await getMongoDB();
@@ -2173,6 +2271,9 @@ app.get('/api/posts/:id', async (req, res) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
+    // Record view for analytics
+    if (!isAdmin) await recordPageView(id, req);
+
     return res.json({ post });
   } catch (error) {
     console.error('Error in GET /api/posts/:id:', error);
@@ -2195,6 +2296,7 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
     featured: !!body.featured,
     isDraft: !!body.isDraft,
     categoryId: body.categoryId || null,
+    fontFamily: body.fontFamily || '',
     pullQuote: body.pullQuote || '',
     sceneCard: body.sceneCard || '',
     closingBox: body.closingBox || '',
@@ -2257,6 +2359,7 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
       }
       if (body.isDraft !== undefined) updatedFields.isDraft = !!body.isDraft;
       if ('categoryId' in body) updatedFields.categoryId = body.categoryId;
+      if (body.fontFamily !== undefined) updatedFields.fontFamily = body.fontFamily;
       if (body.pullQuote !== undefined) updatedFields.pullQuote = body.pullQuote;
       if (body.sceneCard !== undefined) updatedFields.sceneCard = body.sceneCard;
       if (body.closingBox !== undefined) updatedFields.closingBox = body.closingBox;
@@ -2280,6 +2383,7 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
         image: body.image || posts[idx].image,
         featured: !!body.featured,
         isDraft: 'isDraft' in body ? !!body.isDraft : posts[idx].isDraft,
+        fontFamily: body.fontFamily !== undefined ? body.fontFamily : (posts[idx].fontFamily || ''),
         pullQuote: body.pullQuote !== undefined ? body.pullQuote : posts[idx].pullQuote,
         sceneCard: body.sceneCard !== undefined ? body.sceneCard : posts[idx].sceneCard,
         closingBox: body.closingBox !== undefined ? body.closingBox : posts[idx].closingBox,
@@ -2390,6 +2494,8 @@ app.post('/api/posts/:id/like', async (req, res) => {
     posts[idx].likes = Math.max(0, posts[idx].likes - 1);
   } else {
     posts[idx].likes += 1;
+    // Record interaction for analytics
+    await recordInteraction('like', id, null, req);
   }
   await savePosts(posts);
   return res.json({ success: true, likes: posts[idx].likes });
@@ -2411,6 +2517,8 @@ app.post('/api/posts/:id/dislike', async (req, res) => {
     posts[idx].dislikes = Math.max(0, posts[idx].dislikes - 1);
   } else {
     posts[idx].dislikes += 1;
+    // Record interaction for analytics
+    await recordInteraction('dislike', id, null, req);
   }
   await savePosts(posts);
   return res.json({ success: true, dislikes: posts[idx].dislikes });
@@ -2437,16 +2545,34 @@ app.post('/api/posts/:id/comments', async (req, res) => {
       return res.status(400).json({ error: 'name_and_content_required' });
     }
 
+    let imageUrl = null;
+    if (req.files && req.files.image) {
+      const file = req.files.image;
+      const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowed.includes(file.mimetype)) {
+         return res.status(400).json({ error: 'invalid_image_type' });
+      }
+      if (file.size > 5 * 1024 * 1024) {
+         return res.status(400).json({ error: 'image_too_large' });
+      }
+      const uploadRes = await uploadFileToStorage(file, 'comments');
+      imageUrl = uploadRes.url;
+    }
+
     const allComments = await loadComments();
     const newComment = {
       id: Date.now().toString(),
       postId: id,
       name,
       content,
+      image: imageUrl,
       date: new Date().toISOString()
     };
     allComments.push(newComment);
     await saveComments(allComments);
+
+    // Record interaction for analytics
+    await recordInteraction('comment', id, null, req);
 
     return res.json({ success: true, comment: newComment });
   } catch (e) {
@@ -2473,50 +2599,21 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'file_too_large', maxBytes: MAX_BYTES });
     }
 
-    // Use Cloudinary if configured and not the default 'cloudinary' value
-    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
-      const result = await new Promise((resolve, reject) => {
-        cloudinary.uploader.upload_stream(
-          {
-            resource_type: 'auto', // Auto-detect image or video
-            folder: 'blog',
-            public_id: `${Date.now()}_${path.parse(file.name).name}`,
-            transformation: isVideo ? [] : [{ quality: 'auto', fetch_format: 'auto' }]
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        ).end(file.data);
-      });
-      console.log(`Uploaded to Cloudinary: ${result.secure_url}`);
-      return res.json({ success: true, url: result.secure_url, filename: result.public_id, size: file.size, isVideo });
+    const uploadRes = await uploadFileToStorage(file, 'blog');
+    
+    // For local files, prefix with host if needed (legacy compatibility)
+    let url = uploadRes.url;
+    if (url.startsWith('/uploads/')) {
+       url = `${req.protocol}://${req.get('host')}${url}`;
     }
 
-    // Fallback to Vercel Blob
-    if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
-      const safe = path.basename(file.name).replace(/[^a-z0-9.\-\_]/gi, '_');
-      const filename = Date.now() + '_' + safe;
-      const blob = await put(filename, file.data, {
-        access: 'public',
-        contentType: file.mimetype
-      });
-      console.log(`Uploaded to Vercel Blob: ${blob.url}`);
-      return res.json({ success: true, url: blob.url, filename, size: file.size, isVideo });
-    }
-
-    // Local development fallback
-    const safe = path.basename(file.name).replace(/[^a-z0-9.\-\_]/gi, '_');
-    const filename = Date.now() + '_' + safe;
-    const dest = path.join(UPLOADS_DIR, filename);
-    if (file.data && Buffer.isBuffer(file.data)) {
-      fs.writeFileSync(dest, file.data);
-    } else if (typeof file.mv === 'function') {
-      await new Promise((resolve, reject) => file.mv(dest, err => err ? reject(err) : resolve()));
-    }
-    const url = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
-    console.log(`Uploaded locally: ${dest}`);
-    return res.json({ success: true, url, filename, size: file.size, isVideo });
+    return res.json({ 
+      success: true, 
+      url: url, 
+      filename: uploadRes.filename, 
+      size: file.size, 
+      isVideo 
+    });
   } catch (err) {
     console.error('upload error:', err);
     return res.status(500).json({ error: 'upload_failed', details: err.message });
@@ -2830,8 +2927,11 @@ app.post('/api/settings/background', requireAdmin, async (req, res) => {
 
     if (process.env.VERCEL && db) {
       const result = await db.collection('settings').findOne({ type: 'background' });
-      const existingBackgrounds = result?.backgrounds || [];
-      const backgrounds = (!Array.isArray(existingBackgrounds) || existingBackgrounds.length === 0) ? [backgroundUrl] : existingBackgrounds;
+      const existingBackgrounds = Array.isArray(result?.backgrounds) ? result.backgrounds : [];
+      // Always append new URL to history (avoid duplicates)
+      const backgrounds = existingBackgrounds.includes(backgroundUrl)
+        ? existingBackgrounds
+        : [...existingBackgrounds, backgroundUrl];
 
       await db.collection('settings').updateOne(
         { type: 'background' },
@@ -2843,9 +2943,10 @@ app.post('/api/settings/background', requireAdmin, async (req, res) => {
 
     const settings = readSettings();
     settings.backgroundUrl = backgroundUrl;
-    // Keep backgrounds in sync if only a single URL is provided
-    if (!Array.isArray(settings.backgrounds) || settings.backgrounds.length === 0) {
-      settings.backgrounds = [backgroundUrl];
+    // Always append new URL to history (avoid duplicates)
+    if (!Array.isArray(settings.backgrounds)) settings.backgrounds = [];
+    if (!settings.backgrounds.includes(backgroundUrl)) {
+      settings.backgrounds.push(backgroundUrl);
     }
     writeSettings(settings);
 
@@ -3603,21 +3704,8 @@ app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
 // Analytics API
 app.post('/api/analytics/pageview', async (req, res) => {
   try {
-    const { page, referrer, userAgent } = req.body;
-    const analytics = await loadAnalytics();
-
-    const pageView = {
-      id: Date.now(),
-      page: page || '/',
-      referrer: referrer || '',
-      userAgent: userAgent || req.get('User-Agent') || '',
-      ip: req.ip || req.connection.remoteAddress,
-      timestamp: new Date().toISOString()
-    };
-
-    analytics.pageViews.push(pageView);
-    await saveAnalytics(analytics);
-
+    const { page } = req.body;
+    await recordPageView(page || '/', req);
     return res.json({ success: true });
   } catch (e) {
     console.error('Analytics pageview error:', e);
@@ -3628,24 +3716,10 @@ app.post('/api/analytics/pageview', async (req, res) => {
 app.post('/api/analytics/interaction', async (req, res) => {
   try {
     const { type, target, value } = req.body;
-    if (!type) return res.status(400).json({ error: 'missing type' });
+    if (!type || !target) return res.status(400).json({ error: 'type_and_target_required' });
 
-    const analytics = await loadAnalytics();
-
-    const interaction = {
-      id: Date.now(),
-      type: type,
-      target: target || '',
-      value: value || '',
-      ip: req.ip || req.connection.remoteAddress,
-      userAgent: req.get('User-Agent') || '',
-      timestamp: new Date().toISOString()
-    };
-
-    analytics.interactions.push(interaction);
-    await saveAnalytics(analytics);
-
-    return res.json({ success: true });
+    await recordInteraction(type, target, value, req);
+    res.json({ success: true });
   } catch (e) {
     console.error('Analytics interaction error:', e);
     return res.status(500).json({ error: 'failed to track interaction' });
@@ -3706,6 +3780,7 @@ app.get('/api/analytics', requireAdmin, async (req, res) => {
       };
     };
 
+    const lifetimeStats = calculateStats(rawAnalytics.pageViews || [], rawAnalytics.interactions || []);
     const currentStats = calculateStats(currentViews, currentInteractions);
     const previousStats = calculateStats(previousViews, previousInteractions);
 
@@ -3820,6 +3895,15 @@ app.get('/api/analytics', requireAdmin, async (req, res) => {
       bounceRate: currentStats.bounceRate.toFixed(1) + '%',
       bounceRateDelta: formatDelta(currentStats.bounceRate, previousStats.bounceRate, true),
       
+      // Metadata for high-level summaries
+      lifetime: {
+        views: lifetimeStats.totalViews,
+        likes: lifetimeStats.likes,
+        comments: lifetimeStats.commentsCount,
+        shares: lifetimeStats.sharesCount,
+        engagement: lifetimeStats.engagementRate.toFixed(1) + '%'
+      },
+      
       viewsByDay: dailyViews,
       previousViewsByDay: prevDailyViews,
       
@@ -3827,7 +3911,7 @@ app.get('/api/analytics', requireAdmin, async (req, res) => {
       popularPosts,
       devices: devAndBrowser.devices,
       browsers: devAndBrowser.browsers,
-      heatmap: getHeatmap(rawAnalytics.pageViews), // Heatmap always uses all data to find 12 weeks
+      heatmap: getHeatmap(rawAnalytics.pageViews),
       countries: getTopCountries(currentViews),
       
       engagement: {
@@ -3923,6 +4007,20 @@ app.post('/api/comments', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    let imageUrl = null;
+    if (req.files && req.files.image) {
+      const file = req.files.image;
+      const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowed.includes(file.mimetype)) {
+         return res.status(400).json({ error: 'invalid_image_type' });
+      }
+      if (file.size > 5 * 1024 * 1024) {
+         return res.status(400).json({ error: 'image_too_large' });
+      }
+      const uploadRes = await uploadFileToStorage(file, 'comments');
+      imageUrl = uploadRes.url;
+    }
+
     const comments = await loadComments();
     const comment = {
       id: Date.now(),
@@ -3930,6 +4028,7 @@ app.post('/api/comments', async (req, res) => {
       name: name.trim(),
       email: email.trim(),
       content: content.trim(),
+      image: imageUrl,
       parentId: parentId ? parseInt(parentId, 10) : null,
       date: new Date().toISOString(),
       approved: false // Admin approval required
@@ -3937,6 +4036,9 @@ app.post('/api/comments', async (req, res) => {
 
     comments.push(comment);
     await saveComments(comments);
+
+    // Record interaction for analytics
+    await recordInteraction('comment', postId, null, req);
 
     // Handle subscription if requested
     if (subscribe) {
