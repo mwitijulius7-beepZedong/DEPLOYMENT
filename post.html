@@ -7,7 +7,7 @@
     <title>Post - zedong254ke Blog</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Roboto:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,200;0,500;0,600;0,700;1,200;1,500;1,600&family=DM+Sans:ital,wght@0,200;0,500;0,600;0,700;1,200&family=Merriweather:ital,wght@0,200;0,700;1,200&family=Playfair+Display:ital,wght@0,200;0,700;1,200&family=Roboto:wght@200;500;700&family=Inter:wght@200;500;600;700&display=swap" rel="stylesheet">
     <style>
         /* ═══════════════════════════════════════════════════════
            EDITORIAL MAGAZINE THEME
@@ -85,8 +85,8 @@
             color: var(--cream);
         }
         .logo img {
-            width: 40px;
-            height: 40px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             border: 2px solid rgba(255,255,255,0.3);
         }
@@ -170,7 +170,7 @@
         .hero-subtitle {
             font-family: var(--serif);
             font-size: 1.2rem;
-            font-weight: 400;
+            font-weight: 200;
             font-style: italic;
             line-height: 1.5;
             color: rgba(250, 247, 242, 0.7);
@@ -209,7 +209,7 @@
         /* ─── Featured Image ─── */
         .featured-image-wrap {
             max-width: 1100px;
-            margin: 40px auto 0;
+            margin: 20px auto 0;
             padding: 0 32px;
             position: relative;
             z-index: 2;
@@ -282,7 +282,7 @@
             font-size: 1.3rem;
             font-weight: 600;
             color: var(--navy);
-            margin: 40px 0 16px;
+            margin: 20px 0 16px;
             line-height: 1.3;
         }
 
@@ -327,7 +327,7 @@
         .pull-quote {
             margin: 56px auto;
             max-width: 1000px;
-            padding: 40px 48px;
+            padding: 20px 48px;
             text-align: center;
             position: relative;
             border-top: 1px solid var(--border-subtle);
@@ -358,7 +358,7 @@
 
         /* Existing blockquotes also get editorial style */
         .article-content blockquote:not(.pull-quote) {
-            margin: 40px 0;
+            margin: 20px 0;
             padding: 24px 28px;
             border-left: 4px solid var(--red);
             background: var(--cream-warm);
@@ -399,7 +399,7 @@
         /* ─── Dark Closing Box ─── */
         .closing-box {
             margin: 64px 0 48px;
-            padding: 40px 40px;
+            padding: 20px 20px;
             background: var(--navy);
             color: var(--cream);
             border-radius: 8px;
@@ -437,7 +437,7 @@
         .post-tags {
             max-width: 1100px;
             margin: 0 auto;
-            padding: 0 32px 40px;
+            padding: 0 32px 20px;
         }
         .tags-list {
             display: flex;
@@ -536,177 +536,331 @@
         .share-btn.facebook:hover { background: #1877f2; color: #fff; border-color: #1877f2; }
         .share-btn.copy-link:hover { background: var(--navy); color: var(--cream); border-color: var(--navy); }
 
-        /* ─── Comments Drawer ─── */
-        .comments-drawer {
-            position: fixed;
-            top: 0;
-            right: -450px;
-            width: 450px;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(15px);
-            z-index: 3000;
-            box-shadow: -10px 0 40px rgba(0,0,0,0.1);
-            transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-            display: flex;
-            flex-direction: column;
-            border-left: 1px solid rgba(0,0,0,0.05);
+        /* ─── Comments Section ─── */
+        .toggle-btn {
+            transition: background 0.2s, border-radius 0.3s;
         }
-        .comments-drawer.active {
-            right: 0;
+        .toggle-btn:hover { background: #1a1912; }
+        .toggle-btn.open {
+            border-radius: 22px 22px 0 0;
         }
-        .comments-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
+        .cs-wrap {
             width: 100%;
-            height: 100%;
-            background: rgba(15, 27, 45, 0.2);
-            backdrop-filter: blur(4px);
-            z-index: 2999;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
+            max-width: 560px;
+            margin: 24px auto;
+            display: none;
+            max-height: 0;
+            overflow: visible;
+            transition: max-height 0.35s ease;
+            background: #fff;
+            border: 1.5px solid #e0ddd5;
+            border-top: none;
+            border-radius: 0 0 22px 22px;
         }
-        .comments-overlay.active {
-            opacity: 1;
-            visibility: visible;
+        .cs-wrap.open {
+            display: block;
+            max-height: none;
+            overflow: visible;
         }
-        .drawer-header {
-            padding: 24px 32px;
-            border-bottom: 1px solid var(--border-subtle);
+        .cs-panel {
+            padding: 20px 20px 24px;
+        }
+
+        /* ── Header ── */
+        .cs-header {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            margin-bottom: 1.25rem;
+            border-bottom: 2px solid #EF9F27;
+            padding-bottom: 0.75rem;
+        }
+        .cs-header h2 {
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: #1a1912;
+        }
+        .cs-count {
+            font-size: 13px;
+            color: #5F5E5A;
+            background: #FAEEDA;
+            border: 0.5px solid #FAC775;
+            padding: 2px 10px;
+            border-radius: 20px;
+        }
+
+        /* ── Comment Card ── */
+        /* ── Comment Cards ── */
+        .comment-card {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 1rem;
+            animation: fadeUp 0.4s ease both;
+            max-width: 100%;
+            overflow: visible;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: none; }
+        }
+
+        .av {
+            width: 34px;
+            height: 34px;
+            min-width: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .av-amber { background: #FAEEDA; color: #BA7517; border: 1px solid #FAC775; }
+        .av-coral { background: #FAECE7; color: #993C1D; border: 1px solid #F5C4B3; }
+        .av-gray  { background: #F1EFE8; color: #5F5E5A; border: 1px solid #D3D1C7; }
+        .av-teal  { background: #E1F5EE; color: #0F6E56; border: 1px solid #9FE1CB; }
+        .av-blue  { background: #E6F1FB; color: #185FA5; border: 1px solid #B5D4F4; }
+
+        .cb {
+            flex: 1;
+            min-width: 0;
+            background: #f7f5f0;
+            border-radius: 16px;
+            padding: 10px 13px 9px;
+            transition: border-color 0.15s;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            overflow: visible;
+        }
+        .cb:hover { border-color: #c8c4ba; }
+
+        .cm {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: #fff;
+            gap: 8px;
+            margin-bottom: 4px;
         }
-        .drawer-header h3 {
-            font-family: var(--serif);
-            font-size: 1.4rem;
-            margin: 0;
-            color: var(--navy);
+        .cn {
+            font-family: Georgia, serif;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1a1912;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 60%;
         }
-        .close-drawer-btn {
+        .cd {
+            font-size: 11px;
+            color: #aaa;
+            white-space: nowrap;
+        }
+
+        /* ── Comment Text — wraps + Read More ── */
+        .ct {
+            font-size: 13px;
+            line-height: 1.68;
+            color: #444;
+            margin: 0 0 6px;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        .ct.clamped {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .read-more {
+            font-size: 12px;
+            color: #BA7517;
+            cursor: pointer;
             background: none;
             border: none;
-            font-size: 24px;
-            color: var(--text-muted);
-            cursor: pointer;
-            padding: 8px;
-            line-height: 1;
-            transition: color 0.2s;
-        }
-        .close-drawer-btn:hover { color: var(--red); }
-
-        .drawer-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 32px;
+            padding: 0 0 6px;
+            display: none;
+            font-weight: 600;
         }
 
-        /* Comments List inside drawer */
-        .comment {
-            background: #f8fafc;
-            padding: 16px 20px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            border: 1px solid var(--border-subtle);
+        /* ── Comment Photo ── */
+        .comment-photo {
+            width: 100%;
+            max-height: 220px;
+            object-fit: cover;
+            border-radius: 12px;
+            margin-bottom: 7px;
+            display: block;
+            cursor: zoom-in;
         }
-        .comment-meta {
+
+        .comment-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+        .action-btn {
             display: flex;
-            justify-content: space-between;
-            font-family: var(--sans);
-            font-size: 12px;
-            margin-bottom: 6px;
-            color: var(--text-muted);
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            color: #999;
+            background: none;
+            border: 1px solid #e0ddd5;
+            border-radius: 999px;
+            padding: 3px 10px;
+            cursor: pointer;
+            transition: all 0.15s;
         }
-        .comment-meta strong { color: var(--navy); }
-        .comment-body { color: var(--text-body); line-height: 1.5; font-size: 14px; }
+        .action-btn:hover {
+            border-color: #EF9F27;
+            color: #BA7517;
+            background: #FAEEDA;
+        }
+        .action-btn.liked {
+            border-color: #EF9F27;
+            color: #BA7517;
+            background: #FAEEDA;
+        }
+        .action-btn.reply-btn {
+            color: #999;
+            border-color: #e0ddd5;
+        }
+        .action-btn.reply-btn:hover {
+            color: #5F5E5A;
+            border-color: #c8c4ba;
+            background: #f1efe8;
+        }
 
-        .drawer-footer {
-            padding: 24px 32px;
-            border-top: 1px solid var(--border-subtle);
-            background: #fff;
+        /* ── Divider ── */
+        .divider {
+            height: 0.5px;
+            background: #D3D1C7;
+            margin: 1.5rem 0;
         }
-        .comment-form-container h4 {
-            font-family: var(--serif);
-            font-size: 1.1rem;
-            margin-bottom: 16px;
-            color: var(--navy);
+
+        /* ── Form ── */
+        .form-title {
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a1912;
+            margin-bottom: 1rem;
+            letter-spacing: -0.3px;
         }
-        .form-group { margin-bottom: 12px; }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        @media (max-width: 480px) {
+            .form-row { grid-template-columns: 1fr; }
+        }
+
+        .form-group { margin-bottom: 14px; }
         .form-group label {
             display: block;
-            margin-bottom: 4px;
-            font-family: var(--sans);
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+            color: #5F5E5A;
+            text-transform: uppercase;
+            letter-spacing: 0.9px;
+            margin-bottom: 6px;
         }
-        .form-group input, .form-group textarea {
+        .form-group input,
+        .form-group textarea {
             width: 100%;
             padding: 10px 14px;
-            border: 1px solid var(--border-subtle);
-            border-radius: 6px;
-            font-family: var(--sans);
-            font-size: 14px;
-            background: #fcfcfd;
-            transition: all 0.2s;
-        }
-        .form-group input:focus, .form-group textarea:focus {
-            outline: none;
-            border-color: var(--red);
+            border: 0.5px solid #c8c4ba;
+            border-radius: 8px;
             background: #fff;
-            box-shadow: 0 0 0 3px rgba(192,57,43,0.05);
+            color: #1a1912;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            resize: none;
         }
-        .submit-comment-btn {
-            width: 100%;
-            font-family: var(--sans);
-            background: var(--navy);
-            color: #fff;
-            border: none;
-            padding: 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #EF9F27;
+            box-shadow: 0 0 0 3px rgba(239,159,39,0.12);
         }
-        .submit-comment-btn:hover { background: var(--red); }
+        .form-group input::placeholder,
+        .form-group textarea::placeholder { color: #B4B2A9; }
 
-        /* ─── Comment Toggle Area ─── */
-        .comments-toggle-section {
-            max-width: 800px;
-            margin: 48px auto;
-            padding: 40px 32px;
+        .char-count {
+            font-size: 11px;
+            color: #888780;
+            text-align: right;
+            margin-top: 4px;
+        }
+
+        /* ── File Drop Zone ── */
+        .file-drop {
+            border: 1.5px dashed #c8c4ba;
+            border-radius: 8px;
+            padding: 22px;
             text-align: center;
-            border-top: 1px solid var(--border-subtle);
-        }
-        .comments-toggle-btn {
-            font-family: var(--sans);
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            padding: 16px 40px;
-            background: var(--navy);
-            color: var(--cream);
-            border: none;
-            border-radius: 50px;
-            font-size: 16px;
-            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 30px rgba(15, 27, 45, 0.15);
+            transition: all 0.2s;
+            background: #F7F5F0;
         }
-        .comments-toggle-btn:hover {
-            transform: translateY(-4px);
-            background: var(--red);
-            box-shadow: 0 15px 35px rgba(192, 57, 43, 0.25);
+        .file-drop:hover {
+            border-color: #EF9F27;
+            background: #FAEEDA;
         }
-        .comments-toggle-btn .comment-count-badge {
-            background: rgba(255,255,255,0.2);
-            padding: 2px 8px;
-            border-radius: 12px;
+        .file-drop-icon { font-size: 24px; margin-bottom: 6px; }
+        .file-drop-text { font-size: 13px; color: #5F5E5A; }
+        .file-drop-hint { font-size: 11px; color: #888780; margin-top: 4px; }
+        .file-name-preview {
             font-size: 12px;
+            color: #5F5E5A;
+            margin-top: 6px;
+            display: none;
+        }
+
+        /* ── Submit Button ── */
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background: #2D2B22;
+            color: #FAC775;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: Georgia, serif;
+            letter-spacing: 0.4px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 6px;
+            transition: background 0.2s, transform 0.15s;
+        }
+        .submit-btn:hover { background: #1a1912; transform: translateY(-1px); }
+        .submit-btn:active { transform: translateY(0); }
+
+        /* ── Toast ── */
+        .toast {
+            display: none;
+            background: #FAEEDA;
+            border: 0.5px solid #FAC775;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #BA7517;
+            margin-top: 12px;
+            text-align: center;
+        }
+
+        /* ── Empty state ── */
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: #888780;
+            font-size: 14px;
+            display: none;
         }
 
         /* ─── Loading & Error ─── */
@@ -760,7 +914,7 @@
         }
         .lightbox-close {
             position: absolute;
-            top: -40px; right: 0;
+            top: -20px; right: 0;
             color: var(--cream);
             font-size: 28px;
             cursor: pointer;
@@ -794,7 +948,7 @@
             .article-container { padding: 36px 20px 48px; }
             .article-content { font-size: 1rem; }
             .article-content h2 { font-size: 1.4rem; }
-            .pull-quote { margin: 40px -8px; padding: 28px 20px; }
+            .pull-quote { margin: 20px -8px; padding: 28px 20px; }
             .pull-quote p { font-size: 1.2rem; }
             .scene-card { padding: 24px 20px; }
             .closing-box { padding: 28px 24px; }
@@ -839,36 +993,7 @@
         </div>
     </div>
 
-    <div id="comments-overlay" class="comments-overlay" onclick="closeCommentsDrawer()"></div>
-    <div id="comments-drawer" class="comments-drawer">
-        <div class="drawer-header">
-            <h3>Discussion</h3>
-            <button class="close-drawer-btn" onclick="closeCommentsDrawer()">&times;</button>
-        </div>
-        <div id="comments-list" class="drawer-content">
-            <!-- Comments will be loaded here -->
-        </div>
-        <div class="drawer-footer">
-            <div class="comment-form-container">
-                <h4>Leave a Comment</h4>
-                <form id="comment-form" onsubmit="submitComment(event)">
-                    <div class="form-group">
-                        <label for="comment-name">Name</label>
-                        <input type="text" id="comment-name" required placeholder="Your name">
-                    </div>
-                    <div class="form-group">
-                        <label for="comment-content">Comment</label>
-                        <textarea id="comment-content" rows="3" required placeholder="What are your thoughts?"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="comment-image">Attach Image (Optional)</label>
-                        <input type="file" id="comment-image" accept="image/*" style="font-size: 12px; padding: 8px 0;">
-                    </div>
-                    <button type="submit" class="submit-comment-btn" id="submit-comment-btn">Post Comment</button>
-                </form>
-            </div>
-        </div>
-    </div>
+
 
     <footer class="site-footer">
         &copy; 2026 zedong254ke &middot; All rights reserved
@@ -1057,12 +1182,52 @@
                     </div>
                 </div>
                 ${tags ? `<div class="post-tags"><div class="tags-list">${tags}</div></div>` : ''}
-                <div class="comments-toggle-section">
-                    <button class="comments-toggle-btn" onclick="openCommentsDrawer()">
-                        <span>💬</span>
-                        <span>Show Comments</span>
-                        <span id="comment-count-badge" class="comment-count-badge">0</span>
+                <div class="comments-toggle-section" style="max-width: 600px; margin: 32px auto; text-align: center;">
+                    <button class="toggle-btn" id="toggle-comments-btn" onclick="toggleCommentsSection()" style="width: 100%; max-width: 320px; font-family: var(--sans); display: inline-flex; justify-content: space-between; align-items: center; padding: 14px 24px; background: #2D2B22; color: #FAC775; border: none; border-radius: 999px; font-size: 14px; font-weight: 600; cursor: pointer; letter-spacing: 0.3px; transition: all 0.2s; box-shadow: 0 4px 16px rgba(0,0,0,0.12);">
+                        <span>💬 Comments <span id="comment-count-badge">(0)</span></span>
+                        <span class="arrow" style="transition: transform 0.28s;">▾</span>
                     </button>
+                </div>
+
+                <div class="cs-wrap" id="cs-wrap">
+                    <div class="cs-panel">
+                        <div class="cs-header">
+                            <h2>Discussion</h2>
+                            <span class="cs-count" id="comment-count">0 comments</span>
+                        </div>
+                        <div id="comments-list">
+                            <!-- Comments will be injected here -->
+                        </div>
+                        <hr style="border: none; border-top: 1px solid #ede9e1; margin: 16px 0;" />
+                        <div class="form-section">
+                            <p class="form-title" style="font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px;">Add a comment</p>
+                            <form id="comment-form" onsubmit="submitComment(event)">
+                                <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                                    <input type="text" id="name-input" placeholder="Your name" style="flex: 1; padding: 8px 12px; border: 1.5px solid #e0ddd5; border-radius: 999px; font-size: 12px; background: #f7f5f0; color: #1a1912;" required />
+                                    <input type="email" id="email-input" placeholder="Email" style="flex: 1; padding: 8px 12px; border: 1.5px solid #e0ddd5; border-radius: 999px; font-size: 12px; background: #f7f5f0; color: #1a1912;" />
+                                </div>
+                                <textarea id="comment-input" rows="2" maxlength="500" placeholder="What are your thoughts?" style="width: 100%; padding: 10px 14px; margin-bottom: 10px; border: 1.5px solid #e0ddd5; border-radius: 16px; font-size: 13px; background: #f7f5f0; resize: none; color: #1a1912;" oninput="updateChar(this)" required></textarea>
+
+                                <!-- Image upload -->
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                    <label for="comment-file-input" style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1.5px dashed #c8c4ba; border-radius: 999px; font-size: 12px; color: #888; cursor: pointer; background: #f7f5f0; transition: all 0.2s; white-space: nowrap;">
+                                        📷 Add photo
+                                    </label>
+                                    <span id="comment-file-name" style="font-size: 12px; color: #aaa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">No file chosen</span>
+                                    <input type="file" id="comment-file-input" accept="image/*" style="display:none" onchange="previewCommentImage(this)" />
+                                </div>
+
+                                <!-- Preview -->
+                                <div id="comment-preview-wrap" style="position: relative; display: none; margin-bottom: 10px;">
+                                    <img id="comment-preview-img" src="" alt="preview" style="width: 100%; max-height: 180px; object-fit: cover; border-radius: 16px; display: block;" />
+                                    <button type="button" onclick="removeCommentImage()" style="position: absolute; top: 7px; right: 7px; background: rgba(0,0,0,0.55); color: #fff; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Remove">✕</button>
+                                </div>
+
+                                <div class="char-count" style="font-size: 11px; color: #888; text-align: right; margin-bottom: 10px;"><span id="char-num">0</span> / 500</div>
+                                <button type="submit" class="submit-btn" id="submit-btn" style="width: 100%; padding: 12px; background: #2D2B22; color: #FAC775; font-size: 13px; font-weight: 700; border: none; border-radius: 999px; cursor: pointer;">Post Comment</button>
+                            <div class="toast" id="toast">✓ Comment posted — thanks for joining the discussion!</div>
+                        </form>
+                    </div>
                 </div>
             `;
 
@@ -1085,18 +1250,115 @@
             updateReactionButtons(localStorage.getItem(reactionKey));
         }
 
-        // ── Comments Drawer Logic ──
-        function openCommentsDrawer() {
-            document.getElementById('comments-drawer').classList.add('active');
-            document.getElementById('comments-overlay').classList.add('active');
-            document.body.style.overflow = 'hidden'; // Prevent scroll
-            loadComments(postId);
+        // ── Comments Section Logic ──
+        const AVATAR_COLORS = ['av-amber', 'av-coral', 'av-gray', 'av-teal', 'av-blue'];
+
+        function toggleLike(btn) {
+            btn.classList.toggle('liked');
+            const numEl = btn.querySelector('.like-num');
+            let n = parseInt(numEl.textContent);
+            numEl.textContent = btn.classList.contains('liked') ? n + 1 : n - 1;
         }
 
-        function closeCommentsDrawer() {
-            document.getElementById('comments-drawer').classList.remove('active');
-            document.getElementById('comments-overlay').classList.remove('active');
-            document.body.style.overflow = ''; // Restore scroll
+        function focusReply() {
+            const ta = document.getElementById('comment-input');
+            if (ta) {
+                ta.focus();
+                ta.placeholder = 'Write your reply...';
+                ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function updateChar(el) {
+            const len = Math.min(el.value.length, 500);
+            document.getElementById('char-num').textContent = len;
+        }
+
+        function showFileName(input) {
+            const preview = document.getElementById('file-name-preview');
+            if (input.files && input.files.length) {
+                preview.style.display = 'block';
+                preview.textContent = '📎 ' + input.files[0].name;
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
+        let commentImageDataUrl = null;
+
+        function previewCommentImage(input) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+            document.getElementById('comment-file-name').textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = e => {
+                commentImageDataUrl = e.target.result;
+                document.getElementById('comment-preview-img').src = commentImageDataUrl;
+                document.getElementById('comment-preview-wrap').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeCommentImage() {
+            commentImageDataUrl = null;
+            document.getElementById('comment-preview-img').src = '';
+            document.getElementById('comment-preview-wrap').style.display = 'none';
+            document.getElementById('comment-file-input').value = '';
+            document.getElementById('comment-file-name').textContent = 'No file chosen';
+        }
+
+        // Show "Read more" button if text overflows 3 lines
+        function initReadMore(ctId, rmId) {
+            const el = document.getElementById(ctId);
+            const btn = document.getElementById(rmId);
+            if (!el || !btn) return;
+            const fullHeight = el.scrollHeight;
+            const clampedHeight = el.clientHeight;
+            if (fullHeight > clampedHeight + 2) {
+                btn.style.display = 'block';
+            }
+        }
+
+        function toggleReadMore(ctId, rmId) {
+            const el = document.getElementById(ctId);
+            const btn = document.getElementById(rmId);
+            if (!el || !btn) return;
+            const expanded = !el.classList.contains('clamped');
+            if (expanded) {
+                el.classList.add('clamped');
+                btn.textContent = 'Read more ▾';
+            } else {
+                el.classList.remove('clamped');
+                btn.textContent = 'Show less ▴';
+            }
+        }
+
+        function getInitials(name) {
+            return name.trim().split(/\s+/).map(w => w[0].toUpperCase()).slice(0, 2).join('');
+        }
+
+        function formatDate(date) {
+            return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function toggleCommentsSection() {
+            const wrap = document.getElementById('cs-wrap');
+            const btn = document.getElementById('toggle-comments-btn');
+            const arrow = btn.querySelector('.arrow');
+            if (wrap.classList.contains('open')) {
+                wrap.classList.remove('open');
+                btn.classList.remove('open');
+                if (arrow) arrow.style.transform = '';
+            } else {
+                wrap.classList.add('open');
+                btn.classList.add('open');
+                if (arrow) arrow.style.transform = 'rotate(180deg)';
+                loadComments(postId);
+            }
         }
 
         async function loadComments(postId) {
@@ -1104,45 +1366,88 @@
                 const response = await fetch(`/api/posts/${postId}/comments`);
                 const data = await response.json();
                 const list = document.getElementById('comments-list');
-                const badge = document.getElementById('comment-count-badge');
+                const badge = document.getElementById('comment-count');
                 
                 if (data.success) {
-                    if (badge) badge.textContent = data.comments.length;
-                    
+                    if (badge) badge.textContent = data.comments.length + ' comment' + (data.comments.length !== 1 ? 's' : '');
+                    const badgeToggle = document.getElementById('comment-count-badge');
+                    if (badgeToggle) badgeToggle.textContent = `(${data.comments.length})`;
+
                     if (data.comments.length === 0) {
-                        list.innerHTML = '<div style="text-align:center;padding:40px 0;opacity:0.6;"><p>No comments yet. Be the first to start the conversation!</p></div>';
+                        list.innerHTML = '<div class="empty-state" style="display:block;">No comments yet. Be the first to start the conversation!</div>';
                     } else {
-                        list.innerHTML = data.comments.map(c => `
-                            <div class="comment">
-                                <div class="comment-meta">
-                                    <strong>${c.name}</strong>
-                                    <span>${new Date(c.date).toLocaleDateString()}</span>
+                        list.innerHTML = data.comments.map((c, idx) => {
+                            const avClass = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+                            const ctId = 'ct-' + idx;
+                            const rmId = 'rm-' + idx;
+                            return `
+                            <div class="comment-card">
+                                <div class="av ${avClass}">${getInitials(c.name)}</div>
+                                <div class="cb">
+                                    <div class="cm">
+                                        <span class="cn" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+                                        <span class="cd">${formatDate(c.date)}</span>
+                                    </div>
+                                    <p class="ct clamped" id="${ctId}">${escapeHtml(c.content)}</p>
+                                    <button class="read-more" id="${rmId}" onclick="toggleReadMore('${ctId}','${rmId}')">Read more ▾</button>
+                                    ${c.image ? `<img class="comment-photo" src="${c.image}" style="max-width: 100%; max-height: 200px; object-fit: cover; border-radius: 12px; margin-bottom: 8px; display: block; cursor: zoom-in;" onclick="openCommentLightbox('${c.image}')" alt="comment photo">` : ''}
+                                    <div class="comment-actions">
+                                        <button type="button" class="action-btn" onclick="toggleLike(this)">♥ 0</button>
+                                        <button type="button" class="action-btn reply-btn" onclick="focusReply()">↩ Reply</button>
+                                    </div>
                                 </div>
-                                <div class="comment-body">${c.content}</div>
-                                ${c.image ? `<div style="margin-top: 10px;"><img src="${c.image}" style="max-width: 100%; border-radius: 6px; cursor: pointer;" onclick="window.open('${c.image}', '_blank')"></div>` : ''}
-                            </div>
-                        `).join('');
+                            </div>`;
+                        }).join('');
+                        // Check if read-more needed after render
+                        setTimeout(() => {
+                            data.comments.forEach((c, idx) => {
+                                const ctId = 'ct-' + idx;
+                                const rmId = 'rm-' + idx;
+                                initReadMore(ctId, rmId);
+                            });
+                        }, 100);
                     }
                 }
             } catch (e) {
                 console.error('Failed to load comments:', e);
-                document.getElementById('comments-list').innerHTML = '<p style="color:var(--red);">Failed to load comments.</p>';
+                const list = document.getElementById('comments-list');
+                if (list) list.innerHTML = '<p style="color:var(--red);text-align:center;">Failed to load comments.</p>';
             }
         }
 
         async function submitComment(e) {
             e.preventDefault();
-            const btn = document.getElementById('submit-comment-btn');
+            const btn = document.getElementById('submit-btn');
             const originalText = btn.textContent;
+            
+            const nameInput = document.getElementById('name-input');
+            const emailInput = document.getElementById('email-input');
+            const contentInput = document.getElementById('comment-input');
+            const imageFile = document.getElementById('comment-file-input').files[0];
+
+            const name = nameInput.value.trim();
+            const email = emailInput.value.trim();
+            const content = contentInput.value.trim();
+
+            if (!name) {
+                nameInput.focus();
+                nameInput.style.borderColor = '#E24B4A';
+                setTimeout(() => nameInput.style.borderColor = '', 1500);
+                return;
+            }
+            if (!content) {
+                contentInput.focus();
+                contentInput.style.borderColor = '#E24B4A';
+                setTimeout(() => contentInput.style.borderColor = '', 1500);
+                return;
+            }
+
             btn.disabled = true;
             btn.textContent = 'Posting...';
 
-            const name = document.getElementById('comment-name').value;
-            const content = document.getElementById('comment-content').value;
-            const imageFile = document.getElementById('comment-image').files[0];
-
             const formData = new FormData();
             formData.append('name', name);
+            formData.append('email', email);
             formData.append('content', content);
             if (imageFile) {
                 formData.append('image', imageFile);
@@ -1155,8 +1460,23 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    document.getElementById('comment-form').reset();
+                    // Reset form
+                    nameInput.value = '';
+                    emailInput.value = '';
+                    contentInput.value = '';
+                    document.getElementById('char-num').textContent = '0';
+                    removeCommentImage();
+
+                    // Toast
+                    const toast = document.getElementById('toast');
+                    if (toast) {
+                        toast.style.display = 'block';
+                        setTimeout(() => { toast.style.display = 'none'; }, 3000);
+                    }
+
                     loadComments(postId);
+                    // Scroll to comments
+                    document.getElementById('comments-list').scrollIntoView({ behavior: 'smooth', block: 'end' });
                 } else {
                     alert('Failed to post comment: ' + (data.error || 'Unknown error'));
                 }
@@ -1246,13 +1566,13 @@
 
         // Social sharing
         function shareOnTwitter(title, url) {
-            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out: ' + title)}&url=${encodeURIComponent(url)}`, '_blank', 'width=600,height=400');
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out: ' + title)}&url=${encodeURIComponent(url)}`, '_blank', 'width=600,height=200');
         }
         function shareOnLinkedIn(title, url) {
-            window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank', 'width=600,height=400');
+            window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank', 'width=600,height=200');
         }
         function shareOnFacebook(url) {
-            window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank', 'width=600,height=400');
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank', 'width=600,height=200');
         }
         function copyLink() {
             navigator.clipboard.writeText(window.location.href).then(() => alert('Link copied!')).catch(() => {
@@ -1280,6 +1600,17 @@
         function closeLightbox(event) {
             if (event && event.target.id !== 'lightbox' && !event.target.classList.contains('lightbox-close')) return;
             document.getElementById('lightbox').classList.remove('active');
+        }
+
+        function openCommentLightbox(src) {
+            const lb = document.getElementById('lightbox');
+            const img = document.getElementById('lightbox-img');
+            const name = document.getElementById('lightbox-author-name');
+            if (lb && img) {
+                img.src = src;
+                if (name) name.textContent = 'Comment Photo';
+                lb.classList.add('active');
+            }
         }
 
         // Active tab highlighting
