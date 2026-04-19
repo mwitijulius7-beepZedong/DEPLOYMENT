@@ -2195,6 +2195,7 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
     featured: !!body.featured,
     isDraft: !!body.isDraft,
     categoryId: body.categoryId || null,
+    fontFamily: body.fontFamily || '',
     pullQuote: body.pullQuote || '',
     sceneCard: body.sceneCard || '',
     closingBox: body.closingBox || '',
@@ -2257,6 +2258,7 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
       }
       if (body.isDraft !== undefined) updatedFields.isDraft = !!body.isDraft;
       if ('categoryId' in body) updatedFields.categoryId = body.categoryId;
+      if (body.fontFamily !== undefined) updatedFields.fontFamily = body.fontFamily;
       if (body.pullQuote !== undefined) updatedFields.pullQuote = body.pullQuote;
       if (body.sceneCard !== undefined) updatedFields.sceneCard = body.sceneCard;
       if (body.closingBox !== undefined) updatedFields.closingBox = body.closingBox;
@@ -2280,6 +2282,7 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
         image: body.image || posts[idx].image,
         featured: !!body.featured,
         isDraft: 'isDraft' in body ? !!body.isDraft : posts[idx].isDraft,
+        fontFamily: body.fontFamily !== undefined ? body.fontFamily : (posts[idx].fontFamily || ''),
         pullQuote: body.pullQuote !== undefined ? body.pullQuote : posts[idx].pullQuote,
         sceneCard: body.sceneCard !== undefined ? body.sceneCard : posts[idx].sceneCard,
         closingBox: body.closingBox !== undefined ? body.closingBox : posts[idx].closingBox,
@@ -2830,8 +2833,11 @@ app.post('/api/settings/background', requireAdmin, async (req, res) => {
 
     if (process.env.VERCEL && db) {
       const result = await db.collection('settings').findOne({ type: 'background' });
-      const existingBackgrounds = result?.backgrounds || [];
-      const backgrounds = (!Array.isArray(existingBackgrounds) || existingBackgrounds.length === 0) ? [backgroundUrl] : existingBackgrounds;
+      const existingBackgrounds = Array.isArray(result?.backgrounds) ? result.backgrounds : [];
+      // Always append new URL to history (avoid duplicates)
+      const backgrounds = existingBackgrounds.includes(backgroundUrl)
+        ? existingBackgrounds
+        : [...existingBackgrounds, backgroundUrl];
 
       await db.collection('settings').updateOne(
         { type: 'background' },
@@ -2843,9 +2849,10 @@ app.post('/api/settings/background', requireAdmin, async (req, res) => {
 
     const settings = readSettings();
     settings.backgroundUrl = backgroundUrl;
-    // Keep backgrounds in sync if only a single URL is provided
-    if (!Array.isArray(settings.backgrounds) || settings.backgrounds.length === 0) {
-      settings.backgrounds = [backgroundUrl];
+    // Always append new URL to history (avoid duplicates)
+    if (!Array.isArray(settings.backgrounds)) settings.backgrounds = [];
+    if (!settings.backgrounds.includes(backgroundUrl)) {
+      settings.backgrounds.push(backgroundUrl);
     }
     writeSettings(settings);
 
