@@ -138,6 +138,8 @@
                 // Wire toggle and load users list
                 if (typeof initKeyToggle === 'function') initKeyToggle();
                 if (typeof loadUsersForKeyManagement === 'function') loadUsersForKeyManagement();
+            } else if (panelName === 'appearance') {
+                if (typeof window.loadBackgroundGallery === 'function') window.loadBackgroundGallery();
             }
         }
 
@@ -561,6 +563,7 @@
                 document.getElementById('post-pullquote').value = post.pullQuote || '';
                 document.getElementById('post-scenecard').value = post.sceneCard || '';
                 document.getElementById('post-closingbox').value = post.closingBox || '';
+                document.getElementById('post-font-family').value = post.fontFamily || '';
 
                 if (post.categoryId) {
                     document.getElementById('post-category').value = post.categoryId;
@@ -850,12 +853,15 @@
                         else throw new Error(uploadData.error || 'Failed to upload video');
                     }
 
+                    const fontFamily = document.getElementById('post-font-family').value;
+
                     const postData = {
                         title, subtitle, content,
                         tags: tags.split(',').map(t => t.trim()).filter(t => t),
                         image: imageUrl, video: videoUrl,
                         isDraft: status === 'draft',
                         categoryId: category || null,
+                        fontFamily: fontFamily || '',
                         pullQuote: pullQuote || '',
                         sceneCard: sceneCard || '',
                         closingBox: closingBox || ''
@@ -900,8 +906,9 @@
                     <meta charset="utf-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <title>Post Preview - ${title}</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
                     <style>
-                        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+                        body { font-family: ${document.getElementById('post-font-family').value || "'Lora', Georgia, serif"}; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
                         .preview { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
                         h1 { color: #333; margin-bottom: 20px; }
                         .featured-image { max-width: 100%; height: auto; border-radius: 8px; margin-bottom: 20px; }
@@ -929,6 +936,7 @@
             document.getElementById('post-tags').value = '';
             document.getElementById('post-category').value = '';
             document.getElementById('post-status').value = 'draft';
+            document.getElementById('post-font-family').value = '';
             document.getElementById('post-pullquote').value = '';
             document.getElementById('post-scenecard').value = '';
             document.getElementById('post-closingbox').value = '';
@@ -3743,6 +3751,137 @@
                 transform: translate3d(4px, 0, 0);
             }
         }
+
+        /* ── Background Gallery (collapsible folder) ── */
+        .bg-gallery-folder { cursor: default; }
+        .bg-folder-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 4px 0;
+            user-select: none;
+        }
+        .bg-folder-arrow {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px; height: 22px;
+            font-size: 11px;
+            border-radius: 6px;
+            background: var(--bg-light);
+            color: var(--text-medium);
+            transition: transform 0.25s ease, background 0.2s;
+            flex-shrink: 0;
+        }
+        .bg-folder-arrow.open { transform: rotate(90deg); }
+        .bg-folder-header:hover .bg-folder-arrow { background: var(--primary-color); color: #fff; }
+        .bg-gallery-count {
+            font-size: 11px;
+            font-weight: 700;
+            background: var(--bg-light);
+            color: var(--text-medium);
+            padding: 1px 8px;
+            border-radius: 10px;
+            min-width: 22px;
+            text-align: center;
+        }
+        .bg-folder-body {
+            overflow: hidden;
+            transition: max-height 0.35s ease, opacity 0.25s ease;
+            padding-top: 12px;
+        }
+        .bg-gallery {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+        .bg-gallery-item {
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid var(--border-color);
+            transition: all 0.25s ease;
+            background: var(--bg-light);
+            display: flex;
+            flex-direction: column;
+        }
+        .bg-gallery-item:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        }
+        .bg-gallery-item.active {
+            border-color: #16a34a;
+            box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
+        }
+        .bg-gallery-thumb {
+            aspect-ratio: 16 / 9;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+        }
+        .bg-gallery-thumb img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.3s ease;
+        }
+        .bg-gallery-item:hover .bg-gallery-thumb img {
+            transform: scale(1.05);
+        }
+        .bg-gallery-badge {
+            position: absolute;
+            top: 6px; left: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            color: #fff;
+            background: #16a34a;
+            padding: 2px 8px;
+            border-radius: 6px;
+            letter-spacing: 0.04em;
+            z-index: 2;
+        }
+        .bg-gallery-actions {
+            display: flex;
+            gap: 6px;
+            padding: 6px 8px;
+            background: #fff;
+        }
+        .bg-gallery-actions button {
+            flex: 1;
+            padding: 4px 0;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        .bg-btn-use {
+            background: #f0fdf4;
+            color: #16a34a;
+            border-color: #bbf7d0 !important;
+        }
+        .bg-btn-use:hover {
+            background: #16a34a;
+            color: #fff;
+        }
+        .bg-btn-delete {
+            background: #fef2f2;
+            color: #dc2626;
+            border-color: #fecaca !important;
+        }
+        .bg-btn-delete:hover {
+            background: #dc2626;
+            color: #fff;
+        }
+        @media (max-width: 600px) {
+            .bg-gallery { grid-template-columns: repeat(2, 1fr); }
+        }
     </style>
 </head>
 
@@ -4058,6 +4197,26 @@
                     </div>
 
                     <div class="section-body">
+                        <!-- Lifetime Summary Row (shown when current period is empty) -->
+                        <div class="metric-strip" id="lifetime-stats-banner" style="margin-bottom: 24px; background: var(--bg-light); border: 1px solid var(--border-color); border-radius: 12px; display: none;">
+                            <div class="metric-card" style="border: none;">
+                                <span class="m-label" style="color: var(--primary-color); font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Lifetime Views</span>
+                                <span class="m-value" id="lt-views" style="font-size: 20px;">0</span>
+                            </div>
+                            <div class="metric-card" style="border: none;">
+                                <span class="m-label" style="color: #10b981; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Total Likes</span>
+                                <span class="m-value" id="lt-likes" style="font-size: 20px;">0</span>
+                            </div>
+                            <div class="metric-card" style="border: none;">
+                                <span class="m-label" style="color: #f59e0b; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Comments</span>
+                                <span class="m-value" id="lt-comments" style="font-size: 20px;">0</span>
+                            </div>
+                            <div class="metric-card" style="border: none;">
+                                <span class="m-label" style="color: var(--accent-color); font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Global Engagement</span>
+                                <span class="m-value" id="lt-engagement" style="font-size: 20px;">0%</span>
+                            </div>
+                        </div>
+
                         <div class="metric-strip">
                             <div class="metric-card">
                                 <span class="m-label">Total Views</span>
@@ -4316,6 +4475,19 @@
                                         <option value="published">Published</option>
                                     </select>
                                 </div>
+                                <div class="form-group">
+                                    <label for="post-font-family" class="form-label">Font Style <span style="font-weight:400;color:var(--text-medium);font-size:12px;">(typeface for this post's body)</span></label>
+                                    <select class="form-input" id="post-font-family">
+                                        <option value="">Default (Lora Serif)</option>
+                                        <option value="DM Sans">Sans-Serif (DM Sans)</option>
+                                        <option value="Georgia">Georgia</option>
+                                        <option value="Merriweather">Merriweather</option>
+                                        <option value="Playfair Display">Playfair Display</option>
+                                        <option value="Roboto">Roboto</option>
+                                        <option value="Inter">Inter</option>
+                                        <option value="monospace">Monospace</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
@@ -4566,6 +4738,28 @@
                                                 <p style="font-size: 11px; color: var(--text-medium); line-height: 1.4; margin-top: 4px;">
                                                     High-resolution images (1920x1080) are recommended for professional branding.
                                                 </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Background Gallery (Collapsible) -->
+                                    <div class="action-card bg-gallery-folder" style="grid-column: span 2; margin-top: 4px;">
+                                        <div class="bg-folder-header" onclick="toggleBgGallery()">
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <span class="bg-folder-arrow" id="bg-folder-arrow">▶</span>
+                                                <h3 style="margin:0;"><i>📁</i> Previous Backgrounds</h3>
+                                                <span id="bg-gallery-count" class="bg-gallery-count">0</span>
+                                            </div>
+                                            <button class="btn-modern sm secondary" onclick="event.stopPropagation(); loadBackgroundGallery()">
+                                                <i>🔄</i> Refresh
+                                            </button>
+                                        </div>
+                                        <div class="bg-folder-body" id="bg-folder-body" style="display: none;">
+                                            <p style="font-size: 11px; color: var(--text-medium); margin-bottom: 14px;">Select an image to reuse it, or delete ones you no longer need.</p>
+                                            <div id="bg-gallery" class="bg-gallery">
+                                                <div class="sec-empty" style="font-size: 12px; opacity: 0.6; padding: 30px; text-align: center; grid-column: 1 / -1;">
+                                                    No backgrounds saved yet.
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -5056,6 +5250,100 @@
                         window.saveThemeSettings = saveThemeSettings;
                         window.saveBackgroundSettings = saveBackgroundSettings;
                         window.handleBackgroundUpload = handleBackgroundUpload;
+                        window.loadBackgroundGallery = loadBackgroundGallery;
+                        window.selectBackground = selectBackground;
+                        window.removeBackground = removeBackground;
+
+                        // ── Background Gallery Functions ──
+                        function toggleBgGallery() {
+                            const body = document.getElementById('bg-folder-body');
+                            const arrow = document.getElementById('bg-folder-arrow');
+                            if (!body) return;
+                            const isOpen = body.style.display !== 'none';
+                            body.style.display = isOpen ? 'none' : 'block';
+                            arrow.classList.toggle('open', !isOpen);
+                            if (!isOpen) loadBackgroundGallery();
+                        }
+                        window.toggleBgGallery = toggleBgGallery;
+
+                        async function loadBackgroundGallery() {
+                            const gallery = document.getElementById('bg-gallery');
+                            const countBadge = document.getElementById('bg-gallery-count');
+                            if (!gallery) return;
+                            gallery.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;opacity:0.5;">Loading…</div>';
+                            try {
+                                const resp = await apiFetch('/api/settings/backgrounds?t=' + Date.now());
+                                const data = await resp.json();
+                                const bgs = Array.isArray(data.backgrounds) ? data.backgrounds : [];
+                                if (countBadge) countBadge.textContent = bgs.length;
+                                if (bgs.length === 0) {
+                                    gallery.innerHTML = '<div class="sec-empty" style="font-size:12px;opacity:0.6;padding:30px;text-align:center;grid-column:1/-1;">No backgrounds saved yet. Upload or set a background URL above.</div>';
+                                    return;
+                                }
+                                // Also get current active background
+                                let currentBg = '';
+                                try {
+                                    const bgResp = await apiFetch('/api/settings/background');
+                                    const bgData = await bgResp.json();
+                                    currentBg = bgData.backgroundUrl || '';
+                                } catch(e) {}
+                                gallery.innerHTML = bgs.map((url, idx) => {
+                                    const isActive = url === currentBg;
+                                    return `
+                                        <div class="bg-gallery-item ${isActive ? 'active' : ''}">
+                                            <div class="bg-gallery-thumb" onclick="selectBackground('${url.replace(/'/g, "\\'")}')">
+                                                ${isActive ? '<span class="bg-gallery-badge">✓ Active</span>' : ''}
+                                                <img src="${url}" alt="Background ${idx+1}" loading="lazy">
+                                            </div>
+                                            <div class="bg-gallery-actions">
+                                                <button class="bg-btn-use" onclick="event.stopPropagation(); selectBackground('${url.replace(/'/g, "\\'")}')" title="Use this background">✓ Use</button>
+                                                <button class="bg-btn-delete" onclick="event.stopPropagation(); removeBackground(${idx})" title="Delete from gallery">🗑️ Delete</button>
+                                            </div>
+                                        </div>`;
+                                }).join('');
+                            } catch(err) {
+                                console.error('Failed to load background gallery:', err);
+                                gallery.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#dc2626;">Failed to load gallery.</div>';
+                            }
+                        }
+
+                        function selectBackground(url) {
+                            const urlInput = document.getElementById('background-url');
+                            if (urlInput) urlInput.value = url;
+                            
+                            // Visual feedback in gallery
+                            const items = document.querySelectorAll('.bg-gallery-item');
+                            items.forEach(item => {
+                                const img = item.querySelector('img');
+                                if (img && img.src === url) {
+                                    item.classList.add('active');
+                                } else {
+                                    item.classList.remove('active');
+                                }
+                            });
+
+                            // Display a small toast or label if possible, or just scroll to the save button
+                            console.log('Background selected from gallery:', url);
+                        }
+
+                        async function removeBackground(idx) {
+                            if (!confirm('Remove this background from the gallery?')) return;
+                            try {
+                                const resp = await apiFetch('/api/settings/backgrounds?t=' + Date.now());
+                                const data = await resp.json();
+                                const bgs = Array.isArray(data.backgrounds) ? [...data.backgrounds] : [];
+                                if (idx < 0 || idx >= bgs.length) return;
+                                bgs.splice(idx, 1);
+                                await apiFetch('/api/settings/backgrounds', {
+                                    method: 'POST',
+                                    body: JSON.stringify({ backgrounds: bgs })
+                                });
+                                loadBackgroundGallery();
+                            } catch(err) {
+                                console.error('Failed to remove background:', err);
+                                alert('Failed to remove background.');
+                            }
+                        }
                         window.closeCropModal = closeCropModal;
                         window.performCropAndUpload = performCropAndUpload;
                         window.togglePostsList = togglePostsList;
@@ -5834,6 +6122,19 @@
                                 updateStatCard('analytics-engagement-rate', (stats.engagementRate || 0).toFixed(1) + '%', 'delta-engagement', stats.engagementRateDelta);
                                 updateStatCard('analytics-avg-time', (stats.avgTime || 0).toFixed(1) + 'm', 'delta-time', stats.avgTimeDelta);
                                 updateStatCard('analytics-bounce-rate', (stats.bounceRate || 0).toFixed(1) + '%', 'delta-bounce', stats.bounceRateDelta);
+                            });
+
+                            runSafe('Lifetime Stats', () => {
+                                const lt = stats.lifetime || {};
+                                const banner = document.getElementById('lifetime-stats-banner');
+                                if (banner) {
+                                    banner.style.display = 'flex';
+                                    const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+                                    setVal('lt-views', (lt.views || 0).toLocaleString());
+                                    setVal('lt-likes', (lt.likes || 0).toLocaleString());
+                                    setVal('lt-comments', (lt.comments || 0).toLocaleString());
+                                    setVal('lt-engagement', lt.engagement || '0%');
+                                }
                             });
 
                             runSafe('Charts', () => updateCharts(stats));
