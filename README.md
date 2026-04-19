@@ -21,4 +21,5 @@ npm start
 Notes
 - The client-side currently calls `/auth/google` with the ID token; the server verifies the token using Google's `tokeninfo` endpoint and creates a session.
 - For production, run under HTTPS, set `cookie.secure = true` and use a strong `SESSION_SECRET`.
+- **Comments Photo Upload**: The blog now supports readers attaching images when leaving comments. The images are stored securely by the backend via the `/api/upload` API and automatically rendered on the frontend.
 - Consider fetching token verification libraries from Google for more robust validation instead of tokeninfo endpoint.
