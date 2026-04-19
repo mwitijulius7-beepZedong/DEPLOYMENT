@@ -4197,6 +4197,26 @@
                     </div>
 
                     <div class="section-body">
+                        <!-- Lifetime Summary Row (shown when current period is empty) -->
+                        <div class="metric-strip" id="lifetime-stats-banner" style="margin-bottom: 24px; background: var(--bg-light); border: 1px solid var(--border-color); border-radius: 12px; display: none;">
+                            <div class="metric-card" style="border: none;">
+                                <span class="m-label" style="color: var(--primary-color); font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Lifetime Views</span>
+                                <span class="m-value" id="lt-views" style="font-size: 20px;">0</span>
+                            </div>
+                            <div class="metric-card" style="border: none;">
+                                <span class="m-label" style="color: #10b981; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Total Likes</span>
+                                <span class="m-value" id="lt-likes" style="font-size: 20px;">0</span>
+                            </div>
+                            <div class="metric-card" style="border: none;">
+                                <span class="m-label" style="color: #f59e0b; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Comments</span>
+                                <span class="m-value" id="lt-comments" style="font-size: 20px;">0</span>
+                            </div>
+                            <div class="metric-card" style="border: none;">
+                                <span class="m-label" style="color: var(--accent-color); font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Global Engagement</span>
+                                <span class="m-value" id="lt-engagement" style="font-size: 20px;">0%</span>
+                            </div>
+                        </div>
+
                         <div class="metric-strip">
                             <div class="metric-card">
                                 <span class="m-label">Total Views</span>
@@ -5288,15 +5308,22 @@
                         }
 
                         function selectBackground(url) {
-                            document.getElementById('background-url').value = url;
-                            // Visual feedback
+                            const urlInput = document.getElementById('background-url');
+                            if (urlInput) urlInput.value = url;
+                            
+                            // Visual feedback in gallery
                             const items = document.querySelectorAll('.bg-gallery-item');
-                            items.forEach(item => item.classList.remove('active'));
-                            // Find matching item and mark active
                             items.forEach(item => {
                                 const img = item.querySelector('img');
-                                if (img && img.src === url) item.classList.add('active');
+                                if (img && img.src === url) {
+                                    item.classList.add('active');
+                                } else {
+                                    item.classList.remove('active');
+                                }
                             });
+
+                            // Display a small toast or label if possible, or just scroll to the save button
+                            console.log('Background selected from gallery:', url);
                         }
 
                         async function removeBackground(idx) {
@@ -6095,6 +6122,19 @@
                                 updateStatCard('analytics-engagement-rate', (stats.engagementRate || 0).toFixed(1) + '%', 'delta-engagement', stats.engagementRateDelta);
                                 updateStatCard('analytics-avg-time', (stats.avgTime || 0).toFixed(1) + 'm', 'delta-time', stats.avgTimeDelta);
                                 updateStatCard('analytics-bounce-rate', (stats.bounceRate || 0).toFixed(1) + '%', 'delta-bounce', stats.bounceRateDelta);
+                            });
+
+                            runSafe('Lifetime Stats', () => {
+                                const lt = stats.lifetime || {};
+                                const banner = document.getElementById('lifetime-stats-banner');
+                                if (banner) {
+                                    banner.style.display = 'flex';
+                                    const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+                                    setVal('lt-views', (lt.views || 0).toLocaleString());
+                                    setVal('lt-likes', (lt.likes || 0).toLocaleString());
+                                    setVal('lt-comments', (lt.comments || 0).toLocaleString());
+                                    setVal('lt-engagement', lt.engagement || '0%');
+                                }
                             });
 
                             runSafe('Charts', () => updateCharts(stats));

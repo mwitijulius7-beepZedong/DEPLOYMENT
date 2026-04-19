@@ -860,6 +860,10 @@
                         <label for="comment-content">Comment</label>
                         <textarea id="comment-content" rows="3" required placeholder="What are your thoughts?"></textarea>
                     </div>
+                    <div class="form-group">
+                        <label for="comment-image">Attach Image (Optional)</label>
+                        <input type="file" id="comment-image" accept="image/*" style="font-size: 12px; padding: 8px 0;">
+                    </div>
                     <button type="submit" class="submit-comment-btn" id="submit-comment-btn">Post Comment</button>
                 </form>
             </div>
@@ -1115,6 +1119,7 @@
                                     <span>${new Date(c.date).toLocaleDateString()}</span>
                                 </div>
                                 <div class="comment-body">${c.content}</div>
+                                ${c.image ? `<div style="margin-top: 10px;"><img src="${c.image}" style="max-width: 100%; border-radius: 6px; cursor: pointer;" onclick="window.open('${c.image}', '_blank')"></div>` : ''}
                             </div>
                         `).join('');
                     }
@@ -1134,19 +1139,26 @@
 
             const name = document.getElementById('comment-name').value;
             const content = document.getElementById('comment-content').value;
+            const imageFile = document.getElementById('comment-image').files[0];
+
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('content', content);
+            if (imageFile) {
+                formData.append('image', imageFile);
+            }
 
             try {
                 const response = await fetch(`/api/posts/${postId}/comments`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, content })
+                    body: formData
                 });
                 const data = await response.json();
                 if (data.success) {
                     document.getElementById('comment-form').reset();
                     loadComments(postId);
                 } else {
-                    alert('Failed to post comment.');
+                    alert('Failed to post comment: ' + (data.error || 'Unknown error'));
                 }
             } catch (err) {
                 console.error('Error posting comment:', err);
