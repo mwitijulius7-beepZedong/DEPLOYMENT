@@ -870,20 +870,38 @@ async function saveSecurityLogs(logs) {
   }
 }
 
+let commentsCache = null;
+let commentsCacheTime = 0;
+const CACHE_TTL = 5000; // 5 seconds
+
 async function loadComments() {
+  const now = Date.now();
+  if (commentsCache && now - commentsCacheTime < CACHE_TTL) {
+    return commentsCache;
+  }
   try {
     const db = await getMongoDB();
     if (db) {
       const comments = await db.collection('comments').find({}).toArray();
-      return comments.map(c => ({ ...c, id: c._id || c.id }));
+      commentsCache = comments.map(c => ({ ...c, id: c._id || c.id }));
+      commentsCacheTime = now;
+      return commentsCache;
     }
-    return JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf8')) || [];
+    commentsCache = JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf8')) || [];
+    commentsCacheTime = now;
+    return commentsCache || [];
   } catch (e) {
     return [];
   }
 }
 
+function invalidateCommentsCache() {
+  commentsCache = null;
+  commentsCacheTime = 0;
+}
+
 async function saveComments(comments) {
+  invalidateCommentsCache();
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -2528,8 +2546,12 @@ app.post('/api/posts/:id/dislike', async (req, res) => {
 app.get('/api/posts/:id/comments', async (req, res) => {
   try {
     const postId = req.params.id;
+    const includeDeleted = req.query.includeDeleted === 'true';
     const allComments = await loadComments();
-    const postComments = allComments.filter(c => String(c.postId) === postId);
+    let postComments = allComments.filter(c => String(c.postId) === postId);
+    if (!includeDeleted) {
+      postComments = postComments.filter(c => !c.deleted);
+    }
     return res.json({ success: true, comments: postComments });
   } catch (e) {
     console.error('Error loading comments:', e);
@@ -2579,6 +2601,59 @@ app.post('/api/posts/:id/comments', async (req, res) => {
   } catch (e) {
     console.error('Error posting comment:', e);
     return res.status(500).json({ error: 'failed_to_post_comment' });
+  }
+});
+
+// Soft delete comment (admin only)
+app.delete('/api/posts/:id/comments/:commentId', requireAdmin, async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const commentId = req.params.commentId;
+    const allComments = await loadComments();
+    const idx = allComments.findIndex(c => c.id.toString() === commentId && c.postId.toString() === postId);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'comment_not_found' });
+    }
+    allComments[idx].deleted = true;
+    allComments[idx].deletedAt = new Date().toISOString();
+    await saveComments(allComments);
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Error deleting comment:', e);
+    return res.status(500).json({ error: 'failed_to_delete_comment' });
+  }
+});
+
+// Get all comments for admin (includes deleted) - with limit for performance
+app.get('/api/admin/comments', requireAdmin, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const allComments = await loadComments();
+    const sorted = allComments.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, limit);
+    return res.json({ success: true, comments: sorted, total: allComments.length });
+  } catch (e) {
+    console.error('Error loading all comments:', e);
+    return res.status(500).json({ error: 'failed_to_load_comments' });
+  }
+});
+
+// Restore soft-deleted comment (admin only)
+app.post('/api/posts/:id/comments/:commentId/restore', requireAdmin, async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const commentId = req.params.commentId;
+    const allComments = await loadComments();
+    const idx = allComments.findIndex(c => c.id.toString() === commentId && c.postId.toString() === postId);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'comment_not_found' });
+    }
+    allComments[idx].deleted = false;
+    allComments[idx].deletedAt = null;
+    await saveComments(allComments);
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Error restoring comment:', e);
+    return res.status(500).json({ error: 'failed_to_restore_comment' });
   }
 });
 
