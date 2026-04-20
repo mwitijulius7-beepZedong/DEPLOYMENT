@@ -4393,7 +4393,42 @@ app.get('/login.html', (req, res) => {
 });
 
 app.get('/post.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'post.html'));
+  const postId = req.query.id;
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  
+  let html = fs.readFileSync(path.join(__dirname, 'post.html'), 'utf8');
+  
+  if (postId) {
+    try {
+      const posts = JSON.parse(fs.readFileSync(path.join(__dirname, 'posts.json'), 'utf8'));
+      const post = posts.find(p => p.id == postId);
+      
+      if (post) {
+        const settings = JSON.parse(fs.readFileSync(path.join(__dirname, 'settings.json'), 'utf8'));
+        const authorName = settings.author?.name || 'Admin';
+        const title = post.title || 'Untitled Post';
+        const description = post.content?.substring(0, 160).replace(/<[^>]*>/g, '') || 'Click to read more';
+        const image = post.image || '';
+        const postUrl = `${baseUrl}/post.html?id=${postId}`;
+        
+        const ogMeta = `
+    <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
+    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
+    <meta property="og:url" content="${postUrl}">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="${authorName}">
+    <meta name="twitter:card" content="summary_large_image">
+    ${image ? `<meta property="og:image" content="${image}">` : ''}
+    <link rel="canonical" href="${postUrl}">
+`;
+        html = html.replace('</head>', `${ogMeta}\n</head>`);
+      }
+    } catch (e) {
+      console.error('Error generating OG tags:', e.message);
+    }
+  }
+  
+  res.send(html);
 });
 
 app.get('/about.html', (req, res) => {
