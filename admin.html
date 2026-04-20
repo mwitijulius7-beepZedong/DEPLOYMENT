@@ -515,6 +515,7 @@
                                     <h4 class="post-item-title" style="margin: 0;">${post.title}</h4>
                                 </div>
                                 <div style="display:flex; gap:8px;">
+                                    <button class="compact-btn" title="Share to social" onclick="event.stopPropagation(); sharePost('${post.id}', '${post.title}')">📤</button>
                                     <button class="compact-btn" onclick="event.stopPropagation(); editPost('${post.id}')">Edit</button>
                                     <button class="compact-btn" style="color: #dc2626;" onclick="event.stopPropagation(); deletePost('${post.id}')">Delete</button>
                                 </div>
@@ -630,6 +631,33 @@
                     console.error('Error deleting post:', error);
                     alert('Network error deleting post: ' + error.message);
                 }
+            }
+        }
+
+        async function sharePost(postId, postTitle) {
+            const platforms = ['linkedin', 'twitter', 'facebook'];
+
+            try {
+                const response = await apiFetch('/api/share', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ postId, platforms })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    // Open all share windows at once
+                    for (const r of data.results) {
+                        if (r.success && r.twitterUrl) window.open(r.twitterUrl, '_blank');
+                        if (r.success && r.facebookUrl) window.open(r.facebookUrl, '_blank');
+                        if (r.success && r.linkedinUrl) window.open(r.linkedinUrl, '_blank');
+                    }
+                    alert(`"${postTitle}" shared to all platforms! ✨`);
+                } else {
+                    alert('Failed: ' + data.error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
             }
         }
 
@@ -875,7 +903,18 @@
                     const data = await response.json();
 
                     if (response.ok) {
+                        const isPublishing = status === 'published' && !postId;
                         alert(postId ? 'Post updated successfully!' : 'Post saved successfully!');
+                        
+                        // Auto-share if publishing new post
+                        if (isPublishing) {
+                            const shareNow = confirm('Post published! Share to social media now?');
+                            if (shareNow) {
+                                const newId = data.post?.id || postId;
+                                if (newId) sharePost(newId, title);
+                            }
+                        }
+                        
                         resetPostForm();
                         if (typeof loadPostsList === 'function') await loadPostsList();
                         showPostsSection();
