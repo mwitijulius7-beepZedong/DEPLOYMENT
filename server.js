@@ -2311,6 +2311,7 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
     date: new Date().toISOString(),
     tags: Array.isArray(body.tags) ? body.tags : (body.tags || []).map ? body.tags : [],
     image: body.image || '',
+    images: Array.isArray(body.images) ? body.images : [],
     featured: !!body.featured,
     isDraft: !!body.isDraft,
     categoryId: body.categoryId || null,
@@ -2369,6 +2370,7 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
       if (body.content !== undefined) updatedFields.content = body.content;
       if (body.tags !== undefined) updatedFields.tags = body.tags;
       if (body.image !== undefined) updatedFields.image = body.image;
+      if (body.images !== undefined) updatedFields.images = body.images;
       if (body.featured !== undefined) {
         updatedFields.featured = !!body.featured;
         if (updatedFields.featured) {
@@ -2399,6 +2401,7 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
         content: body.content || posts[idx].content,
         tags: Array.isArray(body.tags) ? body.tags : posts[idx].tags,
         image: body.image || posts[idx].image,
+        images: Array.isArray(body.images) ? body.images : (posts[idx].images || []),
         featured: !!body.featured,
         isDraft: 'isDraft' in body ? !!body.isDraft : posts[idx].isDraft,
         fontFamily: body.fontFamily !== undefined ? body.fontFamily : (posts[idx].fontFamily || ''),
@@ -2709,7 +2712,7 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
     const file = req.files.image || req.files.video;
     const isVideo = !!req.files.video;
     const MAX_BYTES = 100 * 1024 * 1024; // 100MB
-    const allowedImages = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedImages = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     const allowedVideos = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
     const allowed = [...allowedImages, ...allowedVideos];
 
