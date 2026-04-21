@@ -576,15 +576,49 @@
                     document.getElementById('post-tags').value = post.tags.join(', ');
                 }
 
-                // Handle image preview
+                // Handle image and gallery preview
                 const previewContainer = document.getElementById('image-preview');
                 const previewImg = document.getElementById('preview-img');
+                const galleryPreviewContainer = document.getElementById('gallery-preview');
+                const galleryContainer = document.getElementById('gallery-images');
+                galleryContainer.innerHTML = '';
+
+                // Featured image
                 if (post.image) {
                     previewImg.src = post.image;
                     previewContainer.style.display = 'block';
                 } else {
                     previewContainer.style.display = 'none';
                     previewImg.src = '';
+                }
+
+                // Gallery images (post.images array)
+                if (post.images && post.images.length > 0) {
+                    post.images.forEach(imgUrl => {
+                        const imgWrapper = document.createElement('div');
+                        imgWrapper.style.position = 'relative';
+                        imgWrapper.style.width = '80px';
+                        imgWrapper.style.height = '80px';
+                        imgWrapper.style.cursor = 'pointer';
+                        imgWrapper.title = 'Click to remove';
+                        imgWrapper.onclick = function() {
+                            if (confirm('Remove this image from gallery?')) {
+                                this.remove();
+                            }
+                        };
+                        const img = document.createElement('img');
+                        img.src = imgUrl;
+                        img.style.width = '100%';
+                        img.style.height = '100%';
+                        img.style.objectFit = 'cover';
+                        img.style.borderRadius = '8px';
+                        img.style.border = '1px solid #ddd';
+                        imgWrapper.appendChild(img);
+                        galleryContainer.appendChild(imgWrapper);
+                    });
+                    galleryPreviewContainer.style.display = 'block';
+                } else {
+                    galleryPreviewContainer.style.display = 'none';
                 }
 
                 // Change section title and button text
@@ -840,7 +874,7 @@
                 const pullQuote = document.getElementById('post-pullquote').value.trim();
                 const sceneCard = document.getElementById('post-scenecard').value.trim();
                 const closingBox = document.getElementById('post-closingbox').value.trim();
-                const imageFile = document.getElementById('post-image-file').files[0];
+                const imageFiles = document.getElementById('post-image-file').files;
                 const videoFile = document.getElementById('post-video-file').files[0];
 
                 if (!title || !content) {
@@ -851,22 +885,45 @@
                 try {
                     let imageUrl = document.getElementById('preview-img').src || '';
                     let videoUrl = document.getElementById('preview-video').src || '';
+                    let galleryImages = [];
+
+                    // Get existing gallery URLs from preview (for edit mode)
+                    const galleryContainer = document.getElementById('gallery-images');
+                    if (galleryContainer && galleryContainer.children.length > 0) {
+                        Array.from(galleryContainer.children).forEach(wrapper => {
+                            const img = wrapper.querySelector('img');
+                            if (img && img.src && !img.src.startsWith('data:')) {
+                                galleryImages.push(img.src);
+                            }
+                        });
+                    }
 
                     if (imageUrl.startsWith('data:image')) imageUrl = '';
                     if (videoUrl.startsWith('blob:')) videoUrl = '';
 
-                    if (imageFile) {
-                        const formData = new FormData();
-                        formData.append('image', imageFile);
-                        const uploadResponse = await fetch('/api/upload', {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-                            body: formData
-                        });
-                        const uploadData = await uploadResponse.json();
-                        if (uploadResponse.ok && uploadData.url) imageUrl = uploadData.url;
-                        else throw new Error(uploadData.error || 'Failed to upload image');
+                    // Upload first image as featured, all to gallery
+                    if (imageFiles && imageFiles.length > 0) {
+                        const uploadedUrls = [];
+                        for (const file of imageFiles) {
+                            const formData = new FormData();
+                            formData.append('image', file);
+                            const uploadResponse = await fetch('/api/upload', {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+                                body: formData
+                            });
+                            const uploadData = await uploadResponse.json();
+                            if (uploadResponse.ok && uploadData.url) {
+                                uploadedUrls.push(uploadData.url);
+                            } else {
+                                throw new Error(uploadData.error || 'Failed to upload image');
+                            }
+                        }
+                        // First uploaded image is featured
+                        imageUrl = uploadedUrls[0];
+                        // All uploaded images go to gallery
+                        galleryImages = [...uploadedUrls, ...galleryImages];
                     }
 
                     if (videoFile) {
@@ -883,12 +940,13 @@
                         else throw new Error(uploadData.error || 'Failed to upload video');
                     }
 
+                    // Upload gallery images
                     const fontFamily = document.getElementById('post-font-family').value;
 
                     const postData = {
                         title, subtitle, content,
                         tags: tags.split(',').map(t => t.trim()).filter(t => t),
-                        image: imageUrl, video: videoUrl,
+                        image: imageUrl, video: videoUrl, images: galleryImages,
                         isDraft: status === 'draft',
                         categoryId: category || null,
                         fontFamily: fontFamily || '',
@@ -4449,19 +4507,24 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="post-image-file" class="form-label">Thumbnail (Featured Image)</label>
+                                    <label for="post-image-file" class="form-label">Images (First = Featured, All = Gallery)</label>
                                     <div class="file-input-wrapper">
-                                        <input type="file" class="file-input" id="post-image-file" accept="image/*"
+                                        <input type="file" class="file-input" id="post-image-file" accept="image/*" multiple
                                             onchange="handlePostImageUpload()">
                                         <label for="post-image-file" class="file-input-label">
                                             <i>🖼️</i>
-                                            Choose thumbnail image...
+                                            Choose images...
                                         </label>
                                     </div>
                                     <div id="image-preview" style="margin-top: 12px; display: none;">
+                                        <p style="font-size:0.85rem;color:#666;margin-bottom:8px;">Featured Image:</p>
                                         <img id="preview-img"
                                             style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 1px solid #ddd;"
                                             alt="Preview">
+                                    </div>
+                                    <div id="gallery-preview" style="margin-top: 12px; display: none;">
+                                        <p style="font-size:0.85rem;color:#666;margin-bottom:8px;">Gallery (click to remove):</p>
+                                        <div id="gallery-images" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
                                     </div>
                                 </div>
                                 <div class="form-group">
@@ -5327,144 +5390,136 @@
 
                         function handleProfilePictureUpload() {
                             const fileInput = document.getElementById('profile-picture-file');
-                            if (fileInput.files && fileInput.files[0]) {
-                                const reader = new FileReader();
-                                reader.onload = function (e) {
-                                    const previewImgs = document.querySelectorAll('.user-avatar, .sidebar-logo img');
-                                    previewImgs.forEach(img => {
-                                        img.src = e.target.result;
-                                    });
-                                }
-                                reader.readAsDataURL(fileInput.files[0]);
-                            }
-                        }
-                        window.saveThemeSettings = saveThemeSettings;
-                        window.saveBackgroundSettings = saveBackgroundSettings;
-                        window.handleBackgroundUpload = handleBackgroundUpload;
-                        window.loadBackgroundGallery = loadBackgroundGallery;
-                        window.selectBackground = selectBackground;
-                        window.removeBackground = removeBackground;
-
-                        // ── Background Gallery Functions ──
-                        function toggleBgGallery() {
-                            const body = document.getElementById('bg-folder-body');
-                            const arrow = document.getElementById('bg-folder-arrow');
-                            if (!body) return;
-                            const isOpen = body.style.display !== 'none';
-                            body.style.display = isOpen ? 'none' : 'block';
-                            arrow.classList.toggle('open', !isOpen);
-                            if (!isOpen) loadBackgroundGallery();
-                        }
-                        window.toggleBgGallery = toggleBgGallery;
-
-                        async function loadBackgroundGallery() {
-                            const gallery = document.getElementById('bg-gallery');
-                            const countBadge = document.getElementById('bg-gallery-count');
-                            if (!gallery) return;
-                            gallery.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;opacity:0.5;">Loading…</div>';
-                            try {
-                                const resp = await apiFetch('/api/settings/backgrounds?t=' + Date.now());
-                                const data = await resp.json();
-                                const bgs = Array.isArray(data.backgrounds) ? data.backgrounds : [];
-                                if (countBadge) countBadge.textContent = bgs.length;
-                                if (bgs.length === 0) {
-                                    gallery.innerHTML = '<div class="sec-empty" style="font-size:12px;opacity:0.6;padding:30px;text-align:center;grid-column:1/-1;">No backgrounds saved yet. Upload or set a background URL above.</div>';
+if (fileInput.files && fileInput.files[0]) {
+                                const file = fileInput.files[0];
+                                if (file.size > 100 * 1024 * 1024) {
+                                    alert('Video file size exceeds 100MB limit.');
+                                    fileInput.value = '';
                                     return;
                                 }
-                                // Also get current active background
-                                let currentBg = '';
-                                try {
-                                    const bgResp = await apiFetch('/api/settings/background');
-                                    const bgData = await bgResp.json();
-                                    currentBg = bgData.backgroundUrl || '';
-                                } catch(e) {}
-                                gallery.innerHTML = bgs.map((url, idx) => {
-                                    const isActive = url === currentBg;
-                                    return `
-                                        <div class="bg-gallery-item ${isActive ? 'active' : ''}">
-                                            <div class="bg-gallery-thumb" onclick="selectBackground('${url.replace(/'/g, "\\'")}')">
-                                                ${isActive ? '<span class="bg-gallery-badge">✓ Active</span>' : ''}
-                                                <img src="${url}" alt="Background ${idx+1}" loading="lazy">
-                                            </div>
-                                            <div class="bg-gallery-actions">
-                                                <button class="bg-btn-use" onclick="event.stopPropagation(); selectBackground('${url.replace(/'/g, "\\'")}')" title="Use this background">✓ Use</button>
-                                                <button class="bg-btn-delete" onclick="event.stopPropagation(); removeBackground(${idx})" title="Delete from gallery">🗑️ Delete</button>
-                                            </div>
-                                        </div>`;
-                                }).join('');
-                            } catch(err) {
-                                console.error('Failed to load background gallery:', err);
-                                gallery.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#dc2626;">Failed to load gallery.</div>';
+                                const url = URL.createObjectURL(file);
+                                previewVideo.src = url;
+                                previewContainer.style.display = 'block';
+                            } else {
+                                previewContainer.style.display = 'none';
+                                previewVideo.src = '';
                             }
                         }
 
-                        function selectBackground(url) {
-                            const urlInput = document.getElementById('background-url');
-                            if (urlInput) urlInput.value = url;
+                        function handlePostGalleryUpload() {
+                            const fileInput = document.getElementById('post-images-file');
+                            const previewContainer = document.getElementById('gallery-preview');
+                            const galleryContainer = document.getElementById('gallery-images');
                             
-                            // Visual feedback in gallery
-                            const items = document.querySelectorAll('.bg-gallery-item');
-                            items.forEach(item => {
-                                const img = item.querySelector('img');
-                                if (img && img.src === url) {
-                                    item.classList.add('active');
-                                } else {
-                                    item.classList.remove('active');
-                                }
-                            });
+                            galleryContainer.innerHTML = '';
 
-                            // Display a small toast or label if possible, or just scroll to the save button
-                            console.log('Background selected from gallery:', url);
-                        }
-
-                        async function removeBackground(idx) {
-                            if (!confirm('Remove this background from the gallery?')) return;
-                            try {
-                                const resp = await apiFetch('/api/settings/backgrounds?t=' + Date.now());
-                                const data = await resp.json();
-                                const bgs = Array.isArray(data.backgrounds) ? [...data.backgrounds] : [];
-                                if (idx < 0 || idx >= bgs.length) return;
-                                bgs.splice(idx, 1);
-                                await apiFetch('/api/settings/backgrounds', {
-                                    method: 'POST',
-                                    body: JSON.stringify({ backgrounds: bgs })
+                            if (fileInput.files && fileInput.files.length > 0) {
+                                Array.from(fileInput.files).forEach((file, index) => {
+                                    if (file.size > 100 * 1024 * 1024) {
+                                        alert(`File "${file.name}" exceeds 100MB limit.`);
+                                        return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = function (e) {
+                                        const imgWrapper = document.createElement('div');
+                                        imgWrapper.style.position = 'relative';
+                                        imgWrapper.style.width = '80px';
+                                        imgWrapper.style.height = '80px';
+                                        const img = document.createElement('img');
+                                        img.src = e.target.result;
+                                        img.style.width = '100%';
+                                        img.style.height = '100%';
+                                        img.style.objectFit = 'cover';
+                                        img.style.borderRadius = '8px';
+                                        img.style.border = '1px solid #ddd';
+                                        imgWrapper.appendChild(img);
+                                        galleryContainer.appendChild(imgWrapper);
+                                        previewContainer.style.display = 'block';
+                                    };
+                                    reader.readAsDataURL(file);
                                 });
-                                loadBackgroundGallery();
-                            } catch(err) {
-                                console.error('Failed to remove background:', err);
-                                alert('Failed to remove background.');
+                            } else {
+                                previewContainer.style.display = 'none';
                             }
                         }
-                        window.closeCropModal = closeCropModal;
-                        window.performCropAndUpload = performCropAndUpload;
-                        window.togglePostsList = togglePostsList;
-                        window.loadPostsList = loadPostsList;
+
+window.loadPostsList = loadPostsList;
                         window.saveNewPost = saveNewPost;
                         window.handlePostImageUpload = handlePostImageUpload;
+                        window.handlePostGalleryUpload = handlePostImageUpload;
 
                         function handlePostImageUpload() {
                             const fileInput = document.getElementById('post-image-file');
-                            const previewContainer = document.getElementById('image-preview');
+                            const featuredContainer = document.getElementById('image-preview');
                             const previewImg = document.getElementById('preview-img');
+                            const galleryContainer = document.getElementById('gallery-preview');
+                            const galleryImages = document.getElementById('gallery-images');
 
-                            // Clear video preview if image is selected
+                            // Clear video preview when images are selected
                             const videoPreviewContainer = document.getElementById('video-preview');
                             const previewVideo = document.getElementById('preview-video');
                             if (videoPreviewContainer) videoPreviewContainer.style.display = 'none';
                             if (previewVideo) previewVideo.src = '';
                             document.getElementById('post-video-file').value = '';
 
-                            if (fileInput.files && fileInput.files[0]) {
+                            const files = fileInput.files;
+                            galleryImages.innerHTML = '';
+
+                            if (files && files.length > 0) {
+                                // First file goes to featured image
                                 const reader = new FileReader();
                                 reader.onload = function (e) {
                                     previewImg.src = e.target.result;
-                                    previewContainer.style.display = 'block';
+                                    featuredContainer.style.display = 'block';
+                                };
+                                reader.readAsDataURL(files[0]);
+
+                                // Rest go to gallery
+                                if (files.length > 1) {
+                                    Array.from(files).forEach((file, index) => {
+                                        const reader2 = new FileReader();
+                                        reader2.onload = function (e) {
+                                            const imgWrapper = document.createElement('div');
+                                            imgWrapper.style.position = 'relative';
+                                            imgWrapper.style.width = '80px';
+                                            imgWrapper.style.height = '80px';
+                                            imgWrapper.style.cursor = 'pointer';
+                                            imgWrapper.dataset.index = index;
+                                            imgWrapper.title = 'Click to remove';
+                                            imgWrapper.onclick = function() {
+                                                if (confirm('Remove this image?')) {
+                                                    this.remove();
+                                                    updateImageIndexes();
+                                                }
+                                            };
+                                            const img = document.createElement('img');
+                                            img.src = e.target.result;
+                                            img.style.width = '100%';
+                                            img.style.height = '100%';
+                                            img.style.objectFit = 'cover';
+                                            img.style.borderRadius = '8px';
+                                            img.style.border = '1px solid #ddd';
+                                            imgWrapper.appendChild(img);
+                                            galleryImages.appendChild(imgWrapper);
+                                        };
+                                        reader2.readAsDataURL(file);
+                                    });
+                                    galleryContainer.style.display = 'block';
+                                } else {
+                                    galleryContainer.style.display = 'none';
                                 }
-                                reader.readAsDataURL(fileInput.files[0]);
                             } else {
-                                previewContainer.style.display = 'none';
+                                featuredContainer.style.display = 'none';
                                 previewImg.src = '';
+                                galleryContainer.style.display = 'none';
                             }
+                        }
+
+                        function updateImageIndexes() {
+                            // Update indices after removal
+                            const galleryImages = document.getElementById('gallery-images');
+                            const wrappers = galleryImages.querySelectorAll('div');
+                            wrappers.forEach((w, i) => w.dataset.index = i + 1);
                         }
 
                         function handlePostVideoUpload() {
