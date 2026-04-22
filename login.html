@@ -628,16 +628,23 @@
 
         async function enforceAdminKeyGateForLogin() {
             try {
-                const required = await isAdminKeyRequiredAndUnverified();
-                if (required) {
-                    showAdminKeyOverlay();
+                const secRes = await fetch('/api/settings/security', { credentials: 'include' });
+                const sec = await secRes.json();
+                const hasEntryKey = sec && sec.hasEntryKey;
+                
+                if (hasEntryKey) {
+                    const verRes = await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' });
+                    const ver = await verRes.json();
+                    if (ver && ver.verified) {
+                        showLoginUI();
+                    } else {
+                        showAdminKeyOverlay();
+                    }
                 } else {
                     showLoginUI();
                 }
             } catch (e) {
                 console.error('Failed to enforce admin key gate:', e);
-                // Fail open so users can still reach login if the check fails (optional).
-                // If you'd rather fail closed, change this to showAdminKeyOverlay() and show error.
                 showLoginUI();
             }
         }
