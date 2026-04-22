@@ -1073,18 +1073,19 @@
 
 
         async function saveAuthorInfo() {
-            const blogTitle = document.getElementById('blog-title').value;
-            const blogDescription = document.getElementById('blog-description').value;
-            const authorName = document.getElementById('author-name').value;
-            const authorEmail = document.getElementById('author-email').value;
-            const authorBio = document.getElementById('author-bio').value;
-            const authorPhone = document.getElementById('author-phone').value;
-            const authorWhatsapp = document.getElementById('author-whatsapp').value;
-            const authorTwitter = document.getElementById('author-twitter').value;
-            const authorFacebook = document.getElementById('author-facebook').value;
-            const authorLinkedin = document.getElementById('author-linkedin').value;
-            const authorInstagram = document.getElementById('author-instagram').value;
-            const authorWebsite = document.getElementById('author-website').value;
+            const getVal = id => document.getElementById(id)?.value || '';
+            const blogTitle = getVal('blog-title');
+            const blogDescription = getVal('blog-description');
+            const authorName = getVal('author-name');
+            const authorEmail = getVal('author-email');
+            const authorBio = getVal('author-bio');
+            const authorPhone = getVal('author-phone');
+            const authorWhatsapp = getVal('author-whatsapp');
+            const authorTwitter = getVal('author-twitter');
+            const authorFacebook = getVal('author-facebook');
+            const authorLinkedin = getVal('author-linkedin');
+            const authorInstagram = getVal('author-instagram');
+            const authorWebsite = getVal('author-website');
             const saveButton = event?.target || document.querySelector('#general-panel .btn-modern');
 
             await withLoading(saveButton, async () => {
@@ -1098,6 +1099,9 @@
                         })
                     });
 
+                    if (!blogResponse.ok) {
+                        throw new Error(`Blog settings error: ${blogResponse.status}`);
+                    }
                     const blogData = await blogResponse.json();
 
                     // Save author info to /api/settings/author
@@ -1109,6 +1113,7 @@
                             bio: authorBio,
                             phone: authorPhone,
                             whatsapp: authorWhatsapp,
+                            profilePicture: window.uploadedProfilePictureUrl,
                             social: {
                                 twitter: authorTwitter,
                                 facebook: authorFacebook,
@@ -1119,6 +1124,9 @@
                         })
                     });
 
+                    if (!authorResponse.ok) {
+                        throw new Error(`Author settings error: ${authorResponse.status}`);
+                    }
                     const authorData = await authorResponse.json();
 
                     if (blogResponse.ok && authorResponse.ok) {
@@ -1126,6 +1134,7 @@
                         const sidebarTitle = document.querySelector('.sidebar-logo .sidebar-logo-title');
                         if (sidebarTitle) sidebarTitle.textContent = blogTitle;
                         document.title = `Admin Panel - ${blogTitle}`;
+window.uploadedProfilePictureUrl = '';
                     } else {
                         let errorMsg = 'Failed to save some general settings.\n\n';
                         if (!blogResponse.ok) errorMsg += `Blog Info: ${blogData.error || 'Unknown error'}\n`;
@@ -2219,6 +2228,25 @@
             border-radius: 50%;
         }
 
+        .profile-pic-thumb {
+            width: 60px;
+            height: 60px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .profile-pic-thumb:hover {
+            transform: scale(1.05);
+        }
+
+        .profile-pic-thumb.selected {
+            border-color: var(--primary-color);
+        }
+
         .user-info {
             display: flex;
             flex-direction: column;
@@ -2671,6 +2699,60 @@
 
         .settings-panel.active {
             display: block;
+        }
+
+        .lightbox-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .lightbox-modal.active {
+            display: flex;
+        }
+
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 90%;
+            position: relative;
+        }
+
+        .lightbox-content img {
+            max-width: 100%;
+            max-height: 85vh;
+            border-radius: 4px;
+        }
+
+        .lightbox-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .lightbox-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .lightbox-actions .set-profile-btn {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .lightbox-actions .close-btn {
+            background: #666;
+            color: white;
         }
 
         .panel-header {
@@ -3985,6 +4067,15 @@
 </head>
 
 <body>
+    <div id="profile-lightbox" class="lightbox-modal" onclick="closeLightbox()">
+        <div class="lightbox-content" onclick="event.stopPropagation()">
+            <img id="lightbox-img" src="" alt="Profile picture">
+            <div class="lightbox-actions">
+                <button class="set-profile-btn" onclick="setProfileFromLightbox()">Set as Profile Picture</button>
+                <button class="close-btn" onclick="closeLightbox()">Close</button>
+            </div>
+        </div>
+    </div>
     <div class="admin-layout">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
@@ -4734,17 +4825,31 @@
                                                     <label for="author-email" class="form-label" style="font-size: 11px; text-transform: uppercase;">Email Address</label>
                                                     <input type="email" class="form-input" id="author-email" style="font-size: 13px;" placeholder="email@example.com">
                                                 </div>
+                                                <div class="form-group">
+                                                    <label for="author-phone" class="form-label" style="font-size: 11px; text-transform: uppercase;">Phone</label>
+                                                    <input type="tel" class="form-input" id="author-phone" style="font-size: 13px;" placeholder="+1...">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="author-whatsapp" class="form-label" style="font-size: 11px; text-transform: uppercase;">WhatsApp</label>
+                                                    <input type="tel" class="form-input" id="author-whatsapp" style="font-size: 13px;" placeholder="+1...">
+                                                </div>
                                                 <div class="form-group" style="grid-column: span 2;">
                                                     <label for="author-bio" class="form-label" style="font-size: 11px; text-transform: uppercase;">Short Bio</label>
                                                     <textarea class="form-input form-textarea" id="author-bio" style="font-size: 13px; min-height: 60px;" placeholder="Briefly describe yourself"></textarea>
                                                 </div>
                                                 <div class="form-group" style="grid-column: span 2;">
-                                                    <label for="profile-picture-file" class="form-label" style="font-size: 11px; text-transform: uppercase;">Profile Picture</label>
-                                                    <div class="file-input-wrapper">
-                                                        <input type="file" class="file-input" id="profile-picture-file" accept="image/*" onchange="handleProfilePictureUpload()">
-                                                        <label for="profile-picture-file" class="file-input-label" style="font-size: 12px; padding: 6px 10px;">
-                                                            <i>🖼️</i> Choose image
+                                                    <label class="form-label" style="font-size: 11px; text-transform: uppercase;">Profile Picture</label>
+                                                    <div style="display:flex;gap:8px;margin-bottom:10px;">
+                                                        <button type="button" onclick="refreshProfileGallery()" style="padding:8px 14px;font-size:12px;background:var(--primary-color);color:white;border:none;border-radius:6px;cursor:pointer;">
+                                                            📁 View Profile Photos
+                                                        </button>
+                                                        <label for="profile-picture-file" class="file-input-label" style="font-size: 12px; padding: 8px 14px;background:var(--bg-light);border:1px solid #ddd;border-radius:6px;cursor:pointer;">
+                                                            <i>🖼️</i> Upload New
                                                         </label>
+                                                        <input type="file" class="file-input" id="profile-picture-file" accept="image/*" onchange="handleProfilePictureUpload()" style="display:none;">
+                                                    </div>
+                                                    <div id="profile-pics-gallery" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;max-height:150px;overflow-y:auto;min-height:80px;background:var(--bg-light);border-radius:8px;padding:10px;">
+                                                        <p style="color:var(--text-muted);font-size:12px;width:100%;text-align:center;padding:20px 0;">Click "View Profile Photos" to see previous uploads</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -4773,10 +4878,6 @@
                                                 <div class="form-group">
                                                     <label for="author-instagram" class="form-label" style="font-size: 11px; text-transform: uppercase;">Instagram</label>
                                                     <input type="url" class="form-input" id="author-instagram" style="font-size: 13px;" placeholder="Instagram profile link">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="author-whatsapp" class="form-label" style="font-size: 11px; text-transform: uppercase;">WhatsApp</label>
-                                                    <input type="tel" class="form-input" id="author-whatsapp" style="font-size: 13px;" placeholder="+1...">
                                                 </div>
                                             </div>
                                         </div>
@@ -5386,23 +5487,103 @@
                         window.verifyUserAdminKey = verifyUserAdminKey;
                         window.saveContentSettings = saveContentSettings;
                         window.saveContentSettings = saveContentSettings;
+                        window.uploadedProfilePictureUrl = '';
                         window.handleProfilePictureUpload = handleProfilePictureUpload;
+                        window.selectProfilePic = selectProfilePic;
+                        window.handleProfilePicClick = handleProfilePicClick;
+                        window.refreshProfileGallery = refreshProfileGallery;
+                        window.closeLightbox = closeLightbox;
+                        window.setProfileFromLightbox = setProfileFromLightbox;
 
-                        function handleProfilePictureUpload() {
+                        function refreshProfileGallery() {
+                            const gallery = document.getElementById('profile-pics-gallery');
+                            if (gallery) gallery.innerHTML = '<p style="color:var(--text-muted);font-size:12px;">Loading...</p>';
+                            fetch('/api/uploads').then(r => r.json()).then(data => {
+                                const gallery = document.getElementById('profile-pics-gallery');
+                                if (gallery) {
+                                    if (data.files && data.files.length > 0) {
+                                        const currentPic = window.uploadedProfilePictureUrl || '';
+                                        gallery.innerHTML = data.files.map(url => {
+                                            const isSelected = url === currentPic;
+                                            return `<div class="profile-pic-thumb ${isSelected ? 'selected' : ''}" onclick="handleProfilePicClick('${url}', this)" style="width:60px;height:60px;cursor:pointer;border:3px solid ${isSelected ? 'var(--primary-color)' : 'transparent'};border-radius:8px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.1);"><img src="${url}" style="width:100%;height:100%;object-fit:cover;"></div>`;
+                                        }).join('');
+                                    } else {
+                                        gallery.innerHTML = '<p style="color:var(--text-muted);font-size:12px;">No uploads found</p>';
+                                    }
+                                }
+                            }).catch(err => {
+                                console.error('Error loading gallery:', err);
+                                const gallery = document.getElementById('profile-pics-gallery');
+                                if (gallery) gallery.innerHTML = '<p style="color:red;font-size:12px;">Error loading</p>';
+                            });
+                        }
+
+                        function selectProfilePic(url, el) {
+                            document.querySelectorAll('.profile-pic-thumb').forEach(thumb => {
+                                thumb.style.borderColor = 'transparent';
+                            });
+                            if (el) el.style.borderColor = 'var(--primary-color)';
+                            window.uploadedProfilePictureUrl = url;
+                            alert('Profile picture set successfully!');
+                        }
+
+                        function handleProfilePicClick(url, el) {
+                            document.getElementById('lightbox-img').src = url;
+                            document.getElementById('profile-lightbox').classList.add('active');
+                            window.lightboxSelectedUrl = url;
+                            window.lightboxSelectedEl = el;
+                        }
+
+                        function closeLightbox() {
+                            document.getElementById('profile-lightbox').classList.remove('active');
+                        }
+
+                        function setProfileFromLightbox() {
+                            if (window.lightboxSelectedUrl) {
+                                selectProfilePic(window.lightboxSelectedUrl, window.lightboxSelectedEl);
+                                closeLightbox();
+                            }
+                        }
+
+                        async function handleProfilePictureUpload() {
                             const fileInput = document.getElementById('profile-picture-file');
-if (fileInput.files && fileInput.files[0]) {
+                            if (fileInput.files && fileInput.files[0]) {
                                 const file = fileInput.files[0];
-                                if (file.size > 100 * 1024 * 1024) {
-                                    alert('Video file size exceeds 100MB limit.');
+                                if (file.size > 10 * 1024 * 1024) {
+                                    alert('Image file size exceeds 10MB limit.');
                                     fileInput.value = '';
                                     return;
                                 }
-                                const url = URL.createObjectURL(file);
-                                previewVideo.src = url;
-                                previewContainer.style.display = 'block';
-                            } else {
-                                previewContainer.style.display = 'none';
-                                previewVideo.src = '';
+                                try {
+                                    const formData = new FormData();
+                                    formData.append('image', file);
+                                    const options = { method: 'POST', credentials: 'include', body: formData };
+                                    const token = localStorage.getItem('authToken');
+                                    if (token) options.headers = { 'Authorization': `Bearer ${token}` };
+                                    const response = await fetch('/api/upload', options);
+                                    const data = await response.json();
+                                    if (data.url) {
+                                        window.uploadedProfilePictureUrl = data.url;
+                                        const gallery = document.getElementById('profile-pics-gallery');
+                                        if (gallery) {
+                                            const newThumb = document.createElement('div');
+                                            newThumb.className = 'profile-pic-thumb selected';
+                                            newThumb.onclick = function() { handleProfilePicClick(data.url, this); };
+                                            newThumb.style.cssText = 'width:60px;height:60px;cursor:pointer;border:3px solid var(--primary-color);border-radius:8px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.1);';
+                                            newThumb.innerHTML = `<img src="${data.url}" style="width:100%;height:100%;object-fit:cover;">`;
+                                            gallery.insertBefore(newThumb, gallery.firstChild);
+                                            document.querySelectorAll('.profile-pic-thumb').forEach(thumb => {
+                                                if (thumb !== newThumb) thumb.style.borderColor = 'transparent';
+                                            });
+                                        }
+                                        alert('Profile picture uploaded successfully!');
+                                    } else {
+                                        alert('Failed to upload: ' + (data.error || 'Unknown error'));
+                                    }
+                                } catch (err) {
+                                    console.error('Upload error:', err);
+                                    alert('Error uploading profile picture');
+                                }
                             }
                         }
 
