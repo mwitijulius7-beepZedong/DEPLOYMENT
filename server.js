@@ -2694,6 +2694,27 @@ app.get('/api/uploads', async (req, res) => {
   }
 });
 
+// Delete uploaded file
+app.delete('/api/uploads', requireAdmin, async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ success: false, error: 'URL is required' });
+    
+    const urlObj = new URL(url);
+    const filename = path.basename(urlObj.pathname);
+    const filePath = path.join(UPLOADS_DIR, filename);
+    
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ success: false, error: 'File not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Monthly Themes API (Admin only)
 app.get('/api/admin/themes', requireAdmin, async (req, res) => {
   try {
