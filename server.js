@@ -1614,34 +1614,6 @@ app.post('/api/security/admin-key/view', requireAuth, async (req, res) => {
 // (no requireAuth – user is not logged in yet at this point)
 // ====================================================================
 
-// GET /api/settings/security
-// Returns whether a subscriber/entry key is required site-wide.
-// hasEntryKey = true  → gate overlay must be shown before login
-// hasEntryKey = false → proceed straight to the login form
-app.get('/api/settings/security', async (req, res) => {
-  try {
-    // Env-managed key always requires gate
-    if (process.env.ADMIN_ENTRY_KEY) {
-      return res.json({ hasEntryKey: true, mode: 'env' });
-    }
-
-    // Check if ANY user has an admin key set
-    const users = await loadUsers();
-    const anyKeySet = users && Object.values(users).some(u => u.adminKeySet && u.adminKeyHash);
-    return res.json({ hasEntryKey: anyKeySet, mode: anyKeySet ? 'per_user' : 'none' });
-  } catch (e) {
-    console.error('/api/settings/security error:', e);
-    return res.json({ hasEntryKey: false, mode: 'error' });
-  }
-});
-
-// GET /api/settings/check-admin-key-verified
-// Returns whether the current session has already passed the subscriber key gate.
-app.get('/api/settings/check-admin-key-verified', (req, res) => {
-  const verified = req.session?.adminKeyVerified === true;
-  return res.json({ verified });
-});
-
 // POST /api/settings/verify-entry-key
 // Validates the subscriber key for the gate overlay (no login session required).
 // 2026: Brute-force lockout + constant-time comparison (no early-break loop)
@@ -1705,40 +1677,6 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
   } catch (e) {
     console.error('/api/settings/verify-entry-key error:', e);
     return res.status(500).json({ success: false, error: 'internal' });
-  }
-});
-
-// POST /api/settings/security/key-view (used from admin panel to see stored key)
-app.post('/api/settings/security/key-view', requireAuth, async (req, res) => {
-  try {
-    if (process.env.ADMIN_ENTRY_KEY) {
-      return res.status(403).json({ error: 'env_managed', message: 'Key is managed by environment variable.' });
-    }
-
-    const { username, password } = req.body || {};
-    if (!username || !password) return res.status(400).json({ error: 'username_and_password_required' });
-
-    const users = await loadUsers();
-    const user = users?.[username];
-    if (!user) return res.status(404).json({ error: 'user_not_found' });
-
-    const ok = await bcrypt.compare(String(password), user.passwordHash);
-    if (!ok) return res.status(401).json({ success: false, error: 'invalid_password' });
-
-    // 2026: Diagnosing production key-view issues
-    if (!user.adminKeyEnc) {
-      return res.status(400).json({ success: false, error: 'key_not_encrypted', message: 'No encrypted key found. You may need to set the key again.' });
-    }
-
-    const key = decryptText(user.adminKeyEnc);
-    if (!key) {
-      return res.status(500).json({ success: false, error: 'decryption_failed', message: 'Failed to decrypt key. Ensure SESSION_SECRET matches the environment where the key was created.' });
-    }
-
-    return res.json({ success: true, key });
-  } catch (e) {
-    console.error('/api/settings/security/key-view error:', e);
-    return res.status(500).json({ error: 'internal' });
   }
 });
 
@@ -2744,6 +2682,18 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
   }
 });
 
+// List uploaded files
+app.get('/api/uploads', async (req, res) => {
+  try {
+    const files = fs.readdirSync(UPLOADS_DIR);
+    const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f));
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    res.json({ files: images.map(f => `${baseUrl}/uploads/${f}`) });
+  } catch (err) {
+    res.json({ files: [] });
+  }
+});
+
 // Monthly Themes API (Admin only)
 app.get('/api/admin/themes', requireAdmin, async (req, res) => {
   try {
@@ -3422,7 +3372,7 @@ app.post('/api/settings/security', requireAdmin, async (req, res) => {
 });
 
 // Legacy endpoint (kept for backward compatibility): verifies the *current user's* admin key
-app.post('/api/settings/verify-entry-key', requireAuth, async (req, res) => {
+app.post('/api/settings/verify-my-key', requireAuth, async (req, res) => {
   try {
     const provided = String(req.body?.adminEntryKey || '').trim();
     const currentUser = req.session?.user || req.user;
@@ -4094,17 +4044,6 @@ app.post('/api/subscribe', async (req, res) => {
   } catch (e) {
     console.error('Subscription error:', e);
     return res.status(500).json({ error: 'Failed to subscribe' });
-  }
-});
-
-// Get all subscriptions (admin only)
-app.get('/api/subscriptions', requireAdmin, async (req, res) => {
-  try {
-    const subscriptions = await loadSubscriptions();
-    return res.json({ subscriptions, count: subscriptions.length });
-  } catch (e) {
-    console.error('Load subscriptions error:', e);
-    return res.status(500).json({ error: 'Failed to load subscriptions' });
   }
 });
 
