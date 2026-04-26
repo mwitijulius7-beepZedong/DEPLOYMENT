@@ -576,18 +576,6 @@
             setTimeout(() => adminKeyInputEl && adminKeyInputEl.focus(), 0);
         }
 
-        async function isAdminKeyRequiredAndUnverified() {
-            // Always include credentials so the session cookie can be created/read.
-            const secRes = await fetch('/api/settings/security', { credentials: 'include' });
-            const sec = await secRes.json();
-
-            if (!sec || !sec.hasEntryKey) return false;
-
-            const verRes = await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' });
-            const ver = await verRes.json();
-            return !(ver && ver.verified);
-        }
-
         async function verifyAdminEntryKeyFromOverlay() {
             clearAdminKeyError();
             const key = (adminKeyInputEl && adminKeyInputEl.value) ? adminKeyInputEl.value.trim() : '';
