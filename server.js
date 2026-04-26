@@ -1772,6 +1772,20 @@ app.post('/auth/login', async (req, res) => {
   const users = await loadUsers();
   const user = users[username];
 
+  // 2026: Admin key gate check - require admin key verification before login
+  // Skip if localhost bypass is enabled OR no admin key is configured
+  if (!isLocalhostAdminKeyBypassEnabled(req)) {
+    const hasAdminKey = user?.adminKeyHash;
+    const isAdmin = String(user?.role || 'USER').toUpperCase() === 'ADMIN';
+    
+    // If this is an admin user with an admin key set, verify it was entered
+    if (isAdmin && hasAdminKey) {
+      if (req.session.adminKeyVerified !== true || req.session.adminKeyVerifiedUsername !== username) {
+        return res.status(403).json({ error: 'admin_key_required', message: 'Please enter the admin key before logging in.' });
+      }
+    }
+  }
+
   console.log('Login attempt for:', username);
   console.log('User found in storage:', !!user);
   if (user) console.log('User active status:', user.active);
@@ -3320,21 +3334,28 @@ app.get('/api/settings/security', async (req, res) => {
     // Per-user mode: require key for admin users
     const currentUser = req.session?.user || req.user;
     const isAdmin = String(currentUser?.role || 'USER').toUpperCase() === 'ADMIN';
+    
+    // If no user is logged in (pre-login), check if ANY admin has an admin key
+    if (!currentUser || !currentUser.username) {
+      const users = await loadUsers();
+      const anyAdminWithKey = Object.values(users || {}).some(u => {
+        return String(u.role || 'USER').toUpperCase() === 'ADMIN' && u.adminKeyHash;
+      });
+      if (anyAdminWithKey) {
+        return res.json({ hasEntryKey: true, mode: 'per_user', preLogin: true });
+      }
+      // No admin has a key set yet - don't block the login page
+      return res.json({ hasEntryKey: false, mode: 'no_keys_configured' });
+    }
+
     if (!isAdmin) {
       return res.json({ hasEntryKey: false, mode: 'not_admin' });
     }
 
     const username = currentUser?.username;
-    if (!username) {
-      // Legacy behaviour: cannot determine; respond "no" to avoid blocking pre-login pages.
-      return res.json({ hasEntryKey: false, mode: 'unknown' });
-    }
-
     const users = await loadUsers();
     const user = users?.[username];
     const hasUserKey = !!user?.adminKeyHash;
-    // Even if the key isn't set yet, the system is considered "protected"
-    // (user is blocked until they set it).
     return res.json({ hasEntryKey: true, hasUserKey, mode: hasUserKey ? 'per_user' : 'per_user_not_set' });
   } catch (e) {
     return res.json({ hasEntryKey: false, mode: 'none' });
@@ -3437,8 +3458,8 @@ app.post('/api/settings/verify-my-key', requireAuth, async (req, res) => {
   }
 });
 
-// Check if admin entry key is verified in session
-app.get('/api/settings/check-admin-key-verified', requireAuth, (req, res) => {
+// Check if admin entry key is verified in session (NO requireAuth - called before login)
+app.get('/api/settings/check-admin-key-verified', (req, res) => {
   res.set('Cache-Control', 'no-store');
 
   // Auto-verify for localhost
