@@ -515,6 +515,7 @@
                                     <h4 class="post-item-title" style="margin: 0;">${post.title}</h4>
                                 </div>
                                 <div style="display:flex; gap:8px;">
+                                    <button class="compact-btn" title="Share to social" onclick="event.stopPropagation(); sharePost('${post.id}', '${post.title}')">📤</button>
                                     <button class="compact-btn" onclick="event.stopPropagation(); editPost('${post.id}')">Edit</button>
                                     <button class="compact-btn" style="color: #dc2626;" onclick="event.stopPropagation(); deletePost('${post.id}')">Delete</button>
                                 </div>
@@ -575,15 +576,49 @@
                     document.getElementById('post-tags').value = post.tags.join(', ');
                 }
 
-                // Handle image preview
+                // Handle image and gallery preview
                 const previewContainer = document.getElementById('image-preview');
                 const previewImg = document.getElementById('preview-img');
+                const galleryPreviewContainer = document.getElementById('gallery-preview');
+                const galleryContainer = document.getElementById('gallery-images');
+                galleryContainer.innerHTML = '';
+
+                // Featured image
                 if (post.image) {
                     previewImg.src = post.image;
                     previewContainer.style.display = 'block';
                 } else {
                     previewContainer.style.display = 'none';
                     previewImg.src = '';
+                }
+
+                // Gallery images (post.images array)
+                if (post.images && post.images.length > 0) {
+                    post.images.forEach(imgUrl => {
+                        const imgWrapper = document.createElement('div');
+                        imgWrapper.style.position = 'relative';
+                        imgWrapper.style.width = '80px';
+                        imgWrapper.style.height = '80px';
+                        imgWrapper.style.cursor = 'pointer';
+                        imgWrapper.title = 'Click to remove';
+                        imgWrapper.onclick = function() {
+                            if (confirm('Remove this image from gallery?')) {
+                                this.remove();
+                            }
+                        };
+                        const img = document.createElement('img');
+                        img.src = imgUrl;
+                        img.style.width = '100%';
+                        img.style.height = '100%';
+                        img.style.objectFit = 'cover';
+                        img.style.borderRadius = '8px';
+                        img.style.border = '1px solid #ddd';
+                        imgWrapper.appendChild(img);
+                        galleryContainer.appendChild(imgWrapper);
+                    });
+                    galleryPreviewContainer.style.display = 'block';
+                } else {
+                    galleryPreviewContainer.style.display = 'none';
                 }
 
                 // Change section title and button text
@@ -630,6 +665,33 @@
                     console.error('Error deleting post:', error);
                     alert('Network error deleting post: ' + error.message);
                 }
+            }
+        }
+
+        async function sharePost(postId, postTitle) {
+            const platforms = ['linkedin', 'twitter', 'facebook'];
+
+            try {
+                const response = await apiFetch('/api/share', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ postId, platforms })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    // Open all share windows at once
+                    for (const r of data.results) {
+                        if (r.success && r.twitterUrl) window.open(r.twitterUrl, '_blank');
+                        if (r.success && r.facebookUrl) window.open(r.facebookUrl, '_blank');
+                        if (r.success && r.linkedinUrl) window.open(r.linkedinUrl, '_blank');
+                    }
+                    alert(`"${postTitle}" shared to all platforms! ✨`);
+                } else {
+                    alert('Failed: ' + data.error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
             }
         }
 
@@ -812,7 +874,7 @@
                 const pullQuote = document.getElementById('post-pullquote').value.trim();
                 const sceneCard = document.getElementById('post-scenecard').value.trim();
                 const closingBox = document.getElementById('post-closingbox').value.trim();
-                const imageFile = document.getElementById('post-image-file').files[0];
+                const imageFiles = document.getElementById('post-image-file').files;
                 const videoFile = document.getElementById('post-video-file').files[0];
 
                 if (!title || !content) {
@@ -823,22 +885,45 @@
                 try {
                     let imageUrl = document.getElementById('preview-img').src || '';
                     let videoUrl = document.getElementById('preview-video').src || '';
+                    let galleryImages = [];
+
+                    // Get existing gallery URLs from preview (for edit mode)
+                    const galleryContainer = document.getElementById('gallery-images');
+                    if (galleryContainer && galleryContainer.children.length > 0) {
+                        Array.from(galleryContainer.children).forEach(wrapper => {
+                            const img = wrapper.querySelector('img');
+                            if (img && img.src && !img.src.startsWith('data:')) {
+                                galleryImages.push(img.src);
+                            }
+                        });
+                    }
 
                     if (imageUrl.startsWith('data:image')) imageUrl = '';
                     if (videoUrl.startsWith('blob:')) videoUrl = '';
 
-                    if (imageFile) {
-                        const formData = new FormData();
-                        formData.append('image', imageFile);
-                        const uploadResponse = await fetch('/api/upload', {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-                            body: formData
-                        });
-                        const uploadData = await uploadResponse.json();
-                        if (uploadResponse.ok && uploadData.url) imageUrl = uploadData.url;
-                        else throw new Error(uploadData.error || 'Failed to upload image');
+                    // Upload first image as featured, all to gallery
+                    if (imageFiles && imageFiles.length > 0) {
+                        const uploadedUrls = [];
+                        for (const file of imageFiles) {
+                            const formData = new FormData();
+                            formData.append('image', file);
+                            const uploadResponse = await fetch('/api/upload', {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+                                body: formData
+                            });
+                            const uploadData = await uploadResponse.json();
+                            if (uploadResponse.ok && uploadData.url) {
+                                uploadedUrls.push(uploadData.url);
+                            } else {
+                                throw new Error(uploadData.error || 'Failed to upload image');
+                            }
+                        }
+                        // First uploaded image is featured
+                        imageUrl = uploadedUrls[0];
+                        // All uploaded images go to gallery
+                        galleryImages = [...uploadedUrls, ...galleryImages];
                     }
 
                     if (videoFile) {
@@ -855,12 +940,13 @@
                         else throw new Error(uploadData.error || 'Failed to upload video');
                     }
 
+                    // Upload gallery images
                     const fontFamily = document.getElementById('post-font-family').value;
 
                     const postData = {
                         title, subtitle, content,
                         tags: tags.split(',').map(t => t.trim()).filter(t => t),
-                        image: imageUrl, video: videoUrl,
+                        image: imageUrl, video: videoUrl, images: galleryImages,
                         isDraft: status === 'draft',
                         categoryId: category || null,
                         fontFamily: fontFamily || '',
@@ -875,7 +961,18 @@
                     const data = await response.json();
 
                     if (response.ok) {
+                        const isPublishing = status === 'published' && !postId;
                         alert(postId ? 'Post updated successfully!' : 'Post saved successfully!');
+                        
+                        // Auto-share if publishing new post
+                        if (isPublishing) {
+                            const shareNow = confirm('Post published! Share to social media now?');
+                            if (shareNow) {
+                                const newId = data.post?.id || postId;
+                                if (newId) sharePost(newId, title);
+                            }
+                        }
+                        
                         resetPostForm();
                         if (typeof loadPostsList === 'function') await loadPostsList();
                         showPostsSection();
@@ -976,18 +1073,19 @@
 
 
         async function saveAuthorInfo() {
-            const blogTitle = document.getElementById('blog-title').value;
-            const blogDescription = document.getElementById('blog-description').value;
-            const authorName = document.getElementById('author-name').value;
-            const authorEmail = document.getElementById('author-email').value;
-            const authorBio = document.getElementById('author-bio').value;
-            const authorPhone = document.getElementById('author-phone').value;
-            const authorWhatsapp = document.getElementById('author-whatsapp').value;
-            const authorTwitter = document.getElementById('author-twitter').value;
-            const authorFacebook = document.getElementById('author-facebook').value;
-            const authorLinkedin = document.getElementById('author-linkedin').value;
-            const authorInstagram = document.getElementById('author-instagram').value;
-            const authorWebsite = document.getElementById('author-website').value;
+            const getVal = id => document.getElementById(id)?.value || '';
+            const blogTitle = getVal('blog-title');
+            const blogDescription = getVal('blog-description');
+            const authorName = getVal('author-name');
+            const authorEmail = getVal('author-email');
+            const authorBio = getVal('author-bio');
+            const authorPhone = getVal('author-phone');
+            const authorWhatsapp = getVal('author-whatsapp');
+            const authorTwitter = getVal('author-twitter');
+            const authorFacebook = getVal('author-facebook');
+            const authorLinkedin = getVal('author-linkedin');
+            const authorInstagram = getVal('author-instagram');
+            const authorWebsite = getVal('author-website');
             const saveButton = event?.target || document.querySelector('#general-panel .btn-modern');
 
             await withLoading(saveButton, async () => {
@@ -1001,6 +1099,9 @@
                         })
                     });
 
+                    if (!blogResponse.ok) {
+                        throw new Error(`Blog settings error: ${blogResponse.status}`);
+                    }
                     const blogData = await blogResponse.json();
 
                     // Save author info to /api/settings/author
@@ -1012,6 +1113,7 @@
                             bio: authorBio,
                             phone: authorPhone,
                             whatsapp: authorWhatsapp,
+                            profilePicture: window.uploadedProfilePictureUrl,
                             social: {
                                 twitter: authorTwitter,
                                 facebook: authorFacebook,
@@ -1022,6 +1124,9 @@
                         })
                     });
 
+                    if (!authorResponse.ok) {
+                        throw new Error(`Author settings error: ${authorResponse.status}`);
+                    }
                     const authorData = await authorResponse.json();
 
                     if (blogResponse.ok && authorResponse.ok) {
@@ -1029,6 +1134,7 @@
                         const sidebarTitle = document.querySelector('.sidebar-logo .sidebar-logo-title');
                         if (sidebarTitle) sidebarTitle.textContent = blogTitle;
                         document.title = `Admin Panel - ${blogTitle}`;
+window.uploadedProfilePictureUrl = '';
                     } else {
                         let errorMsg = 'Failed to save some general settings.\n\n';
                         if (!blogResponse.ok) errorMsg += `Blog Info: ${blogData.error || 'Unknown error'}\n`;
@@ -2122,6 +2228,25 @@
             border-radius: 50%;
         }
 
+        .profile-pic-thumb {
+            width: 60px;
+            height: 60px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .profile-pic-thumb:hover {
+            transform: scale(1.05);
+        }
+
+        .profile-pic-thumb.selected {
+            border-color: var(--primary-color);
+        }
+
         .user-info {
             display: flex;
             flex-direction: column;
@@ -2574,6 +2699,65 @@
 
         .settings-panel.active {
             display: block;
+        }
+
+        .lightbox-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .lightbox-modal.active {
+            display: flex;
+        }
+
+        .lightbox-content {
+            max-width: 400px;
+            max-height: 90vh;
+            position: relative;
+            background: var(--bg-card, #fff);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .lightbox-content img {
+            max-width: 100%;
+            max-height: 50vh;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+
+        .lightbox-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .lightbox-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .lightbox-actions .set-profile-btn {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .lightbox-actions .close-btn {
+            background: #666;
+            color: white;
         }
 
         .panel-header {
@@ -3888,6 +4072,15 @@
 </head>
 
 <body>
+    <div id="profile-lightbox" class="lightbox-modal" onclick="closeLightbox()">
+        <div class="lightbox-content" onclick="event.stopPropagation()">
+            <img id="lightbox-img" src="" alt="Profile picture">
+            <div class="lightbox-actions">
+                <button class="set-profile-btn" onclick="setProfileFromLightbox()">Set as Profile Picture</button>
+                <button class="close-btn" onclick="closeLightbox()">Close</button>
+            </div>
+        </div>
+    </div>
     <div class="admin-layout">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
@@ -4410,19 +4603,24 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="post-image-file" class="form-label">Thumbnail (Featured Image)</label>
+                                    <label for="post-image-file" class="form-label">Images (First = Featured, All = Gallery)</label>
                                     <div class="file-input-wrapper">
-                                        <input type="file" class="file-input" id="post-image-file" accept="image/*"
+                                        <input type="file" class="file-input" id="post-image-file" accept="image/*" multiple
                                             onchange="handlePostImageUpload()">
                                         <label for="post-image-file" class="file-input-label">
                                             <i>🖼️</i>
-                                            Choose thumbnail image...
+                                            Choose images...
                                         </label>
                                     </div>
                                     <div id="image-preview" style="margin-top: 12px; display: none;">
+                                        <p style="font-size:0.85rem;color:#666;margin-bottom:8px;">Featured Image:</p>
                                         <img id="preview-img"
                                             style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 1px solid #ddd;"
                                             alt="Preview">
+                                    </div>
+                                    <div id="gallery-preview" style="margin-top: 12px; display: none;">
+                                        <p style="font-size:0.85rem;color:#666;margin-bottom:8px;">Gallery (click to remove):</p>
+                                        <div id="gallery-images" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
                                     </div>
                                 </div>
                                 <div class="form-group">
@@ -4632,17 +4830,31 @@
                                                     <label for="author-email" class="form-label" style="font-size: 11px; text-transform: uppercase;">Email Address</label>
                                                     <input type="email" class="form-input" id="author-email" style="font-size: 13px;" placeholder="email@example.com">
                                                 </div>
+                                                <div class="form-group">
+                                                    <label for="author-phone" class="form-label" style="font-size: 11px; text-transform: uppercase;">Phone</label>
+                                                    <input type="tel" class="form-input" id="author-phone" style="font-size: 13px;" placeholder="+1...">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="author-whatsapp" class="form-label" style="font-size: 11px; text-transform: uppercase;">WhatsApp</label>
+                                                    <input type="tel" class="form-input" id="author-whatsapp" style="font-size: 13px;" placeholder="+1...">
+                                                </div>
                                                 <div class="form-group" style="grid-column: span 2;">
                                                     <label for="author-bio" class="form-label" style="font-size: 11px; text-transform: uppercase;">Short Bio</label>
                                                     <textarea class="form-input form-textarea" id="author-bio" style="font-size: 13px; min-height: 60px;" placeholder="Briefly describe yourself"></textarea>
                                                 </div>
                                                 <div class="form-group" style="grid-column: span 2;">
-                                                    <label for="profile-picture-file" class="form-label" style="font-size: 11px; text-transform: uppercase;">Profile Picture</label>
-                                                    <div class="file-input-wrapper">
-                                                        <input type="file" class="file-input" id="profile-picture-file" accept="image/*" onchange="handleProfilePictureUpload()">
-                                                        <label for="profile-picture-file" class="file-input-label" style="font-size: 12px; padding: 6px 10px;">
-                                                            <i>🖼️</i> Choose image
+                                                    <label class="form-label" style="font-size: 11px; text-transform: uppercase;">Profile Picture</label>
+                                                    <div style="display:flex;gap:8px;margin-bottom:10px;">
+                                                        <button type="button" onclick="refreshProfileGallery()" style="padding:8px 14px;font-size:12px;background:var(--primary-color);color:white;border:none;border-radius:6px;cursor:pointer;">
+                                                            📁 View Profile Photos
+                                                        </button>
+                                                        <label for="profile-picture-file" class="file-input-label" style="font-size: 12px; padding: 8px 14px;background:var(--bg-light);border:1px solid #ddd;border-radius:6px;cursor:pointer;">
+                                                            <i>🖼️</i> Upload New
                                                         </label>
+                                                        <input type="file" class="file-input" id="profile-picture-file" accept="image/*" onchange="handleProfilePictureUpload()" style="display:none;">
+                                                    </div>
+                                                    <div id="profile-pics-gallery" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;max-height:150px;overflow-y:auto;min-height:80px;background:var(--bg-light);border-radius:8px;padding:10px;">
+                                                        <p style="color:var(--text-muted);font-size:12px;width:100%;text-align:center;padding:20px 0;">Click "View Profile Photos" to see previous uploads</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -4671,10 +4883,6 @@
                                                 <div class="form-group">
                                                     <label for="author-instagram" class="form-label" style="font-size: 11px; text-transform: uppercase;">Instagram</label>
                                                     <input type="url" class="form-input" id="author-instagram" style="font-size: 13px;" placeholder="Instagram profile link">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="author-whatsapp" class="form-label" style="font-size: 11px; text-transform: uppercase;">WhatsApp</label>
-                                                    <input type="tel" class="form-input" id="author-whatsapp" style="font-size: 13px;" placeholder="+1...">
                                                 </div>
                                             </div>
                                         </div>
@@ -5275,6 +5483,7 @@
                         window.toggleSelectAllCategories = toggleSelectAllCategories;
                         window.updateSelectedCategoriesCount = updateSelectedCategoriesCount;
                         window.deleteSelectedCategories = deleteSelectedCategories;
+                        window.deleteSelectedPhotos = deleteSelectedPhotos;
                         window.saveAuthorInfo = saveAuthorInfo;
                         window.saveSecuritySettings = saveSecuritySettings;
                         window.viewCurrentKey = viewCurrentKey;
@@ -5284,148 +5493,255 @@
                         window.verifyUserAdminKey = verifyUserAdminKey;
                         window.saveContentSettings = saveContentSettings;
                         window.saveContentSettings = saveContentSettings;
+                        window.uploadedProfilePictureUrl = '';
                         window.handleProfilePictureUpload = handleProfilePictureUpload;
+                        window.selectProfilePic = selectProfilePic;
+                        window.handleProfilePicClick = handleProfilePicClick;
+                        window.refreshProfileGallery = refreshProfileGallery;
+                        window.closeLightbox = closeLightbox;
+                        window.setProfileFromLightbox = setProfileFromLightbox;
 
-                        function handleProfilePictureUpload() {
+                        function refreshProfileGallery() {
+                            const gallery = document.getElementById('profile-pics-gallery');
+                            if (gallery) gallery.innerHTML = '<p style="color:var(--text-muted);font-size:12px;">Loading...</p>';
+                            fetch('/api/uploads').then(r => r.json()).then(data => {
+                                const gallery = document.getElementById('profile-pics-gallery');
+                                if (gallery) {
+                                    if (data.files && data.files.length > 0) {
+                                        gallery.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:8px;width:100%;">
+                                            <button type="button" id="delete-selected-photos" onclick="deleteSelectedPhotos()" style="display:none;background:#dc2626;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;">Delete Selected</button>
+                                        </div><div style="display:flex;flex-wrap:wrap;gap:8px;">` + data.files.map(url => {
+                                            const isSelected = url === window.uploadedProfilePictureUrl;
+                                            return `<div class="profile-pic-thumb ${isSelected ? 'selected' : ''}" data-url="${url}" style="width:60px;height:60px;cursor:pointer;border:3px solid ${isSelected ? 'var(--primary-color)' : 'transparent'};border-radius:8px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.1);position:relative;">
+                                                <input type="checkbox" class="photo-checkbox" data-url="${url}" onclick="event.stopPropagation();togglePhotoSelection(this)" style="position:absolute;top:2px;left:2px;width:16px;height:16px;cursor:pointer;z-index:1;">
+                                                <img src="${url}" style="width:100%;height:100%;object-fit:cover;" onclick="handleProfilePicClick('${url}', this.parentElement)">
+                                            </div>`;
+                                        }).join('') + '</div>';
+                                    } else {
+                                        gallery.innerHTML = '<p style="color:var(--text-muted);font-size:12px;">No uploads found</p>';
+                                    }
+                                }
+                            }).catch(err => {
+                                console.error('Error loading gallery:', err);
+                                const gallery = document.getElementById('profile-pics-gallery');
+                                if (gallery) gallery.innerHTML = '<p style="color:red;font-size:12px;">Error loading</p>';
+                            });
+                        }
+
+                        function togglePhotoSelection(checkbox) {
+                            const selectedUrls = document.querySelectorAll('.photo-checkbox:checked');
+                            const deleteBtn = document.getElementById('delete-selected-photos');
+                            if (deleteBtn) {
+                                deleteBtn.style.display = selectedUrls.length > 0 ? 'inline-block' : 'none';
+                            }
+                        }
+
+                        async function deleteSelectedPhotos() {
+                            const checkboxes = document.querySelectorAll('.photo-checkbox:checked');
+                            const urls = Array.from(checkboxes).map(cb => cb.dataset.url);
+                            if (urls.length === 0) return;
+                            if (!confirm(`Are you sure you want to delete ${urls.length} photo(s)?`)) return;
+                            let successCount = 0;
+                            for (const url of urls) {
+                                try {
+                                    const resp = await fetch('/api/uploads', {
+                                        method: 'DELETE',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ url })
+                                    });
+                                    const data = await resp.json();
+                                    if (resp.ok && data.success) successCount++;
+                                } catch (e) {
+                                    console.error('Error deleting photo:', e);
+                                }
+                            }
+                            alert(`${successCount} photo(s) deleted successfully!`);
+                            if (successCount > 0) refreshProfileGallery();
+                        }
+
+                        function selectProfilePic(url, el) {
+                            document.querySelectorAll('.profile-pic-thumb').forEach(thumb => {
+                                thumb.style.borderColor = 'transparent';
+                            });
+                            if (el) el.style.borderColor = 'var(--primary-color)';
+                            window.uploadedProfilePictureUrl = url;
+                            alert('Profile picture set successfully!');
+                        }
+
+                        function handleProfilePicClick(url, el) {
+                            document.getElementById('lightbox-img').src = url;
+                            document.getElementById('profile-lightbox').classList.add('active');
+                            window.lightboxSelectedUrl = url;
+                            window.lightboxSelectedEl = el;
+                        }
+
+                        function closeLightbox() {
+                            document.getElementById('profile-lightbox').classList.remove('active');
+                        }
+
+                        function setProfileFromLightbox() {
+                            if (window.lightboxSelectedUrl) {
+                                selectProfilePic(window.lightboxSelectedUrl, window.lightboxSelectedEl);
+                                closeLightbox();
+                            }
+                        }
+
+                        async function handleProfilePictureUpload() {
                             const fileInput = document.getElementById('profile-picture-file');
                             if (fileInput.files && fileInput.files[0]) {
-                                const reader = new FileReader();
-                                reader.onload = function (e) {
-                                    const previewImgs = document.querySelectorAll('.user-avatar, .sidebar-logo img');
-                                    previewImgs.forEach(img => {
-                                        img.src = e.target.result;
-                                    });
-                                }
-                                reader.readAsDataURL(fileInput.files[0]);
-                            }
-                        }
-                        window.saveThemeSettings = saveThemeSettings;
-                        window.saveBackgroundSettings = saveBackgroundSettings;
-                        window.handleBackgroundUpload = handleBackgroundUpload;
-                        window.loadBackgroundGallery = loadBackgroundGallery;
-                        window.selectBackground = selectBackground;
-                        window.removeBackground = removeBackground;
-
-                        // ── Background Gallery Functions ──
-                        function toggleBgGallery() {
-                            const body = document.getElementById('bg-folder-body');
-                            const arrow = document.getElementById('bg-folder-arrow');
-                            if (!body) return;
-                            const isOpen = body.style.display !== 'none';
-                            body.style.display = isOpen ? 'none' : 'block';
-                            arrow.classList.toggle('open', !isOpen);
-                            if (!isOpen) loadBackgroundGallery();
-                        }
-                        window.toggleBgGallery = toggleBgGallery;
-
-                        async function loadBackgroundGallery() {
-                            const gallery = document.getElementById('bg-gallery');
-                            const countBadge = document.getElementById('bg-gallery-count');
-                            if (!gallery) return;
-                            gallery.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;opacity:0.5;">Loading…</div>';
-                            try {
-                                const resp = await apiFetch('/api/settings/backgrounds?t=' + Date.now());
-                                const data = await resp.json();
-                                const bgs = Array.isArray(data.backgrounds) ? data.backgrounds : [];
-                                if (countBadge) countBadge.textContent = bgs.length;
-                                if (bgs.length === 0) {
-                                    gallery.innerHTML = '<div class="sec-empty" style="font-size:12px;opacity:0.6;padding:30px;text-align:center;grid-column:1/-1;">No backgrounds saved yet. Upload or set a background URL above.</div>';
+                                const file = fileInput.files[0];
+                                if (file.size > 10 * 1024 * 1024) {
+                                    alert('Image file size exceeds 10MB limit.');
+                                    fileInput.value = '';
                                     return;
                                 }
-                                // Also get current active background
-                                let currentBg = '';
                                 try {
-                                    const bgResp = await apiFetch('/api/settings/background');
-                                    const bgData = await bgResp.json();
-                                    currentBg = bgData.backgroundUrl || '';
-                                } catch(e) {}
-                                gallery.innerHTML = bgs.map((url, idx) => {
-                                    const isActive = url === currentBg;
-                                    return `
-                                        <div class="bg-gallery-item ${isActive ? 'active' : ''}">
-                                            <div class="bg-gallery-thumb" onclick="selectBackground('${url.replace(/'/g, "\\'")}')">
-                                                ${isActive ? '<span class="bg-gallery-badge">✓ Active</span>' : ''}
-                                                <img src="${url}" alt="Background ${idx+1}" loading="lazy">
-                                            </div>
-                                            <div class="bg-gallery-actions">
-                                                <button class="bg-btn-use" onclick="event.stopPropagation(); selectBackground('${url.replace(/'/g, "\\'")}')" title="Use this background">✓ Use</button>
-                                                <button class="bg-btn-delete" onclick="event.stopPropagation(); removeBackground(${idx})" title="Delete from gallery">🗑️ Delete</button>
-                                            </div>
-                                        </div>`;
-                                }).join('');
-                            } catch(err) {
-                                console.error('Failed to load background gallery:', err);
-                                gallery.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#dc2626;">Failed to load gallery.</div>';
-                            }
-                        }
-
-                        function selectBackground(url) {
-                            const urlInput = document.getElementById('background-url');
-                            if (urlInput) urlInput.value = url;
-                            
-                            // Visual feedback in gallery
-                            const items = document.querySelectorAll('.bg-gallery-item');
-                            items.forEach(item => {
-                                const img = item.querySelector('img');
-                                if (img && img.src === url) {
-                                    item.classList.add('active');
-                                } else {
-                                    item.classList.remove('active');
+                                    const formData = new FormData();
+                                    formData.append('image', file);
+                                    const options = { method: 'POST', credentials: 'include', body: formData };
+                                    const token = localStorage.getItem('authToken');
+                                    if (token) options.headers = { 'Authorization': `Bearer ${token}` };
+                                    const response = await fetch('/api/upload', options);
+                                    const data = await response.json();
+                                    if (data.url) {
+                                        window.uploadedProfilePictureUrl = data.url;
+                                        const gallery = document.getElementById('profile-pics-gallery');
+                                        if (gallery) {
+                                            const newThumb = document.createElement('div');
+                                            newThumb.className = 'profile-pic-thumb selected';
+                                            newThumb.onclick = function() { handleProfilePicClick(data.url, this); };
+                                            newThumb.style.cssText = 'width:60px;height:60px;cursor:pointer;border:3px solid var(--primary-color);border-radius:8px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.1);';
+                                            newThumb.innerHTML = `<img src="${data.url}" style="width:100%;height:100%;object-fit:cover;">`;
+                                            gallery.insertBefore(newThumb, gallery.firstChild);
+                                            document.querySelectorAll('.profile-pic-thumb').forEach(thumb => {
+                                                if (thumb !== newThumb) thumb.style.borderColor = 'transparent';
+                                            });
+                                        }
+                                        alert('Profile picture uploaded successfully!');
+                                    } else {
+                                        alert('Failed to upload: ' + (data.error || 'Unknown error'));
+                                    }
+                                } catch (err) {
+                                    console.error('Upload error:', err);
+                                    alert('Error uploading profile picture');
                                 }
-                            });
-
-                            // Display a small toast or label if possible, or just scroll to the save button
-                            console.log('Background selected from gallery:', url);
-                        }
-
-                        async function removeBackground(idx) {
-                            if (!confirm('Remove this background from the gallery?')) return;
-                            try {
-                                const resp = await apiFetch('/api/settings/backgrounds?t=' + Date.now());
-                                const data = await resp.json();
-                                const bgs = Array.isArray(data.backgrounds) ? [...data.backgrounds] : [];
-                                if (idx < 0 || idx >= bgs.length) return;
-                                bgs.splice(idx, 1);
-                                await apiFetch('/api/settings/backgrounds', {
-                                    method: 'POST',
-                                    body: JSON.stringify({ backgrounds: bgs })
-                                });
-                                loadBackgroundGallery();
-                            } catch(err) {
-                                console.error('Failed to remove background:', err);
-                                alert('Failed to remove background.');
                             }
                         }
-                        window.closeCropModal = closeCropModal;
-                        window.performCropAndUpload = performCropAndUpload;
-                        window.togglePostsList = togglePostsList;
-                        window.loadPostsList = loadPostsList;
+
+                        function handlePostGalleryUpload() {
+                            const fileInput = document.getElementById('post-images-file');
+                            const previewContainer = document.getElementById('gallery-preview');
+                            const galleryContainer = document.getElementById('gallery-images');
+                            
+                            galleryContainer.innerHTML = '';
+
+                            if (fileInput.files && fileInput.files.length > 0) {
+                                Array.from(fileInput.files).forEach((file, index) => {
+                                    if (file.size > 100 * 1024 * 1024) {
+                                        alert(`File "${file.name}" exceeds 100MB limit.`);
+                                        return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = function (e) {
+                                        const imgWrapper = document.createElement('div');
+                                        imgWrapper.style.position = 'relative';
+                                        imgWrapper.style.width = '80px';
+                                        imgWrapper.style.height = '80px';
+                                        const img = document.createElement('img');
+                                        img.src = e.target.result;
+                                        img.style.width = '100%';
+                                        img.style.height = '100%';
+                                        img.style.objectFit = 'cover';
+                                        img.style.borderRadius = '8px';
+                                        img.style.border = '1px solid #ddd';
+                                        imgWrapper.appendChild(img);
+                                        galleryContainer.appendChild(imgWrapper);
+                                        previewContainer.style.display = 'block';
+                                    };
+                                    reader.readAsDataURL(file);
+                                });
+                            } else {
+                                previewContainer.style.display = 'none';
+                            }
+                        }
+
+window.loadPostsList = loadPostsList;
                         window.saveNewPost = saveNewPost;
                         window.handlePostImageUpload = handlePostImageUpload;
+                        window.handlePostGalleryUpload = handlePostImageUpload;
 
                         function handlePostImageUpload() {
                             const fileInput = document.getElementById('post-image-file');
-                            const previewContainer = document.getElementById('image-preview');
+                            const featuredContainer = document.getElementById('image-preview');
                             const previewImg = document.getElementById('preview-img');
+                            const galleryContainer = document.getElementById('gallery-preview');
+                            const galleryImages = document.getElementById('gallery-images');
 
-                            // Clear video preview if image is selected
+                            // Clear video preview when images are selected
                             const videoPreviewContainer = document.getElementById('video-preview');
                             const previewVideo = document.getElementById('preview-video');
                             if (videoPreviewContainer) videoPreviewContainer.style.display = 'none';
                             if (previewVideo) previewVideo.src = '';
                             document.getElementById('post-video-file').value = '';
 
-                            if (fileInput.files && fileInput.files[0]) {
+                            const files = fileInput.files;
+                            galleryImages.innerHTML = '';
+
+                            if (files && files.length > 0) {
+                                // First file goes to featured image
                                 const reader = new FileReader();
                                 reader.onload = function (e) {
                                     previewImg.src = e.target.result;
-                                    previewContainer.style.display = 'block';
+                                    featuredContainer.style.display = 'block';
+                                };
+                                reader.readAsDataURL(files[0]);
+
+                                // Rest go to gallery
+                                if (files.length > 1) {
+                                    Array.from(files).forEach((file, index) => {
+                                        const reader2 = new FileReader();
+                                        reader2.onload = function (e) {
+                                            const imgWrapper = document.createElement('div');
+                                            imgWrapper.style.position = 'relative';
+                                            imgWrapper.style.width = '80px';
+                                            imgWrapper.style.height = '80px';
+                                            imgWrapper.style.cursor = 'pointer';
+                                            imgWrapper.dataset.index = index;
+                                            imgWrapper.title = 'Click to remove';
+                                            imgWrapper.onclick = function() {
+                                                if (confirm('Remove this image?')) {
+                                                    this.remove();
+                                                    updateImageIndexes();
+                                                }
+                                            };
+                                            const img = document.createElement('img');
+                                            img.src = e.target.result;
+                                            img.style.width = '100%';
+                                            img.style.height = '100%';
+                                            img.style.objectFit = 'cover';
+                                            img.style.borderRadius = '8px';
+                                            img.style.border = '1px solid #ddd';
+                                            imgWrapper.appendChild(img);
+                                            galleryImages.appendChild(imgWrapper);
+                                        };
+                                        reader2.readAsDataURL(file);
+                                    });
+                                    galleryContainer.style.display = 'block';
+                                } else {
+                                    galleryContainer.style.display = 'none';
                                 }
-                                reader.readAsDataURL(fileInput.files[0]);
                             } else {
-                                previewContainer.style.display = 'none';
+                                featuredContainer.style.display = 'none';
                                 previewImg.src = '';
+                                galleryContainer.style.display = 'none';
                             }
+                        }
+
+                        function updateImageIndexes() {
+                            // Update indices after removal
+                            const galleryImages = document.getElementById('gallery-images');
+                            const wrappers = galleryImages.querySelectorAll('div');
+                            wrappers.forEach((w, i) => w.dataset.index = i + 1);
                         }
 
                         function handlePostVideoUpload() {

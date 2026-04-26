@@ -1614,34 +1614,6 @@ app.post('/api/security/admin-key/view', requireAuth, async (req, res) => {
 // (no requireAuth – user is not logged in yet at this point)
 // ====================================================================
 
-// GET /api/settings/security
-// Returns whether a subscriber/entry key is required site-wide.
-// hasEntryKey = true  → gate overlay must be shown before login
-// hasEntryKey = false → proceed straight to the login form
-app.get('/api/settings/security', async (req, res) => {
-  try {
-    // Env-managed key always requires gate
-    if (process.env.ADMIN_ENTRY_KEY) {
-      return res.json({ hasEntryKey: true, mode: 'env' });
-    }
-
-    // Check if ANY user has an admin key set
-    const users = await loadUsers();
-    const anyKeySet = users && Object.values(users).some(u => u.adminKeySet && u.adminKeyHash);
-    return res.json({ hasEntryKey: anyKeySet, mode: anyKeySet ? 'per_user' : 'none' });
-  } catch (e) {
-    console.error('/api/settings/security error:', e);
-    return res.json({ hasEntryKey: false, mode: 'error' });
-  }
-});
-
-// GET /api/settings/check-admin-key-verified
-// Returns whether the current session has already passed the subscriber key gate.
-app.get('/api/settings/check-admin-key-verified', (req, res) => {
-  const verified = req.session?.adminKeyVerified === true;
-  return res.json({ verified });
-});
-
 // POST /api/settings/verify-entry-key
 // Validates the subscriber key for the gate overlay (no login session required).
 // 2026: Brute-force lockout + constant-time comparison (no early-break loop)
@@ -1705,40 +1677,6 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
   } catch (e) {
     console.error('/api/settings/verify-entry-key error:', e);
     return res.status(500).json({ success: false, error: 'internal' });
-  }
-});
-
-// POST /api/settings/security/key-view (used from admin panel to see stored key)
-app.post('/api/settings/security/key-view', requireAuth, async (req, res) => {
-  try {
-    if (process.env.ADMIN_ENTRY_KEY) {
-      return res.status(403).json({ error: 'env_managed', message: 'Key is managed by environment variable.' });
-    }
-
-    const { username, password } = req.body || {};
-    if (!username || !password) return res.status(400).json({ error: 'username_and_password_required' });
-
-    const users = await loadUsers();
-    const user = users?.[username];
-    if (!user) return res.status(404).json({ error: 'user_not_found' });
-
-    const ok = await bcrypt.compare(String(password), user.passwordHash);
-    if (!ok) return res.status(401).json({ success: false, error: 'invalid_password' });
-
-    // 2026: Diagnosing production key-view issues
-    if (!user.adminKeyEnc) {
-      return res.status(400).json({ success: false, error: 'key_not_encrypted', message: 'No encrypted key found. You may need to set the key again.' });
-    }
-
-    const key = decryptText(user.adminKeyEnc);
-    if (!key) {
-      return res.status(500).json({ success: false, error: 'decryption_failed', message: 'Failed to decrypt key. Ensure SESSION_SECRET matches the environment where the key was created.' });
-    }
-
-    return res.json({ success: true, key });
-  } catch (e) {
-    console.error('/api/settings/security/key-view error:', e);
-    return res.status(500).json({ error: 'internal' });
   }
 });
 
@@ -1833,6 +1771,20 @@ app.post('/auth/login', async (req, res) => {
 
   const users = await loadUsers();
   const user = users[username];
+
+  // 2026: Admin key gate check - require admin key verification before login
+  // Skip if localhost bypass is enabled OR no admin key is configured
+  if (!isLocalhostAdminKeyBypassEnabled(req)) {
+    const hasAdminKey = user?.adminKeyHash;
+    const isAdmin = String(user?.role || 'USER').toUpperCase() === 'ADMIN';
+    
+    // If this is an admin user with an admin key set, verify it was entered
+    if (isAdmin && hasAdminKey) {
+      if (req.session.adminKeyVerified !== true || req.session.adminKeyVerifiedUsername !== username) {
+        return res.status(403).json({ error: 'admin_key_required', message: 'Please enter the admin key before logging in.' });
+      }
+    }
+  }
 
   console.log('Login attempt for:', username);
   console.log('User found in storage:', !!user);
@@ -2311,6 +2263,7 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
     date: new Date().toISOString(),
     tags: Array.isArray(body.tags) ? body.tags : (body.tags || []).map ? body.tags : [],
     image: body.image || '',
+    images: Array.isArray(body.images) ? body.images : [],
     featured: !!body.featured,
     isDraft: !!body.isDraft,
     categoryId: body.categoryId || null,
@@ -2369,6 +2322,7 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
       if (body.content !== undefined) updatedFields.content = body.content;
       if (body.tags !== undefined) updatedFields.tags = body.tags;
       if (body.image !== undefined) updatedFields.image = body.image;
+      if (body.images !== undefined) updatedFields.images = body.images;
       if (body.featured !== undefined) {
         updatedFields.featured = !!body.featured;
         if (updatedFields.featured) {
@@ -2399,6 +2353,7 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
         content: body.content || posts[idx].content,
         tags: Array.isArray(body.tags) ? body.tags : posts[idx].tags,
         image: body.image || posts[idx].image,
+        images: Array.isArray(body.images) ? body.images : (posts[idx].images || []),
         featured: !!body.featured,
         isDraft: 'isDraft' in body ? !!body.isDraft : posts[idx].isDraft,
         fontFamily: body.fontFamily !== undefined ? body.fontFamily : (posts[idx].fontFamily || ''),
@@ -2709,7 +2664,7 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
     const file = req.files.image || req.files.video;
     const isVideo = !!req.files.video;
     const MAX_BYTES = 100 * 1024 * 1024; // 100MB
-    const allowedImages = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedImages = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     const allowedVideos = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
     const allowed = [...allowedImages, ...allowedVideos];
 
@@ -2738,6 +2693,39 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('upload error:', err);
     return res.status(500).json({ error: 'upload_failed', details: err.message });
+  }
+});
+
+// List uploaded files
+app.get('/api/uploads', async (req, res) => {
+  try {
+    const files = fs.readdirSync(UPLOADS_DIR);
+    const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f));
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    res.json({ files: images.map(f => `${baseUrl}/uploads/${f}`) });
+  } catch (err) {
+    res.json({ files: [] });
+  }
+});
+
+// Delete uploaded file
+app.delete('/api/uploads', requireAdmin, async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ success: false, error: 'URL is required' });
+    
+    const urlObj = new URL(url);
+    const filename = path.basename(urlObj.pathname);
+    const filePath = path.join(UPLOADS_DIR, filename);
+    
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ success: false, error: 'File not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -3346,21 +3334,28 @@ app.get('/api/settings/security', async (req, res) => {
     // Per-user mode: require key for admin users
     const currentUser = req.session?.user || req.user;
     const isAdmin = String(currentUser?.role || 'USER').toUpperCase() === 'ADMIN';
+    
+    // If no user is logged in (pre-login), check if ANY admin has an admin key
+    if (!currentUser || !currentUser.username) {
+      const users = await loadUsers();
+      const anyAdminWithKey = Object.values(users || {}).some(u => {
+        return String(u.role || 'USER').toUpperCase() === 'ADMIN' && u.adminKeyHash;
+      });
+      if (anyAdminWithKey) {
+        return res.json({ hasEntryKey: true, mode: 'per_user', preLogin: true });
+      }
+      // No admin has a key set yet - don't block the login page
+      return res.json({ hasEntryKey: false, mode: 'no_keys_configured' });
+    }
+
     if (!isAdmin) {
       return res.json({ hasEntryKey: false, mode: 'not_admin' });
     }
 
     const username = currentUser?.username;
-    if (!username) {
-      // Legacy behaviour: cannot determine; respond "no" to avoid blocking pre-login pages.
-      return res.json({ hasEntryKey: false, mode: 'unknown' });
-    }
-
     const users = await loadUsers();
     const user = users?.[username];
     const hasUserKey = !!user?.adminKeyHash;
-    // Even if the key isn't set yet, the system is considered "protected"
-    // (user is blocked until they set it).
     return res.json({ hasEntryKey: true, hasUserKey, mode: hasUserKey ? 'per_user' : 'per_user_not_set' });
   } catch (e) {
     return res.json({ hasEntryKey: false, mode: 'none' });
@@ -3419,7 +3414,7 @@ app.post('/api/settings/security', requireAdmin, async (req, res) => {
 });
 
 // Legacy endpoint (kept for backward compatibility): verifies the *current user's* admin key
-app.post('/api/settings/verify-entry-key', requireAuth, async (req, res) => {
+app.post('/api/settings/verify-my-key', requireAuth, async (req, res) => {
   try {
     const provided = String(req.body?.adminEntryKey || '').trim();
     const currentUser = req.session?.user || req.user;
@@ -3463,8 +3458,8 @@ app.post('/api/settings/verify-entry-key', requireAuth, async (req, res) => {
   }
 });
 
-// Check if admin entry key is verified in session
-app.get('/api/settings/check-admin-key-verified', requireAuth, (req, res) => {
+// Check if admin entry key is verified in session (NO requireAuth - called before login)
+app.get('/api/settings/check-admin-key-verified', (req, res) => {
   res.set('Cache-Control', 'no-store');
 
   // Auto-verify for localhost
@@ -4094,17 +4089,6 @@ app.post('/api/subscribe', async (req, res) => {
   }
 });
 
-// Get all subscriptions (admin only)
-app.get('/api/subscriptions', requireAdmin, async (req, res) => {
-  try {
-    const subscriptions = await loadSubscriptions();
-    return res.json({ subscriptions, count: subscriptions.length });
-  } catch (e) {
-    console.error('Load subscriptions error:', e);
-    return res.status(500).json({ error: 'Failed to load subscriptions' });
-  }
-});
-
 // Comments API - Extended endpoints with nested replies
 app.get('/api/comments/:postId', async (req, res) => {
   try {
@@ -4393,11 +4377,97 @@ app.get('/login.html', (req, res) => {
 });
 
 app.get('/post.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'post.html'));
+  const postId = req.query.id;
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  
+  let html = fs.readFileSync(path.join(__dirname, 'post.html'), 'utf8');
+  
+  if (postId) {
+    try {
+      const posts = JSON.parse(fs.readFileSync(path.join(__dirname, 'posts.json'), 'utf8'));
+      const post = posts.find(p => p.id == postId);
+      
+      if (post) {
+        const settings = JSON.parse(fs.readFileSync(path.join(__dirname, 'settings.json'), 'utf8'));
+        const authorName = settings.author?.name || 'Admin';
+        const title = post.title || 'Untitled Post';
+        const description = post.content?.substring(0, 160).replace(/<[^>]*>/g, '') || 'Click to read more';
+        const image = post.image || '';
+        const postUrl = `${baseUrl}/post.html?id=${postId}`;
+        
+        const ogMeta = `
+    <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
+    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
+    <meta property="og:url" content="${postUrl}">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="${authorName}">
+    <meta name="twitter:card" content="summary_large_image">
+    ${image ? `<meta property="og:image" content="${image}">` : ''}
+    <link rel="canonical" href="${postUrl}">
+`;
+        html = html.replace('</head>', `${ogMeta}\n</head>`);
+      }
+    } catch (e) {
+      console.error('Error generating OG tags:', e.message);
+    }
+  }
+  
+  res.send(html);
 });
 
 app.get('/about.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'about.html'));
+    res.sendFile(path.join(__dirname, 'about.html'));
+});
+
+// Social sharing endpoint
+app.post('/api/share', async (req, res) => {
+    const { postId, platforms } = req.body;
+    if (!postId || !platforms || !Array.isArray(platforms)) {
+        return res.status(400).json({ error: 'postId and platforms array required' });
+    }
+
+    try {
+        const posts = JSON.parse(fs.readFileSync(path.join(__dirname, 'posts.json'), 'utf8'));
+        const post = posts.find(p => p.id == postId);
+        if (!post) {
+            return res.status(404).json({ error: 'Post not found' });
+        }
+
+        const settings = readSettings();
+        const author = settings.author || {};
+        const social = author.social || {};
+
+        const postUrl = `${req.protocol}://${req.get('host')}/post.html?id=${postId}`;
+        const shareResults = [];
+
+        for (const platform of platforms) {
+            try {
+                let result = { platform, success: false, error: null };
+
+                if (platform === 'twitter' && social.twitter) {
+                    const tweetText = encodeURIComponent(`${post.title}\n\n${postUrl}`);
+                    result.twitterUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
+                    result.success = true;
+                } else if (platform === 'facebook' && social.facebook) {
+                    result.facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(postUrl)}`;
+                    result.success = true;
+                } else if (platform === 'linkedin' && social.linkedin) {
+                    result.linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`;
+                    result.success = true;
+                } else {
+                    result.error = 'Not configured';
+                }
+
+                shareResults.push(result);
+            } catch (e) {
+                shareResults.push({ platform, success: false, error: e.message });
+            }
+        }
+
+        return res.json({ success: true, results: shareResults, postUrl });
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
 });
 
 if (process.env.NODE_ENV !== 'production') {
