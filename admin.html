@@ -6371,7 +6371,14 @@ window.loadPostsList = loadPostsList;
 
                         // Analytics Dashboard Logic
                         async function initAnalyticsCharts() {
-                            if (window.analyticsCharts && Object.keys(window.analyticsCharts).length > 0) return;
+                            // Destroy existing charts before re-creating
+                            for (const id of ['pageViewsChart', 'engagementChart']) {
+                                const el = document.getElementById(id);
+                                if (el) {
+                                    const existing = Chart.getChart(el);
+                                    if (existing) existing.destroy();
+                                }
+                            }
 
                             const chartConfigs = {
                                 pageViewsChart: {
@@ -6714,6 +6721,7 @@ window.loadPostsList = loadPostsList;
                         showAnalyticsSection = function () {
                             originalShowAnalyticsSection();
                             saveCurrentSection('analytics');
+                            if (typeof refreshAnalytics === 'function') refreshAnalytics();
                         };
 
                         // Override showSettingsSection to save section
