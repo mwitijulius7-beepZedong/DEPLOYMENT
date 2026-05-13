@@ -1617,6 +1617,7 @@ app.post('/api/security/admin-key/view', requireAuth, async (req, res) => {
 // POST /api/settings/verify-entry-key
 // Validates the subscriber key for the gate overlay (no login session required).
 // 2026: Brute-force lockout + constant-time comparison (no early-break loop)
+// 2026: Returns a token valid for 5 minutes instead of relying on session (serverless-safe)
 app.post('/api/settings/verify-entry-key', async (req, res) => {
   try {
     const ip = getClientIP(req);
@@ -1646,9 +1647,9 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
         return res.status(401).json({ success: false, error: 'invalid_key' });
       }
       clearBruteRecord(ip);
-      req.session.adminKeyVerified = true;
-      req.session.adminKeyVerifiedAt = Date.now();
-      return res.json({ success: true, mode: 'env' });
+      // 2026: Return token instead of session state (serverless-compatible)
+      const keyToken = jwt.sign({ purpose: 'admin_key_gate', verifiedAt: Date.now() }, JWT_SECRET, { expiresIn: '5m' });
+      return res.json({ success: true, mode: 'env', keyToken });
     }
 
     // Per-user: 2026: constant-time – run ALL comparisons regardless of match
@@ -1671,9 +1672,9 @@ app.post('/api/settings/verify-entry-key', async (req, res) => {
     }
 
     clearBruteRecord(ip);
-    req.session.adminKeyVerified = true;
-    req.session.adminKeyVerifiedAt = Date.now();
-    return res.json({ success: true, mode: 'per_user' });
+    // 2026: Return token instead of session state (serverless-compatible)
+    const keyToken = jwt.sign({ purpose: 'admin_key_gate', verifiedAt: Date.now() }, JWT_SECRET, { expiresIn: '5m' });
+    return res.json({ success: true, mode: 'per_user', keyToken });
   } catch (e) {
     console.error('/api/settings/verify-entry-key error:', e);
     return res.status(500).json({ success: false, error: 'internal' });
@@ -1774,13 +1775,27 @@ app.post('/auth/login', async (req, res) => {
 
   // 2026: Admin key gate check - require admin key verification before login
   // Skip if localhost bypass is enabled OR no admin key is configured
+  // 2026: Use keyToken instead of session (serverless-compatible)
   if (!isLocalhostAdminKeyBypassEnabled(req)) {
     const hasAdminKey = user?.adminKeyHash;
     const isAdmin = String(user?.role || 'USER').toUpperCase() === 'ADMIN';
     
     // If this is an admin user with an admin key set, verify it was entered
     if (isAdmin && hasAdminKey) {
-      if (req.session.adminKeyVerified !== true || req.session.adminKeyVerifiedUsername !== username) {
+      // 2026: Accept keyToken in request body or Authorization header
+      const keyToken = req.body?.keyToken || (req.headers.authorization?.startsWith('Bearer kt_') ? req.headers.authorization.slice(7) : null);
+      
+      let validToken = false;
+      if (keyToken) {
+        try {
+          const decoded = jwt.verify(keyToken, JWT_SECRET);
+          if (decoded.purpose === 'admin_key_gate') validToken = true;
+        } catch (e) {
+          // Token invalid or expired
+        }
+      }
+      
+      if (!validToken) {
         return res.status(403).json({ error: 'admin_key_required', message: 'Please enter the admin key before logging in.' });
       }
     }
