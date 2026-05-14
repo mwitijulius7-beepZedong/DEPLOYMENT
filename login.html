@@ -598,6 +598,10 @@
                 const data = await res.json().catch(() => ({}));
 
                 if (res.ok && data && data.success) {
+                    // Store keyToken for login request (serverless-compatible)
+                    if (data.keyToken) {
+                        try { localStorage.setItem('adminKeyToken', data.keyToken); } catch (_) { }
+                    }
                     // Verified: allow access to login page
                     showLoginUI();
                     return;
@@ -700,12 +704,16 @@
             loginBtn.innerHTML = '<span class="spinner"></span> Signing in...';
 
             try {
+                const keyToken = localStorage.getItem('adminKeyToken');
+                const loginPayload = { username, password };
+                if (keyToken) loginPayload.keyToken = keyToken;
+                
                 const response = await fetch('/auth/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ username, password }),
+                    body: JSON.stringify(loginPayload),
                     credentials: 'include'
                 });
 
