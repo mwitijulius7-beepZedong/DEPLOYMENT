@@ -1431,9 +1431,7 @@ window.uploadedProfilePictureUrl = '';
 
                 const response = await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
                     method: 'DELETE',
-                    headers: getAuthHeaders(),
-                    credentials: 'include'
-                });
+
 
                 const data = await response.json();
                 if (response.ok && data.success) {
@@ -1454,10 +1452,8 @@ window.uploadedProfilePictureUrl = '';
             if (!container) return;
             container.innerHTML = '<div class="sec-loading">Loading users…</div>';
             try {
-                const response = await fetch('/api/users', {
-                    headers: getAuthHeaders(),
-                    credentials: 'include'
-                });
+                const response = await apiFetch('/api/users');
+
                 if (!response.ok) {
                     container.innerHTML = '<div class="sec-empty">Could not load users (status ' + response.status + ').</div>';
                     return;
@@ -1555,9 +1551,7 @@ window.uploadedProfilePictureUrl = '';
             try {
                 const res = await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
                     method: 'DELETE',
-                    headers: getAuthHeaders(),
-                    credentials: 'include'
-                });
+
                 const data = await res.json();
                 if (res.ok && data.success) {
                     showUserKeyStatus(username, '✅ Key cleared.', 'success');
