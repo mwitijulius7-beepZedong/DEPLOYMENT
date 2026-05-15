@@ -2,6 +2,8 @@
   "Mwitijulius7": {
     "name": "Mwitijulius7",
     "email": "mwitijulius7@gmail.com",
-    "passwordHash": "$2a$10$ZqigcUcGP/a9dzPzsRUai.avNPIkrPac.OCIVQrWX5iQ2dU9Om8ce"
+    "passwordHash": "$2a$10$ZqigcUcGP/a9dzPzsRUai.avNPIkrPac.OCIVQrWX5iQ2dU9Om8ce",
+    "adminKeyHash": "$2a$12$LRPXXRG.A07BugcwBk2vb.unB4ctpZLsbHh9VwOMfDTE8gqQmQU0K",
+    "adminKeySet": true
   }
 }
