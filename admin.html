@@ -338,6 +338,10 @@
             }
         }
 
+        async function editCategory(categoryId) {
+            alert(`Edit category functionality - This would open a form to edit category with ID: ${categoryId}`);
+        }
+
         async function deleteCategory(categoryId, deleteButton) {
             if (confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
                 await withLoading(deleteButton, async () => {
@@ -1430,9 +1434,8 @@ window.uploadedProfilePictureUrl = '';
                 if (!username) { showSecurityAlert('Not logged in.', 'error'); return; }
 
                 const response = await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
-                    method: 'DELETE',
-
-
+                    method: 'DELETE'
+                });
                 const data = await response.json();
                 if (response.ok && data.success) {
                     showSecurityAlert('✅ Admin entry key cleared successfully.', 'success');
@@ -1550,8 +1553,8 @@ window.uploadedProfilePictureUrl = '';
             if (!confirm(`Clear admin entry key for @${username}? They won't be able to access the admin panel until a new key is set.`)) return;
             try {
                 const res = await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
-                    method: 'DELETE',
-
+                    method: 'DELETE'
+                });
                 const data = await res.json();
                 if (res.ok && data.success) {
                     showUserKeyStatus(username, '✅ Key cleared.', 'success');
@@ -4111,7 +4114,7 @@ window.uploadedProfilePictureUrl = '';
                     </a>
                 </div>
                 <div class="nav-item">
-                    <a id="nav-settings" href="#settings" class="nav-link" onclick="showSettingsSection()">
+                    <a id="nav-settings" href="#settings" class="nav-link">
                         <i>⚙️</i>
                         <span>Settings</span>
                     </a>
