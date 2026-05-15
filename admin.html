@@ -181,14 +181,7 @@
                 try { errData = await response.clone().json(); } catch (_) { }
 
                 const err = errData.error || '';
-                if (err === 'admin_key_required' || err === 'session_expired') {
-                    // Show the admin key modal and wait for verification
-                    const verified = await showAdminKeyModalAndWait();
-                    if (verified) {
-                        // Retry original request (this one will now have the cookie/token)
-                        return fetch(url, mergedOptions);
-                    }
-                } else if (err === 'not authenticated') {
+                if (err === 'not authenticated') {
                     console.warn('API returned 401: not authenticated. Redirecting to login.');
                     // For localhost, we might want to try auto-logging in one last time? 
                     // No, usually it means the token is truly dead or credentials changed.
