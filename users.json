@@ -2,6 +2,9 @@
   "Mwitijulius7": {
     "name": "Mwitijulius7",
     "email": "mwitijulius7@gmail.com",
-    "passwordHash": "$2a$10$ZqigcUcGP/a9dzPzsRUai.avNPIkrPac.OCIVQrWX5iQ2dU9Om8ce"
+    "passwordHash": "$2a$10$ZqigcUcGP/a9dzPzsRUai.avNPIkrPac.OCIVQrWX5iQ2dU9Om8ce",
+    "adminKeyHash": "$2a$12$p/OReca7fFK.7XGn5GcLlOh90wczNhmqQjaYFkYeujLqpi8J5PJpC",
+    "adminKeyEnc": "SHWRTZmpl34B11BFgmABxbwt5gNYNY2/84DkhvSkJxb+Ki5jBCzgYA==",
+    "adminKeySet": true
   }
 }
