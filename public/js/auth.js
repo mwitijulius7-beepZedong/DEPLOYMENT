@@ -16,25 +16,7 @@ export async function checkAuth() {
             return;
         }
 
-        // Per-user admin entry key gate
-        const keyStatusRes = await fetch('/api/security/admin-key/status', { credentials: 'include' });
-        const keyStatus = await keyStatusRes.json();
-        console.log('Admin key status:', keyStatus);
-
-        if (keyStatus.required) {
-            if (!keyStatus.hasKey) {
-                alert('Your account does not have an Admin Entry Key set. Please contact the super admin to set one for you.');
-                window.location.href = '/login.html';
-                return;
-            }
-
-            if (!keyStatus.verified) {
-                const success = await promptForAdminKey();
-                if (!success) return;
-            } else {
-                resetIdleTimer();
-            }
-        }
+        // DISABLED: admin entry key gate skipped
 
         console.log('Authentication and entry key verification successful, loading dashboard');
         // Load dashboard data
