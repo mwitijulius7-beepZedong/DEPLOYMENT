@@ -1192,66 +1192,9 @@ function requireAdminRole(req, res, next) {
   return next();
 }
 
-// Middleware to check idle timeout for admin routes
+// DISABLED (temporarily): Admin key gate bypassed while user resets their key
 function checkIdleTimeout(req, res, next) {
-  const currentUser = req.session?.user || req.user;
-
-  // Auto-verify/refresh for localhost
-  if (isLocalhostAdminKeyBypassEnabled(req)) {
-    req.session.adminKeyVerified = true;
-    req.session.adminKeyVerifiedAt = Date.now();
-    req.session.adminKeyVerifiedUsername = currentUser?.username || 'admin';
-    return next();
-  }
-
-  // If admin key is already verified in this session, perform timeout check
-  if (req.session && req.session.adminKeyVerified === true) {
-    // Tie verification to the currently-authenticated username
-    const verifiedFor = req.session.adminKeyVerifiedUsername;
-    if (currentUser?.username && verifiedFor && verifiedFor !== currentUser.username) {
-      req.session.adminKeyVerified = false;
-      req.session.adminKeyVerifiedAt = null;
-      req.session.adminKeyVerifiedUsername = null;
-      return res.status(401).json({ error: 'admin_key_required' });
-    }
-
-    const now = Date.now();
-    const verifiedAt = req.session.adminKeyVerifiedAt || 0;
-    if (now - verifiedAt > ADMIN_IDLE_TIMEOUT_MS) {
-      req.session.adminKeyVerified = false;
-      req.session.adminKeyVerifiedAt = null;
-      req.session.adminKeyVerifiedUsername = null;
-      return res.status(401).json({ error: 'session_expired', message: 'Your session has expired due to inactivity' });
-    }
-
-    return next();
-  }
-
-  // Admin key NOT verified in session yet.
-  // If env-managed key is set, always require it.
-  if (process.env.ADMIN_ENTRY_KEY) {
-    return res.status(401).json({ error: 'admin_key_required' });
-  }
-
-  // For per-user keys: check asynchronously whether this user has a key configured.
-  // If no key is set for the user, allow through (key is optional until configured).
-  const username = currentUser?.username;
-  if (!username) {
-    return res.status(401).json({ error: 'admin_key_required' });
-  }
-
-  loadUsers().then(users => {
-    const user = users?.[username];
-    if (user && user.adminKeyHash) {
-      // User has a key — must verify it first
-      return res.status(401).json({ error: 'admin_key_required' });
-    }
-    // No key set for this user — allow through
-    return next();
-  }).catch(() => {
-    // On load error, fail open for users without keys (conservative default)
-    return next();
-  });
+  next();
 }
 
 // Middleware to update admin activity timestamp
@@ -1581,6 +1524,34 @@ app.post('/api/security/admin-key/clear-verification', requireAuth, (req, res) =
   return res.json({ success: true });
 });
 
+// EMERGENCY: Clear the current user's admin key (no admin key verification required)
+app.post('/api/security/admin-key/emergency-clear', requireAuth, async (req, res) => {
+  try {
+    const currentUser = req.session?.user || req.user;
+    const username = currentUser?.username;
+    if (!username) return res.status(401).json({ error: 'not authenticated' });
+
+    const users = await loadUsers();
+    const user = users?.[username];
+    if (!user) return res.status(404).json({ error: 'user_not_found' });
+
+    delete user.adminKeyHash;
+    delete user.adminKeyEnc;
+    user.adminKeySet = false;
+
+    await saveUsers(users);
+
+    req.session.adminKeyVerified = false;
+    req.session.adminKeyVerifiedAt = null;
+    req.session.adminKeyVerifiedUsername = null;
+
+    return res.json({ success: true, message: 'Admin key cleared. You can now set a new one from Security Settings.' });
+  } catch (e) {
+    console.error('emergency-clear error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
 app.post('/api/security/admin-key/view', requireAuth, async (req, res) => {
   try {
     if (process.env.ADMIN_ENTRY_KEY) {
@@ -1773,33 +1744,7 @@ app.post('/auth/login', async (req, res) => {
   const users = await loadUsers();
   const user = users[username];
 
-  // 2026: Admin key gate check - require admin key verification before login
-  // Skip if localhost bypass is enabled OR no admin key is configured
-  // 2026: Use keyToken instead of session (serverless-compatible)
-  if (!isLocalhostAdminKeyBypassEnabled(req)) {
-    const hasAdminKey = user?.adminKeyHash;
-    const isAdmin = String(user?.role || 'USER').toUpperCase() === 'ADMIN';
-    
-    // If this is an admin user with an admin key set, verify it was entered
-    if (isAdmin && hasAdminKey) {
-      // 2026: Accept keyToken in request body or Authorization header
-      const keyToken = req.body?.keyToken || (req.headers.authorization?.startsWith('Bearer kt_') ? req.headers.authorization.slice(7) : null);
-      
-      let validToken = false;
-      if (keyToken) {
-        try {
-          const decoded = jwt.verify(keyToken, JWT_SECRET);
-          if (decoded.purpose === 'admin_key_gate') validToken = true;
-        } catch (e) {
-          // Token invalid or expired
-        }
-      }
-      
-      if (!validToken) {
-        return res.status(403).json({ error: 'admin_key_required', message: 'Please enter the admin key before logging in.' });
-      }
-    }
-  }
+  // TEMPORARILY DISABLED: user needs to reset their broken admin key
 
   console.log('Login attempt for:', username);
   console.log('User found in storage:', !!user);
