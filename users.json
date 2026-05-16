@@ -3,7 +3,6 @@
     "name": "Mwitijulius7",
     "email": "mwitijulius7@gmail.com",
     "passwordHash": "$2a$10$ZqigcUcGP/a9dzPzsRUai.avNPIkrPac.OCIVQrWX5iQ2dU9Om8ce",
-    "adminKeyHash": "$2a$12$3pxmCsNX6EGsCqMdwH7J8O7DwVGCjW2cHp8VmFPvSEqKl.BvC2L1e",
-    "adminKeySet": true
+    "role": "ADMIN"
   }
 }
