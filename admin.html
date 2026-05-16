@@ -87,7 +87,10 @@
             if (typeof initAnalyticsCharts === 'function') initAnalyticsCharts();
         }
 
-        // Users section removed - functionality moved to settings
+        function showUsersSection() {
+            showSection('users-section', 'User Management', 'showUsersSection');
+            if (typeof loadUsers === 'function') loadUsers();
+        }
 
         function showSettingsSection() {
             showSection('settings-section', 'Settings', 'showSettingsSection');
@@ -1816,6 +1819,7 @@ window.uploadedProfilePictureUrl = '';
         window.showCreatePostSection = showCreatePostSection;
         window.showPostsSection = showPostsSection;
         window.showAnalyticsSection = showAnalyticsSection;
+        window.showUsersSection = showUsersSection;
         window.showSettingsSection = showSettingsSection;
         window.switchSettingsPanel = switchSettingsPanel;
 
@@ -4112,6 +4116,12 @@ window.uploadedProfilePictureUrl = '';
                     </a>
                 </div>
                 <div class="nav-item">
+                    <a id="nav-users" href="#users" class="nav-link" onclick="showUsersSection()">
+                        <i>👥</i>
+                        <span>Users</span>
+                    </a>
+                </div>
+                <div class="nav-item">
                     <a id="nav-settings" href="#settings" class="nav-link">
                         <i>⚙️</i>
                         <span>Settings</span>
@@ -5987,19 +5997,18 @@ window.loadPostsList = loadPostsList;
                                 const headers = getAuthHeaders();
                                 const token = localStorage.getItem('authToken');
                                 console.log('Creating user with token:', token ? 'Token found' : 'No token found');
-                                console.log('Request headers:', headers);
 
-                                const response = await fetch('/auth/setup', {
+                                const response = await fetch('/api/users', {
                                     method: 'POST',
                                     headers: headers,
                                     credentials: 'include',
-                                    body: JSON.stringify({ username, password, name, email })
+                                    body: JSON.stringify({ username, password, name, email, role })
                                 });
 
                                 console.log('Response status:', response.status);
                                 const data = await response.json();
 
-                                if (data.success) {
+                                if (response.ok && data.success) {
                                     alert('User created successfully!');
                                     document.getElementById('create-user-form').reset();
                                     loadUsers(); // Refresh the list
@@ -6111,19 +6120,28 @@ window.loadPostsList = loadPostsList;
                                     }).join('');
                                 }
 
-                                // (Legacy) also render to old Users panel if present
+                                // Render to Users panel with management controls
                                 const usersList = document.getElementById('users-list');
                                 if (usersList) {
                                     usersList.innerHTML = users.map(u => {
                                         const role = (u.role || 'USER').toUpperCase();
+                                        const isActive = u.active !== false;
                                         return `
-                                          <div style="padding:12px; border:1px solid #e9ecef; border-radius:12px; margin-bottom:10px;">
-                                            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                                          <div style="padding:14px; border:1px solid #e9ecef; border-radius:12px; margin-bottom:10px;">
+                                            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
                                               <div>
                                                 <div style="font-weight:600;">${u.username} <span style="font-weight:400; color:var(--text-medium);">(${role})</span></div>
                                                 <div style="font-size:13px; color:var(--text-medium);">${u.email || ''}</div>
+                                                <div style="font-size:12px; color:${u.adminKeySet ? '#166534' : '#b91c1c'};">${u.adminKeySet ? '✅ Admin key set' : '❌ Admin key not set'}</div>
                                               </div>
-                                              <div style="font-size:13px; color:${u.adminKeySet ? '#166534' : '#b91c1c'};">${u.adminKeySet ? '✅ Admin key set' : '❌ Admin key not set'}</div>
+                                              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                                <button class="btn-modern sm" onclick="toggleUserRole('${u.username}', '${role === 'ADMIN' ? 'USER' : 'ADMIN'}')" style="${role === 'ADMIN' ? 'background:#e8f5e9; color:#2e7d32;' : 'background:#fff3e0; color:#e65100;'}">
+                                                  ${role === 'ADMIN' ? 'Demote to User' : 'Promote to Admin'}
+                                                </button>
+                                                <button class="btn-modern sm secondary" onclick="toggleUserStatus('${u.username}', ${!isActive})" style="${isActive ? '' : 'background:#fff3e0; color:#e65100;'}">
+                                                  ${isActive ? 'Deactivate' : 'Activate'}
+                                                </button>
+                                              </div>
                                             </div>
                                           </div>
                                         `;
@@ -6135,6 +6153,27 @@ window.loadPostsList = loadPostsList;
                             }
                         }
                         window.loadUsers = loadUsers;
+
+                        window.toggleUserRole = async function (username, newRole) {
+                            try {
+                                const response = await fetch(`/api/users/${username}`, {
+                                    method: 'PUT',
+                                    credentials: 'include',
+                                    headers: getAuthHeaders(),
+                                    body: JSON.stringify({ role: newRole })
+                                });
+                                const data = await response.json();
+                                if (!response.ok) {
+                                    alert('Failed to update role: ' + (data.error || 'Unknown error'));
+                                    return;
+                                }
+                                alert(`User ${username} role changed to ${newRole}`);
+                                loadUsers();
+                            } catch (e) {
+                                console.error('Error updating user role:', e);
+                                alert('Error updating user role');
+                            }
+                        };
 
                         window.toggleUserStatus = async function (username, newStatus) {
                             try {
@@ -6264,6 +6303,7 @@ window.loadPostsList = loadPostsList;
                                     'create-post': () => showCreatePostSection(),
                                     'posts': () => showPostsSection(),
                                     'analytics': () => showAnalyticsSection(),
+                                    'users': () => showUsersSection(),
                                     'settings': () => showSettingsSection()
                                 };
 
@@ -6286,6 +6326,9 @@ window.loadPostsList = loadPostsList;
                                         break;
                                     case 'analytics':
                                         showAnalyticsSection();
+                                        break;
+                                    case 'users':
+                                        showUsersSection();
                                         break;
                                     case 'settings':
                                         showSettingsSection();
@@ -6665,6 +6708,13 @@ window.loadPostsList = loadPostsList;
                             if (typeof refreshAnalytics === 'function') refreshAnalytics();
                         };
 
+                        // Override showUsersSection to save section
+                        const originalShowUsersSection = showUsersSection;
+                        showUsersSection = function () {
+                            originalShowUsersSection();
+                            saveCurrentSection('users');
+                        };
+
                         // Override showSettingsSection to save section
                         const originalShowSettingsSection = showSettingsSection;
                         showSettingsSection = function () {
@@ -6698,6 +6748,7 @@ window.loadPostsList = loadPostsList;
                                 bind('#nav-create-post', showCreatePostSection);
                                 bind('#nav-posts', showPostsSection);
                                 bind('#nav-analytics', showAnalyticsSection);
+                                bind('#nav-users', showUsersSection);
                                 bind('#nav-settings', showSettingsSection);
                                 const form = document.getElementById('create-user-form');
                                 if (form) form.addEventListener('submit', handleCreateUser);
