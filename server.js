@@ -1192,66 +1192,9 @@ function requireAdminRole(req, res, next) {
   return next();
 }
 
-// Middleware to check idle timeout for admin routes
+// TEMP BYPASS: server-side admin key gate disabled so user can set their own key
 function checkIdleTimeout(req, res, next) {
-  const currentUser = req.session?.user || req.user;
-
-  // Auto-verify/refresh for localhost
-  if (isLocalhostAdminKeyBypassEnabled(req)) {
-    req.session.adminKeyVerified = true;
-    req.session.adminKeyVerifiedAt = Date.now();
-    req.session.adminKeyVerifiedUsername = currentUser?.username || 'admin';
-    return next();
-  }
-
-  // If admin key is already verified in this session, perform timeout check
-  if (req.session && req.session.adminKeyVerified === true) {
-    // Tie verification to the currently-authenticated username
-    const verifiedFor = req.session.adminKeyVerifiedUsername;
-    if (currentUser?.username && verifiedFor && verifiedFor !== currentUser.username) {
-      req.session.adminKeyVerified = false;
-      req.session.adminKeyVerifiedAt = null;
-      req.session.adminKeyVerifiedUsername = null;
-      return res.status(401).json({ error: 'admin_key_required' });
-    }
-
-    const now = Date.now();
-    const verifiedAt = req.session.adminKeyVerifiedAt || 0;
-    if (now - verifiedAt > ADMIN_IDLE_TIMEOUT_MS) {
-      req.session.adminKeyVerified = false;
-      req.session.adminKeyVerifiedAt = null;
-      req.session.adminKeyVerifiedUsername = null;
-      return res.status(401).json({ error: 'session_expired', message: 'Your session has expired due to inactivity' });
-    }
-
-    return next();
-  }
-
-  // Admin key NOT verified in session yet.
-  // If env-managed key is set, always require it.
-  if (process.env.ADMIN_ENTRY_KEY) {
-    return res.status(401).json({ error: 'admin_key_required' });
-  }
-
-  // For per-user keys: check asynchronously whether this user has a key configured.
-  // If no key is set for the user, allow through (key is optional until configured).
-  const username = currentUser?.username;
-  if (!username) {
-    return res.status(401).json({ error: 'admin_key_required' });
-  }
-
-  loadUsers().then(users => {
-    const user = users?.[username];
-    if (user && user.adminKeyHash) {
-      // User has a key — must verify it first
-      return res.status(401).json({ error: 'admin_key_required' });
-    }
-    // No key set for this user — allow through
-    return next();
-  }).catch(() => {
-    // On load error, fail open for users without keys (conservative default)
-    return next();
-  });
+  next();
 }
 
 // Middleware to update admin activity timestamp
