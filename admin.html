@@ -181,7 +181,14 @@
                 try { errData = await response.clone().json(); } catch (_) { }
 
                 const err = errData.error || '';
-                if (err === 'not authenticated') {
+                if (err === 'admin_key_required' || err === 'session_expired') {
+                    // Show the admin key modal and wait for verification
+                    const verified = await showAdminKeyModalAndWait();
+                    if (verified) {
+                        // Retry original request (this one will now have the cookie/token)
+                        return fetch(url, mergedOptions);
+                    }
+                } else if (err === 'not authenticated') {
                     console.warn('API returned 401: not authenticated. Redirecting to login.');
                     // For localhost, we might want to try auto-logging in one last time? 
                     // No, usually it means the token is truly dead or credentials changed.
@@ -5393,10 +5400,64 @@ window.uploadedProfilePictureUrl = '';
                         let isSecurityCheckComplete = false;
 
                         async function enforceSecurityGate() {
-                            // DISABLED: always bypass security check
-                            isSecurityVerified = true;
-                            isSecurityCheckComplete = true;
-                            return true;
+                            // Bypass for localhost to prevent prompt
+                            const hostname = window.location.hostname;
+                            if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
+                                console.log('Localhost/Local network detected, bypassing admin key check');
+                                isSecurityVerified = true;
+                                isSecurityCheckComplete = true;
+                                return true;
+                            }
+
+                            try {
+                                // Per-user admin-key gate
+                                const secRes = await fetch('/api/security/admin-key/status', { credentials: 'include' });
+                                const sec = await secRes.json();
+
+                                if (!sec.required) {
+                                    isSecurityVerified = true;
+                                    isSecurityCheckComplete = true;
+                                    return true;
+                                }
+
+                                if (!sec.hasKey) {
+                                    // User is blocked until super-admin sets a key
+                                    alert('Your account does not have an Admin Entry Key set. Please contact the super admin.');
+                                    window.location.href = '/login.html';
+                                    isSecurityCheckComplete = true;
+                                    return false;
+                                }
+
+                                if (sec.verified) {
+                                    isSecurityVerified = true;
+                                    isSecurityCheckComplete = true;
+                                    return true;
+                                }
+
+                                // If we get here, show the modal and wait
+                                const modal = document.getElementById('admin-key-modal');
+                                if (modal) {
+                                    modal.style.display = 'flex';
+                                    const keyInput = document.getElementById('modal-admin-key');
+                                    if (keyInput) keyInput.focus();
+                                }
+
+                                // Return a promise that resolves when verified
+                                return new Promise((resolve) => {
+                                    window.resolveSecurityGate = (success) => {
+                                        if (success) {
+                                            isSecurityVerified = true;
+                                            isSecurityCheckComplete = true;
+                                            resolve(true);
+                                        }
+                                    };
+                                });
+                            } catch (e) {
+                                console.error('Security gate failed:', e);
+                                // Fallback to allow access if API fails? No, for security better to stay locked
+                                isSecurityCheckComplete = true;
+                                return true;
+                            }
                         }
 
                         // Start the gate immediately
