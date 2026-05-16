@@ -5421,11 +5421,11 @@ window.uploadedProfilePictureUrl = '';
                                 }
 
                                 if (!sec.hasKey) {
-                                    // User is blocked until super-admin sets a key
-                                    alert('Your account does not have an Admin Entry Key set. Please contact the super admin.');
-                                    window.location.href = '/login.html';
+                                    // Allow through so the user can set their admin key first
+                                    console.log('No admin key set — allowing access to set one');
+                                    isSecurityVerified = true;
                                     isSecurityCheckComplete = true;
-                                    return false;
+                                    return true;
                                 }
 
                                 if (sec.verified) {
