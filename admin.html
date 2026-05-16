@@ -1366,7 +1366,7 @@ window.uploadedProfilePictureUrl = '';
             await withLoading(saveButton, async () => {
                 try {
                     // Determine current user
-                    const meRes = await fetch('/auth/status', { credentials: 'include' });
+                    const meRes = await apiFetch('/auth/status');
                     const me = await meRes.json();
                     const username = me?.user?.username;
                     if (!username) { showSecurityAlert('Not logged in.', 'error'); return; }
@@ -1400,15 +1400,13 @@ window.uploadedProfilePictureUrl = '';
 
             try {
                 // Get current username
-                const meRes = await fetch('/auth/status', { credentials: 'include' });
+                const meRes = await apiFetch('/auth/status');
                 const me = await meRes.json();
                 const username = me?.user?.username;
                 if (!username) { alert('Not logged in.'); return; }
 
-                const response = await fetch('/api/settings/security/key-view', {
+                const response = await apiFetch('/api/settings/security/key-view', {
                     method: 'POST',
-                    headers: getAuthHeaders(),
-                    credentials: 'include',
                     body: JSON.stringify({ username, password })
                 });
 
@@ -1428,12 +1426,12 @@ window.uploadedProfilePictureUrl = '';
         async function clearKey() {
             if (!confirm('Are you sure you want to clear YOUR admin entry key? This cannot be undone.')) return;
             try {
-                const meRes = await fetch('/auth/status', { credentials: 'include' });
+                const meRes = await apiFetch('/auth/status');
                 const me = await meRes.json();
                 const username = me?.user?.username;
                 if (!username) { showSecurityAlert('Not logged in.', 'error'); return; }
 
-                const response = await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
+                const response = await apiFetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
                     method: 'DELETE'
                 });
                 const data = await response.json();
