@@ -1716,33 +1716,7 @@ app.post('/auth/login', async (req, res) => {
   const users = await loadUsers();
   const user = users[username];
 
-  // 2026: Admin key gate check - require admin key verification before login
-  // Skip if localhost bypass is enabled OR no admin key is configured
-  // 2026: Use keyToken instead of session (serverless-compatible)
-  if (!isLocalhostAdminKeyBypassEnabled(req)) {
-    const hasAdminKey = user?.adminKeyHash;
-    const isAdmin = String(user?.role || 'USER').toUpperCase() === 'ADMIN';
-    
-    // If this is an admin user with an admin key set, verify it was entered
-    if (isAdmin && hasAdminKey) {
-      // 2026: Accept keyToken in request body or Authorization header
-      const keyToken = req.body?.keyToken || (req.headers.authorization?.startsWith('Bearer kt_') ? req.headers.authorization.slice(7) : null);
-      
-      let validToken = false;
-      if (keyToken) {
-        try {
-          const decoded = jwt.verify(keyToken, JWT_SECRET);
-          if (decoded.purpose === 'admin_key_gate') validToken = true;
-        } catch (e) {
-          // Token invalid or expired
-        }
-      }
-      
-      if (!validToken) {
-        return res.status(403).json({ error: 'admin_key_required', message: 'Please enter the admin key before logging in.' });
-      }
-    }
-  }
+  // DISABLED: Admin key gate check bypassed
 
   console.log('Login attempt for:', username);
   console.log('User found in storage:', !!user);
