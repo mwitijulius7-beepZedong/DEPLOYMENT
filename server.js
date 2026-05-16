@@ -1302,9 +1302,10 @@ app.post('/api/users/:username/admin-key', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'admin_key_required' });
     }
 
-    // Check if user is setting their own key or if requester is admin
+    // Check if user is setting their own key or if requester is an admin
     const requestUser = req.session?.user || req.user;
-    if (!requestUser || (requestUser.username !== username && requestUser.username !== 'admin')) {
+    const isAdmin = String(requestUser?.role || 'USER').toUpperCase() === 'ADMIN';
+    if (!requestUser || (requestUser.username !== username && !isAdmin)) {
       return res.status(403).json({ error: 'cannot_set_other_users_admin_key' });
     }
 
@@ -1333,9 +1334,10 @@ app.delete('/api/users/:username/admin-key', requireAuth, async (req, res) => {
   try {
     const { username } = req.params;
 
-    // Check if user is clearing their own key or if requester is admin
+    // Check if user is clearing their own key or if requester is an admin
     const requestUser = req.session?.user || req.user;
-    if (!requestUser || (requestUser.username !== username && requestUser.username !== 'admin')) {
+    const isAdmin = String(requestUser?.role || 'USER').toUpperCase() === 'ADMIN';
+    if (!requestUser || (requestUser.username !== username && !isAdmin)) {
       return res.status(403).json({ error: 'cannot_clear_other_users_admin_key' });
     }
 
