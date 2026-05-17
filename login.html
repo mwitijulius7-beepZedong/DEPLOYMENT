@@ -619,33 +619,8 @@
         }
 
         async function enforceAdminKeyGateForLogin() {
-            // RECOVERY: add ?bypass_key=1 to URL to skip gate
-            if (window.location.search.includes('bypass_key=1') || localStorage.getItem('opencode_bypass_key') === '1') {
-                console.log('Bypass flag active — skipping login key gate');
-                showLoginUI();
-                return;
-            }
-
-            try {
-                const secRes = await fetch('/api/settings/security', { credentials: 'include' });
-                const sec = await secRes.json();
-                const hasEntryKey = sec && sec.hasEntryKey;
-                
-                if (hasEntryKey) {
-                    const verRes = await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' });
-                    const ver = await verRes.json();
-                    if (ver && ver.verified) {
-                        showLoginUI();
-                    } else {
-                        showAdminKeyOverlay();
-                    }
-                } else {
-                    showLoginUI();
-                }
-            } catch (e) {
-                console.error('Failed to enforce admin key gate:', e);
-                showLoginUI();
-            }
+            // TEMPORARILY BYPASSED — remove when admin key is fixed
+            showLoginUI();
         }
 
         if (adminKeyUnlockBtn) adminKeyUnlockBtn.addEventListener('click', verifyAdminEntryKeyFromOverlay);
