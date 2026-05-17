@@ -1192,12 +1192,7 @@ function requireAdminRole(req, res, next) {
   return next();
 }
 
-// TEMPORARILY BYPASSED — remove this when admin key is fixed
-function checkIdleTimeout(req, res, next) {
-  next();
-}
-
-/* ORIGINAL — uncomment when ready to re-enable
+// Middleware to check idle timeout for admin routes
 function checkIdleTimeout(req, res, next) {
   const currentUser = req.session?.user || req.user;
 
@@ -1258,7 +1253,6 @@ function checkIdleTimeout(req, res, next) {
     return next();
   });
 }
-*/
 
 // Middleware to update admin activity timestamp
 function updateAdminActivity(req, res, next) {
@@ -1809,8 +1803,6 @@ app.post('/auth/login', async (req, res) => {
   const users = await loadUsers();
   const user = users[username];
 
-  // TEMPORARILY BYPASSED — remove when admin key is fixed
-  /* ORIGINAL:
   // 2026: Admin key gate check - require admin key verification before login
   // Skip if localhost bypass is enabled OR no admin key is configured
   // 2026: Use keyToken instead of session (serverless-compatible)
@@ -1838,7 +1830,6 @@ app.post('/auth/login', async (req, res) => {
       }
     }
   }
-  */
 
   console.log('Login attempt for:', username);
   console.log('User found in storage:', !!user);
