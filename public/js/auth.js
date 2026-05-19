@@ -16,25 +16,7 @@ export async function checkAuth() {
             return;
         }
 
-        // Per-user admin entry key gate
-        const keyStatusRes = await fetch('/api/security/admin-key/status', { credentials: 'include' });
-        const keyStatus = await keyStatusRes.json();
-        console.log('Admin key status:', keyStatus);
-
-        if (keyStatus.required) {
-            if (!keyStatus.hasKey) {
-                alert('Your account does not have an Admin Entry Key set. Please contact the super admin to set one for you.');
-                window.location.href = '/login.html';
-                return;
-            }
-
-            if (!keyStatus.verified) {
-                const success = await promptForAdminKey();
-                if (!success) return;
-            } else {
-                resetIdleTimer();
-            }
-        }
+        // Admin key gate bypassed
 
         console.log('Authentication and entry key verification successful, loading dashboard');
         // Load dashboard data
@@ -46,43 +28,7 @@ export async function checkAuth() {
 }
 
 export async function promptForAdminKey() {
-    const adminKey = prompt('Please enter your Admin Entry Key:');
-    if (!adminKey) {
-        alert('Admin entry key is required to access the admin panel.');
-        window.location.href = '/login.html';
-        return false;
-    }
-
-    try {
-        // Per-user endpoint
-        const response = await fetch('/api/security/admin-key/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ adminKey })
-        });
-
-        if (response.ok) {
-            resetIdleTimer();
-            return true;
-        } else {
-            let msg = 'Invalid admin entry key. Access denied.';
-            try {
-                const data = await response.json();
-                if (data && data.error === 'admin_key_not_set') {
-                    msg = 'No Admin Entry Key is set for your account. Please contact the super admin.';
-                }
-            } catch (_) { }
-            alert(msg);
-            window.location.href = '/login.html';
-            return false;
-        }
-    } catch (error) {
-        console.error('Error verifying admin key:', error);
-        alert('Error verifying admin entry key.');
-        window.location.href = '/login.html';
-        return false;
-    }
+    return true;
 }
 
 export async function logout() {

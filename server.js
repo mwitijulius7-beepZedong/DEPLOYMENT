@@ -1192,20 +1192,7 @@ function requireAdminRole(req, res, next) {
   return next();
 }
 
-// Middleware to check idle timeout for admin routes
-function checkIdleTimeout(req, res, next) {
-  return next();
-}
-
-// Middleware to update admin activity timestamp
-function updateAdminActivity(req, res, next) {
-  if (req.session && req.session.adminKeyVerified) {
-    req.session.adminKeyVerifiedAt = Date.now();
-  }
-  next();
-}
-
-const requireAdmin = [requireAuth, requireAdminRole, checkIdleTimeout, updateAdminActivity];
+const requireAdmin = [requireAuth, requireAdminRole];
 
 // Admin: Users API (admin-only)
 app.get('/api/users', requireAdmin, async (req, res) => {
