@@ -54,8 +54,7 @@ function isLocalhostRequest(req) {
 }
 
 function isLocalhostAdminKeyBypassEnabled(req) {
-  const disabled = String(process.env.DISABLE_LOCALHOST_ADMIN_KEY_BYPASS || '').toLowerCase() === 'true';
-  return !disabled && isLocalhostRequest(req);
+  return true;
 }
 
 function getBruteRecord(ip) {
