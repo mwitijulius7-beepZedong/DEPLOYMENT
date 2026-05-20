@@ -295,11 +295,12 @@ async function viewCurrentKey() {
     if (!password) return;
 
     try {
-        const response = await fetch('/api/settings/security/key-view', {
+        // Use per-user admin-key view endpoint (reads the current user's key)
+        const response = await fetch('/api/security/admin-key/view', {
             method: 'POST',
             headers: getAuthHeaders(),
             credentials: 'include',
-            body: JSON.stringify({ username: 'admin', password })
+            body: JSON.stringify({ password })
         });
 
         const data = await response.json();

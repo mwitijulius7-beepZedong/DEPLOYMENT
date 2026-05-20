@@ -1392,9 +1392,10 @@ window.uploadedProfilePictureUrl = '';
                 const username = me?.user?.username;
                 if (!username) { alert('Not logged in.'); return; }
 
-                const response = await apiFetch('/api/settings/security/key-view', {
+                // Call per-user admin-key view endpoint (server verifies current session user)
+                const response = await apiFetch('/api/security/admin-key/view', {
                     method: 'POST',
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ password })
                 });
 
                 const data = await response.json();
