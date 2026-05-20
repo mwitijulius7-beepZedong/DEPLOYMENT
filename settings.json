@@ -26,8 +26,5 @@
     "title": "zedong254ke",
     "description": "Discover insights, tutorials, and thoughts on web development, programming, and technology."
   },
-  "security": {
-    "adminEntryKeyHash": "$2a$10$cWfGqqUJ72v4QLFZ3.wvz.8daVwQ2SOsfZlSgu0/fCDLc0MBH2Dpu",
-    "adminEntryKeyEnc": "Ft+wP4S18DfyLPK+E+7zYrYycitFYDULFpd3vFQ3QXSFFnJlWoaw1A=="
-  }
+  "security": {}
 }

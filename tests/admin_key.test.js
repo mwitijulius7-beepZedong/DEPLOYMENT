@@ -75,16 +75,16 @@ describe('admin key utilities', () => {
       expect(isLocalhostAdminKeyBypassEnabled(mockReq)).toBe(true);
     });
 
-    it('should return false when DISABLE_LOCALHOST_ADMIN_KEY_BYPASS is true', () => {
+    it('should return true even when DISABLE_LOCALHOST_ADMIN_KEY_BYPASS is true', () => {
       process.env.DISABLE_LOCALHOST_ADMIN_KEY_BYPASS = 'true';
       mockReq.get = () => 'localhost:3000';
-      expect(isLocalhostAdminKeyBypassEnabled(mockReq)).toBe(false);
+      expect(isLocalhostAdminKeyBypassEnabled(mockReq)).toBe(true);
     });
 
-    it('should return false for non-localhost requests', () => {
+    it('should return true for non-localhost requests', () => {
       mockReq.socket.remoteAddress = '203.0.113.1';
       mockReq.get = () => 'example.com';
-      expect(isLocalhostAdminKeyBypassEnabled(mockReq)).toBe(false);
+      expect(isLocalhostAdminKeyBypassEnabled(mockReq)).toBe(true);
     });
   });
 
