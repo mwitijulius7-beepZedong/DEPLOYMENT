@@ -5393,9 +5393,35 @@ window.uploadedProfilePictureUrl = '';
                         let isSecurityCheckComplete = false;
 
                         async function enforceSecurityGate() {
-                            isSecurityVerified = true;
-                            isSecurityCheckComplete = true;
-                            return true;
+                            // Check server-side session for prior admin-key verification for this user
+                            try {
+                                const res = await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' });
+                                const data = await res.json().catch(() => ({}));
+                                if (data && data.verified) {
+                                    isSecurityVerified = true;
+                                    isSecurityCheckComplete = true;
+                                    return true;
+                                }
+                            } catch (e) {
+                                console.error('check-admin-key-verified failed:', e);
+                                // continue to show modal
+                            }
+
+                            // Not verified: show modal and wait for verification via /api/security/admin-key/verify
+                            const modal = document.getElementById('admin-key-modal');
+                            if (modal) {
+                                modal.style.display = 'flex';
+                                modal.style.opacity = '1';
+                            }
+
+                            // Provide a promise that resolves when verifyAdminKeyModal calls resolveSecurityGate(true)
+                            return new Promise((resolve) => {
+                                window.resolveSecurityGate = (ok) => {
+                                    isSecurityVerified = !!ok;
+                                    isSecurityCheckComplete = true;
+                                    resolve(ok === true);
+                                };
+                            });
                         }
 
                         // Start the gate immediately
@@ -6026,7 +6052,9 @@ window.loadPostsList = loadPostsList;
                                 });
                                 const data = await res.json();
 
-                                if (data.success) {
+                            if (data.success) {
+                                    // After successful verify, clear server-side check marker by calling check endpoint (session set by server)
+                                    try { await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' }); } catch (_) {}
                                     const modal = document.getElementById('admin-key-modal');
                                     modal.style.opacity = '0';
                                     setTimeout(() => {

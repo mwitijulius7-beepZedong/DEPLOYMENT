@@ -619,7 +619,21 @@
         }
 
         async function enforceAdminKeyGateForLogin() {
-            showLoginUI();
+            try {
+                // Check if the server session already has admin-key verified (for local sessions)
+                const res = await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' });
+                const data = await res.json().catch(() => ({}));
+                if (data && data.verified) {
+                    showLoginUI();
+                    return;
+                }
+            } catch (e) {
+                console.error('check-admin-key-verified failed:', e);
+                // fallthrough to showing overlay
+            }
+
+            // Not verified -> show the overlay gate which will call /api/settings/verify-entry-key
+            showAdminKeyOverlay();
         }
 
         if (adminKeyUnlockBtn) adminKeyUnlockBtn.addEventListener('click', verifyAdminEntryKeyFromOverlay);
