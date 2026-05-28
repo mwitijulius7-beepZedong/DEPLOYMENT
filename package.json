@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "start:force-gate": "node scripts/start-force-gate.js",
     "lint": "eslint . --ext .js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"

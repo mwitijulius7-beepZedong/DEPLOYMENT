@@ -54,7 +54,16 @@ function isLocalhostRequest(req) {
 }
 
 function isLocalhostAdminKeyBypassEnabled(req) {
-  return true;
+  // By default, allow a convenient localhost bypass when running locally.
+  // Setting DISABLE_LOCALHOST_ADMIN_KEY_BYPASS=true will disable this behavior
+  // (useful for testing or stricter local environments).
+  try {
+    const disabled = String(process.env.DISABLE_LOCALHOST_ADMIN_KEY_BYPASS || '').toLowerCase() === 'true';
+    if (disabled) return false;
+    return isLocalhostRequest(req);
+  } catch (e) {
+    return false;
+  }
 }
 
 function getBruteRecord(ip) {
