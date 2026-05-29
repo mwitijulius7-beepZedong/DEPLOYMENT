@@ -724,7 +724,8 @@
                 if (data.success) {
                     // Persist JWT token for production requests
                     try { localStorage.setItem('authToken', data.token || ''); } catch (_) { }
-                    // Redirect to admin panel
+                    // Clear any stored admin key token (no longer needed) and redirect
+                    try { localStorage.removeItem('adminKeyToken'); } catch (_) {}
                     window.location.href = '/admin.html';
                 } else {
                     showError(data.error || 'Login failed');
