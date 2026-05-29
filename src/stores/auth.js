@@ -25,7 +25,9 @@ export async function checkAuth() {
       const check = await checkRes.json();
 
       if (!check.verified) {
-        return; // idle module will prompt
+        // If not verified, redirect to admin panel which will show the security modal
+        window.location.href = '/admin.html';
+        return;
       }
       resetIdleTimer();
     }
