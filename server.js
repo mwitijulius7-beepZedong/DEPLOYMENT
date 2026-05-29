@@ -1878,6 +1878,23 @@ app.post('/auth/login', async (req, res) => {
     req.session.adminKeyVerifiedUsername = username;
   }
 
+  // If the client provided a pre-login key token (from /api/settings/verify-entry-key),
+  // validate it and mark the session as verified so the admin UI won't prompt again.
+  try {
+    const keyToken = String(req.body?.keyToken || '').trim();
+    if (keyToken) {
+      const decoded = jwt.verify(keyToken, JWT_SECRET);
+      if (decoded && decoded.purpose === 'admin_key_gate') {
+        req.session.adminKeyVerified = true;
+        req.session.adminKeyVerifiedAt = Date.now();
+        req.session.adminKeyVerifiedUsername = username;
+      }
+    }
+  } catch (e) {
+    // Token invalid or expired - ignore and do not mark verified
+    console.warn('login: provided admin key token invalid or expired');
+  }
+
   return res.json({
     success: true,
     token,
