@@ -1341,6 +1341,7 @@ window.uploadedProfilePictureUrl = '';
 
         // ── Save MY admin entry key ──────────────────────────────────────────
         async function saveSecuritySettings() {
+            // Per product decision: "My Admin Entry Key" mirrors the key set for the "Admin" user.
             const adminEntryKey = document.getElementById('admin-entry-key').value;
             const trimmed = String(adminEntryKey || '').trim();
             const saveButton = event?.target || document.querySelector('#security-panel .btn-modern');
@@ -1352,23 +1353,20 @@ window.uploadedProfilePictureUrl = '';
 
             await withLoading(saveButton, async () => {
                 try {
-                    // Determine current user
-                    const meRes = await apiFetch('/auth/status');
-                    const me = await meRes.json();
-                    const username = me?.user?.username;
-                    if (!username) { showSecurityAlert('Not logged in.', 'error'); return; }
-
-                    const response = await apiFetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
+                    // Always operate on the canonical Admin account
+                    const response = await apiFetch(`/api/users/${encodeURIComponent('Admin')}/admin-key`, {
                         method: 'POST',
                         body: JSON.stringify({ adminKey: trimmed })
                     });
                     const data = await response.json();
                     if (response.ok && data.success) {
+                        // Clear the input for security reasons
                         document.getElementById('admin-entry-key').value = '';
                         document.getElementById('admin-entry-key').type = 'password';
                         const btn = document.getElementById('admin-key-toggle');
                         if (btn) btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-                        showSecurityAlert('✅ Admin Entry Key saved successfully for your account.', 'success');
+                        showSecurityAlert('✅ Admin Entry Key saved successfully for the Admin account.', 'success');
+                        // Refresh user key management UI
                         loadUsersForKeyManagement();
                     } else {
                         showSecurityAlert('❌ ' + (data.error || data.message || 'Unknown error'), 'error');
@@ -1382,25 +1380,21 @@ window.uploadedProfilePictureUrl = '';
 
         // ── View MY current admin entry key ─────────────────────────────────
         async function viewCurrentKey() {
-            const password = prompt('Enter your LOGIN PASSWORD to view the current entry key:');
+            // View the Admin user's entry key (requires confirming login password)
+            const password = prompt('Enter your LOGIN PASSWORD to view the Admin entry key:');
             if (!password) return;
 
             try {
-                // Get current username
-                const meRes = await apiFetch('/auth/status');
-                const me = await meRes.json();
-                const username = me?.user?.username;
-                if (!username) { alert('Not logged in.'); return; }
-
-                // Call per-user admin-key view endpoint (server verifies current session user)
+                // Use the server-side security endpoint which validates the login password
+                // and returns the entry key for the currently-authenticated user.
                 const response = await apiFetch('/api/security/admin-key/view', {
                     method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password })
                 });
-
                 const data = await response.json();
                 if (response.ok && data.success) {
-                    alert('Current Admin Entry Key: ' + (data.key || '(empty — no key stored)'));
+                    alert('Admin Entry Key: ' + (data.key || '(empty — no key stored)'));
                 } else {
                     alert('Error: ' + (data.error || data.message || 'Could not retrieve key'));
                 }
@@ -1412,14 +1406,9 @@ window.uploadedProfilePictureUrl = '';
 
         // ── Clear MY admin entry key ─────────────────────────────────────────
         async function clearKey() {
-            if (!confirm('Are you sure you want to clear YOUR admin entry key? This cannot be undone.')) return;
+            if (!confirm('Are you sure you want to clear the Admin entry key? This cannot be undone.')) return;
             try {
-                const meRes = await apiFetch('/auth/status');
-                const me = await meRes.json();
-                const username = me?.user?.username;
-                if (!username) { showSecurityAlert('Not logged in.', 'error'); return; }
-
-                const response = await apiFetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
+                const response = await apiFetch(`/api/users/${encodeURIComponent('Admin')}/admin-key`, {
                     method: 'DELETE'
                 });
                 const data = await response.json();
@@ -1522,8 +1511,9 @@ window.uploadedProfilePictureUrl = '';
                 const data = await res.json();
                 if (res.ok && data.success) {
                     input.value = '';
-                    showUserKeyStatus(username, '✅ Key set successfully.', 'success');
-                    setTimeout(() => loadUsersForKeyManagement(), 1500);
+                    showUserKeyStatus(username, '✅ Key set successfully. Users should re-login.', 'success');
+                    // After setting a user's key, force a re-login so they must enter credentials
+                    setTimeout(() => { window.location.href = '/login.html'; }, 1200);
                 } else {
                     showUserKeyStatus(username, '❌ ' + (data.error || 'Failed to set key'), 'error');
                 }
@@ -5393,9 +5383,35 @@ window.uploadedProfilePictureUrl = '';
                         let isSecurityCheckComplete = false;
 
                         async function enforceSecurityGate() {
-                            isSecurityVerified = true;
-                            isSecurityCheckComplete = true;
-                            return true;
+                            // Check server-side session for prior admin-key verification for this user
+                            try {
+                                const res = await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' });
+                                const data = await res.json().catch(() => ({}));
+                                if (data && data.verified) {
+                                    isSecurityVerified = true;
+                                    isSecurityCheckComplete = true;
+                                    return true;
+                                }
+                            } catch (e) {
+                                console.error('check-admin-key-verified failed:', e);
+                                // continue to show modal
+                            }
+
+                            // Not verified: show modal and wait for verification via /api/security/admin-key/verify
+                            const modal = document.getElementById('admin-key-modal');
+                            if (modal) {
+                                modal.style.display = 'flex';
+                                modal.style.opacity = '1';
+                            }
+
+                            // Provide a promise that resolves when verifyAdminKeyModal calls resolveSecurityGate(true)
+                            return new Promise((resolve) => {
+                                window.resolveSecurityGate = (ok) => {
+                                    isSecurityVerified = !!ok;
+                                    isSecurityCheckComplete = true;
+                                    resolve(ok === true);
+                                };
+                            });
                         }
 
                         // Start the gate immediately
@@ -6026,7 +6042,9 @@ window.loadPostsList = loadPostsList;
                                 });
                                 const data = await res.json();
 
-                                if (data.success) {
+                            if (data.success) {
+                                    // After successful verify, clear server-side check marker by calling check endpoint (session set by server)
+                                    try { await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' }); } catch (_) {}
                                     const modal = document.getElementById('admin-key-modal');
                                     modal.style.opacity = '0';
                                     setTimeout(() => {
@@ -6209,8 +6227,9 @@ window.loadPostsList = loadPostsList;
                                 }
 
                                 console.log('Admin key set successfully');
-                                alert('Admin key set successfully for ' + username);
-                                if (typeof loadUsers === 'function') loadUsers();
+                                alert('Admin key set successfully for ' + username + '. Users will need to re-login.');
+                                // Prompt users to re-login by redirecting to login page
+                                window.location.href = '/login.html';
                             } catch (e) {
                                 console.error('Error setting admin key:', e);
                                 alert('Error setting admin key');

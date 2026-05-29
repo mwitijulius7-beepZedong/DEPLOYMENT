@@ -1089,7 +1089,29 @@ function isLocalhostRequest(req) {
 }
 
 function isLocalhostAdminKeyBypassEnabled(req) {
-  return true;
+  try {
+    const disabled = String(process.env.DISABLE_LOCALHOST_ADMIN_KEY_BYPASS || '').toLowerCase() === 'true';
+    if (disabled) return false;
+    return isLocalhostRequest(req);
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Find the actual key used in the users object for a given username.
+ * This makes username lookup case-insensitive while preserving stored casing.
+ */
+function findUserKey(users, username) {
+  if (!users || !username) return null;
+  const keys = Object.keys(users || {});
+  // Exact match first
+  let k = keys.find(x => x === username);
+  if (k) return k;
+  // Case-insensitive match
+  const low = String(username).toLowerCase();
+  k = keys.find(x => String(x).toLowerCase() === low);
+  return k || null;
 }
 
 // ============================================================
@@ -1218,12 +1240,18 @@ app.post('/api/users', requireAdmin, async (req, res) => {
     const { username, password, name, email, role } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'missing_username_or_password' });
     const users = await loadUsers();
-    if (users && users[username]) return res.status(400).json({ error: 'user_exists' });
+    // Prevent creating a user if a case-insensitive match already exists
+    const existingKey = findUserKey(users, username);
+    if (users && existingKey) return res.status(400).json({ error: 'user_exists' });
     // 2026: bcrypt cost factor 12 (was 10)
     const hash = await bcrypt.hash(password, 12);
+    // Store under the provided casing (preserve display), but ensure future lookups
+    // will resolve case-insensitively via findUserKey.
     users[username] = { name: name || '', email: email || '', passwordHash: hash, active: true, role: role || 'USER' };
     await saveUsers(users);
-    return res.json({ success: true, user: { username, name: users[username].name, email: users[username].email, role: users[username].role } });
+    // Use the stored casing for the response
+    const storedKey = findUserKey(users, username) || username;
+    return res.json({ success: true, user: { username: storedKey, name: users[storedKey].name, email: users[storedKey].email, role: users[storedKey].role } });
   } catch (e) {
     console.error('Create user error:', e);
     return res.status(500).json({ error: 'failed_to_create_user' });
@@ -1248,17 +1276,18 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
     }
 
     const users = await loadUsers();
-    if (!users || !users[username]) {
+    const userKey = findUserKey(users, username);
+    if (!users || !userKey || !users[userKey]) {
       return res.status(404).json({ error: 'user_not_found' });
     }
 
     // Update user properties
     if (active !== undefined) {
-      users[username].active = active;
+      users[userKey].active = active;
     }
     if (role !== undefined && role !== 'ADMIN') {
       // Only allow changing roles if not the super admin
-      users[username].role = role;
+      users[userKey].role = role;
     }
 
     await saveUsers(users);
@@ -1266,10 +1295,10 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
       success: true,
       user: {
         username,
-        name: users[username].name,
-        email: users[username].email,
-        role: users[username].role,
-        active: users[username].active
+        name: users[userKey].name,
+        email: users[userKey].email,
+        role: users[userKey].role,
+        active: users[userKey].active
       }
     });
   } catch (e) {
@@ -1288,24 +1317,34 @@ app.post('/api/users/:username/admin-key', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'admin_key_required' });
     }
 
-    // Check if user is setting their own key or if requester is an admin
     const requestUser = req.session?.user || req.user;
-    const isAdmin = String(requestUser?.role || 'USER').toUpperCase() === 'ADMIN';
-    if (!requestUser || (requestUser.username !== username && !isAdmin)) {
-      return res.status(403).json({ error: 'cannot_set_other_users_admin_key' });
+    // Load users early so we can perform case-insensitive comparisons for permissions
+    const users = await loadUsers();
+
+    // If the route targets the canonical 'admin' identifier, map it to the
+    // actual ADMIN account stored in users (helps when the stored admin username differs).
+    const targetUsername = (String(username).toLowerCase() === 'admin')
+      ? (Object.keys(users || {}).find(k => String(users[k]?.role || '').toUpperCase() === 'ADMIN') || username)
+      : username;
+
+    const resolvedUserKey = findUserKey(users, targetUsername);
+    if (!users || !resolvedUserKey || !users[resolvedUserKey]) {
+      return res.status(404).json({ error: 'user_not_found' });
     }
 
-    const users = await loadUsers();
-    if (!users || !users[username]) {
-      return res.status(404).json({ error: 'user_not_found' });
+    // Check if user is setting their own key or if requester is an admin
+    const isAdmin = String(requestUser?.role || 'USER').toUpperCase() === 'ADMIN';
+    const requestUserKey = requestUser ? findUserKey(users, requestUser.username) : null;
+    if (!requestUser || (requestUserKey !== resolvedUserKey && !isAdmin)) {
+      return res.status(403).json({ error: 'cannot_set_other_users_admin_key' });
     }
 
     // Hash the admin key
     // 2026: bcrypt cost factor 12
     const keyHash = await bcrypt.hash(String(adminKey), 12);
-    users[username].adminKeyHash = keyHash;
-    users[username].adminKeyEnc = encryptText(String(adminKey));
-    users[username].adminKeySet = true;
+    users[resolvedUserKey].adminKeyHash = keyHash;
+    users[resolvedUserKey].adminKeyEnc = encryptText(String(adminKey));
+    users[resolvedUserKey].adminKeySet = true;
 
     await saveUsers(users);
     return res.json({ success: true, message: 'Admin key set successfully' });
@@ -1328,18 +1367,20 @@ app.delete('/api/users/:username/admin-key', requireAuth, async (req, res) => {
     }
 
     const users = await loadUsers();
-    if (!users || !users[username]) {
+    const userKey = findUserKey(users, username);
+    // Support canonical 'admin' path -> locate the ADMIN role user if needed
+    const resolvedUserKey = userKey || (String(username).toLowerCase() === 'admin' ? Object.keys(users || {}).find(k => String(users[k]?.role || '').toUpperCase() === 'ADMIN') : null);
+    if (!users || !resolvedUserKey || !users[resolvedUserKey]) {
       return res.status(404).json({ error: 'user_not_found' });
     }
-
-    delete users[username].adminKeyHash;
-    delete users[username].adminKeyEnc;
-    users[username].adminKeySet = false;
+    delete users[resolvedUserKey].adminKeyHash;
+    delete users[resolvedUserKey].adminKeyEnc;
+    users[resolvedUserKey].adminKeySet = false;
 
     await saveUsers(users);
 
     // Clear verification if it's for this user
-    if (req.session?.adminKeyVerifiedUsername === username) {
+    if (req.session?.adminKeyVerifiedUsername === username || req.session?.adminKeyVerifiedUsername && String(req.session.adminKeyVerifiedUsername).toLowerCase() === String(username).toLowerCase()) {
       req.session.adminKeyVerified = false;
       req.session.adminKeyVerifiedAt = null;
       req.session.adminKeyVerifiedUsername = null;
@@ -1363,11 +1404,12 @@ app.post('/api/users/:username/verify-admin-key', requireAuth, async (req, res) 
     }
 
     const users = await loadUsers();
-    if (!users || !users[username]) {
+    const userKey = findUserKey(users, username);
+    if (!users || !userKey || !users[userKey]) {
       return res.status(404).json({ error: 'user_not_found' });
     }
 
-    const user = users[username];
+    const user = users[userKey];
 
     // Check if user has admin key set
     if (!user.adminKeyHash) {
@@ -1421,7 +1463,8 @@ app.get('/api/security/admin-key/status', requireAuth, async (req, res) => {
     }
 
     const users = await loadUsers();
-    const user = users?.[username];
+    const userKey = findUserKey(users, username);
+    const user = userKey ? users[userKey] : null;
     if (!user) return res.status(404).json({ error: 'user_not_found' });
 
     const hasKey = !!user.adminKeyHash;
@@ -1447,7 +1490,8 @@ app.post('/api/security/admin-key/set', requireAuth, async (req, res) => {
     if (!trimmed) return res.status(400).json({ error: 'admin_key_required' });
 
     const users = await loadUsers();
-    const user = users?.[username];
+    const userKey = findUserKey(users, username);
+    const user = userKey ? users[userKey] : null;
     if (!user) return res.status(404).json({ error: 'user_not_found' });
 
     user.adminKeyHash = await bcrypt.hash(trimmed, 12);
@@ -1488,7 +1532,8 @@ app.post('/api/security/admin-key/verify', requireAuth, async (req, res) => {
     }
 
     const users = await loadUsers();
-    const user = users?.[username];
+    const userKey = findUserKey(users, username);
+    const user = userKey ? users[userKey] : null;
     if (!user) return res.status(404).json({ error: 'user_not_found' });
     if (!user.adminKeyHash) return res.status(400).json({ error: 'admin_key_not_set' });
 
@@ -1520,7 +1565,8 @@ app.post('/api/security/admin-key/emergency-clear', requireAuth, async (req, res
     if (!username) return res.status(401).json({ error: 'not authenticated' });
 
     const users = await loadUsers();
-    const user = users?.[username];
+    const userKey = findUserKey(users, username);
+    const user = userKey ? users[userKey] : null;
     if (!user) return res.status(404).json({ error: 'user_not_found' });
 
     delete user.adminKeyHash;
@@ -1554,7 +1600,8 @@ app.post('/api/security/admin-key/view', requireAuth, async (req, res) => {
     if (!password) return res.status(400).json({ error: 'password_required' });
 
     const users = await loadUsers();
-    const user = users?.[username];
+    const userKey = findUserKey(users, username);
+    const user = userKey ? users[userKey] : null;
     if (!user) return res.status(404).json({ error: 'user_not_found' });
 
     const ok = await bcrypt.compare(String(password), user.passwordHash);
@@ -1730,7 +1777,8 @@ app.post('/auth/login', async (req, res) => {
   }
 
   const users = await loadUsers();
-  const user = users[username];
+  const userKey = findUserKey(users, username);
+  const user = userKey ? users[userKey] : null;
 
   // BYPASSED — admin key gate disabled
   console.log('Login attempt for:', username);
@@ -1877,9 +1925,17 @@ app.post('/auth/setup', async (req, res) => {
 
   try {
     const hash = await bcrypt.hash(password, 10);
+    // Ensure we don't create conflicting usernames differing only in case
+    const existingKey = findUserKey(users, username);
+    if (existingKey) {
+      // Username collision - return existing user info
+      return res.status(400).json({ error: 'user_exists' });
+    }
+
     users[username] = { name: name || 'Admin', email: email || '', passwordHash: hash };
     await saveUsers(users);
-    return res.json({ success: true, user: { username, name: users[username].name, email: users[username].email } });
+    const storedKey = findUserKey(users, username) || username;
+    return res.json({ success: true, user: { username: storedKey, name: users[storedKey].name, email: users[storedKey].email } });
   } catch (e) {
     console.error('setup error', e);
     return res.status(500).json({ error: 'internal' });
@@ -3301,7 +3357,8 @@ app.get('/api/settings/security', async (req, res) => {
 
     const username = currentUser?.username;
     const users = await loadUsers();
-    const user = users?.[username];
+    const userKey = findUserKey(users, username);
+    const user = userKey ? users[userKey] : null;
     const hasUserKey = !!user?.adminKeyHash;
     return res.json({ hasEntryKey: true, hasUserKey, mode: hasUserKey ? 'per_user' : 'per_user_not_set' });
   } catch (e) {
@@ -3388,7 +3445,8 @@ app.post('/api/settings/verify-my-key', requireAuth, async (req, res) => {
     }
 
     const users = await loadUsers();
-    const user = users?.[username];
+    const userKey = findUserKey(users, username);
+    const user = userKey ? users[userKey] : null;
     if (!user) return res.status(404).json({ success: false, error: 'user_not_found' });
     if (!user.adminKeyHash) return res.status(400).json({ success: false, error: 'admin_key_not_set' });
 
@@ -3437,7 +3495,8 @@ app.post('/api/settings/security/logs', requireAdmin, async (req, res) => {
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
     const users = await loadUsers();
-    const user = users[username];
+    const userKey = findUserKey(users, username);
+    const user = userKey ? users[userKey] : null;
     if (!user) return res.status(401).json({ error: 'invalid user' });
     const ok = await bcrypt.compare(String(password), user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'invalid password' });
@@ -3464,8 +3523,9 @@ app.post('/api/settings/security/key-view', requireAdmin, async (req, res) => {
 
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
-    const users = await loadUsers();
-    const user = users[username];
+  const users = await loadUsers();
+  const userKey = findUserKey(users, username);
+  const user = userKey ? users[userKey] : null;
     if (!user) return res.status(401).json({ error: 'invalid user' });
     const ok = await bcrypt.compare(String(password), user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'invalid password' });
