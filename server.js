@@ -1898,12 +1898,22 @@ app.post('/auth/login', async (req, res) => {
   try {
     const keyToken = String(req.body?.keyToken || '').trim();
     if (keyToken) {
-      const decoded = jwt.verify(keyToken, JWT_SECRET);
-      if (decoded && decoded.purpose === 'admin_key_gate') {
-        req.session.adminKeyVerified = true;
-        req.session.adminKeyVerifiedAt = Date.now();
-        req.session.adminKeyVerifiedUsername = username;
+      console.log('Login: keyToken present in login payload — verifying');
+      try {
+        const decoded = jwt.verify(keyToken, JWT_SECRET);
+        if (decoded && decoded.purpose === 'admin_key_gate') {
+          req.session.adminKeyVerified = true;
+          req.session.adminKeyVerifiedAt = Date.now();
+          req.session.adminKeyVerifiedUsername = username;
+          console.log('Login: keyToken valid; session.adminKeyVerified set for', username);
+        } else {
+          console.log('Login: keyToken decoded but purpose mismatch');
+        }
+      } catch (ve) {
+        console.warn('Login: keyToken verification failed:', ve && ve.message);
       }
+    } else {
+      console.log('Login: no keyToken provided in login payload');
     }
   } catch (e) {
     // Token invalid or expired - ignore and do not mark verified
@@ -1913,6 +1923,7 @@ app.post('/auth/login', async (req, res) => {
   // Ensure session is saved before returning response
   return req.session.save((err) => {
     if (err) console.error('Session save error (login):', err);
+    console.log('Login response: session.adminKeyVerified=', req.session.adminKeyVerified, 'verifiedFor=', req.session.adminKeyVerifiedUsername, 'user=', req.session.user && req.session.user.username);
     return res.json({ success: true, token, user: req.session.user });
   });
 });
