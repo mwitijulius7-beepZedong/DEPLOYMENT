@@ -295,7 +295,8 @@ async function viewCurrentKey() {
     if (!password) return;
 
     try {
-        // Use per-user admin-key view endpoint (reads the current user's key)
+        // View the current user's (Admin when logged in as Admin) entry key via the security endpoint
+        // Server exposes /api/security/admin-key/view which validates the login password and returns the key.
         const response = await fetch('/api/security/admin-key/view', {
             method: 'POST',
             headers: getAuthHeaders(),
@@ -321,8 +322,25 @@ async function clearKey() {
         return;
     }
 
-    document.getElementById('admin-entry-key').value = '';
-    await saveSecuritySettings();
+    // Clear the Admin account's key directly
+    try {
+        const response = await fetch(`/api/users/${encodeURIComponent('Admin')}/admin-key`, {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+            alert('Admin entry key cleared successfully.');
+            // After clearing the Admin key, force re-login
+            window.location.href = '/login.html';
+        } else {
+            alert('Failed to clear admin key: ' + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        console.error('Error clearing admin key:', err);
+        alert('Network error while clearing admin key.');
+    }
 }
 
 async function saveNotificationSettings() {
