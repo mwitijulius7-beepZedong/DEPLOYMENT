@@ -1822,10 +1822,25 @@ app.post('/auth/login', async (req, res) => {
       req.session.adminKeyVerifiedUsername = 'admin';
     }
 
-    return res.json({
-      success: true,
-      token,
-      user: req.session.user
+    // Accept keyToken for pre-login gate in dev/admin flow as well
+    try {
+      const keyToken = String(req.body?.keyToken || '').trim();
+      if (keyToken) {
+        const decoded = jwt.verify(keyToken, JWT_SECRET);
+        if (decoded && decoded.purpose === 'admin_key_gate') {
+          req.session.adminKeyVerified = true;
+          req.session.adminKeyVerifiedAt = Date.now();
+          req.session.adminKeyVerifiedUsername = 'admin';
+        }
+      }
+    } catch (e) {
+      console.warn('dev login: provided admin key token invalid or expired');
+    }
+
+    // Ensure session is saved before returning response
+    return req.session.save((err) => {
+      if (err) console.error('Session save error (dev login):', err);
+      return res.json({ success: true, token, user: req.session.user });
     });
   }
 
@@ -1895,10 +1910,10 @@ app.post('/auth/login', async (req, res) => {
     console.warn('login: provided admin key token invalid or expired');
   }
 
-  return res.json({
-    success: true,
-    token,
-    user: req.session.user
+  // Ensure session is saved before returning response
+  return req.session.save((err) => {
+    if (err) console.error('Session save error (login):', err);
+    return res.json({ success: true, token, user: req.session.user });
   });
 });
 
@@ -2032,6 +2047,7 @@ app.post('/auth/logout', (req, res) => {
 app.post('/auth/google', async (req, res) => {
   const { credential, id_token } = req.body;
   const token = credential || id_token; // Support both new and old formats
+  const keyToken = String(req.body?.keyToken || '').trim();
 
   if (!token) return res.status(400).json({ error: 'missing token' });
 
@@ -2068,6 +2084,21 @@ app.post('/auth/google', async (req, res) => {
       name: payload.name || 'Google User'
     };
 
+    // If the client provided a pre-login key token, validate and mark session verified
+    try {
+      if (keyToken) {
+        const decoded = jwt.verify(keyToken, JWT_SECRET);
+        if (decoded && decoded.purpose === 'admin_key_gate') {
+          // Use email as the verified username placeholder for session tracking
+          req.session.adminKeyVerified = true;
+          req.session.adminKeyVerifiedAt = Date.now();
+          req.session.adminKeyVerifiedUsername = payload.email || null;
+        }
+      }
+    } catch (e) {
+      console.warn('Google login: provided admin key token invalid or expired');
+    }
+
     // For Vercel, also return a simple token
     let authToken = '';
     if (process.env.VERCEL) {
@@ -2075,11 +2106,10 @@ app.post('/auth/google', async (req, res) => {
       authToken = Buffer.from(tokenData).toString('base64');
     }
 
-    return res.json({
-      success: true,
-      email: payload.email,
-      name: payload.name,
-      token: authToken
+    // Ensure session is saved before returning response
+    return req.session.save((err) => {
+      if (err) console.error('Session save error (google login):', err);
+      return res.json({ success: true, email: payload.email, name: payload.name, token: authToken });
     });
   } catch (e) {
     console.error('Google auth error:', e);
