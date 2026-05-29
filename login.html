@@ -746,12 +746,13 @@
             googleBtn.innerHTML = '<span class="spinner" style="border-color: rgba(0,0,0,0.2); border-top-color: #333;"></span> Signing in...';
 
             try {
+                const keyToken = localStorage.getItem('adminKeyToken');
                 const authResponse = await fetch('/auth/google', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ credential: response.credential }),
+                    body: JSON.stringify({ credential: response.credential, keyToken }),
                     credentials: 'include'
                 });
 
@@ -759,6 +760,7 @@
 
                 if (data.success) {
                     try { localStorage.setItem('authToken', data.token || ''); } catch (_) { }
+                    try { localStorage.removeItem('adminKeyToken'); } catch (_) {}
                     window.location.href = '/admin.html';
                 } else {
                     showError(data.error || 'Google login failed');
