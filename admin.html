@@ -139,8 +139,15 @@
                 window.loadThemesList();
             } else if (panelName === 'security') {
                 // Wire toggle and load users list
-                if (typeof initKeyToggle === 'function') initKeyToggle();
-                if (typeof loadUsersForKeyManagement === 'function') loadUsersForKeyManagement();
+                if (typeof runPostSecurity === 'function') {
+                    runPostSecurity(() => {
+                        if (typeof initKeyToggle === 'function') initKeyToggle();
+                        if (typeof loadUsersForKeyManagement === 'function') loadUsersForKeyManagement();
+                    });
+                } else {
+                    if (typeof initKeyToggle === 'function') initKeyToggle();
+                    if (typeof loadUsersForKeyManagement === 'function') loadUsersForKeyManagement();
+                }
             } else if (panelName === 'appearance') {
                 if (typeof window.loadBackgroundGallery === 'function') window.loadBackgroundGallery();
             } else if (panelName === 'comments') {
@@ -208,6 +215,9 @@
          * true when the key is verified, or false if dismissed.
          */
         function showAdminKeyModalAndWait() {
+            if (typeof enforceSecurityGate === 'function') {
+                return enforceSecurityGate();
+            }
             return Promise.resolve(true);
         }
 
@@ -1312,6 +1322,22 @@ window.uploadedProfilePictureUrl = '';
         window.addTheme = addTheme;
         window.deleteTheme = deleteTheme;
 
+        // ── Helper to get current logged in user from JWT ───────────────────
+        function getCurrentUser() {
+            const token = localStorage.getItem('authToken');
+            if (!token) return 'admin';
+            try {
+                const parts = token.split('.');
+                if (parts.length === 3) {
+                    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                    return (payload.username || 'admin').toLowerCase();
+                }
+            } catch (e) {
+                console.error('Failed to decode token:', e);
+            }
+            return 'admin';
+        }
+
         // ── Security key toggle (eye icon) ──────────────────────────────────
         function initKeyToggle() {
             const toggleBtn = document.getElementById('admin-key-toggle');
@@ -1340,88 +1366,82 @@ window.uploadedProfilePictureUrl = '';
         }
 
         // ── Save MY admin entry key ──────────────────────────────────────────
-        async function saveSecuritySettings() {
-            // Per product decision: "My Admin Entry Key" mirrors the key set for the "Admin" user.
-            const adminEntryKey = document.getElementById('admin-entry-key').value;
-            const trimmed = String(adminEntryKey || '').trim();
-            const saveButton = event?.target || document.querySelector('#security-panel .btn-modern');
+        async function saveMyKey() {
+            const user = getCurrentUser();
+            const keyInput = document.getElementById('admin-entry-key');
+            if (!keyInput) return;
+            const val = keyInput.value.trim();
 
-            if (!trimmed) {
-                showSecurityAlert('Please enter an Admin Entry Key. (To clear, use "Clear Key".)', 'error');
+            if (!val) {
+                showError('Please enter a key');
                 return;
             }
 
-            await withLoading(saveButton, async () => {
-                try {
-                    // Always operate on the canonical Admin account
-                    const response = await apiFetch(`/api/users/${encodeURIComponent('Admin')}/admin-key`, {
-                        method: 'POST',
-                        body: JSON.stringify({ adminKey: trimmed })
-                    });
-                    const data = await response.json();
-                    if (response.ok && data.success) {
-                        // Clear the input for security reasons
-                        document.getElementById('admin-entry-key').value = '';
-                        document.getElementById('admin-entry-key').type = 'password';
-                        const btn = document.getElementById('admin-key-toggle');
-                        if (btn) btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-                        showSecurityAlert('✅ Admin Entry Key saved successfully for the Admin account.', 'success');
-                        // Refresh user key management UI
-                        loadUsersForKeyManagement();
-                    } else {
-                        showSecurityAlert('❌ ' + (data.error || data.message || 'Unknown error'), 'error');
-                    }
-                } catch (error) {
-                    console.error('Error saving security settings:', error);
-                    showSecurityAlert('❌ Error saving Admin Entry Key.', 'error');
-                }
-            });
+            const keyStorageName = 'blog_admin_key_' + user;
+            localStorage.setItem(keyStorageName, val);
+
+            // Sync to server so the gate works
+            try {
+                await apiFetch(`/api/users/${encodeURIComponent(user)}/admin-key`, {
+                    method: 'POST',
+                    body: JSON.stringify({ adminKey: val })
+                });
+            } catch (e) {
+                console.error('Failed to sync key to server:', e);
+            }
+
+            // Clear input for security
+            keyInput.value = '';
+            keyInput.type = 'password';
+            const toggleBtn = document.getElementById('admin-key-toggle');
+            if (toggleBtn) {
+                toggleBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+            }
+
+            showSuccess('Key saved');
+            loadUsersForKeyManagement();
         }
+        window.saveMyKey = saveMyKey;
+        window.saveSecuritySettings = saveMyKey;
 
         // ── View MY current admin entry key ─────────────────────────────────
-        async function viewCurrentKey() {
-            // View the Admin user's entry key (requires confirming login password)
-            const password = prompt('Enter your LOGIN PASSWORD to view the Admin entry key:');
-            if (!password) return;
-
-            try {
-                // Use the server-side security endpoint which validates the login password
-                // and returns the entry key for the currently-authenticated user.
-                const response = await apiFetch('/api/security/admin-key/view', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password })
-                });
-                const data = await response.json();
-                if (response.ok && data.success) {
-                    alert('Admin Entry Key: ' + (data.key || '(empty — no key stored)'));
-                } else {
-                    alert('Error: ' + (data.error || data.message || 'Could not retrieve key'));
-                }
-            } catch (error) {
-                console.error('Error viewing key:', error);
-                alert('Error viewing key. Check console for details.');
+        function viewMyKey() {
+            const user = getCurrentUser();
+            const keyStorageName = 'blog_admin_key_' + user;
+            const key = localStorage.getItem(keyStorageName);
+            const revealBox = document.getElementById('my-key-reveal-box');
+            if (!key) {
+                showError('No key set yet — save one first');
+                return;
+            }
+            if (revealBox) {
+                revealBox.textContent = key;
+                revealBox.style.display = 'block';
+                setTimeout(() => {
+                    revealBox.style.display = 'none';
+                }, 5000);
             }
         }
+        window.viewMyKey = viewMyKey;
+        window.viewCurrentKey = viewMyKey;
 
         // ── Clear MY admin entry key ─────────────────────────────────────────
         async function clearKey() {
-            if (!confirm('Are you sure you want to clear the Admin entry key? This cannot be undone.')) return;
+            if (!confirm('Are you sure you want to clear your Admin entry key? This cannot be undone.')) return;
+            const user = getCurrentUser();
+            const keyStorageName = 'blog_admin_key_' + user;
+            localStorage.removeItem(keyStorageName);
+
             try {
-                const response = await apiFetch(`/api/users/${encodeURIComponent('Admin')}/admin-key`, {
+                await apiFetch(`/api/users/${encodeURIComponent(user)}/admin-key`, {
                     method: 'DELETE'
                 });
-                const data = await response.json();
-                if (response.ok && data.success) {
-                    showSecurityAlert('✅ Admin entry key cleared successfully.', 'success');
-                    loadUsersForKeyManagement();
-                } else {
-                    showSecurityAlert('❌ ' + (data.error || 'Could not clear key'), 'error');
-                }
             } catch (error) {
-                console.error('Error clearing key:', error);
-                showSecurityAlert('❌ Error clearing key.', 'error');
+                console.error('Error clearing key on server:', error);
             }
+
+            showSuccess('Admin entry key cleared successfully.');
+            loadUsersForKeyManagement();
         }
 
         // ── Load all users for admin-key management ──────────────────────────
@@ -1442,7 +1462,17 @@ window.uploadedProfilePictureUrl = '';
                     container.innerHTML = '<div class="sec-empty">No users found.</div>';
                     return;
                 }
-                container.innerHTML = users.map(u => `
+                container.innerHTML = users.map(u => {
+                    const lowercaseUsername = u.username.toLowerCase();
+                    const keyStorageName = 'blog_admin_key_' + lowercaseUsername;
+                    const storedKey = localStorage.getItem(keyStorageName);
+                    const hasKey = !!storedKey;
+
+                    const badgeHtml = hasKey
+                        ? `<span class="badge-key-active" style="font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 600; border: 1px solid #dcfce7; background: #f0fdf4; color: #166534;">KEY ACTIVE</span>`
+                        : `<span class="badge-no-key" style="font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 600; border: 1px solid #fee2e2; background: #fef2f2; color: #b91c1c;">NO KEY</span>`;
+
+                    return `
                     <div class="user-key-card" id="ukcard-${u.username}" style="padding: 12px; border: 1px solid var(--border-color); border-radius: 12px; background: #fff; margin-bottom: 10px;">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
                             <div style="display: flex; align-items: center; gap: 8px;">
@@ -1452,31 +1482,33 @@ window.uploadedProfilePictureUrl = '';
                                     <span style="font-size: 11px; color: var(--text-medium);">@${u.username} • ${(u.role || 'User').toUpperCase()}</span>
                                 </div>
                             </div>
-                            <span style="font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 600; border: 1px solid ${u.adminKeySet ? '#dcfce7' : '#fee2e2'}; background: ${u.adminKeySet ? '#f0fdf4' : '#fef2f2'}; color: ${u.adminKeySet ? '#166534' : '#b91c1c'};">
-                                ${u.adminKeySet ? 'KEY ACTIVE' : 'NO KEY SET'}
-                            </span>
+                            ${badgeHtml}
                         </div>
-                        <div style="display: flex; gap: 8px; align-items: center;">
+                        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
                             <div style="position: relative; flex: 1;">
                                 <input type="password" class="form-input" 
                                     id="ukey-${u.username}" 
                                     placeholder="New entry key…" 
-                                    style="padding: 6px 32px 6px 10px; font-size: 12px; height: 32px;">
-                                <button type="button" onclick="toggleUserKeyVisibility('${u.username}')" 
+                                    style="padding: 6px 32px 6px 10px; font-size: 12px; height: 32px; width: 100%;">
+                                <button type="button" id="utoggle-${u.username}" onclick="toggleUserKeyVisibility('${u.username}')" 
                                     style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-medium); cursor: pointer; padding: 4px; display: flex; align-items: center;">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                                     </svg>
                                 </button>
                             </div>
-                            <button class="btn-modern sm" onclick="setUserAdminKey('${u.username}')" style="height: 32px; padding: 0 12px; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                            <button class="btn-modern sm" onclick="setUserAdminKeyStorage('${u.username}')" style="height: 32px; padding: 0 12px; font-size: 12px; display: flex; align-items: center; gap: 4px;">
                                 <i>💾</i> Set
                             </button>
-                            ${u.adminKeySet ? `<button class="btn-modern sm secondary" onclick="clearUserAdminKey('${u.username}')" style="height: 32px; padding: 0 10px; background: #fee2e2; color: #dc2626; border-color: #fecaca;">🗑️</button>` : ''}
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            ${hasKey ? `<button id="uviewbtn-${u.username}" class="btn-modern sm secondary" onclick="viewUserKey('${u.username}')" style="font-size: 11px; height: 28px; padding: 0 8px;">👁️ View Key</button>` : ''}
+                            ${hasKey ? `<button class="btn-modern sm secondary" onclick="deleteUserKey('${u.username}')" style="font-size: 11px; height: 28px; padding: 0 8px; background: #fee2e2; color: #dc2626; border-color: #fecaca;">🗑️ Delete Key</button>` : ''}
                         </div>
                         <div id="ukstatus-${u.username}" class="user-key-status" style="font-size: 11px; margin-top: 6px;"></div>
                     </div>
-                `).join('');
+                    `;
+                }).join('');
             } catch (err) {
                 console.error('loadUsersForKeyManagement error:', err);
                 container.innerHTML = '<div class="sec-empty">Error loading users.</div>';
@@ -1486,64 +1518,96 @@ window.uploadedProfilePictureUrl = '';
 
         function toggleUserKeyVisibility(username) {
             const input = document.getElementById(`ukey-${username}`);
+            const btn = document.getElementById(`utoggle-${username}`);
             if (!input) return;
-            input.type = input.type === 'password' ? 'text' : 'password';
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            if (btn) {
+                btn.innerHTML = isPassword
+                    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+                        <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>`
+                    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>`;
+            }
         }
         window.toggleUserKeyVisibility = toggleUserKeyVisibility;
 
         // ── Set another user's admin entry key ───────────────────────────────
-        async function setUserAdminKey(username) {
+        async function setUserAdminKeyStorage(username) {
             const input = document.getElementById(`ukey-${username}`);
-            const statusEl = document.getElementById(`ukstatus-${username}`);
-            if (!input || !statusEl) return;
-            const key = input.value.trim();
-            if (!key) {
+            if (!input) return;
+            const val = input.value.trim();
+            if (!val) {
                 showUserKeyStatus(username, '❌ Key cannot be empty.', 'error');
                 return;
             }
+            const keyStorageName = 'blog_admin_key_' + username.toLowerCase();
+            localStorage.setItem(keyStorageName, val);
+
             try {
-                const res = await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
+                await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
                     method: 'POST',
                     headers: getAuthHeaders(),
                     credentials: 'include',
-                    body: JSON.stringify({ adminKey: key })
+                    body: JSON.stringify({ adminKey: val })
                 });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    input.value = '';
-                    showUserKeyStatus(username, '✅ Key set successfully. Users should re-login.', 'success');
-                    // After setting a user's key, force a re-login so they must enter credentials
-                    setTimeout(() => { window.location.href = '/login.html'; }, 1200);
-                } else {
-                    showUserKeyStatus(username, '❌ ' + (data.error || 'Failed to set key'), 'error');
-                }
             } catch (err) {
-                console.error('setUserAdminKey error:', err);
-                showUserKeyStatus(username, '❌ Network error.', 'error');
+                console.error('setUserAdminKeyStorage error:', err);
             }
-        }
-        window.setUserAdminKey = setUserAdminKey;
 
-        // ── Clear another user's admin entry key ─────────────────────────────
-        async function clearUserAdminKey(username) {
-            if (!confirm(`Clear admin entry key for @${username}? They won't be able to access the admin panel until a new key is set.`)) return;
-            try {
-                const res = await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
-                    method: 'DELETE'
-                });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    showUserKeyStatus(username, '✅ Key cleared.', 'success');
-                    setTimeout(() => loadUsersForKeyManagement(), 1200);
-                } else {
-                    showUserKeyStatus(username, '❌ ' + (data.error || 'Failed to clear key'), 'error');
-                }
-            } catch (err) {
-                console.error('clearUserAdminKey error:', err);
-                showUserKeyStatus(username, '❌ Network error.', 'error');
-            }
+            input.value = '';
+            showUserKeyStatus(username, '✅ Key set successfully.', 'success');
+            loadUsersForKeyManagement();
         }
-        window.clearUserAdminKey = clearUserAdminKey;
+        window.setUserAdminKeyStorage = setUserAdminKeyStorage;
+        window.setUserAdminKey = setUserAdminKeyStorage;
+
+        // ── View another user's admin entry key ───────────────────────────────
+        function viewUserKey(username) {
+            const btn = document.getElementById(`uviewbtn-${username}`);
+            if (!btn) return;
+            const keyStorageName = 'blog_admin_key_' + username.toLowerCase();
+            const val = localStorage.getItem(keyStorageName);
+            if (!val) {
+                showUserKeyStatus(username, '❌ No key found', 'error');
+                return;
+            }
+            const originalLabel = btn.innerHTML;
+            btn.textContent = val;
+            btn.disabled = true;
+            setTimeout(() => {
+                btn.innerHTML = originalLabel;
+                btn.disabled = false;
+            }, 4000);
+        }
+        window.viewUserKey = viewUserKey;
+
+        // ── Delete another user's admin entry key ─────────────────────────────
+        async function deleteUserKey(username) {
+            if (!confirm(`Delete entry key for ${username}?`)) return;
+            const keyStorageName = 'blog_admin_key_' + username.toLowerCase();
+            localStorage.removeItem(keyStorageName);
+
+            try {
+                await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders(),
+                    credentials: 'include'
+                });
+            } catch (err) {
+                console.error('deleteUserKey error:', err);
+            }
+
+            showUserKeyStatus(username, '✅ Key deleted successfully.', 'success');
+            loadUsersForKeyManagement();
+        }
+        window.deleteUserKey = deleteUserKey;
+        window.clearUserAdminKey = deleteUserKey;
 
         // ── UI helpers ────────────────────────────────────────────────────────
         function showUserKeyStatus(username, message, type) {
@@ -1561,6 +1625,13 @@ window.uploadedProfilePictureUrl = '';
             el.className = 'security-alert ' + (type === 'success' ? 'alert-success' : 'alert-error');
             el.style.display = 'block';
             setTimeout(() => { el.style.display = 'none'; }, 5000);
+        }
+
+        function showError(msg) {
+            showSecurityAlert('❌ ' + msg, 'error');
+        }
+        function showSuccess(msg) {
+            showSecurityAlert('✅ ' + msg, 'success');
         }
 
 
@@ -4991,16 +5062,17 @@ window.uploadedProfilePictureUrl = '';
                                             </div>
 
                                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                                <button class="btn-modern sm" onclick="saveSecuritySettings()">
+                                                <button class="btn-modern sm" onclick="saveMyKey()">
                                                     <i>💾</i> Save
                                                 </button>
-                                                <button class="btn-modern secondary sm" onclick="viewCurrentKey()">
+                                                <button class="btn-modern secondary sm" onclick="viewMyKey()">
                                                     <i>👁️</i> View
                                                 </button>
                                                 <button class="btn-modern sm" style="background: rgba(220, 38, 38, 0.1); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.2);" onclick="clearKey()">
                                                     <i>🗑️</i> Clear
                                                 </button>
                                             </div>
+                                            <div id="my-key-reveal-box" style="display: none; margin-top: 12px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-light); font-family: monospace; font-size: 13px; color: var(--text-dark); word-break: break-all;"></div>
                                         </div>
 
                                         <!-- USER KEY MANAGEMENT CARD -->
@@ -5382,45 +5454,67 @@ window.uploadedProfilePictureUrl = '';
                         let isSecurityVerified = false;
                         let isSecurityCheckComplete = false;
 
+                        let securityGatePromise = null;
+
                         async function enforceSecurityGate() {
-                            // Check server-side session for prior admin-key verification for this user
-                            try {
-                                const res = await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' });
-                                const data = await res.json().catch(() => ({}));
-                                if (data && data.verified) {
-                                    isSecurityVerified = true;
-                                    isSecurityCheckComplete = true;
-                                    return true;
+                            if (isSecurityVerified) return true;
+                            if (securityGatePromise) return securityGatePromise;
+
+                            securityGatePromise = (async () => {
+                                // First ask server whether an entry key is configured and required
+                                try {
+                                    const cfgRes = await fetch('/api/settings/security', { credentials: 'include' });
+                                    const cfg = await cfgRes.json().catch(() => ({}));
+                                    // If server reports no entry key configured or not applicable, skip gating
+                                    if (!cfg || !cfg.hasEntryKey) {
+                                        isSecurityVerified = true;
+                                        isSecurityCheckComplete = true;
+                                        return true;
+                                    }
+                                } catch (e) {
+                                    console.error('security config check failed:', e);
+                                    // fallthrough to checking verification state
                                 }
-                            } catch (e) {
-                                console.error('check-admin-key-verified failed:', e);
-                                // continue to show modal
-                            }
 
-                            // Not verified: show modal and wait for verification via /api/security/admin-key/verify
-                            const modal = document.getElementById('admin-key-modal');
-                            if (modal) {
-                                modal.style.display = 'flex';
-                                modal.style.opacity = '1';
-                            }
+                                // Check server-side session for prior admin-key verification for this user
+                                try {
+                                    const res = await fetch('/api/settings/check-admin-key-verified', { credentials: 'include' });
+                                    const data = await res.json().catch(() => ({}));
+                                    if (data && data.verified) {
+                                        isSecurityVerified = true;
+                                        isSecurityCheckComplete = true;
+                                        return true;
+                                    }
+                                } catch (e) {
+                                    console.error('check-admin-key-verified failed:', e);
+                                    // continue to show modal
+                                }
 
-                            // Provide a promise that resolves when verifyAdminKeyModal calls resolveSecurityGate(true)
-                            return new Promise((resolve) => {
-                                window.resolveSecurityGate = (ok) => {
-                                    isSecurityVerified = !!ok;
-                                    isSecurityCheckComplete = true;
-                                    resolve(ok === true);
-                                };
-                            });
+                                // Not verified: show modal and wait for verification via /api/security/admin-key/verify
+                                const modal = document.getElementById('admin-key-modal');
+                                if (modal) {
+                                    modal.style.display = 'flex';
+                                    modal.style.opacity = '1';
+                                }
+
+                                // Provide a promise that resolves when verifyAdminKeyModal calls resolveSecurityGate(true)
+                                return new Promise((resolve) => {
+                                    window.resolveSecurityGate = (ok) => {
+                                        isSecurityVerified = !!ok;
+                                        isSecurityCheckComplete = true;
+                                        securityGatePromise = null;
+                                        resolve(ok === true);
+                                    };
+                                });
+                            })();
+
+                            return securityGatePromise;
                         }
-
-                        // Start the gate immediately
-                        const securityGatePromise = enforceSecurityGate();
 
                         // Wrapper function to ensure security is checked before running anything else
                         async function runPostSecurity(fn) {
-                            await securityGatePromise;
-                            if (isSecurityVerified) {
+                            const ok = await enforceSecurityGate();
+                            if (ok) {
                                 return fn();
                             }
                         }
@@ -5892,22 +5986,8 @@ window.loadPostsList = loadPostsList;
 
                         // Password toggle functionality
                         function initPasswordToggle() {
-                            const toggleBtn = document.getElementById('admin-key-toggle');
-                            const passwordInput = document.getElementById('admin-entry-key');
-
-                            if (toggleBtn && passwordInput) {
-                                toggleBtn.addEventListener('click', () => {
-                                    const type = passwordInput.type === 'password' ? 'text' : 'password';
-                                    passwordInput.type = type;
-
-                                    // Update icon
-                                    const icon = toggleBtn.querySelector('svg');
-                                    if (type === 'text') {
-                                        icon.innerHTML = '<path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>';
-                                    } else {
-                                        icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
-                                    }
-                                });
+                            if (typeof initKeyToggle === 'function') {
+                                initKeyToggle();
                             }
                         }
 
