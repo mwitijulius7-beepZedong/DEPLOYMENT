@@ -138,15 +138,12 @@
             } else if (panelName === 'themes' && typeof window.loadThemesList === 'function') {
                 window.loadThemesList();
             } else if (panelName === 'security') {
-                // Wire toggle and load users list
                 if (typeof runPostSecurity === 'function') {
                     runPostSecurity(() => {
                         if (typeof initKeyToggle === 'function') initKeyToggle();
-                        if (typeof loadUsersForKeyManagement === 'function') loadUsersForKeyManagement();
                     });
                 } else {
                     if (typeof initKeyToggle === 'function') initKeyToggle();
-                    if (typeof loadUsersForKeyManagement === 'function') loadUsersForKeyManagement();
                 }
             } else if (panelName === 'appearance') {
                 if (typeof window.loadBackgroundGallery === 'function') window.loadBackgroundGallery();
@@ -1399,7 +1396,7 @@ window.uploadedProfilePictureUrl = '';
             }
 
             showSuccess('Key saved');
-            loadUsersForKeyManagement();
+            if (typeof loadUsers === 'function') loadUsers();
         }
         window.saveMyKey = saveMyKey;
         window.saveSecuritySettings = saveMyKey;
@@ -1441,183 +1438,10 @@ window.uploadedProfilePictureUrl = '';
             }
 
             showSuccess('Admin entry key cleared successfully.');
-            loadUsersForKeyManagement();
+            if (typeof loadUsers === 'function') loadUsers();
         }
 
         // ── Load all users for admin-key management ──────────────────────────
-        async function loadUsersForKeyManagement() {
-            const container = document.getElementById('users-admin-keys');
-            if (!container) return;
-            container.innerHTML = '<div class="sec-loading">Loading users…</div>';
-            try {
-                const response = await apiFetch('/api/users');
-
-                if (!response.ok) {
-                    container.innerHTML = '<div class="sec-empty">Could not load users (status ' + response.status + ').</div>';
-                    return;
-                }
-                const data = await response.json();
-                const users = data.users || [];
-                if (!users.length) {
-                    container.innerHTML = '<div class="sec-empty">No users found.</div>';
-                    return;
-                }
-                container.innerHTML = users.map(u => {
-                    const lowercaseUsername = u.username.toLowerCase();
-                    const keyStorageName = 'blog_admin_key_' + lowercaseUsername;
-                    const storedKey = localStorage.getItem(keyStorageName);
-                    const hasKey = !!storedKey;
-
-                    const badgeHtml = hasKey
-                        ? `<span class="badge-key-active" style="font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 600; border: 1px solid #dcfce7; background: #f0fdf4; color: #166534;">KEY ACTIVE</span>`
-                        : `<span class="badge-no-key" style="font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 600; border: 1px solid #fee2e2; background: #fef2f2; color: #b91c1c;">NO KEY</span>`;
-
-                    return `
-                    <div class="user-key-card" id="ukcard-${u.username}" style="padding: 12px; border: 1px solid var(--border-color); border-radius: 12px; background: #fff; margin-bottom: 10px;">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <div style="width: 32px; height: 32px; background: var(--bg-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary-color); font-size: 14px;">${u.username[0].toUpperCase()}</div>
-                                <div style="display: flex; flex-direction: column;">
-                                    <span style="font-weight: 600; font-size: 13px; color: var(--text-dark);">${u.name || u.username}</span>
-                                    <span style="font-size: 11px; color: var(--text-medium);">@${u.username} • ${(u.role || 'User').toUpperCase()}</span>
-                                </div>
-                            </div>
-                            ${badgeHtml}
-                        </div>
-                        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
-                            <div style="position: relative; flex: 1;">
-                                <input type="password" class="form-input" 
-                                    id="ukey-${u.username}" 
-                                    placeholder="New entry key…" 
-                                    style="padding: 6px 32px 6px 10px; font-size: 12px; height: 32px; width: 100%;">
-                                <button type="button" id="utoggle-${u.username}" onclick="toggleUserKeyVisibility('${u.username}')" 
-                                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-medium); cursor: pointer; padding: 4px; display: flex; align-items: center;">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                                    </svg>
-                                </button>
-                            </div>
-                            <button class="btn-modern sm" onclick="setUserAdminKeyStorage('${u.username}')" style="height: 32px; padding: 0 12px; font-size: 12px; display: flex; align-items: center; gap: 4px;">
-                                <i>💾</i> Set
-                            </button>
-                        </div>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            ${hasKey ? `<button id="uviewbtn-${u.username}" class="btn-modern sm secondary" onclick="viewUserKey('${u.username}')" style="font-size: 11px; height: 28px; padding: 0 8px;">👁️ View Key</button>` : ''}
-                            ${hasKey ? `<button class="btn-modern sm secondary" onclick="deleteUserKey('${u.username}')" style="font-size: 11px; height: 28px; padding: 0 8px; background: #fee2e2; color: #dc2626; border-color: #fecaca;">🗑️ Delete Key</button>` : ''}
-                        </div>
-                        <div id="ukstatus-${u.username}" class="user-key-status" style="font-size: 11px; margin-top: 6px;"></div>
-                    </div>
-                    `;
-                }).join('');
-            } catch (err) {
-                console.error('loadUsersForKeyManagement error:', err);
-                container.innerHTML = '<div class="sec-empty">Error loading users.</div>';
-            }
-        }
-        window.loadUsersForKeyManagement = loadUsersForKeyManagement;
-
-        function toggleUserKeyVisibility(username) {
-            const input = document.getElementById(`ukey-${username}`);
-            const btn = document.getElementById(`utoggle-${username}`);
-            if (!input) return;
-            const isPassword = input.type === 'password';
-            input.type = isPassword ? 'text' : 'password';
-            if (btn) {
-                btn.innerHTML = isPassword
-                    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
-                        <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
-                        <line x1="1" y1="1" x2="23" y2="23"/>
-                      </svg>`
-                    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>`;
-            }
-        }
-        window.toggleUserKeyVisibility = toggleUserKeyVisibility;
-
-        // ── Set another user's admin entry key ───────────────────────────────
-        async function setUserAdminKeyStorage(username) {
-            const input = document.getElementById(`ukey-${username}`);
-            if (!input) return;
-            const val = input.value.trim();
-            if (!val) {
-                showUserKeyStatus(username, '❌ Key cannot be empty.', 'error');
-                return;
-            }
-            const keyStorageName = 'blog_admin_key_' + username.toLowerCase();
-            localStorage.setItem(keyStorageName, val);
-
-            try {
-                await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    credentials: 'include',
-                    body: JSON.stringify({ adminKey: val })
-                });
-            } catch (err) {
-                console.error('setUserAdminKeyStorage error:', err);
-            }
-
-            input.value = '';
-            showUserKeyStatus(username, '✅ Key set successfully.', 'success');
-            loadUsersForKeyManagement();
-        }
-        window.setUserAdminKeyStorage = setUserAdminKeyStorage;
-        window.setUserAdminKey = setUserAdminKeyStorage;
-
-        // ── View another user's admin entry key ───────────────────────────────
-        function viewUserKey(username) {
-            const btn = document.getElementById(`uviewbtn-${username}`);
-            if (!btn) return;
-            const keyStorageName = 'blog_admin_key_' + username.toLowerCase();
-            const val = localStorage.getItem(keyStorageName);
-            if (!val) {
-                showUserKeyStatus(username, '❌ No key found', 'error');
-                return;
-            }
-            const originalLabel = btn.innerHTML;
-            btn.textContent = val;
-            btn.disabled = true;
-            setTimeout(() => {
-                btn.innerHTML = originalLabel;
-                btn.disabled = false;
-            }, 4000);
-        }
-        window.viewUserKey = viewUserKey;
-
-        // ── Delete another user's admin entry key ─────────────────────────────
-        async function deleteUserKey(username) {
-            if (!confirm(`Delete entry key for ${username}?`)) return;
-            const keyStorageName = 'blog_admin_key_' + username.toLowerCase();
-            localStorage.removeItem(keyStorageName);
-
-            try {
-                await fetch(`/api/users/${encodeURIComponent(username)}/admin-key`, {
-                    method: 'DELETE',
-                    headers: getAuthHeaders(),
-                    credentials: 'include'
-                });
-            } catch (err) {
-                console.error('deleteUserKey error:', err);
-            }
-
-            showUserKeyStatus(username, '✅ Key deleted successfully.', 'success');
-            loadUsersForKeyManagement();
-        }
-        window.deleteUserKey = deleteUserKey;
-        window.clearUserAdminKey = deleteUserKey;
-
-        // ── UI helpers ────────────────────────────────────────────────────────
-        function showUserKeyStatus(username, message, type) {
-            const el = document.getElementById(`ukstatus-${username}`);
-            if (!el) return;
-            el.textContent = message;
-            el.className = 'user-key-status ' + (type === 'success' ? 'status-success' : 'status-error');
-            setTimeout(() => { el.textContent = ''; el.className = 'user-key-status'; }, 4000);
-        }
-
         function showSecurityAlert(message, type) {
             const el = document.getElementById('security-alert');
             if (!el) { alert(message); return; }
@@ -4392,6 +4216,11 @@ window.uploadedProfilePictureUrl = '';
                                             placeholder="Enter email address" required>
                                     </div>
                                     <div class="form-group">
+                                        <label for="new-admin-key">Admin Entry Key</label>
+                                        <input type="password" id="new-admin-key" class="form-input"
+                                            placeholder="Optional admin key" autocomplete="new-password">
+                                    </div>
+                                    <div class="form-group">
                                         <label for="new-role">Role</label>
                                         <select id="new-role" class="form-input">
                                             <option value="USER">User</option>
@@ -5075,24 +4904,6 @@ window.uploadedProfilePictureUrl = '';
                                             <div id="my-key-reveal-box" style="display: none; margin-top: 12px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-light); font-family: monospace; font-size: 13px; color: var(--text-dark); word-break: break-all;"></div>
                                         </div>
 
-                                        <!-- USER KEY MANAGEMENT CARD -->
-                                        <div class="action-card">
-                                            <div style="display: flex; justify-content: space-between; align-items: start;">
-                                                <div>
-                                                    <h3><i>👥</i> User Management</h3>
-                                                    <p class="section-description" style="font-size: 11px; margin-bottom: 12px;">Manage entry keys for admin users.</p>
-                                                </div>
-                                                <button class="btn-modern secondary sm" onclick="loadUsersForKeyManagement()">
-                                                    <i>🔄</i>
-                                                </button>
-                                            </div>
-                                            
-                                            <div id="users-admin-keys" style="min-height: 100px;">
-                                                <div class="sec-empty" style="font-size: 12px; opacity: 0.6; padding: 20px; text-align: center;">
-                                                    Click <strong>Refresh</strong> to load users.
-                                                </div>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -5466,7 +5277,7 @@ window.uploadedProfilePictureUrl = '';
                                     const cfgRes = await fetch('/api/settings/security', { credentials: 'include' });
                                     const cfg = await cfgRes.json().catch(() => ({}));
                                     // If server reports no entry key configured or not applicable, skip gating
-                                    if (!cfg || !cfg.hasEntryKey) {
+                                    if (!cfg || !cfg.hasEntryKey || cfg.hasUserKey === false) {
                                         isSecurityVerified = true;
                                         isSecurityCheckComplete = true;
                                         return true;
@@ -6066,6 +5877,7 @@ window.loadPostsList = loadPostsList;
                             const password = document.getElementById('new-password').value.trim();
                             const name = document.getElementById('new-name').value.trim();
                             const email = document.getElementById('new-email').value.trim();
+                            const adminKey = document.getElementById('new-admin-key').value.trim();
                             const role = document.getElementById('new-role').value;
 
                             if (!username || !password || !name || !email) {
@@ -6078,11 +5890,14 @@ window.loadPostsList = loadPostsList;
                                 const token = localStorage.getItem('authToken');
                                 console.log('Creating user with token:', token ? 'Token found' : 'No token found');
 
+                                const body = { username, password, name, email, role };
+                                if (adminKey) body.adminKey = adminKey;
+
                                 const response = await fetch('/api/users', {
                                     method: 'POST',
                                     headers: headers,
                                     credentials: 'include',
-                                    body: JSON.stringify({ username, password, name, email, role })
+                                    body: JSON.stringify(body)
                                 });
 
                                 console.log('Response status:', response.status);
@@ -6157,7 +5972,7 @@ window.loadPostsList = loadPostsList;
                         // Users: load and create
 
                         async function loadUsers() {
-                            const container = document.getElementById('users-admin-keys') || document.getElementById('users-list');
+                            const container = document.getElementById('users-list');
                             if (container) {
                                 container.innerHTML = '<div style="padding:12px; color:var(--text-medium);">Loading users…</div>';
                             }
@@ -6173,34 +5988,6 @@ window.loadPostsList = loadPostsList;
                                 }
 
                                 const users = Array.isArray(data.users) ? data.users : [];
-
-                                // Render in Security panel if present
-                                const keyContainer = document.getElementById('users-admin-keys');
-                                if (keyContainer) {
-                                    if (users.length === 0) {
-                                        keyContainer.innerHTML = '<div style="padding:12px; color:var(--text-medium);">No users found.</div>';
-                                        return;
-                                    }
-
-                                    keyContainer.innerHTML = users.map(u => {
-                                        const role = (u.role || 'USER').toUpperCase();
-                                        const keyStatus = u.adminKeySet ? '✅ Key set' : '❌ Not set';
-                                        const keyStatusColor = u.adminKeySet ? '#166534' : '#b91c1c';
-                                        const canManage = role === 'ADMIN';
-                                        return `
-                                          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; border:1px solid #e9ecef; border-radius:12px; margin-bottom:10px;">
-                                            <div style="display:flex; flex-direction:column; gap:2px;">
-                                              <div style="font-weight:600;">${u.username} <span style="font-weight:400; color:var(--text-medium);">(${role})</span></div>
-                                              <div style="font-size:13px; color:${keyStatusColor};">${keyStatus}</div>
-                                            </div>
-                                            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
-                                              <button class="btn-modern sm" ${canManage ? '' : 'disabled'} onclick="setUserAdminKey('${u.username}')">Set / Rotate Key</button>
-                                              <button class="btn-modern sm secondary" style="background:#dc3545;" ${canManage ? '' : 'disabled'} onclick="clearUserAdminKey('${u.username}')">Clear Key</button>
-                                            </div>
-                                          </div>
-                                        `;
-                                    }).join('');
-                                }
 
                                 // Render to Users panel with management controls
                                 const usersList = document.getElementById('users-list');
@@ -6222,6 +6009,21 @@ window.loadPostsList = loadPostsList;
                                                 </button>
                                                 <button class="btn-modern sm secondary" onclick="toggleUserStatus('${u.username}', ${!isActive})" style="${isActive ? '' : 'background:#fff3e0; color:#e65100;'}">
                                                   ${isActive ? 'Deactivate' : 'Activate'}
+                                                </button>
+                                                <button class="btn-modern sm secondary" onclick="editUserEmail('${u.username}')" style="background:#e3f2fd; color:#1565c0;">
+                                                  ✉️ Email
+                                                </button>
+                                                <button class="btn-modern sm secondary" onclick="changeUserPassword('${u.username}')" style="background:#f3e5f5; color:#7b1fa2;">
+                                                  🔑 Password
+                                                </button>
+                                                <button class="btn-modern sm secondary" onclick="setUserAdminKey('${u.username}')" style="background:#e8f5e9; color:#2e7d32;">
+                                                  🔑 Set Key
+                                                </button>
+                                                <button class="btn-modern sm secondary" onclick="clearUserAdminKey('${u.username}')" style="background:#fce4ec; color:#c62828;">
+                                                  🗑️ Clear Key
+                                                </button>
+                                                <button class="btn-modern sm secondary" onclick="deleteUser('${u.username}')" style="background:#fbe9e7; color:#c62828;">
+                                                  🗑️ Delete
                                                 </button>
                                               </div>
                                             </div>
@@ -6281,6 +6083,78 @@ window.loadPostsList = loadPostsList;
                             } catch (e) {
                                 console.error('Error updating user status:', e);
                                 alert('Error updating user status');
+                            }
+                        };
+
+                        window.editUserEmail = async function (username) {
+                            const newEmail = prompt(`Enter new email for ${username}:`);
+                            if (!newEmail || !newEmail.trim()) return;
+                            try {
+                                const response = await fetch(`/api/users/${username}`, {
+                                    method: 'PUT',
+                                    credentials: 'include',
+                                    headers: getAuthHeaders(),
+                                    body: JSON.stringify({ email: newEmail.trim() })
+                                });
+                                const data = await response.json();
+                                if (!response.ok) {
+                                    alert('Failed to update email: ' + (data.error || 'Unknown error'));
+                                    return;
+                                }
+                                alert('Email updated successfully!');
+                                loadUsers();
+                            } catch (e) {
+                                console.error('Error updating email:', e);
+                                alert('Error updating email');
+                            }
+                        };
+
+                        window.changeUserPassword = async function (username) {
+                            const newPassword = prompt(`Enter new password for ${username}:`);
+                            if (!newPassword || !newPassword.trim()) return;
+                            if (newPassword.length < 6) {
+                                alert('Password must be at least 6 characters');
+                                return;
+                            }
+                            if (!confirm(`Change password for ${username}?`)) return;
+                            try {
+                                const response = await fetch(`/api/users/${username}`, {
+                                    method: 'PUT',
+                                    credentials: 'include',
+                                    headers: getAuthHeaders(),
+                                    body: JSON.stringify({ password: newPassword.trim() })
+                                });
+                                const data = await response.json();
+                                if (!response.ok) {
+                                    alert('Failed to change password: ' + (data.error || 'Unknown error'));
+                                    return;
+                                }
+                                alert('Password changed successfully!');
+                            } catch (e) {
+                                console.error('Error changing password:', e);
+                                alert('Error changing password');
+                            }
+                        };
+
+                        window.deleteUser = async function (username) {
+                            if (!confirm(`⚠️ Permanently delete user "${username}"? This cannot be undone.`)) return;
+                            if (!confirm(`Are you absolutely sure? All data for "${username}" will be removed.`)) return;
+                            try {
+                                const response = await fetch(`/api/users/${encodeURIComponent(username)}`, {
+                                    method: 'DELETE',
+                                    credentials: 'include',
+                                    headers: getAuthHeaders()
+                                });
+                                const data = await response.json();
+                                if (!response.ok) {
+                                    alert('Failed to delete user: ' + (data.error || 'Unknown error'));
+                                    return;
+                                }
+                                alert('User deleted successfully!');
+                                loadUsers();
+                            } catch (e) {
+                                console.error('Error deleting user:', e);
+                                alert('Error deleting user');
                             }
                         };
 
