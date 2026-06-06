@@ -1237,7 +1237,7 @@ app.get('/api/users', requireAdmin, async (req, res) => {
 
 app.post('/api/users', requireAdmin, async (req, res) => {
   try {
-    const { username, password, name, email, role } = req.body || {};
+    const { username, password, name, email, role, adminKey } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'missing_username_or_password' });
     const users = await loadUsers();
     // Prevent creating a user if a case-insensitive match already exists
@@ -1248,6 +1248,13 @@ app.post('/api/users', requireAdmin, async (req, res) => {
     // Store under the provided casing (preserve display), but ensure future lookups
     // will resolve case-insensitively via findUserKey.
     users[username] = { name: name || '', email: email || '', passwordHash: hash, active: true, role: role || 'USER' };
+    // Optional admin key at creation time
+    if (adminKey && String(adminKey).trim()) {
+      const keyHash = await bcrypt.hash(String(adminKey).trim(), 12);
+      users[username].adminKeyHash = keyHash;
+      users[username].adminKeyEnc = encryptText(String(adminKey).trim());
+      users[username].adminKeySet = true;
+    }
     await saveUsers(users);
     // Use the stored casing for the response
     const storedKey = findUserKey(users, username) || username;
@@ -1258,21 +1265,16 @@ app.post('/api/users', requireAdmin, async (req, res) => {
   }
 });
 
-// PUT /api/users/:username - Update user status (super admin only)
+// PUT /api/users/:username - Update user properties (admin only)
 app.put('/api/users/:username', requireAdmin, async (req, res) => {
   try {
     const { username } = req.params;
-    const { active, role } = req.body || {};
+    const { active, role, email, password, adminKey } = req.body || {};
 
-    // Check if requester is super admin (admin user)
+    // Prevent deactivating self
     const requestUser = req.session?.user || req.user;
-    if (!requestUser || requestUser.username !== 'admin') {
-      return res.status(403).json({ error: 'only_super_admin_can_manage_users' });
-    }
-
-    // Prevent deactivating the only super admin
-    if (username === 'admin' && active === false) {
-      return res.status(400).json({ error: 'cannot_deactivate_super_admin' });
+    if (username === requestUser?.username && active === false) {
+      return res.status(400).json({ error: 'cannot_deactivate_self' });
     }
 
     const users = await loadUsers();
@@ -1285,9 +1287,27 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
     if (active !== undefined) {
       users[userKey].active = active;
     }
-    if (role !== undefined && role !== 'ADMIN') {
-      // Only allow changing roles if not the super admin
+    if (role !== undefined) {
       users[userKey].role = role;
+    }
+    if (email !== undefined) {
+      users[userKey].email = String(email).trim();
+    }
+    if (password) {
+      users[userKey].passwordHash = await bcrypt.hash(String(password), 12);
+    }
+    if (adminKey !== undefined) {
+      const trimmed = String(adminKey).trim();
+      if (trimmed) {
+        users[userKey].adminKeyHash = await bcrypt.hash(trimmed, 12);
+        users[userKey].adminKeyEnc = encryptText(trimmed);
+        users[userKey].adminKeySet = true;
+      } else {
+        // Empty string clears the admin key
+        delete users[userKey].adminKeyHash;
+        delete users[userKey].adminKeyEnc;
+        users[userKey].adminKeySet = false;
+      }
     }
 
     await saveUsers(users);
@@ -1304,6 +1324,32 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
   } catch (e) {
     console.error('Update user error:', e);
     return res.status(500).json({ error: 'failed_to_update_user' });
+  }
+});
+
+// DELETE /api/users/:username - Delete user account (admin only)
+app.delete('/api/users/:username', requireAdmin, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const requestUser = req.session?.user || req.user;
+
+    // Prevent deleting self
+    if (username === requestUser?.username) {
+      return res.status(400).json({ error: 'cannot_delete_self' });
+    }
+
+    const users = await loadUsers();
+    const userKey = findUserKey(users, username);
+    if (!users || !userKey || !users[userKey]) {
+      return res.status(404).json({ error: 'user_not_found' });
+    }
+
+    delete users[userKey];
+    await saveUsers(users);
+    return res.json({ success: true, message: 'User deleted successfully' });
+  } catch (e) {
+    console.error('Delete user error:', e);
+    return res.status(500).json({ error: 'failed_to_delete_user' });
   }
 });
 
