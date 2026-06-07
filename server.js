@@ -3962,7 +3962,7 @@ app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
 });
 
 // Analytics API
-app.post('/api/analytics/pageview', async (req, res) => {
+app.post('/api/stats/pageview', async (req, res) => {
   try {
     const { page } = req.body;
     await recordPageView(page || '/', req);
@@ -3973,7 +3973,7 @@ app.post('/api/analytics/pageview', async (req, res) => {
   }
 });
 
-app.post('/api/analytics/interaction', async (req, res) => {
+app.post('/api/stats/interaction', async (req, res) => {
   try {
     const { type, target, value } = req.body;
     if (!type || !target) return res.status(400).json({ error: 'type_and_target_required' });
@@ -3987,7 +3987,7 @@ app.post('/api/analytics/interaction', async (req, res) => {
 });
 
 // Get analytics data (protected with advanced metrics)
-app.get('/api/analytics', requireAdmin, async (req, res) => {
+app.get('/api/stats', requireAdmin, async (req, res) => {
   try {
     const { period = '7d' } = req.query;
     const rawAnalytics = await loadAnalytics();
@@ -4394,7 +4394,7 @@ async function sendNotificationEmail(toEmail, replyComment, originalComment, bas
 
 // Export analytics data with optional date filters
 // Query params: dataset=pageViews|interactions|all (default=all), format=json|csv (default=json), from=ISO, to=ISO
-app.get('/api/analytics/export', requireAdmin, async (req, res) => {
+app.get('/api/stats/export', requireAdmin, async (req, res) => {
   try {
     const { dataset = 'all', format = 'json', from, to } = req.query;
     const all = await loadAnalytics();

@@ -6379,7 +6379,7 @@ window.loadPostsList = loadPostsList;
                             console.log('[Analytics] Refreshing for period:', period);
 
                             try {
-                                const response = await apiFetch(`/api/analytics?period=${period}`);
+                                const response = await apiFetch(`/api/stats?period=${period}`);
                                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                                 
                                 const data = await response.json();

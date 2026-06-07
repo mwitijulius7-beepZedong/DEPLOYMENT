@@ -4,7 +4,7 @@ export async function loadDashboardStats() {
     const posts = await fetch('/api/posts').then(r => r.json());
     document.getElementById('posts-count').textContent = posts.posts.length;
 
-    const analytics = await fetch('/api/analytics').then(r => r.json());
+    const analytics = await fetch('/api/stats').then(r => r.json());
     document.getElementById('views-count').textContent =
       analytics.pageViews?.length || 0;
 
