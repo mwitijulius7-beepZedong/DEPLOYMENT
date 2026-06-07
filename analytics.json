@@ -1,100 +1,73 @@
 {
   "pageViews": [
     {
-      "id": 1761595066803,
-      "page": "/test",
-      "referrer": "http://example.com",
-      "userAgent": "curl/8.14.1",
+      "page": "/post/1772392391669",
       "ip": "::1",
-      "timestamp": "2025-10-27T19:57:46.805Z"
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
+      "timestamp": "2026-06-05T14:30:00.000Z"
     },
     {
-      "id": 1771588217828,
-      "page": "/test-page",
-      "referrer": "http://localhost:3000/",
-      "userAgent": "Test User Agent",
+      "page": "/post/1772392391669",
       "ip": "::1",
-      "timestamp": "2026-02-20T11:50:17.828Z"
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
+      "timestamp": "2026-06-05T16:45:00.000Z"
     },
     {
-      "id": 1772127634831,
-      "page": "/test-page",
-      "referrer": "http://localhost:3000/",
-      "userAgent": "Test User Agent",
-      "ip": "::1",
-      "timestamp": "2026-02-26T17:40:34.831Z"
+      "page": "/post/1772392391669",
+      "ip": "::2",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+      "timestamp": "2026-06-06T09:12:00.000Z"
     },
     {
-      "id": 1772127694968,
-      "page": "/test",
-      "referrer": "http://localhost",
-      "userAgent": "Test Agent",
+      "page": "/",
       "ip": "::1",
-      "timestamp": "2026-02-26T17:41:34.968Z"
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
+      "timestamp": "2026-06-06T10:00:00.000Z"
     },
     {
-      "id": 1772127765953,
-      "page": "/test",
-      "referrer": "http://localhost",
-      "userAgent": "Test Agent",
-      "ip": "::1",
-      "timestamp": "2026-02-26T17:42:45.953Z"
+      "page": "/about",
+      "ip": "::3",
+      "userAgent": "curl/8.0.0",
+      "timestamp": "2026-06-06T11:30:00.000Z"
     },
     {
-      "id": 1772127858886,
-      "page": "/test",
-      "referrer": "http://localhost",
-      "userAgent": "Test Agent",
+      "page": "/post/1772392391669",
       "ip": "::1",
-      "timestamp": "2026-02-26T17:44:18.886Z"
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Firefox/121.0",
+      "timestamp": "2026-06-07T08:00:00.000Z"
+    },
+    {
+      "page": "/",
+      "ip": "::4",
+      "userAgent": "Mozilla/5.0 (Linux; Android 13) Chrome/120.0.0.0",
+      "timestamp": "2026-06-07T09:15:00.000Z"
     }
   ],
   "postViews": [],
   "interactions": [
     {
-      "id": 1771588217840,
       "type": "click",
-      "target": "test-button",
-      "value": "test-value",
+      "target": "like-button-1772392391669",
+      "value": "like",
       "ip": "::1",
-      "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
-      "timestamp": "2026-02-20T11:50:17.840Z"
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
+      "timestamp": "2026-06-05T14:31:00.000Z"
     },
     {
-      "id": 1772127634853,
       "type": "click",
-      "target": "test-button",
-      "value": "test-value",
-      "ip": "::1",
-      "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
-      "timestamp": "2026-02-26T17:40:34.853Z"
+      "target": "share-button",
+      "value": "twitter",
+      "ip": "::2",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+      "timestamp": "2026-06-06T09:15:00.000Z"
     },
     {
-      "id": 1772127694977,
       "type": "click",
-      "target": "test-button",
-      "value": "",
+      "target": "like-button-1772392391669",
+      "value": "like",
       "ip": "::1",
-      "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
-      "timestamp": "2026-02-26T17:41:34.977Z"
-    },
-    {
-      "id": 1772127765979,
-      "type": "click",
-      "target": "test-button",
-      "value": "",
-      "ip": "::1",
-      "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
-      "timestamp": "2026-02-26T17:42:45.979Z"
-    },
-    {
-      "id": 1772127858906,
-      "type": "click",
-      "target": "test-button",
-      "value": "",
-      "ip": "::1",
-      "userAgent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
-      "timestamp": "2026-02-26T17:44:18.906Z"
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Firefox/121.0",
+      "timestamp": "2026-06-07T08:01:00.000Z"
     }
   ]
 }
