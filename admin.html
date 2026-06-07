@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
     <script>
@@ -137,14 +138,6 @@
                 window.loadAboutSettings();
             } else if (panelName === 'themes' && typeof window.loadThemesList === 'function') {
                 window.loadThemesList();
-            } else if (panelName === 'security') {
-                if (typeof runPostSecurity === 'function') {
-                    runPostSecurity(() => {
-                        if (typeof initKeyToggle === 'function') initKeyToggle();
-                    });
-                } else {
-                    if (typeof initKeyToggle === 'function') initKeyToggle();
-                }
             } else if (panelName === 'appearance') {
                 if (typeof window.loadBackgroundGallery === 'function') window.loadBackgroundGallery();
             } else if (panelName === 'comments') {
@@ -1334,130 +1327,6 @@ window.uploadedProfilePictureUrl = '';
             }
             return 'admin';
         }
-
-        // ── Security key toggle (eye icon) ──────────────────────────────────
-        function initKeyToggle() {
-            const toggleBtn = document.getElementById('admin-key-toggle');
-            const keyInput = document.getElementById('admin-entry-key');
-            if (!toggleBtn || !keyInput) return;
-
-            // Remove any old listeners by replacing node
-            const newBtn = toggleBtn.cloneNode(true);
-            toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
-
-            newBtn.addEventListener('click', () => {
-                const isPassword = keyInput.type === 'password';
-                keyInput.type = isPassword ? 'text' : 'password';
-                // Swap SVG eye / eye-off icon
-                newBtn.innerHTML = isPassword
-                    ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
-                        <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
-                        <line x1="1" y1="1" x2="23" y2="23"/>
-                      </svg>`
-                    : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>`;
-            });
-        }
-
-        // ── Save MY admin entry key ──────────────────────────────────────────
-        async function saveMyKey() {
-            const user = getCurrentUser();
-            const keyInput = document.getElementById('admin-entry-key');
-            if (!keyInput) return;
-            const val = keyInput.value.trim();
-
-            if (!val) {
-                showError('Please enter a key');
-                return;
-            }
-
-            const keyStorageName = 'blog_admin_key_' + user;
-            localStorage.setItem(keyStorageName, val);
-
-            // Sync to server so the gate works
-            try {
-                await apiFetch(`/api/users/${encodeURIComponent(user)}/admin-key`, {
-                    method: 'POST',
-                    body: JSON.stringify({ adminKey: val })
-                });
-            } catch (e) {
-                console.error('Failed to sync key to server:', e);
-            }
-
-            // Clear input for security
-            keyInput.value = '';
-            keyInput.type = 'password';
-            const toggleBtn = document.getElementById('admin-key-toggle');
-            if (toggleBtn) {
-                toggleBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-            }
-
-            showSuccess('Key saved');
-            if (typeof loadUsers === 'function') loadUsers();
-        }
-        window.saveMyKey = saveMyKey;
-        window.saveSecuritySettings = saveMyKey;
-
-        // ── View MY current admin entry key ─────────────────────────────────
-        function viewMyKey() {
-            const user = getCurrentUser();
-            const keyStorageName = 'blog_admin_key_' + user;
-            const key = localStorage.getItem(keyStorageName);
-            const revealBox = document.getElementById('my-key-reveal-box');
-            if (!key) {
-                showError('No key set yet — save one first');
-                return;
-            }
-            if (revealBox) {
-                revealBox.textContent = key;
-                revealBox.style.display = 'block';
-                setTimeout(() => {
-                    revealBox.style.display = 'none';
-                }, 5000);
-            }
-        }
-        window.viewMyKey = viewMyKey;
-        window.viewCurrentKey = viewMyKey;
-
-        // ── Clear MY admin entry key ─────────────────────────────────────────
-        async function clearKey() {
-            if (!confirm('Are you sure you want to clear your Admin entry key? This cannot be undone.')) return;
-            const user = getCurrentUser();
-            const keyStorageName = 'blog_admin_key_' + user;
-            localStorage.removeItem(keyStorageName);
-
-            try {
-                await apiFetch(`/api/users/${encodeURIComponent(user)}/admin-key`, {
-                    method: 'DELETE'
-                });
-            } catch (error) {
-                console.error('Error clearing key on server:', error);
-            }
-
-            showSuccess('Admin entry key cleared successfully.');
-            if (typeof loadUsers === 'function') loadUsers();
-        }
-
-        // ── Load all users for admin-key management ──────────────────────────
-        function showSecurityAlert(message, type) {
-            const el = document.getElementById('security-alert');
-            if (!el) { alert(message); return; }
-            el.textContent = message;
-            el.className = 'security-alert ' + (type === 'success' ? 'alert-success' : 'alert-error');
-            el.style.display = 'block';
-            setTimeout(() => { el.style.display = 'none'; }, 5000);
-        }
-
-        function showError(msg) {
-            showSecurityAlert('❌ ' + msg, 'error');
-        }
-        function showSuccess(msg) {
-            showSecurityAlert('✅ ' + msg, 'success');
-        }
-
 
         async function saveNotificationSettings() {
             const emailNotifications = document.getElementById('email-notifications').checked;
@@ -3937,6 +3806,128 @@ window.uploadedProfilePictureUrl = '';
         @media (max-width: 600px) {
             .bg-gallery { grid-template-columns: repeat(2, 1fr); }
         }
+
+        /* ── User Management (compact cards) ────────────────────────────── */
+        .um-card {
+            background: var(--bg-secondary);
+            border: 0.5px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+        }
+
+        .um-card-label {
+            font-size: 10px; font-weight: 600; letter-spacing: .06em;
+            text-transform: uppercase; color: var(--text-medium);
+            display: flex; align-items: center; gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .um-card-label .icon-circle {
+            width: 20px; height: 20px; border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 11px; flex-shrink: 0;
+        }
+        .icl-plus  { background: #EEEDFE; color: #534AB7; }
+        .icl-list  { background: #E6F1FB; color: #0C447C; }
+
+        .um-form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 6px;
+        }
+
+        .um-form-grid .form-group {
+            gap: 2px;
+        }
+
+        .um-form-grid .form-input {
+            padding: 5px 8px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .um-form-grid label {
+            font-size: 10px;
+            margin-bottom: 0;
+        }
+
+        .um-form-actions {
+            margin-top: 8px;
+            display: flex; justify-content: flex-end;
+        }
+
+        .um-create-btn {
+            background: #534AB7; color: #fff; border: none;
+            padding: 6px 16px; border-radius: 20px;
+            font-size: 12px; font-weight: 500; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 5px;
+            transition: all .15s;
+            box-shadow: 0 2px 6px rgba(83,74,183,0.25);
+        }
+        .um-create-btn:hover { background: #3C3489; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(83,74,183,0.3); }
+
+        .user-row {
+            display: flex; align-items: center;
+            justify-content: space-between;
+            padding: 5px 0; gap: 6px;
+            border-bottom: 0.5px solid var(--border-color);
+            flex-wrap: nowrap;
+        }
+        .user-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+        .user-info { display: flex; align-items: center; gap: 6px; min-width: 150px; }
+        .user-avatar {
+            width: 24px; height: 24px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 9px; font-weight: 600; flex-shrink: 0;
+        }
+        .ua-purple { background: #EEEDFE; color: #3C3489; }
+        .ua-blue   { background: #E6F1FB; color: #0C447C; }
+
+        .user-name {
+            font-size: 12px; font-weight: 500;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .user-email { font-size: 10px; color: var(--text-medium); }
+
+        .badge {
+            display: inline-flex; align-items: center;
+            font-size: 9px; font-weight: 600; letter-spacing: .04em;
+            padding: 1px 6px; border-radius: 99px;
+        }
+        .badge-admin { background: #EEEDFE; color: #3C3489; }
+
+        .key-status {
+            display: flex; align-items: center; gap: 3px;
+            font-size: 10px; margin-top: 0;
+        }
+        .key-status i { font-size: 10px; }
+        .key-set   { color: #0F6E56; }
+        .key-unset { color: #993C1D; }
+
+        .action-group { display: flex; flex-wrap: wrap; gap: 3px; }
+        .action-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 99px;
+            font-size: 10px; font-weight: 500; cursor: pointer;
+            border: none;
+            transition: all .12s;
+            white-space: nowrap;
+        }
+        .action-btn i { font-size: 10px; }
+        .action-btn:hover { filter: brightness(0.92); transform: translateY(-1px); }
+
+        .btn-default { background: #F0EEED; color: #444241; }
+        .btn-default:hover { background: #E4E1DF; }
+        .btn-danger  { background: #FCEBEB; color: #A32D2D; }
+        .btn-danger:hover  { background: #F5D2D2; }
+        .btn-success { background: #E1F5EE; color: #0F6E56; }
+        .btn-success:hover { background: #C8EDE0; }
+        .btn-warning { background: #FAEEDA; color: #854F0B; }
+        .btn-warning:hover { background: #F5DCB5; }
+        .btn-info    { background: #E6F1FB; color: #185FA5; }
+        .btn-info:hover    { background: #CDE4F7; }
     </style>
 </head>
 
@@ -4184,21 +4175,24 @@ window.uploadedProfilePictureUrl = '';
 
                 <!-- Users Section -->
                 <div id="users-section" class="section-content" style="display: none;">
-                    <div class="section-header">
-                        <h3 class="section-title">👥 User Management</h3>
-                        <p class="section-description">Create and manage user accounts for your blog.</p>
+                    <div class="section-header" style="margin-bottom:10px;">
+                        <h3 class="section-title" style="display:flex;align-items:center;gap:6px;font-size:15px;"><i class="ti ti-users" style="color:#534AB7;font-size:16px;"></i> User Management</h3>
+                        <p class="section-description" style="font-size:12px;">Create and manage user accounts for your blog.</p>
                     </div>
 
                     <div class="section-body">
-                        <div class="customize-grid">
-                            <div class="action-card">
-                                <h3>➕ Create New User</h3>
-                                <p>Create a new user account with custom credentials.</p>
-                                <form id="create-user-form" class="form-grid">
+                        <!-- Create new user -->
+                        <div class="um-card">
+                            <div class="um-card-label">
+                                <span class="icon-circle icl-plus"><i class="ti ti-plus"></i></span>
+                                Create new user
+                            </div>
+                            <form id="create-user-form">
+                                <div class="um-form-grid">
                                     <div class="form-group">
                                         <label for="new-username">Username</label>
                                         <input type="text" id="new-username" class="form-input"
-                                            placeholder="Enter username" required>
+                                            placeholder="e.g. johndoe" required>
                                     </div>
                                     <div class="form-group">
                                         <label for="new-password">Password</label>
@@ -4206,19 +4200,19 @@ window.uploadedProfilePictureUrl = '';
                                             placeholder="Enter password" required>
                                     </div>
                                     <div class="form-group">
-                                        <label for="new-name">Full Name</label>
+                                        <label for="new-name">Full name</label>
                                         <input type="text" id="new-name" class="form-input"
-                                            placeholder="Enter full name" required>
+                                            placeholder="John Doe" required>
                                     </div>
                                     <div class="form-group">
                                         <label for="new-email">Email</label>
                                         <input type="email" id="new-email" class="form-input"
-                                            placeholder="Enter email address" required>
+                                            placeholder="john@example.com" required>
                                     </div>
                                     <div class="form-group">
-                                        <label for="new-admin-key">Admin Entry Key</label>
-                                        <input type="password" id="new-admin-key" class="form-input"
-                                            placeholder="Optional admin key" autocomplete="new-password">
+                                        <label for="new-admin-key">Admin entry key</label>
+                                        <input type="text" id="new-admin-key" class="form-input"
+                                            placeholder="Leave blank for user role">
                                     </div>
                                     <div class="form-group">
                                         <label for="new-role">Role</label>
@@ -4227,19 +4221,24 @@ window.uploadedProfilePictureUrl = '';
                                             <option value="ADMIN">Admin</option>
                                         </select>
                                     </div>
-                                    <button type="submit" class="btn-modern primary">
-                                        <i>👤</i>
-                                        Create User
-                                    </button>
-                                </form>
-                            </div>
-
-                            <div class="action-card">
-                                <h3>📋 User List</h3>
-                                <p>View and manage existing users.</p>
-                                <div id="users-list" class="users-list">
-                                    <div class="loading">Loading users...</div>
                                 </div>
+                                <div class="um-form-actions">
+                                    <button type="submit" class="um-create-btn">
+                                        <i class="ti ti-user-plus"></i>
+                                        Create user
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- User list -->
+                        <div class="um-card">
+                            <div class="um-card-label">
+                                <span class="icon-circle icl-list"><i class="ti ti-list"></i></span>
+                                User list
+                            </div>
+                            <div id="users-list">
+                                <div style="padding:12px;color:var(--text-medium);font-size:13px;">Loading users...</div>
                             </div>
                         </div>
                     </div>
@@ -4616,13 +4615,6 @@ window.uploadedProfilePictureUrl = '';
                                         </button>
                                     </li>
                                     <li class="settings-nav-item">
-                                        <button type="button" class="settings-nav-btn" data-panel="security"
-                                            onclick="switchSettingsPanel('security')">
-                                            <i>🔒</i>
-                                            Security
-                                        </button>
-                                    </li>
-                                    <li class="settings-nav-item">
                                         <button type="button" class="settings-nav-btn" data-panel="notifications"
                                             onclick="switchSettingsPanel('notifications')">
                                             <i>📧</i>
@@ -4861,52 +4853,6 @@ window.uploadedProfilePictureUrl = '';
                                         </div>
                                     </div>
                                 </div>
-
-                                <!-- Security Settings Panel -->
-                                <div id="security-panel" class="settings-panel">
-                                    <div class="section-header-row" style="margin-bottom: 20px;">
-                                        <div class="section-header">
-                                            <h2 class="panel-title">🔐 Security Management</h2>
-                                            <p class="panel-description">Manage admin entry keys and access controls for all users.</p>
-                                        </div>
-                                    </div>
-
-                                    <div id="security-alert" class="security-alert" style="display:none;"></div>
-
-                                    <div class="grid-2-col">
-                                        <!-- MY ENTRY KEY CARD -->
-                                        <div class="action-card">
-                                            <h3><i>🔑</i> My Admin Entry Key</h3>
-                                            <p class="section-description" style="font-size: 11px; margin-bottom: 12px;">Set or update the entry key for <strong>your own</strong> account.</p>
-                                            
-                                            <div class="form-group" style="margin-bottom: 12px;">
-                                                <label for="admin-entry-key" class="form-label" style="font-size: 11px; text-transform: uppercase;">New Entry Key</label>
-                                                <div class="sec-input-wrap" style="height: 36px; gap: 8px;">
-                                                    <input type="password" id="admin-entry-key" class="form-input" 
-                                                        style="font-size: 13px; height: 100%;" placeholder="Enter key…" autocomplete="new-password">
-                                                    <button type="button" id="admin-key-toggle" class="btn-modern secondary sm" style="padding: 0 10px; height: 100%; border-radius: 6px;" title="Toggle visibility">
-                                                        <i>👁️</i>
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                                <button class="btn-modern sm" onclick="saveMyKey()">
-                                                    <i>💾</i> Save
-                                                </button>
-                                                <button class="btn-modern secondary sm" onclick="viewMyKey()">
-                                                    <i>👁️</i> View
-                                                </button>
-                                                <button class="btn-modern sm" style="background: rgba(220, 38, 38, 0.1); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.2);" onclick="clearKey()">
-                                                    <i>🗑️</i> Clear
-                                                </button>
-                                            </div>
-                                            <div id="my-key-reveal-box" style="display: none; margin-top: 12px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-light); font-family: monospace; font-size: 13px; color: var(--text-dark); word-break: break-all;"></div>
-                                        </div>
-
-                                    </div>
-                                </div>
-
 
                                 <!-- Notifications Settings Panel -->
                                 <div id="notifications-panel" class="settings-panel">
@@ -5341,9 +5287,6 @@ window.uploadedProfilePictureUrl = '';
                         window.deleteSelectedCategories = deleteSelectedCategories;
                         window.deleteSelectedPhotos = deleteSelectedPhotos;
                         window.saveAuthorInfo = saveAuthorInfo;
-                        window.saveSecuritySettings = saveSecuritySettings;
-                        window.viewCurrentKey = viewCurrentKey;
-                        window.clearKey = clearKey;
                         window.saveNotificationSettings = saveNotificationSettings;
                         window.setUserAdminKey = setUserAdminKey;
                         window.verifyUserAdminKey = verifyUserAdminKey;
@@ -5795,28 +5738,18 @@ window.loadPostsList = loadPostsList;
                             console.log('Settings navigation initialized successfully');
                         }
 
-                        // Password toggle functionality
-                        function initPasswordToggle() {
-                            if (typeof initKeyToggle === 'function') {
-                                initKeyToggle();
-                            }
-                        }
-
                         // Expose functions globally for settings module
                         window.initSettingsNavigation = initSettingsNavigation;
-                        window.initPasswordToggle = initPasswordToggle;
                         window.switchSettingsPanel = switchSettingsPanel;
 
                         // Initialize settings navigation on page load
                         document.addEventListener('DOMContentLoaded', function () {
                             initSettingsNavigation();
-                            initPasswordToggle();
                         });
 
                         // Also initialize immediately if DOM is already loaded
                         if (document.readyState !== 'loading') {
                             initSettingsNavigation();
-                            initPasswordToggle();
                         }
 
                         // Enhanced Post Rendering for Modern UI
@@ -5995,37 +5928,50 @@ window.loadPostsList = loadPostsList;
                                     usersList.innerHTML = users.map(u => {
                                         const role = (u.role || 'USER').toUpperCase();
                                         const isActive = u.active !== false;
+                                        const initials = (u.username || '??').slice(0, 2).toUpperCase();
+                                        const avatarClass = role === 'ADMIN' ? 'ua-purple' : 'ua-blue';
+                                        const isDemote = role === 'ADMIN';
                                         return `
-                                          <div style="padding:14px; border:1px solid #e9ecef; border-radius:12px; margin-bottom:10px;">
-                                            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                                          <div class="user-row">
+                                            <div class="user-info">
+                                              <div class="user-avatar ${avatarClass}">${initials}</div>
                                               <div>
-                                                <div style="font-weight:600;">${u.username} <span style="font-weight:400; color:var(--text-medium);">(${role})</span></div>
-                                                <div style="font-size:13px; color:var(--text-medium);">${u.email || ''}</div>
-                                                <div style="font-size:12px; color:${u.adminKeySet ? '#166534' : '#b91c1c'};">${u.adminKeySet ? '✅ Admin key set' : '❌ Admin key not set'}</div>
+                                                <div class="user-name">
+                                                  ${u.username}
+                                                  ${role === 'ADMIN' ? '<span class="badge badge-admin">Admin</span>' : ''}
+                                                </div>
+                                                <div class="user-email">${u.email || ''}</div>
+                                                <div class="key-status ${u.adminKeySet ? 'key-set' : 'key-unset'}">
+                                                  <i class="ti ${u.adminKeySet ? 'ti-check' : 'ti-x'}"></i>
+                                                  ${u.adminKeySet ? 'Admin key set' : 'Admin key not set'}
+                                                </div>
                                               </div>
-                                              <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                                                <button class="btn-modern sm" onclick="toggleUserRole('${u.username}', '${role === 'ADMIN' ? 'USER' : 'ADMIN'}')" style="${role === 'ADMIN' ? 'background:#e8f5e9; color:#2e7d32;' : 'background:#fff3e0; color:#e65100;'}">
-                                                  ${role === 'ADMIN' ? 'Demote to User' : 'Promote to Admin'}
-                                                </button>
-                                                <button class="btn-modern sm secondary" onclick="toggleUserStatus('${u.username}', ${!isActive})" style="${isActive ? '' : 'background:#fff3e0; color:#e65100;'}">
-                                                  ${isActive ? 'Deactivate' : 'Activate'}
-                                                </button>
-                                                <button class="btn-modern sm secondary" onclick="editUserEmail('${u.username}')" style="background:#e3f2fd; color:#1565c0;">
-                                                  ✉️ Email
-                                                </button>
-                                                <button class="btn-modern sm secondary" onclick="changeUserPassword('${u.username}')" style="background:#f3e5f5; color:#7b1fa2;">
-                                                  🔑 Password
-                                                </button>
-                                                <button class="btn-modern sm secondary" onclick="setUserAdminKey('${u.username}')" style="background:#e8f5e9; color:#2e7d32;">
-                                                  🔑 Set Key
-                                                </button>
-                                                <button class="btn-modern sm secondary" onclick="clearUserAdminKey('${u.username}')" style="background:#fce4ec; color:#c62828;">
-                                                  🗑️ Clear Key
-                                                </button>
-                                                <button class="btn-modern sm secondary" onclick="deleteUser('${u.username}')" style="background:#fbe9e7; color:#c62828;">
-                                                  🗑️ Delete
-                                                </button>
-                                              </div>
+                                            </div>
+                                             <div class="action-group">
+                                              <button class="action-btn btn-default" onclick="toggleUserRole('${u.username}', '${isDemote ? 'USER' : 'ADMIN'}')">
+                                                <i class="ti ${isDemote ? 'ti-arrow-down' : 'ti-arrow-up'}"></i> ${isDemote ? 'Demote' : 'Promote'}
+                                              </button>
+                                              <button class="action-btn ${isActive ? 'btn-warning' : 'btn-default'}" onclick="toggleUserStatus('${u.username}', ${!isActive})">
+                                                <i class="ti ${isActive ? 'ti-ban' : 'ti-player-play'}"></i> ${isActive ? 'Deactivate' : 'Activate'}
+                                              </button>
+                                              <button class="action-btn btn-info" onclick="editUserEmail('${u.username}')">
+                                                <i class="ti ti-mail"></i> Email
+                                              </button>
+                                              <button class="action-btn btn-info" onclick="changeUserPassword('${u.username}')">
+                                                <i class="ti ti-key"></i> Password
+                                              </button>
+                                              <button class="action-btn btn-success" onclick="setUserAdminKey('${u.username}')">
+                                                <i class="ti ti-key"></i> Set key
+                                              </button>
+                                              <button class="action-btn btn-default" onclick="viewUserAdminKey('${u.username}')">
+                                                <i class="ti ti-eye"></i> View key
+                                              </button>
+                                              <button class="action-btn btn-warning" onclick="clearUserAdminKey('${u.username}')">
+                                                <i class="ti ti-eraser"></i> Clear key
+                                              </button>
+                                              <button class="action-btn btn-danger" onclick="deleteUser('${u.username}')">
+                                                <i class="ti ti-trash"></i> Delete
+                                              </button>
                                             </div>
                                           </div>
                                         `;
@@ -6244,6 +6190,32 @@ window.loadPostsList = loadPostsList;
                                 console.error('Error verifying admin key:', e);
                                 alert('Error verifying admin key');
                                 return false;
+                            }
+                        }
+
+                        async function viewUserAdminKey(username) {
+                            const password = prompt(`Enter your admin password to view admin key for ${username}:`);
+                            if (!password) return;
+
+                            try {
+                                const response = await fetch(`/api/users/${encodeURIComponent(username)}/admin-key/view`, {
+                                    method: 'POST',
+                                    credentials: 'include',
+                                    headers: getAuthHeaders(),
+                                    body: JSON.stringify({ password })
+                                });
+
+                                const data = await response.json();
+
+                                if (!response.ok) {
+                                    alert('Failed to view admin key: ' + (data.error || 'Access denied'));
+                                    return;
+                                }
+
+                                alert(`Admin key for ${username}: ${data.key}`);
+                            } catch (e) {
+                                console.error('Error viewing admin key:', e);
+                                alert('Error viewing admin key');
                             }
                         }
 

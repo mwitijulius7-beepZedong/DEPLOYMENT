@@ -701,17 +701,21 @@ async function loadAnalytics() {
     const db = await getMongoDB();
     if (db) {
       const result = await db.collection('analytics').findOne({ type: 'data' });
-      // Aggressive seed: if MongoDB has fewer views than the local file, use the file data and update MongoDB
+      // Seed from file if it has valid data
       try {
         const fileData = JSON.parse(fs.readFileSync(ANALYTICS_FILE, 'utf8'));
-        if (fileData && (!result || (fileData.pageViews && fileData.pageViews.length > (result.data?.pageViews?.length || 0)))) {
-          console.log(`Seeding analytics from file: ${fileData.pageViews?.length || 0} views found in JSON.`);
-          await db.collection('analytics').updateOne(
-            { type: 'data' },
-            { $set: { data: fileData, updatedAt: new Date() } },
-            { upsert: true }
-          );
-          return fileData;
+        if (fileData && fileData.pageViews) {
+          const fileCount = fileData.pageViews.length;
+          const mongoCount = result?.data?.pageViews?.length || 0;
+          if (fileCount >= mongoCount) {
+            console.log(`Seeding analytics from file: ${fileCount} views (MongoDB had ${mongoCount})`);
+            await db.collection('analytics').updateOne(
+              { type: 'data' },
+              { $set: { data: fileData, updatedAt: new Date() } },
+              { upsert: true }
+            );
+            return fileData;
+          }
         }
       } catch (fErr) {}
       
@@ -770,13 +774,13 @@ async function recordInteraction(type, target, value = '', req = null) {
 /**
  * Records a page view for analytics
  */
-async function recordPageView(target, req) {
+async function recordPageView(page, req) {
   try {
     const analytics = await loadAnalytics();
     if (!analytics.pageViews) analytics.pageViews = [];
 
     const view = {
-      target: String(target || 'home'),
+      page: String(page || '/'),
       ip: req ? (req.ip || req.connection.remoteAddress) : 'unknown',
       userAgent: req ? (req.get('User-Agent') || '') : 'unknown',
       timestamp: new Date().toISOString()
@@ -1477,6 +1481,35 @@ app.post('/api/users/:username/verify-admin-key', requireAuth, async (req, res) 
   } catch (e) {
     console.error('Error verifying admin key:', e);
     return res.status(500).json({ error: 'failed_to_verify_admin_key' });
+  }
+});
+
+// POST /api/users/:username/admin-key/view - View a user's admin key (admin only)
+app.post('/api/users/:username/admin-key/view', requireAdmin, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { password } = req.body || {};
+    if (!password) return res.status(400).json({ error: 'password_required' });
+
+    const users = await loadUsers();
+    const userKey = findUserKey(users, username);
+    if (!users || !userKey || !users[userKey]) {
+      return res.status(404).json({ error: 'user_not_found' });
+    }
+
+    const user = users[userKey];
+    if (!user.adminKeyHash) {
+      return res.status(400).json({ error: 'user_has_no_admin_key' });
+    }
+
+    const ok = await bcrypt.compare(String(password), user.passwordHash);
+    if (!ok) return res.status(401).json({ error: 'invalid_password' });
+
+    const key = decryptText(user.adminKeyEnc || '');
+    return res.json({ success: true, key: key || '' });
+  } catch (e) {
+    console.error('Error viewing user admin key:', e);
+    return res.status(500).json({ error: 'internal' });
   }
 });
 
@@ -2349,7 +2382,7 @@ app.get('/api/posts/:id', async (req, res) => {
     }
 
     // Record view for analytics
-    if (!isAdmin) await recordPageView(id, req);
+    if (!isAdmin) await recordPageView(`/post/${encodeURIComponent(id)}`, req);
 
     return res.json({ post });
   } catch (error) {
@@ -4104,7 +4137,11 @@ app.get('/api/analytics', requireAdmin, async (req, res) => {
     const popularPosts = posts.filter(p => !p.isDraft)
       .map(p => {
         const id = p.id;
-        const pViews = currentViews.filter(v => v.page && v.page.includes(`id=${id}`)).length;
+        const pageSlug = `/post/${encodeURIComponent(id)}`;
+        const pViews = currentViews.filter(v => {
+          const pageStr = v.page || v.target || '';
+          return pageStr.includes(pageSlug) || pageStr === id;
+        }).length;
         return { id, title: p.title, views: pViews };
       })
       .sort((a, b) => b.views - a.views)
