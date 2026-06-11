@@ -2007,6 +2007,48 @@ app.post('/auth/login', async (req, res) => {
   });
 });
 
+// Dev auto-login for localhost (no password needed)
+app.post('/auth/dev-login', async (req, res) => {
+  try {
+    const ip = getClientIP(req);
+    if (!isLocalhostRequest(req)) {
+      return res.status(403).json({ error: 'localhost_only' });
+    }
+
+    const users = await loadUsers();
+    const adminUserKey = Object.keys(users || {}).find(k => String(users[k]?.role || '').toUpperCase() === 'ADMIN');
+    const adminUser = adminUserKey ? users[adminUserKey] : null;
+    const username = adminUserKey || 'admin';
+
+    clearBruteRecord(ip);
+
+    const token = jwt.sign({
+      username,
+      email: adminUser?.email || process.env.ALLOWED_EMAIL || 'admin@example.com',
+      name: adminUser?.name || 'Admin',
+      role: adminUser?.role || 'ADMIN'
+    }, JWT_SECRET, { expiresIn: '8h' });
+
+    req.session.user = {
+      username,
+      email: adminUser?.email || process.env.ALLOWED_EMAIL || 'admin@example.com',
+      name: adminUser?.name || 'Admin',
+      role: adminUser?.role || 'ADMIN'
+    };
+
+    req.session.adminKeyVerified = true;
+    req.session.adminKeyVerifiedAt = Date.now();
+
+    return req.session.save((err) => {
+      if (err) console.error('Session save error (dev-login):', err);
+      return res.json({ success: true, token, user: req.session.user });
+    });
+  } catch (e) {
+    console.error('dev-login error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
 app.get('/auth/setup-status', async (req, res) => {
   try {
     const users = await loadUsers();
@@ -3442,6 +3484,7 @@ app.post('/api/settings/author', requireAdmin, async (req, res) => {
       bio: String(payload.bio || ''),
       phone: String(payload.phone || ''),
       whatsapp: String(payload.whatsapp || ''),
+      profilePicture: String(payload.profilePicture || ''),
       social: {
         twitter: String(payload.social?.twitter || ''),
         facebook: String(payload.social?.facebook || ''),
