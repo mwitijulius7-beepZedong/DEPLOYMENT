@@ -1125,6 +1125,9 @@
                         const sidebarTitle = document.querySelector('.sidebar-logo .sidebar-logo-title');
                         if (sidebarTitle) sidebarTitle.textContent = blogTitle;
                         document.title = `Admin Panel - ${blogTitle}`;
+                        if (window.uploadedProfilePictureUrl) {
+                            updateTopbarAvatar(window.uploadedProfilePictureUrl);
+                        }
 window.uploadedProfilePictureUrl = '';
                     } else {
                         let errorMsg = 'Failed to save some general settings.\n\n';
@@ -1964,6 +1967,7 @@ window.uploadedProfilePictureUrl = '';
             width: 32px;
             height: 32px;
             border-radius: 50%;
+            object-fit: cover;
         }
 
         .profile-pic-thumb {
@@ -3941,6 +3945,20 @@ window.uploadedProfilePictureUrl = '';
             </div>
         </div>
     </div>
+
+    <!-- Upload Preview Modal -->
+    <div id="upload-preview-modal" class="lightbox-modal" onclick="closeUploadPreview()">
+        <div class="lightbox-content" onclick="event.stopPropagation()">
+            <h3 style="margin:0 0 12px;font-size:16px;">Preview Profile Picture</h3>
+            <div style="text-align:center;margin-bottom:12px;">
+                <img id="upload-preview-img" src="" alt="Preview" style="max-width:100%;max-height:45vh;border-radius:8px;object-fit:contain;">
+            </div>
+            <div class="lightbox-actions">
+                <button class="set-profile-btn" onclick="confirmUploadPreview()">Confirm Upload</button>
+                <button class="close-btn" onclick="closeUploadPreview()">Cancel</button>
+            </div>
+        </div>
+    </div>
     <div class="admin-layout">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
@@ -4007,7 +4025,7 @@ window.uploadedProfilePictureUrl = '';
 
                 <div class="top-bar-actions">
                     <div class="user-menu">
-                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="User"
+                        <img id="topbar-avatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="User"
                             class="user-avatar">
                         <div class="user-info">
                             <span class="user-name">zedong254ke</span>
@@ -4716,7 +4734,7 @@ window.uploadedProfilePictureUrl = '';
                                                 </div>
                                                 <div class="form-group" style="grid-column: span 2;">
                                                     <label class="form-label" style="font-size: 11px; text-transform: uppercase;">Profile Picture</label>
-                                                    <div style="display:flex;gap:8px;margin-bottom:10px;">
+                                                    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
                                                         <button type="button" onclick="refreshProfileGallery()" style="padding:8px 14px;font-size:12px;background:var(--primary-color);color:white;border:none;border-radius:6px;cursor:pointer;">
                                                             📁 View Profile Photos
                                                         </button>
@@ -4724,6 +4742,9 @@ window.uploadedProfilePictureUrl = '';
                                                             <i>🖼️</i> Upload New
                                                         </label>
                                                         <input type="file" class="file-input" id="profile-picture-file" accept="image/*" onchange="handleProfilePictureUpload()" style="display:none;">
+                                                        <button type="button" id="save-profile-pic-btn" onclick="saveProfilePicture()" style="display:none;padding:8px 14px;font-size:12px;background:#059669;color:white;border:none;border-radius:6px;cursor:pointer;">
+                                                            💾 Save as Profile Picture
+                                                        </button>
                                                     </div>
                                                     <div id="profile-pics-gallery" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;max-height:150px;overflow-y:auto;min-height:80px;background:var(--bg-light);border-radius:8px;padding:10px;">
                                                         <p style="color:var(--text-muted);font-size:12px;width:100%;text-align:center;padding:20px 0;">Click "View Profile Photos" to see previous uploads</p>
@@ -5293,12 +5314,30 @@ window.uploadedProfilePictureUrl = '';
                         window.saveContentSettings = saveContentSettings;
                         window.saveContentSettings = saveContentSettings;
                         window.uploadedProfilePictureUrl = '';
+
+                        function updateTopbarAvatar(url) {
+                            const avatar = document.getElementById('topbar-avatar');
+                            if (avatar) {
+                                avatar.src = url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=zedong';
+                            }
+                        }
+
                         window.handleProfilePictureUpload = handleProfilePictureUpload;
                         window.selectProfilePic = selectProfilePic;
                         window.handleProfilePicClick = handleProfilePicClick;
                         window.refreshProfileGallery = refreshProfileGallery;
                         window.closeLightbox = closeLightbox;
                         window.setProfileFromLightbox = setProfileFromLightbox;
+                        window.saveProfilePicture = saveProfilePicture;
+                        window.confirmUploadPreview = confirmUploadPreview;
+                        window.closeUploadPreview = closeUploadPreview;
+
+                        function updateSaveButtonVisibility() {
+                            const saveBtn = document.getElementById('save-profile-pic-btn');
+                            if (saveBtn) {
+                                saveBtn.style.display = window.uploadedProfilePictureUrl ? 'inline-block' : 'none';
+                            }
+                        }
 
                         function refreshProfileGallery() {
                             const gallery = document.getElementById('profile-pics-gallery');
@@ -5316,6 +5355,7 @@ window.uploadedProfilePictureUrl = '';
                                                 <img src="${url}" style="width:100%;height:100%;object-fit:cover;" onclick="handleProfilePicClick('${url}', this.parentElement)">
                                             </div>`;
                                         }).join('') + '</div>';
+                                        updateSaveButtonVisibility();
                                     } else {
                                         gallery.innerHTML = '<p style="color:var(--text-muted);font-size:12px;">No uploads found</p>';
                                     }
@@ -5364,7 +5404,7 @@ window.uploadedProfilePictureUrl = '';
                             });
                             if (el) el.style.borderColor = 'var(--primary-color)';
                             window.uploadedProfilePictureUrl = url;
-                            alert('Profile picture set successfully!');
+                            updateSaveButtonVisibility();
                         }
 
                         function handleProfilePicClick(url, el) {
@@ -5385,7 +5425,9 @@ window.uploadedProfilePictureUrl = '';
                             }
                         }
 
-                        async function handleProfilePictureUpload() {
+                        let pendingUploadFile = null;
+
+                        function handleProfilePictureUpload() {
                             const fileInput = document.getElementById('profile-picture-file');
                             if (fileInput.files && fileInput.files[0]) {
                                 const file = fileInput.files[0];
@@ -5394,36 +5436,112 @@ window.uploadedProfilePictureUrl = '';
                                     fileInput.value = '';
                                     return;
                                 }
-                                try {
-                                    const formData = new FormData();
-                                    formData.append('image', file);
-                                    const options = { method: 'POST', credentials: 'include', body: formData };
-                                    const token = localStorage.getItem('authToken');
-                                    if (token) options.headers = { 'Authorization': `Bearer ${token}` };
-                                    const response = await fetch('/api/upload', options);
-                                    const data = await response.json();
-                                    if (data.url) {
-                                        window.uploadedProfilePictureUrl = data.url;
-                                        const gallery = document.getElementById('profile-pics-gallery');
-                                        if (gallery) {
-                                            const newThumb = document.createElement('div');
-                                            newThumb.className = 'profile-pic-thumb selected';
-                                            newThumb.onclick = function() { handleProfilePicClick(data.url, this); };
-                                            newThumb.style.cssText = 'width:60px;height:60px;cursor:pointer;border:3px solid var(--primary-color);border-radius:8px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.1);';
-                                            newThumb.innerHTML = `<img src="${data.url}" style="width:100%;height:100%;object-fit:cover;">`;
-                                            gallery.insertBefore(newThumb, gallery.firstChild);
-                                            document.querySelectorAll('.profile-pic-thumb').forEach(thumb => {
-                                                if (thumb !== newThumb) thumb.style.borderColor = 'transparent';
-                                            });
-                                        }
-                                        alert('Profile picture uploaded successfully!');
-                                    } else {
-                                        alert('Failed to upload: ' + (data.error || 'Unknown error'));
-                                    }
-                                } catch (err) {
-                                    console.error('Upload error:', err);
-                                    alert('Error uploading profile picture');
+                                if (!file.type.startsWith('image/')) {
+                                    alert('Please select an image file.');
+                                    fileInput.value = '';
+                                    return;
                                 }
+                                const reader = new FileReader();
+                                reader.onload = function(e) {
+                                    document.getElementById('upload-preview-img').src = e.target.result;
+                                    document.getElementById('upload-preview-modal').classList.add('active');
+                                    pendingUploadFile = file;
+                                };
+                                reader.readAsDataURL(file);
+                            }
+                        }
+
+                        function closeUploadPreview() {
+                            document.getElementById('upload-preview-modal').classList.remove('active');
+                            pendingUploadFile = null;
+                            document.getElementById('profile-picture-file').value = '';
+                        }
+
+                        async function confirmUploadPreview() {
+                            if (!pendingUploadFile) return;
+                            const file = pendingUploadFile;
+                            const modal = document.getElementById('upload-preview-modal');
+                            modal.querySelector('.set-profile-btn').textContent = 'Uploading...';
+                            modal.querySelector('.set-profile-btn').disabled = true;
+                            try {
+                                const formData = new FormData();
+                                formData.append('image', file);
+                                const options = { method: 'POST', credentials: 'include', body: formData };
+                                const token = localStorage.getItem('authToken');
+                                if (token) options.headers = { 'Authorization': `Bearer ${token}` };
+                                const response = await fetch('/api/upload', options);
+                                const data = await response.json();
+                                if (data.url) {
+                                    window.uploadedProfilePictureUrl = data.url;
+                                    updateTopbarAvatar(data.url);
+                                    const gallery = document.getElementById('profile-pics-gallery');
+                                    if (gallery) {
+                                        const newThumb = document.createElement('div');
+                                        newThumb.className = 'profile-pic-thumb selected';
+                                        newThumb.onclick = function() { handleProfilePicClick(data.url, this); };
+                                        newThumb.style.cssText = 'width:60px;height:60px;cursor:pointer;border:3px solid var(--primary-color);border-radius:8px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.1);';
+                                        newThumb.innerHTML = `<img src="${data.url}" style="width:100%;height:100%;object-fit:cover;">`;
+                                        gallery.insertBefore(newThumb, gallery.firstChild);
+                                        document.querySelectorAll('.profile-pic-thumb').forEach(thumb => {
+                                            if (thumb !== newThumb) thumb.style.borderColor = 'transparent';
+                                        });
+                                    }
+                                    updateSaveButtonVisibility();
+                                    closeUploadPreview();
+                                } else {
+                                    alert('Failed to upload: ' + (data.error || 'Unknown error'));
+                                }
+                            } catch (err) {
+                                console.error('Upload error:', err);
+                                alert('Error uploading profile picture');
+                            } finally {
+                                modal.querySelector('.set-profile-btn').textContent = 'Confirm Upload';
+                                modal.querySelector('.set-profile-btn').disabled = false;
+                            }
+                        }
+
+                        async function saveProfilePicture() {
+                            const url = window.uploadedProfilePictureUrl;
+                            if (!url) {
+                                alert('Please select a profile picture first.');
+                                return;
+                            }
+                            const saveBtn = document.getElementById('save-profile-pic-btn');
+                            const originalText = saveBtn.innerHTML;
+                            saveBtn.innerHTML = '💾 Saving...';
+                            saveBtn.disabled = true;
+                            try {
+                                const authorResponse = await apiFetch('/api/settings/author', {
+                                    method: 'POST',
+                                    body: JSON.stringify({
+                                        name: document.getElementById('author-name')?.value || '',
+                                        email: document.getElementById('author-email')?.value || '',
+                                        bio: document.getElementById('author-bio')?.value || '',
+                                        phone: document.getElementById('author-phone')?.value || '',
+                                        whatsapp: document.getElementById('author-whatsapp')?.value || '',
+                                        profilePicture: url,
+                                        social: {
+                                            twitter: document.getElementById('author-twitter')?.value || '',
+                                            facebook: document.getElementById('author-facebook')?.value || '',
+                                            linkedin: document.getElementById('author-linkedin')?.value || '',
+                                            instagram: document.getElementById('author-instagram')?.value || '',
+                                            website: document.getElementById('author-website')?.value || ''
+                                        }
+                                    })
+                                });
+                                if (authorResponse.ok) {
+                                    updateTopbarAvatar(url);
+                                    alert('Profile picture saved successfully!');
+                                } else {
+                                    const data = await authorResponse.json();
+                                    alert('Failed to save: ' + (data.error || 'Unknown error'));
+                                }
+                            } catch (err) {
+                                console.error('Error saving profile picture:', err);
+                                alert('Error saving profile picture');
+                            } finally {
+                                saveBtn.innerHTML = originalText;
+                                saveBtn.disabled = false;
                             }
                         }
 
@@ -5597,11 +5715,10 @@ window.loadPostsList = loadPostsList;
                         async function autoLoginForLocalhost() {
                             try {
                                 console.log('Attempting localhost auto-login...');
-                                const response = await fetch('/auth/login', {
+                                const response = await fetch('/auth/dev-login', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    credentials: 'include',
-                                    body: JSON.stringify({ username: 'admin', password: 'password' })
+                                    credentials: 'include'
                                 });
 
                                 const data = await response.json();
@@ -5675,6 +5792,12 @@ window.loadPostsList = loadPostsList;
                                 if (authorLinkedin) authorLinkedin.value = author.social?.linkedin || '';
                                 if (authorInstagram) authorInstagram.value = author.social?.instagram || '';
                                 if (authorWebsite) authorWebsite.value = author.social?.website || '';
+
+                                // Update top-bar avatar with saved profile picture
+                                if (author.profilePicture) {
+                                    window.uploadedProfilePictureUrl = author.profilePicture;
+                                    updateTopbarAvatar(author.profilePicture);
+                                }
 
                                 console.log('Settings loaded and form populated successfully');
                             })
@@ -6379,7 +6502,7 @@ window.loadPostsList = loadPostsList;
                             console.log('[Analytics] Refreshing for period:', period);
 
                             try {
-                                const response = await apiFetch(`/api/analytics?period=${period}`);
+                                const response = await apiFetch(`/api/stats?period=${period}`);
                                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                                 
                                 const data = await response.json();

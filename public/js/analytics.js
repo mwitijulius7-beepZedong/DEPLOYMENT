@@ -14,7 +14,7 @@ export function showAnalyticsSection() {
 export async function refreshAnalytics() {
     try {
         const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : '';
-        const analyticsResponse = await fetch('/api/analytics', { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+        const analyticsResponse = await fetch('/api/stats', { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
         const analyticsData = await analyticsResponse.json();
         document.getElementById('analytics-page-views').textContent = analyticsData.pageViews?.length || 0;
         document.getElementById('analytics-engagement').textContent = analyticsData.engagementRate || '0%';
@@ -24,7 +24,7 @@ export async function refreshAnalytics() {
 }
 export async function viewEngagementDetails() {
     try {
-        const response = await fetch('/api/analytics/engagement');
+        const response = await fetch('/api/stats/engagement');
         const data = await response.json();
         alert('Engagement Details:\n- Total Interactions: ' + (data.totalInteractions || 0) + '\n- Average Time: ' + (data.averageTime || 0) + 's\n- Bounce Rate: ' + (data.bounceRate || 0) + '%');
     } catch (error) {
@@ -35,7 +35,7 @@ export async function viewEngagementDetails() {
 export async function exportAnalytics() {
     try {
         const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : '';
-        const response = await fetch('/api/analytics/export', { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
+        const response = await fetch('/api/stats/export', { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
         if (response.ok) {
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
@@ -57,7 +57,7 @@ export async function exportAnalytics() {
 export async function loadTimeAnalytics() {
     const period = document.getElementById('analytics-period').value;
     try {
-        const response = await fetch('/api/analytics/time?period=' + period);
+        const response = await fetch('/api/stats/time?period=' + period);
         const data = await response.json();
         alert('Time Analytics for ' + period + ':\n- Total Views: ' + (data.totalViews || 0) + '\n- Peak Hours: ' + (data.peakHours || 'N/A') + '\n- Growth Rate: ' + (data.growthRate || 0) + '%');
     } catch (error) {
