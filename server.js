@@ -2007,6 +2007,48 @@ app.post('/auth/login', async (req, res) => {
   });
 });
 
+// Dev auto-login for localhost (no password needed)
+app.post('/auth/dev-login', async (req, res) => {
+  try {
+    const ip = getClientIP(req);
+    if (!isLocalhostRequest(req)) {
+      return res.status(403).json({ error: 'localhost_only' });
+    }
+
+    const users = await loadUsers();
+    const adminUserKey = Object.keys(users || {}).find(k => String(users[k]?.role || '').toUpperCase() === 'ADMIN');
+    const adminUser = adminUserKey ? users[adminUserKey] : null;
+    const username = adminUserKey || 'admin';
+
+    clearBruteRecord(ip);
+
+    const token = jwt.sign({
+      username,
+      email: adminUser?.email || process.env.ALLOWED_EMAIL || 'admin@example.com',
+      name: adminUser?.name || 'Admin',
+      role: adminUser?.role || 'ADMIN'
+    }, JWT_SECRET, { expiresIn: '8h' });
+
+    req.session.user = {
+      username,
+      email: adminUser?.email || process.env.ALLOWED_EMAIL || 'admin@example.com',
+      name: adminUser?.name || 'Admin',
+      role: adminUser?.role || 'ADMIN'
+    };
+
+    req.session.adminKeyVerified = true;
+    req.session.adminKeyVerifiedAt = Date.now();
+
+    return req.session.save((err) => {
+      if (err) console.error('Session save error (dev-login):', err);
+      return res.json({ success: true, token, user: req.session.user });
+    });
+  } catch (e) {
+    console.error('dev-login error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
 app.get('/auth/setup-status', async (req, res) => {
   try {
     const users = await loadUsers();
@@ -3442,6 +3484,7 @@ app.post('/api/settings/author', requireAdmin, async (req, res) => {
       bio: String(payload.bio || ''),
       phone: String(payload.phone || ''),
       whatsapp: String(payload.whatsapp || ''),
+      profilePicture: String(payload.profilePicture || ''),
       social: {
         twitter: String(payload.social?.twitter || ''),
         facebook: String(payload.social?.facebook || ''),
@@ -3962,7 +4005,7 @@ app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
 });
 
 // Analytics API
-app.post('/api/analytics/pageview', async (req, res) => {
+app.post('/api/stats/pageview', async (req, res) => {
   try {
     const { page } = req.body;
     await recordPageView(page || '/', req);
@@ -3973,7 +4016,7 @@ app.post('/api/analytics/pageview', async (req, res) => {
   }
 });
 
-app.post('/api/analytics/interaction', async (req, res) => {
+app.post('/api/stats/interaction', async (req, res) => {
   try {
     const { type, target, value } = req.body;
     if (!type || !target) return res.status(400).json({ error: 'type_and_target_required' });
@@ -3987,7 +4030,7 @@ app.post('/api/analytics/interaction', async (req, res) => {
 });
 
 // Get analytics data (protected with advanced metrics)
-app.get('/api/analytics', requireAdmin, async (req, res) => {
+app.get('/api/stats', requireAdmin, async (req, res) => {
   try {
     const { period = '7d' } = req.query;
     const rawAnalytics = await loadAnalytics();
@@ -4394,7 +4437,7 @@ async function sendNotificationEmail(toEmail, replyComment, originalComment, bas
 
 // Export analytics data with optional date filters
 // Query params: dataset=pageViews|interactions|all (default=all), format=json|csv (default=json), from=ISO, to=ISO
-app.get('/api/analytics/export', requireAdmin, async (req, res) => {
+app.get('/api/stats/export', requireAdmin, async (req, res) => {
   try {
     const { dataset = 'all', format = 'json', from, to } = req.query;
     const all = await loadAnalytics();

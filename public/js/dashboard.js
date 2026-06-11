@@ -9,7 +9,7 @@ export async function loadDashboardStats() {
 
         // Load analytics (page views count)
         const token2 = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : '';
-        const analyticsResponse = await fetch('/api/analytics', { headers: token2 ? { 'Authorization': `Bearer ${token2}` } : {} });
+        const analyticsResponse = await fetch('/api/stats', { headers: token2 ? { 'Authorization': `Bearer ${token2}` } : {} });
         const analyticsData = await analyticsResponse.json();
         document.getElementById('views-count').textContent = analyticsData.pageViews?.length || 0;
 
