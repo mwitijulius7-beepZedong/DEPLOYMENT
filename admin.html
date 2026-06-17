@@ -10,8 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/chart.js@3.9.1/dist/chart.min.js'"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js'"></script>
     <script>
         // Define navigation functions IMMEDIATELY in <head> so inline onclick handlers can find them
         let isSaving = false; // Flag to prevent duplicate saves across all admin actions
@@ -697,7 +697,7 @@
             if (deletedPostsList) deletedPostsList.innerHTML = '<div style="text-align:center; padding:12px; color:var(--text-medium);">Loading...</div>';
 
             try {
-                const response = await apiFetch('/api/posts?deleted=true');
+                const response = await apiFetch('/api/admin/posts/deleted');
                 const data = await response.json();
                 const posts = data.posts || [];
 
@@ -1493,6 +1493,7 @@ window.uploadedProfilePictureUrl = '';
                 modal.style.display = 'flex';
 
                 if (cropper) cropper.destroy();
+                if (typeof Cropper === 'undefined') { console.error('Cropper.js not loaded'); return; }
                 cropper = new Cropper(image, {
                     aspectRatio: 16 / 9,
                     viewMode: 1,
@@ -5346,12 +5347,16 @@ window.uploadedProfilePictureUrl = '';
                                 const gallery = document.getElementById('profile-pics-gallery');
                                 if (gallery) {
                                     if (data.files && data.files.length > 0) {
-                                        gallery.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:8px;width:100%;">
-                                            <button type="button" id="delete-selected-photos" onclick="deleteSelectedPhotos()" style="display:none;background:#dc2626;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;">Delete Selected</button>
-                                        </div><div style="display:flex;flex-wrap:wrap;gap:8px;">` + data.files.map(url => {
+                                        gallery.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:8px;width:100%;align-items:center;">
+                                             <label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;user-select:none;">
+                                                 <input type="checkbox" id="select-all-photos" onchange="toggleSelectAllPhotos()" style="width:14px;height:14px;cursor:pointer;">
+                                                 Select All
+                                             </label>
+                                             <button type="button" id="delete-selected-photos" onclick="deleteSelectedPhotos()" style="display:none;background:#dc2626;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;">Delete Selected</button>
+                                         </div><div style="display:flex;flex-wrap:wrap;gap:8px;">` + data.files.map(url => {
                                             const isSelected = url === window.uploadedProfilePictureUrl;
                                             return `<div class="profile-pic-thumb ${isSelected ? 'selected' : ''}" data-url="${url}" style="width:60px;height:60px;cursor:pointer;border:3px solid ${isSelected ? 'var(--primary-color)' : 'transparent'};border-radius:8px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.1);position:relative;">
-                                                <input type="checkbox" class="photo-checkbox" data-url="${url}" onclick="event.stopPropagation();togglePhotoSelection(this)" style="position:absolute;top:2px;left:2px;width:16px;height:16px;cursor:pointer;z-index:1;">
+                                                <input type="checkbox" class="photo-checkbox" data-url="${url}" onclick="event.stopPropagation();togglePhotoSelection()" style="position:absolute;top:2px;left:2px;width:16px;height:16px;cursor:pointer;z-index:1;">
                                                 <img src="${url}" style="width:100%;height:100%;object-fit:cover;" onclick="handleProfilePicClick('${url}', this.parentElement)">
                                             </div>`;
                                         }).join('') + '</div>';
@@ -5367,11 +5372,24 @@ window.uploadedProfilePictureUrl = '';
                             });
                         }
 
-                        function togglePhotoSelection(checkbox) {
+                        function toggleSelectAllPhotos() {
+                            const selectAll = document.getElementById('select-all-photos');
+                            const checkboxes = document.querySelectorAll('.photo-checkbox');
+                            checkboxes.forEach(cb => cb.checked = selectAll.checked);
+                            togglePhotoSelection();
+                        }
+
+                        function togglePhotoSelection() {
+                            const checkboxes = document.querySelectorAll('.photo-checkbox');
                             const selectedUrls = document.querySelectorAll('.photo-checkbox:checked');
                             const deleteBtn = document.getElementById('delete-selected-photos');
+                            const selectAll = document.getElementById('select-all-photos');
                             if (deleteBtn) {
                                 deleteBtn.style.display = selectedUrls.length > 0 ? 'inline-block' : 'none';
+                            }
+                            if (selectAll) {
+                                selectAll.checked = checkboxes.length > 0 && selectedUrls.length === checkboxes.length;
+                                selectAll.indeterminate = selectedUrls.length > 0 && selectedUrls.length < checkboxes.length;
                             }
                         }
 
@@ -6407,6 +6425,7 @@ window.loadPostsList = loadPostsList;
 
                         // Analytics Dashboard Logic
                         async function initAnalyticsCharts() {
+                            if (typeof Chart === 'undefined') { console.error('Chart.js not loaded'); return; }
                             // Destroy existing charts before re-creating
                             for (const id of ['pageViewsChart', 'engagementChart']) {
                                 const el = document.getElementById(id);

@@ -32,6 +32,7 @@ try {
 }
 
 const errorHandler = require('./middleware/errorHandler');
+const healthAndErrors = require('./middleware/health_and_errors');
 
 // Session store for Vercel KV with fallback
 const { EventEmitter } = require('events');
@@ -134,6 +135,9 @@ function createSessionStore() {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Register health endpoint and global error handlers
+healthAndErrors(app);
+
 // MongoDB connection - lazy loaded for serverless
 let db;
 let mongoConnectionPromise = null;
@@ -197,6 +201,7 @@ app.use(helmet({
         "'unsafe-inline'",
         "'unsafe-eval'",
         "https://cdn.jsdelivr.net",
+        "https://unpkg.com",
         "https://apis.google.com",
         "https://accounts.google.com"
       ],
@@ -221,7 +226,7 @@ app.use(helmet({
 app.use((req, res, next) => {
   res.setHeader(
     'Permissions-Policy',
-    'geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()'
+    'geolocation=(), camera=(), microphone=(), payment=(), usb=()'
   );
   next();
 });
@@ -250,8 +255,6 @@ app.use(limiter);
 app.use('/api', apiLimiter);
 // Apply strict limiter to all auth and key-gate endpoints
 app.use(['/auth/login', '/auth/google', '/api/settings/verify-entry-key'], authLimiter);
-app.use(errorHandler);
-
 // Dev seed bootstrap: create a default admin in non-prod when requested
 async function seedAdminIfNeeded() {
   try {
@@ -483,6 +486,21 @@ async function saveUsers(users) {
   }
 }
 
+function normalizePost(p) {
+  return {
+    ...p,
+    id: (p._id || p.id).toString(),
+    tags: Array.isArray(p.tags) ? p.tags : []
+  };
+}
+
+function normalizeComment(c) {
+  return {
+    ...c,
+    id: (c._id || c.id).toString()
+  };
+}
+
 async function loadPosts() {
   try {
     // Try MongoDB first if available
@@ -492,7 +510,7 @@ async function loadPosts() {
         const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
         if (posts && Array.isArray(posts)) {
           console.log('Loaded posts from MongoDB:', posts.length, 'posts');
-          return posts.map(p => ({ ...p, id: (p._id || p.id).toString() }));
+          return posts.map(normalizePost);
         }
       } catch (mongoErr) {
         console.warn('MongoDB posts query error:', mongoErr.message);
@@ -506,7 +524,7 @@ async function loadPosts() {
         if (data) {
           const parsed = JSON.parse(data);
           console.log('Loaded posts from Vercel KV:', parsed.length, 'posts');
-          return parsed;
+          return parsed.map(normalizePost);
         }
       } catch (kvErr) {
         console.warn('Vercel KV posts error:', kvErr.message);
@@ -517,7 +535,7 @@ async function loadPosts() {
     try {
       const data = JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
       console.log('Loaded posts from local file:', data.length, 'posts');
-      return data.map(p => ({ ...p, id: p.id.toString() }));
+      return data.map(normalizePost);
     } catch (fileErr) {
       console.warn('Local posts file error:', fileErr.message);
       return [];
@@ -887,11 +905,11 @@ async function loadComments() {
     const db = await getMongoDB();
     if (db) {
       const comments = await db.collection('comments').find({}).toArray();
-      commentsCache = comments.map(c => ({ ...c, id: c._id || c.id }));
+      commentsCache = comments.map(normalizeComment);
       commentsCacheTime = now;
       return commentsCache;
     }
-    commentsCache = JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf8')) || [];
+    commentsCache = (JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf8')) || []).map(normalizeComment);
     commentsCacheTime = now;
     return commentsCache || [];
   } catch (e) {
@@ -1795,13 +1813,8 @@ const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
   );
 
 // Integrated data migration endpoint — Migrates all data from KV/File to MongoDB
-app.post('/api/admin/migrate-to-mongodb', async (req, res) => {
+app.post('/api/admin/migrate-to-mongodb', requireAdmin, async (req, res) => {
   try {
-    // Check for admin role
-    if (process.env.NODE_ENV === 'production' && req.session?.user?.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'not_authorized' });
-    }
-
     const report = {
       users: 0,
       posts: 0,
@@ -2177,7 +2190,7 @@ app.post('/auth/logout', (req, res) => {
 });
 
 app.post('/auth/google', async (req, res) => {
-  const { credential, id_token } = req.body;
+  const { credential, id_token } = req.body || {};
   const token = credential || id_token; // Support both new and old formats
   const keyToken = String(req.body?.keyToken || '').trim();
 
@@ -2251,7 +2264,7 @@ app.post('/auth/google', async (req, res) => {
 
 // Forgot password endpoint
 app.post('/auth/forgot', async (req, res) => {
-  const { email } = req.body;
+  const { email } = req.body || {};
   if (!email) return res.status(400).json({ error: 'missing email' });
 
   try {
@@ -2344,7 +2357,7 @@ app.post('/auth/forgot', async (req, res) => {
 
 // Reset password endpoint
 app.post('/auth/reset', async (req, res) => {
-  const { token, password } = req.body;
+  const { token, password } = req.body || {};
   if (!token || !password) return res.status(400).json({ error: 'missing token or password' });
 
   try {
@@ -2440,10 +2453,10 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
   const post = {
     title: body.title,
     subtitle: body.subtitle || '',
-    author: body.author || (req.session.user && req.session.user.name) || 'Admin',
+    author: body.author || (req.session?.user || req.user)?.name || 'Admin',
     content: body.content,
     date: new Date().toISOString(),
-    tags: Array.isArray(body.tags) ? body.tags : (body.tags || []).map ? body.tags : [],
+    tags: Array.isArray(body.tags) ? body.tags : [],
     image: body.image || '',
     images: Array.isArray(body.images) ? body.images : [],
     featured: !!body.featured,
@@ -2476,7 +2489,7 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
 
     // Send notification if it's NOT a draft
     if (!post.isDraft && new Date(post.date) <= new Date()) {
-      sendNewPostNotification(post);
+      await sendNewPostNotification(post).catch(err => console.error('Notification error:', err));
     }
 
     return res.json({ success: true, post });
@@ -2502,7 +2515,7 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
       if (body.subtitle !== undefined) updatedFields.subtitle = body.subtitle;
       if (body.author !== undefined) updatedFields.author = body.author;
       if (body.content !== undefined) updatedFields.content = body.content;
-      if (body.tags !== undefined) updatedFields.tags = body.tags;
+      if (body.tags !== undefined) updatedFields.tags = Array.isArray(body.tags) ? body.tags : [];
       if (body.image !== undefined) updatedFields.image = body.image;
       if (body.images !== undefined) updatedFields.images = body.images;
       if (body.featured !== undefined) {
@@ -2521,7 +2534,10 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
       updatedFields.updatedAt = new Date().toISOString();
 
       await db.collection('posts').updateOne(filter, { $set: updatedFields });
-      return res.json({ success: true, post: { ...existing, ...updatedFields } });
+      return res.json({
+        success: true,
+        post: normalizePost({ ...existing, ...updatedFields })
+      });
     } else {
       const posts = await loadPosts();
       const idx = posts.findIndex(p => p.id.toString() === id.toString());
@@ -2536,7 +2552,7 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
         tags: Array.isArray(body.tags) ? body.tags : posts[idx].tags,
         image: body.image || posts[idx].image,
         images: Array.isArray(body.images) ? body.images : (posts[idx].images || []),
-        featured: !!body.featured,
+        featured: 'featured' in body ? !!body.featured : posts[idx].featured,
         isDraft: 'isDraft' in body ? !!body.isDraft : posts[idx].isDraft,
         fontFamily: body.fontFamily !== undefined ? body.fontFamily : (posts[idx].fontFamily || ''),
         pullQuote: body.pullQuote !== undefined ? body.pullQuote : posts[idx].pullQuote,
@@ -2635,48 +2651,54 @@ app.delete('/api/posts/:id/perma', requireAdmin, async (req, res) => {
 
 // Like a post
 app.post('/api/posts/:id/like', async (req, res) => {
-  const id = req.params.id;
-  const posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id.toString() === id.toString());
-  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  try {
+    const id = req.params.id;
+    const posts = await loadPosts();
+    const idx = posts.findIndex(p => p.id.toString() === id.toString());
+    if (idx === -1) return res.status(404).json({ error: 'not found' });
 
-  const action = req.body && req.body.action === 'remove' ? 'remove' : 'add';
+    const action = req.body && req.body.action === 'remove' ? 'remove' : 'add';
 
-  // Initialize if missing
-  if (typeof posts[idx].likes !== 'number') posts[idx].likes = 0;
+    if (typeof posts[idx].likes !== 'number') posts[idx].likes = 0;
 
-  if (action === 'remove') {
-    posts[idx].likes = Math.max(0, posts[idx].likes - 1);
-  } else {
-    posts[idx].likes += 1;
-    // Record interaction for analytics
-    await recordInteraction('like', id, null, req);
+    if (action === 'remove') {
+      posts[idx].likes = Math.max(0, posts[idx].likes - 1);
+    } else {
+      posts[idx].likes += 1;
+      await recordInteraction('like', id, null, req);
+    }
+    await savePosts(posts);
+    return res.json({ success: true, likes: posts[idx].likes });
+  } catch (error) {
+    console.error('Error liking post:', error);
+    return res.status(500).json({ error: 'like_failed' });
   }
-  await savePosts(posts);
-  return res.json({ success: true, likes: posts[idx].likes });
 });
 
 // Dislike a post
 app.post('/api/posts/:id/dislike', async (req, res) => {
-  const id = req.params.id;
-  const posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id.toString() === id.toString());
-  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  try {
+    const id = req.params.id;
+    const posts = await loadPosts();
+    const idx = posts.findIndex(p => p.id.toString() === id.toString());
+    if (idx === -1) return res.status(404).json({ error: 'not found' });
 
-  const action = req.body && req.body.action === 'remove' ? 'remove' : 'add';
+    const action = req.body && req.body.action === 'remove' ? 'remove' : 'add';
 
-  // Initialize if missing
-  if (typeof posts[idx].dislikes !== 'number') posts[idx].dislikes = 0;
+    if (typeof posts[idx].dislikes !== 'number') posts[idx].dislikes = 0;
 
-  if (action === 'remove') {
-    posts[idx].dislikes = Math.max(0, posts[idx].dislikes - 1);
-  } else {
-    posts[idx].dislikes += 1;
-    // Record interaction for analytics
-    await recordInteraction('dislike', id, null, req);
+    if (action === 'remove') {
+      posts[idx].dislikes = Math.max(0, posts[idx].dislikes - 1);
+    } else {
+      posts[idx].dislikes += 1;
+      await recordInteraction('dislike', id, null, req);
+    }
+    await savePosts(posts);
+    return res.json({ success: true, dislikes: posts[idx].dislikes });
+  } catch (error) {
+    console.error('Error disliking post:', error);
+    return res.status(500).json({ error: 'dislike_failed' });
   }
-  await savePosts(posts);
-  return res.json({ success: true, dislikes: posts[idx].dislikes });
 });
 
 // Comments API - Consolidated endpoints
@@ -2684,10 +2706,14 @@ app.get('/api/posts/:id/comments', async (req, res) => {
   try {
     const postId = req.params.id;
     const includeDeleted = req.query.includeDeleted === 'true';
+    const isAdmin = isUserAdmin(req);
     const allComments = await loadComments();
     let postComments = allComments.filter(c => String(c.postId) === postId);
     if (!includeDeleted) {
       postComments = postComments.filter(c => !c.deleted);
+    }
+    if (!isAdmin) {
+      postComments = postComments.filter(c => c.approved !== false);
     }
     return res.json({ success: true, comments: postComments });
   } catch (e) {
@@ -2699,9 +2725,9 @@ app.get('/api/posts/:id/comments', async (req, res) => {
 app.post('/api/posts/:id/comments', async (req, res) => {
   try {
     const postId = req.params.id;
-    const { name, email, content } = req.body;
+    const { name, email, content } = req.body || {};
     if (!name || !content) {
-      return res.status(400).json({ error: 'name_email_and_content_required' });
+      return res.status(400).json({ error: 'name_and_content_required' });
     }
 
     let imageUrl = null;
@@ -2727,7 +2753,9 @@ app.post('/api/posts/:id/comments', async (req, res) => {
       content: content.trim(),
       image: imageUrl,
       date: new Date().toISOString(),
-      approved: false
+      approved: true,
+      likes: 0,
+      dislikes: 0
     };
     allComments.push(newComment);
     await saveComments(allComments);
@@ -2800,7 +2828,7 @@ app.post('/api/posts/:id/comments/:commentId/:type', async (req, res) => {
     const postId = req.params.id;
     const commentId = req.params.commentId;
     const type = req.params.type; // 'like' or 'dislike'
-    const { action } = req.body; // 'add' or 'remove'
+    const { action } = req.body || {}; // 'add' or 'remove'
     
     const allComments = await loadComments();
     const idx = allComments.findIndex(c => c.id.toString() === commentId && c.postId.toString() === postId);
@@ -2893,7 +2921,7 @@ app.get('/api/uploads', async (req, res) => {
 // Delete uploaded file
 app.delete('/api/uploads', requireAdmin, async (req, res) => {
   try {
-    const { url } = req.body;
+    const { url } = req.body || {};
     if (!url) return res.status(400).json({ success: false, error: 'URL is required' });
     
     const urlObj = new URL(url);
@@ -2923,7 +2951,7 @@ app.get('/api/admin/themes', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/themes', requireAdmin, async (req, res) => {
   try {
-    const { month, year, title, description } = req.body;
+    const { month, year, title, description } = req.body || {};
     if (!month || !year || !title) return res.status(400).json({ success: false, error: 'Month, year, and title are required' });
     
     const newTheme = { 
@@ -2952,7 +2980,7 @@ app.post('/api/admin/themes', requireAdmin, async (req, res) => {
 app.put('/api/admin/themes/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { month, year, title, description } = req.body;
+    const { month, year, title, description } = req.body || {};
     
     const updatedFields = {};
     if (month) updatedFields.month = month;
@@ -3213,7 +3241,7 @@ app.get('/api/settings/background', async (req, res) => {
 // Set background image
 app.post('/api/settings/background', requireAdmin, async (req, res) => {
   try {
-    const { backgroundUrl } = req.body;
+    const { backgroundUrl } = req.body || {};
     if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
 
     if (process.env.VERCEL && db) {
@@ -3621,7 +3649,7 @@ app.post('/api/settings/verify-my-key', requireAuth, async (req, res) => {
         req.session.adminKeyVerifiedUsername = username;
         return res.json({ success: true, mode: 'env' });
       }
-      return res.status(403).json({ success: false, mode: 'env' });
+      return res.status(403).json({ success: false, error: 'invalid_key', mode: 'env' });
     }
 
     const users = await loadUsers();
@@ -3631,7 +3659,7 @@ app.post('/api/settings/verify-my-key', requireAuth, async (req, res) => {
     if (!user.adminKeyHash) return res.status(400).json({ success: false, error: 'admin_key_not_set' });
 
     const ok = await bcrypt.compare(provided, user.adminKeyHash);
-    if (!ok) return res.status(403).json({ success: false, mode: 'per_user' });
+    if (!ok) return res.status(403).json({ success: false, error: 'invalid_key', mode: 'per_user' });
 
     req.session.adminKeyVerified = true;
     req.session.adminKeyVerifiedAt = Date.now();
@@ -3917,13 +3945,13 @@ app.get('/api/categories', async (req, res) => {
     return res.json({ categories: filteredCategories });
   } catch (error) {
     console.error('Categories load error:', error);
-    return res.status(500).json({ categories: [], error: error.message });
+    return res.status(500).json({ error: 'failed_to_load_categories' });
   }
 });
 
 app.post('/api/categories', requireAdmin, async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description } = req.body || {};
     if (!name || !name.trim()) return res.status(400).json({ error: 'missing name' });
 
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -3954,7 +3982,7 @@ app.post('/api/categories', requireAdmin, async (req, res) => {
 app.put('/api/categories/:id', requireAdmin, async (req, res) => {
   try {
     const id = req.params.id;
-    const { name, description } = req.body;
+    const { name, description } = req.body || {};
     if (!name) return res.status(400).json({ error: 'missing name' });
 
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -4007,7 +4035,7 @@ app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
 // Analytics API
 app.post('/api/stats/pageview', async (req, res) => {
   try {
-    const { page } = req.body;
+    const { page } = req.body || {};
     await recordPageView(page || '/', req);
     return res.json({ success: true });
   } catch (e) {
@@ -4018,7 +4046,7 @@ app.post('/api/stats/pageview', async (req, res) => {
 
 app.post('/api/stats/interaction', async (req, res) => {
   try {
-    const { type, target, value } = req.body;
+    const { type, target, value } = req.body || {};
     if (!type || !target) return res.status(400).json({ error: 'type_and_target_required' });
 
     await recordInteraction(type, target, value, req);
@@ -4250,7 +4278,7 @@ app.get('/api/subscriptions', requireAdmin, async (req, res) => {
 // Newsletter subscription API
 app.post('/api/subscribe', async (req, res) => {
   try {
-    const { email, name, postId } = req.body;
+    const { email, name, postId } = req.body || {};
     if (!email || !email.includes('@')) {
       return res.status(400).json({ error: 'Valid email required' });
     }
@@ -4284,10 +4312,12 @@ app.post('/api/subscribe', async (req, res) => {
 app.get('/api/comments/:postId', async (req, res) => {
   try {
     const postId = req.params.postId;
+    const isAdmin = isUserAdmin(req);
     const comments = await loadComments();
-    const postComments = comments.filter(c => String(c.postId) === postId && !c.parentId).map(comment => ({
+    const visible = isAdmin ? comments : comments.filter(c => c.approved !== false);
+    const postComments = visible.filter(c => String(c.postId) === postId && !c.parentId).map(comment => ({
       ...comment,
-      replies: comments.filter(c => String(c.parentId) === String(comment.id))
+      replies: visible.filter(c => String(c.parentId) === String(comment.id))
     }));
     return res.json({ comments: postComments });
   } catch (e) {
@@ -4298,7 +4328,7 @@ app.get('/api/comments/:postId', async (req, res) => {
 
 app.post('/api/comments', async (req, res) => {
   try {
-    const { postId, name, email, content, parentId, subscribe } = req.body;
+    const { postId, name, email, content, parentId, subscribe } = req.body || {};
     if (!postId || !name || !email || !content) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -4612,7 +4642,7 @@ app.get('/about.html', (req, res) => {
 
 // Social sharing endpoint
 app.post('/api/share', async (req, res) => {
-    const { postId, platforms } = req.body;
+    const { postId, platforms } = req.body || {};
     if (!postId || !platforms || !Array.isArray(platforms)) {
         return res.status(400).json({ error: 'postId and platforms array required' });
     }
@@ -4660,6 +4690,19 @@ app.post('/api/share', async (req, res) => {
         return res.status(500).json({ error: e.message });
     }
 });
+
+// Handle favicon.ico to prevent 404 in browser console
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
+});
+
+// Handle robots.txt
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send('User-agent: *\nDisallow: /admin\nDisallow: /api\n');
+});
+
+// Error handler must be last middleware to catch errors from all routes
+app.use(errorHandler);
 
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => console.log(`Auth server listening on http://localhost:${PORT}`));

@@ -1263,7 +1263,7 @@
 
             root.innerHTML = `
                 <div class="post-hero">
-                    ${heroBgHtml || `<div class="hero-bg" style="${heroBgStyle}"></div>`}
+                    ${heroBgHtml || '<div class="hero-bg" style="background:linear-gradient(135deg,#6366f1,#4f46e5);"></div>'}
                     <div class="hero-overlay"></div>
                     <div class="hero-inner">
                         ${categoryHtml}
@@ -1428,8 +1428,8 @@
                             <button class="read-more" id="${rmId}" onclick="toggleReadMore('${ctId}','${rmId}')">Read more ▾</button>
                             ${photoHtml}
                             <div class="comment-actions">
-                                <button type="button" class="action-btn" data-id="${c._id || i}" onclick="toggleCommentLike(this,'${postId}','${c._id || i}','like')">👍 <span class="like-num">${c.likes || 0}</span></button>
-                                <button type="button" class="action-btn" data-id="${c._id || i}" onclick="toggleCommentLike(this,'${postId}','${c._id || i}','dislike')">👎 <span class="dislike-num">${c.dislikes || 0}</span></button>
+                                <button type="button" class="action-btn" data-id="${c.id}" onclick="toggleCommentLike(this,'${postId}','${c.id}','like')">👍 <span class="like-num">${c.likes || 0}</span></button>
+                                <button type="button" class="action-btn" data-id="${c.id}" onclick="toggleCommentLike(this,'${postId}','${c.id}','dislike')">👎 <span class="dislike-num">${c.dislikes || 0}</span></button>
                                 <button type="button" class="action-btn reply-btn" onclick="focusReply()">↩ Reply</button>
                             </div>
                         </div>
