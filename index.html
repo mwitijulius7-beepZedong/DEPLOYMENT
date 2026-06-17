@@ -4,7 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- SEO Meta -->
     <meta name="description" content="A personal blog covering football, Arsenal, everyday stories, and more. Browse the latest posts and discover great reads.">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="zedong254ke">
@@ -17,14 +16,13 @@
     <title>Personal Blog — zedong254ke</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         [v-cloak] {
             display: none;
         }
 
         :root {
-            /* Modern Color Palette with Enhanced Accessibility */
             --primary-color: #6366f1;
             --primary-hover: #4f46e5;
             --primary-light: #e0e7ff;
@@ -34,27 +32,66 @@
             --accent-light: #cffafe;
             --accent-dark: #0e7490;
 
-            /* Background Colors */
             --bg-color: #f8fafc;
             --bg-secondary: #ffffff;
             --bg-tertiary: #f1f5f9;
             --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
 
-            /* Text Colors */
             --text-dark: #0f172a;
             --text-medium: #475569;
             --text-light: #64748b;
             --text-muted: #94a3b8;
 
-            /* Shadows and Borders */
             --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
             --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             --border-radius: 12px;
             --border-radius-lg: 16px;
-
-            /* Transitions */
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+            --card-hover-transform: translateY(-6px);
+            --glass-bg: rgba(255, 255, 255, 0.25);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --glass-blur: 12px;
+
+            --reading-progress-color: var(--primary-color);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-dark: #f1f5f9;
+            --text-medium: #cbd5e1;
+            --text-light: #94a3b8;
+            --text-muted: #64748b;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(148, 163, 184, 0.15);
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+        }
+
+        [data-theme="glass"] {
+            --glass-bg: rgba(255, 255, 255, 0.12);
+            --glass-border: rgba(255, 255, 255, 0.18);
+            --glass-blur: 16px;
+        }
+
+        [data-theme="minimal"] {
+            --primary-color: #1a1a2e;
+            --primary-hover: #16213e;
+            --bg-color: #ffffff;
+            --bg-secondary: #fafafa;
+            --bg-tertiary: #f5f5f5;
+            --text-dark: #111111;
+            --text-medium: #333333;
+            --text-light: #666666;
+            --text-muted: #999999;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+            --shadow-lg: 0 4px 16px rgba(0,0,0,0.08);
+            --glass-bg: #ffffff;
+            --glass-border: #e5e7eb;
+            --bg-gradient: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
         }
 
         * {
@@ -67,19 +104,42 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
             color: var(--text-dark);
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 50%, #c3cfe2 100%);
+            background: var(--bg-color);
             min-height: 100vh;
+            transition: background 0.4s ease, color 0.4s ease;
         }
 
         #app {
             min-height: 100vh;
-            background: linear-gradient(135deg, #f5f7fa 0%, #e8d5f2 30%, #d4a5f5 50%, #9fb1e8 80%, #5b9dd9 100%);
-            min-height: 100vh;
+            background: var(--bg-gradient);
+            transition: background 0.4s ease;
         }
 
-        /* Header */
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+
+        /* ── READING PROGRESS BAR ── */
+        #reading-progress {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 3px;
+            z-index: 9999;
+            background: transparent;
+        }
+        #reading-progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            transition: width 0.1s linear;
+            box-shadow: 0 0 8px var(--primary-color);
+        }
+
+        /* ── HEADER ── */
         .header {
-            background: rgba(99, 102, 241, 0.9);
+            background: rgba(99, 102, 241, 0.92);
             backdrop-filter: blur(10px);
             color: white;
             padding: 1.5rem 0;
@@ -87,6 +147,12 @@
             position: sticky;
             top: 0;
             z-index: 100;
+        }
+        [data-theme="dark"] .header {
+            background: rgba(15, 23, 42, 0.95);
+        }
+        [data-theme="minimal"] .header {
+            background: #1a1a2e;
         }
 
         .header-content {
@@ -101,6 +167,11 @@
         .logo {
             font-size: 1.8rem;
             font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: white;
         }
 
         .nav {
@@ -126,20 +197,195 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        /* Active Tab Highlighting */
         .nav a.active-tab {
             background: rgba(255, 255, 255, 0.4);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
             font-weight: 600;
         }
 
-        /* Search Bar */
+        /* ── SKELETON LOADERS ── */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 6px;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .skeleton-hero {
+            height: 280px;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+        }
+        .skeleton-card {
+            height: 220px;
+            border-radius: 12px;
+        }
+        .skeleton-text { height: 14px; margin-bottom: 8px; }
+        .skeleton-text-sm { height: 10px; width: 60%; }
+        .skeleton-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* ── CURSOR GLOW ── */
+        #cursor-glow {
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.06) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 9998;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.3s;
+            opacity: 0;
+            will-change: transform;
+        }
+        #cursor-glow.visible { opacity: 1; }
+
+        /* ── AMBIENT BACKGROUND ── */
+        .ambient-bg {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -1;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .ambient-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.08;
+            animation: orbFloat 20s ease-in-out infinite;
+        }
+        .ambient-orb:nth-child(1) {
+            width: 400px; height: 400px;
+            background: var(--primary-color);
+            top: -100px; left: -100px;
+            animation-delay: 0s;
+        }
+        .ambient-orb:nth-child(2) {
+            width: 300px; height: 300px;
+            background: var(--accent-color);
+            bottom: -50px; right: -50px;
+            animation-delay: -7s;
+        }
+        .ambient-orb:nth-child(3) {
+            width: 250px; height: 250px;
+            background: #f59e0b;
+            top: 50%; left: 50%;
+            animation-delay: -14s;
+        }
+        @keyframes orbFloat {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+
+        /* ── SEARCH ── */
         .search-container {
             position: relative;
             margin: 2rem 0;
         }
 
-        /* Category Filter */
+        .search-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .search-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 0.875rem 1.25rem;
+            border: 2px solid var(--glass-border);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: var(--transition);
+            background: var(--glass-bg);
+            color: var(--text-dark);
+            backdrop-filter: blur(var(--glass-blur));
+        }
+
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background: var(--bg-secondary);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+        }
+
+        .search-input.has-value { padding-right: 2.5rem; }
+
+        .search-clear-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            font-size: 1rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .search-clear-btn:hover { color: var(--text-dark); }
+
+        /* ── SEARCH SUGGESTIONS ── */
+        .search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-width: 400px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            z-index: 50;
+            margin-top: 4px;
+            overflow: hidden;
+            backdrop-filter: blur(var(--glass-blur));
+        }
+        .search-suggestion-item {
+            padding: 0.625rem 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--text-medium);
+            transition: background 0.15s;
+            border-bottom: 1px solid var(--bg-tertiary);
+        }
+        .search-suggestion-item:last-child { border-bottom: none; }
+        .search-suggestion-item:hover,
+        .search-suggestion-item.active {
+            background: var(--bg-tertiary);
+        }
+        .search-suggestion-item .sug-icon {
+            font-size: 0.8rem;
+            opacity: 0.5;
+        }
+        .search-suggestion-item .sug-query {
+            font-weight: 500;
+            color: var(--text-dark);
+        }
+        .search-suggestion-item .sug-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        /* ── CATEGORY FILTER ── */
         .category-filter {
             display: flex;
             flex-wrap: wrap;
@@ -149,54 +395,30 @@
 
         .category-filter button {
             padding: 0.625rem 1.25rem;
-            border: 2px solid rgba(31, 41, 55, 0.2);
-            background: rgba(255, 255, 255, 0.5);
-            color: #1f2937;
+            border: 2px solid var(--glass-border);
+            background: var(--glass-bg);
+            color: var(--text-dark);
             border-radius: 9999px;
             font-size: 0.875rem;
             font-weight: 500;
             cursor: pointer;
             transition: var(--transition);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(var(--glass-blur));
         }
 
         .category-filter button:hover {
-            background: rgba(255, 255, 255, 0.8);
-            border-color: rgba(31, 41, 55, 0.4);
+            background: var(--bg-secondary);
+            border-color: var(--text-muted);
         }
 
         .category-filter button.active {
-            background: #1f2937;
+            background: var(--primary-color);
             color: white;
-            border-color: #1f2937;
-            box-shadow: 0 4px 12px rgba(31, 41, 55, 0.2);
-        }
-
-        .search-input {
-            width: 100%;
-            max-width: 400px;
-            padding: 0.875rem 1.25rem;
-            border: 2px solid rgba(31, 41, 55, 0.2);
-            border-radius: var(--border-radius);
-            font-size: 1rem;
-            transition: var(--transition);
-            background: rgba(255, 255, 255, 0.5);
-            color: #1f2937;
-            backdrop-filter: blur(10px);
-        }
-
-        .search-input::placeholder {
-            color: rgba(31, 41, 55, 0.5);
-        }
-
-        .search-input:focus {
-            outline: none;
             border-color: var(--primary-color);
-            background: #ffffff;
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
         }
 
-        /* Filter Section */
+        /* ── FILTER SECTION ── */
         .filter-section {
             margin: 1rem 0 2rem 0;
             display: flex;
@@ -207,72 +429,213 @@
 
         .filter-select {
             padding: 0.5rem 1rem;
-            border: 2px solid rgba(31, 41, 55, 0.2);
+            border: 2px solid var(--glass-border);
             border-radius: 8px;
             font-size: 1rem;
-            background: rgba(255, 255, 255, 0.5);
-            color: #1f2937;
+            background: var(--glass-bg);
+            color: var(--text-dark);
             cursor: pointer;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(var(--glass-blur));
             transition: var(--transition);
         }
 
         .filter-select option {
-            background: #ffffff;
-            color: #1f2937;
+            background: var(--bg-secondary);
+            color: var(--text-dark);
         }
 
         .filter-select:focus {
             outline: none;
             border-color: var(--primary-color);
-            background: #ffffff;
+            background: var(--bg-secondary);
         }
 
         .clear-filters {
-            background: rgba(255, 255, 255, 0.5);
-            color: #1f2937;
-            border: 2px solid rgba(31, 41, 55, 0.2);
+            background: var(--glass-bg);
+            color: var(--text-dark);
+            border: 2px solid var(--glass-border);
             padding: 0.5rem 1rem;
             border-radius: 8px;
             cursor: pointer;
             font-size: 0.9rem;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(var(--glass-blur));
             transition: var(--transition);
             font-weight: 500;
         }
 
         .clear-filters:hover {
-            background: rgba(255, 255, 255, 0.8);
-            border-color: rgba(31, 41, 55, 0.4);
+            background: var(--bg-secondary);
+            border-color: var(--text-muted);
         }
 
-        /* Filters Wrapper */
+        .active-filter-count {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: var(--primary-light);
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        /* ── STICKY FILTER BAR ── */
         .filters-wrapper {
-            background: rgba(255, 255, 255, 0.4);
+            background: var(--glass-bg);
             backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
+            border: 1px solid var(--glass-border);
             border-radius: var(--border-radius-lg);
             padding: 2rem;
             margin-bottom: 2.5rem;
             margin-top: 1rem;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .filters-wrapper.sticky-filters {
+            position: sticky;
+            top: 80px;
+            z-index: 40;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
         }
 
         .filters-wrapper h1 {
-            color: #1f2937;
+            color: var(--text-dark);
             margin-top: 0;
             margin-bottom: 1.5rem;
             font-size: 2rem;
         }
 
-        /* Container */
+        /* ── CONTAINER ── */
         .container {
             max-width: 1200px;
             margin: 2rem auto;
             padding: 0 2rem;
         }
 
-        /* Blog Posts */
+        /* ── FEATURED POST HERO ── */
+        .featured-hero {
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 2.5rem;
+            min-height: 320px;
+            background: var(--bg-tertiary);
+            cursor: pointer;
+            transition: var(--transition);
+            border: 1px solid var(--glass-border);
+        }
+        .featured-hero:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 48px rgba(99, 102, 241, 0.15);
+        }
+        .featured-hero-bg {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            transition: transform 0.6s ease;
+        }
+        .featured-hero:hover .featured-hero-bg {
+            transform: scale(1.03);
+        }
+        .featured-hero-placeholder {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        }
+        .featured-hero-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 100%);
+        }
+        .featured-hero-content {
+            position: relative;
+            z-index: 2;
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            min-height: 320px;
+        }
+        .featured-hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.12);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 0.375rem 0.875rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: white;
+            margin-bottom: 1rem;
+            width: fit-content;
+        }
+        .featured-hero-category {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 0.5rem;
+        }
+        .featured-hero-title {
+            font-size: clamp(1.5rem, 3vw, 2.2rem);
+            font-weight: 700;
+            color: white;
+            line-height: 1.25;
+            margin-bottom: 0.75rem;
+            max-width: 700px;
+        }
+        .featured-hero-excerpt {
+            font-size: 0.95rem;
+            color: rgba(255,255,255,0.75);
+            line-height: 1.6;
+            margin-bottom: 1.25rem;
+            max-width: 600px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .featured-hero-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            color: var(--text-dark);
+            padding: 0.625rem 1.5rem;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: var(--transition);
+            width: fit-content;
+        }
+        .featured-hero-cta:hover {
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* ── RESULTS BAR ── */
+        .results-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+        .result-count {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        .result-count strong { color: var(--text-dark); }
+
+        /* ── POSTS GRID ── */
         .posts-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -281,35 +644,101 @@
         }
 
         .post-card {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(10px);
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--glass-blur));
             border-radius: 8px;
             padding: 1.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            box-shadow: var(--shadow-sm);
             transition: var(--transition);
             cursor: pointer;
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            border: 1px solid var(--glass-border);
             display: block;
             text-decoration: none;
-            color: #1f2937;
+            color: var(--text-dark);
+            position: relative;
         }
 
         .post-card:hover {
-            transform: translateY(-4px);
+            transform: var(--card-hover-transform);
             box-shadow: 0 12px 24px rgba(99, 102, 241, 0.15);
             border-color: rgba(99, 102, 241, 0.2);
-            background: rgba(255, 255, 255, 0.95);
+            background: var(--bg-secondary);
         }
 
-        .post-title {
-            font-size: 1.25rem;
-            margin-bottom: 0.375rem;
-            color: #1f2937;
-            font-weight: 600;
-            line-height: 1.4;
+        /* ── BOOKMARK ── */
+        .bookmark-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            backdrop-filter: blur(8px);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            transition: var(--transition);
+            z-index: 5;
+            opacity: 0;
+            transform: translateY(-4px);
+        }
+        .post-card:hover .bookmark-btn {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .bookmark-btn:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-color);
+        }
+        .bookmark-btn.saved {
+            opacity: 1;
+            transform: translateY(0);
+            background: var(--primary-light);
+            border-color: var(--primary-color);
         }
 
-        /* Post Card Image */
+        /* ── READING PROGRESS RING ON CARD ── */
+        .card-progress-ring {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            width: 36px;
+            height: 36px;
+            z-index: 5;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .post-card:hover .card-progress-ring {
+            opacity: 1;
+        }
+        .card-progress-ring svg {
+            transform: rotate(-90deg);
+        }
+        .card-progress-ring circle {
+            fill: none;
+            stroke-width: 3;
+        }
+        .card-progress-ring .bg-circle {
+            stroke: var(--bg-tertiary);
+        }
+        .card-progress-ring .progress-circle {
+            stroke: var(--primary-color);
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+        .card-progress-ring .ring-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.6rem;
+            color: var(--text-muted);
+        }
+
         .post-card-image-container {
             width: 100%;
             height: 180px;
@@ -317,27 +746,36 @@
             border-radius: 6px;
             margin-bottom: 1.5rem;
             background: var(--bg-tertiary);
+            position: relative;
         }
 
         .post-card-image {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: var(--transition);
+            transition: transform 0.4s ease;
         }
 
         .post-card:hover .post-card-image {
-            transform: scale(1.05);
+            transform: scale(1.06);
+        }
+
+        .post-title {
+            font-size: 1.25rem;
+            margin-bottom: 0.375rem;
+            color: var(--text-dark);
+            font-weight: 600;
+            line-height: 1.4;
         }
 
         .post-meta {
-            color: #9ca3af;
+            color: var(--text-muted);
             font-size: 0.8rem;
             margin-bottom: 0.75rem;
         }
 
         .post-excerpt {
-            color: #4b5563;
+            color: var(--text-medium);
             line-height: 1.6;
             font-size: 0.95rem;
         }
@@ -350,16 +788,22 @@
         }
 
         .tag {
-            background: rgba(255, 255, 255, 0.2);
-            color: #ffffff;
+            background: var(--glass-bg);
+            color: var(--text-medium);
             padding: 0.25rem 0.75rem;
             border-radius: 999px;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-weight: 500;
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(4px);
+            transition: var(--transition);
+        }
+        .tag:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-color);
+            color: var(--primary-dark);
         }
 
-        /* Like/Dislike reaction counts on cards */
         .post-reactions-feed {
             display: flex;
             gap: 0.75rem;
@@ -375,79 +819,56 @@
             border-radius: 999px;
             font-size: 0.82rem;
             font-weight: 600;
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            background: rgba(255, 255, 255, 0.18);
-            color: #1f2937;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            color: var(--text-dark);
             cursor: pointer;
             transition: var(--transition);
             user-select: none;
+            backdrop-filter: blur(4px);
         }
 
         .reaction-pill:hover {
-            background: rgba(255, 255, 255, 0.45);
+            background: var(--bg-secondary);
             transform: translateY(-1px);
         }
 
         .reaction-pill.liked {
-            background: rgba(34, 197, 94, 0.2);
-            border-color: rgba(34, 197, 94, 0.5);
+            background: rgba(34, 197, 94, 0.15);
+            border-color: rgba(34, 197, 94, 0.4);
             color: #15803d;
         }
 
         .reaction-pill.disliked {
-            background: rgba(239, 68, 68, 0.18);
+            background: rgba(239, 68, 68, 0.15);
             border-color: rgba(239, 68, 68, 0.4);
             color: #b91c1c;
         }
 
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .empty-state h3 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            color: white;
-        }
-
-        .empty-state p {
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        .skip-link {
+        .card-rt-badge {
             position: absolute;
-            top: -40px;
-            left: 0;
-            background: var(--primary-color);
-            color: white;
-            padding: 8px 16px;
-            z-index: 1000;
-            transition: top 0.2s;
-            text-decoration: none;
-            font-weight: 500;
+            bottom: 10px;
+            left: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #fff;
+            background: rgba(0,0,0,0.62);
+            border: 1px solid rgba(255,255,255,0.18);
+            padding: 3px 9px;
+            border-radius: 20px;
+            backdrop-filter: blur(4px);
+            letter-spacing: 0.03em;
+            pointer-events: none;
         }
 
-        .skip-link:focus {
-            top: 0;
-        }
-
-        /* Author Profile Photo Styles */
-        .post-author-img {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            cursor: pointer;
-            transition: transform 0.2s;
-            background: #eee;
-        }
-
-        .post-author-img:hover {
-            transform: scale(1.1);
+        .post-card-category {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.13em;
+            color: var(--primary-color);
+            margin-bottom: 6px;
         }
 
         .post-header-with-author {
@@ -457,7 +878,278 @@
             margin-bottom: 0.375rem;
         }
 
-        /* Lightbox Styles */
+        .post-author-img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--bg-secondary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+            background: var(--bg-tertiary);
+        }
+
+        .post-author-img:hover {
+            transform: scale(1.1);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .empty-state p {
+            color: var(--text-light);
+        }
+
+        /* ── PERSONAL FEED SECTIONS ── */
+        .feed-section {
+            margin-bottom: 2.5rem;
+        }
+        .feed-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+        .feed-section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .feed-section-more {
+            font-size: 0.8rem;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-weight: 500;
+            text-decoration: none;
+        }
+        .feed-section-more:hover {
+            text-decoration: underline;
+        }
+        .feed-horizontal-scroll {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+        }
+        .feed-horizontal-scroll::-webkit-scrollbar { height: 3px; }
+        .feed-horizontal-scroll::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+        .feed-mini-card {
+            min-width: 240px;
+            max-width: 260px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 1rem;
+            text-decoration: none;
+            color: var(--text-dark);
+            scroll-snap-align: start;
+            transition: var(--transition);
+            flex-shrink: 0;
+        }
+        .feed-mini-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--primary-light);
+        }
+        .feed-mini-card .fmc-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 0.375rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .feed-mini-card .fmc-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .feed-mini-card .fmc-img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin-bottom: 0.625rem;
+            background: var(--bg-tertiary);
+        }
+        .feed-mini-card .fmc-progress {
+            height: 3px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+        .feed-mini-card .fmc-progress-bar {
+            height: 100%;
+            background: var(--primary-color);
+            border-radius: 3px;
+            transition: width 0.5s;
+        }
+        .trending-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #dc2626;
+            background: rgba(220, 38, 38, 0.1);
+            padding: 0.125rem 0.5rem;
+            border-radius: 999px;
+        }
+
+        /* ── THEME TOGGLE ── */
+        .theme-toggle {
+            display: flex;
+            gap: 0.375rem;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 999px;
+            padding: 0.25rem;
+            backdrop-filter: blur(var(--glass-blur));
+        }
+        .theme-toggle button {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: var(--transition);
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .theme-toggle button:hover { background: var(--bg-tertiary); }
+        .theme-toggle button.active {
+            background: var(--primary-light);
+            box-shadow: 0 2px 8px rgba(99,102,241,0.2);
+        }
+
+        /* ── QUICK ACTIONS BAR ── */
+        .quick-actions {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 900;
+        }
+        .quick-action-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            color: var(--text-dark);
+            transition: var(--transition);
+            box-shadow: var(--shadow-md);
+        }
+        .quick-action-btn:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-lg);
+            background: var(--bg-secondary);
+        }
+        .quick-action-btn .tooltip {
+            position: absolute;
+            right: 52px;
+            background: var(--text-dark);
+            color: var(--bg-secondary);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.625rem;
+            border-radius: 4px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            font-weight: 500;
+        }
+        .quick-action-btn:hover .tooltip {
+            opacity: 1;
+        }
+        .quick-action-btn.scrolled-up { display: none; }
+
+        /* ── READING MODE ── */
+        .reading-mode-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(24px);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        .reading-mode-overlay.active {
+            display: flex;
+        }
+        .reading-mode-content {
+            max-width: 680px;
+            width: 100%;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin: 2rem auto;
+            animation: readingFadeIn 0.4s ease;
+            line-height: 1.9;
+            font-size: 1.1rem;
+            color: var(--text-dark);
+            position: relative;
+        }
+        @keyframes readingFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .reading-mode-content h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .reading-mode-content p {
+            margin-bottom: 1.25rem;
+        }
+        .reading-mode-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: var(--transition);
+        }
+        .reading-mode-close:hover {
+            background: var(--bg-tertiary);
+        }
+
+        /* ── LIGHTBOX ── */
         .lightbox-modal {
             display: none;
             position: fixed;
@@ -507,88 +1199,242 @@
             margin-top: 15px;
         }
 
-        /* ── Reading-time badge on card image ── */
-        .card-rt-badge {
+        .skip-link {
             position: absolute;
-            bottom: 10px;
-            left: 10px;
-            font-family: 'Inter', sans-serif;
-            font-size: 11px;
-            font-weight: 700;
-            color: #fff;
-            background: rgba(0,0,0,0.62);
-            border: 1px solid rgba(255,255,255,0.18);
-            padding: 3px 9px;
-            border-radius: 20px;
-            backdrop-filter: blur(4px);
-            letter-spacing: 0.03em;
-            pointer-events: none;
+            top: -40px;
+            left: 0;
+            background: var(--primary-color);
+            color: white;
+            padding: 8px 16px;
+            z-index: 1000;
+            transition: top 0.2s;
+            text-decoration: none;
+            font-weight: 500;
         }
 
-        /* ── Category chip on card ── */
-        .post-card-category {
-            display: inline-block;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.13em;
-            color: var(--primary-color);
-            margin-bottom: 6px;
+        .skip-link:focus {
+            top: 0;
         }
 
-        /* ── Result count + sort row ── */
-        .results-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-bottom: 1.25rem;
-        }
-        .result-count {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: rgba(31,41,55,0.65);
-            font-family: 'Inter', sans-serif;
-        }
-        .result-count strong { color: #1f2937; }
-
-        /* ── Search clear button ── */
-        .search-wrapper {
-            position: relative;
-            display: inline-block;
-        }
-        .search-clear-btn {
-            position: absolute;
-            right: 10px;
+        /* ── KEYBOARD SHORTCUT HINT ── */
+        .shortcut-hint {
+            position: fixed;
             top: 50%;
-            transform: translateY(-50%);
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+            display: none;
+            min-width: 280px;
+            backdrop-filter: blur(16px);
+        }
+        .shortcut-hint.active { display: block; }
+        .shortcut-hint h3 {
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            color: var(--text-dark);
+        }
+        .shortcut-hint .shortcut-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--bg-tertiary);
+            font-size: 0.85rem;
+        }
+        .shortcut-hint .shortcut-row:last-child { border-bottom: none; }
+        .shortcut-hint kbd {
+            background: var(--bg-tertiary);
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid var(--glass-border);
+        }
+        .shortcut-hint .shortcut-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
             background: none;
             border: none;
-            font-size: 1rem;
-            color: rgba(31,41,55,0.45);
             cursor: pointer;
-            padding: 4px;
-            line-height: 1;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+        }
+
+        /* ── CONFETTI ── */
+        .confetti-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            overflow: hidden;
+        }
+        .confetti-piece {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            animation: confettiFall linear forwards;
+        }
+        @keyframes confettiFall {
+            0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* ── PAGE TRANSITIONS ── */
+        .page-fade-enter-active,
+        .page-fade-leave-active {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .page-fade-enter-from,
+        .page-fade-leave-to {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        /* ── MOBILE BOTTOM NAV ── */
+        .bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--glass-border);
+            z-index: 200;
+            padding: 0.5rem 0;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .bottom-nav a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 0.65rem;
+            gap: 2px;
+            padding: 0.25rem 0.75rem;
             transition: color 0.2s;
         }
-        .search-clear-btn:hover { color: #1f2937; }
-        .search-input.has-value { padding-right: 2.5rem; }
-</head>
+        .bottom-nav a span { font-size: 1.2rem; }
+        .bottom-nav a.active { color: var(--primary-color); }
 
+        /* ── CONFIRM/TOAST ── */
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--text-dark);
+            color: var(--bg-secondary);
+            padding: 0.75rem 1.5rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            box-shadow: var(--shadow-lg);
+            z-index: 9999;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        .toast.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 768px) {
+            .container { padding: 0 1rem; margin: 1rem auto; }
+            .header { padding: 1rem 0; }
+            .header-content { padding: 0 1rem; }
+            .logo { font-size: 1.4rem; }
+            .nav { gap: 0.5rem; }
+            .nav a { font-size: 0.85rem; padding: 0.375rem 0.625rem; }
+
+            .filters-wrapper { padding: 1.25rem; }
+            .filters-wrapper h1 { font-size: 1.5rem; }
+            .filters-wrapper.sticky-filters { position: relative; top: auto; max-height: none; }
+
+            .posts-grid { grid-template-columns: 1fr; gap: 1rem; }
+            .post-card { padding: 1rem; }
+
+            .featured-hero-content { padding: 1.5rem; min-height: 240px; }
+            .featured-hero { min-height: 240px; }
+            .featured-hero-title { font-size: 1.2rem; }
+
+            .category-filter { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.5rem; -webkit-overflow-scrolling: touch; }
+            .category-filter button { flex-shrink: 0; font-size: 0.8rem; padding: 0.5rem 1rem; }
+
+            .filter-section { flex-direction: column; align-items: stretch; }
+            .filter-select { width: 100%; }
+
+            .search-input { max-width: 100%; }
+            .search-suggestions { max-width: 100%; }
+
+            .quick-actions { bottom: 70px; right: 16px; }
+            .quick-action-btn { width: 38px; height: 38px; font-size: 0.95rem; }
+
+            .bottom-nav { display: flex; }
+
+            .reading-mode-overlay { padding: 1rem; }
+            .reading-mode-content { padding: 1.5rem; margin: 1rem auto; font-size: 1rem; }
+
+            .feed-mini-card { min-width: 180px; max-width: 200px; }
+
+            .bookmark-btn { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Reading Progress Bar -->
+    <div id="reading-progress"><div id="reading-progress-bar"></div></div>
+
+    <!-- Cursor Glow -->
+    <div id="cursor-glow"></div>
+
+    <!-- Ambient Background Orbs -->
+    <div class="ambient-bg">
+        <div class="ambient-orb"></div>
+        <div class="ambient-orb"></div>
+        <div class="ambient-orb"></div>
+    </div>
+
+    <!-- Confetti Container -->
+    <div class="confetti-container" id="confetti-container"></div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
     <div id="app" v-cloak>
         <noscript>
             <p style="text-align: center; padding: 2rem; color: red;">JavaScript is required to run this blog.</p>
         </noscript>
+
+        <!-- Header -->
         <div class="header">
             <div class="header-content">
-                <a href="/" class="logo" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+                <a href="/" class="logo">
                     <img v-if="authorInfo && authorInfo.profilePicture" :src="authorInfo.profilePicture" alt="Profile" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.3);">
                     <span>{{ blogTitle }}</span>
                 </a>
                 <nav class="nav">
+                    <div class="theme-toggle" @click.stop>
+                        <button @click="setTheme('light')" :class="{ active: theme === 'light' }" title="Light mode">☀️</button>
+                        <button @click="setTheme('dark')" :class="{ active: theme === 'dark' }" title="Dark mode">🌙</button>
+                        <button @click="setTheme('glass')" :class="{ active: theme === 'glass' }" title="Glass mode">✨</button>
+                        <button @click="setTheme('minimal')" :class="{ active: theme === 'minimal' }" title="Minimal mode">◇</button>
+                    </div>
                     <a href="/" class="active">Blog</a>
                     <a href="/about.html">About</a>
                     <a href="/login.html" title="Admin Panel">⚙️</a>
@@ -597,21 +1443,114 @@
         </div>
 
         <div class="container" id="main-content">
-            <!-- Blog View -->
-            <div>
-                <div class="filters-wrapper">
+            <!-- Skeleton Loaders (shown while loading) -->
+            <div v-if="!loaded">
+                <div class="skeleton skeleton-hero"></div>
+                <div class="skeleton-grid">
+                    <div v-for="n in 3" :key="n" class="skeleton skeleton-card"></div>
+                </div>
+            </div>
+
+            <div v-else>
+                <!-- Featured Hero -->
+                <div v-if="featuredPost" class="featured-hero" @click="openFeaturedPost">
+                    <div class="featured-hero-bg" :style="{ backgroundImage: featuredImageStyle }"></div>
+                    <div class="featured-hero-overlay"></div>
+                    <div class="featured-hero-content">
+                        <div class="featured-hero-badge">🔥 Featured Today</div>
+                        <div v-if="getCategoryName(featuredPost.categoryId)" class="featured-hero-category">{{ getCategoryName(featuredPost.categoryId) }}</div>
+                        <h2 class="featured-hero-title">{{ featuredPost.title }}</h2>
+                        <p class="featured-hero-excerpt">{{ getExcerpt(featuredPost.content) }}</p>
+                        <a :href="'/post.html?id=' + featuredPost.id" class="featured-hero-cta">
+                            Continue Reading →
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Personal Feed Sections -->
+                <div v-if="continueReadingPosts.length > 0" class="feed-section">
+                    <div class="feed-section-header">
+                        <h3 class="feed-section-title">📖 Continue Reading</h3>
+                        <a class="feed-section-more" href="/">View all</a>
+                    </div>
+                    <div class="feed-horizontal-scroll">
+                        <a v-for="post in continueReadingPosts" :key="'cr-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card">
+                            <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title">
+                            <div class="fmc-title">{{ post.title }}</div>
+                            <div class="fmc-meta">{{ getReadingTime(post.content) }}</div>
+                            <div class="fmc-progress">
+                                <div class="fmc-progress-bar" :style="{ width: getReadingProgress(post.id) + '%' }"></div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <div v-if="trendingPosts.length > 0" class="feed-section">
+                    <div class="feed-section-header">
+                        <h3 class="feed-section-title">🔥 Trending This Week</h3>
+                        <a class="feed-section-more" href="/">View all</a>
+                    </div>
+                    <div class="feed-horizontal-scroll">
+                        <a v-for="post in trendingPosts" :key="'tr-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card">
+                            <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title">
+                            <div class="fmc-title">{{ post.title }}</div>
+                            <div class="fmc-meta">{{ (post.likes || 0) + (post.dislikes || 0) }} reactions <span class="trending-badge">Hot</span></div>
+                        </a>
+                    </div>
+                </div>
+
+                <div v-if="recentlyViewedPosts.length > 0" class="feed-section">
+                    <div class="feed-section-header">
+                        <h3 class="feed-section-title">👁️ Recently Viewed</h3>
+                    </div>
+                    <div class="feed-horizontal-scroll">
+                        <a v-for="post in recentlyViewedPosts" :key="'rv-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card">
+                            <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title">
+                            <div class="fmc-title">{{ post.title }}</div>
+                            <div class="fmc-meta">{{ formatDate(post.date) }}</div>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Filters Wrapper -->
+                <div class="filters-wrapper" :class="{ 'sticky-filters': filtersSticky }" id="filters-wrapper">
                     <h1>Latest Posts</h1>
 
-                    <!-- Search Bar -->
+                    <!-- Search Bar with Suggestions -->
                     <div class="search-container" style="margin-top: 0;">
                         <div class="search-wrapper">
                             <input v-model="searchQuery" type="text" id="search-input" class="search-input" :class="{ 'has-value': searchQuery }"
-                                placeholder="Search posts by title, content, or tags…">
-                            <button v-if="searchQuery" class="search-clear-btn" @click="searchQuery = ''" title="Clear search" aria-label="Clear search">&times;</button>
+                                placeholder="Search posts by title, content, or tags…"
+                                @focus="showSearchSuggestions = true"
+                                @blur="hideSearchSuggestionsDelayed"
+                                @keydown="onSearchKeydown">
+                            <button v-if="searchQuery" class="search-clear-btn" @click="clearSearch" title="Clear search" aria-label="Clear search">&times;</button>
+                            <!-- Search Suggestions -->
+                            <div v-if="showSearchSuggestions && (searchSuggestions.length > 0 || recentSearches.length > 0)" class="search-suggestions" @mousedown.prevent>
+                                <div v-if="!searchQuery && recentSearches.length > 0">
+                                    <div class="search-suggestion-item" style="font-size:0.75rem;font-weight:600;color:var(--text-muted);cursor:default;border-bottom:1px solid var(--bg-tertiary);">
+                                        Recent Searches
+                                    </div>
+                                    <div v-for="(sq, i) in recentSearches" :key="'rs-' + i" class="search-suggestion-item"
+                                        @click="selectSuggestion(sq)">
+                                        <span class="sug-icon">🕐</span>
+                                        <span class="sug-query">{{ sq }}</span>
+                                        <span class="sug-label" @click.stop="removeRecentSearch(i)">✕</span>
+                                    </div>
+                                </div>
+                                <div v-if="searchQuery && searchSuggestions.length > 0">
+                                    <div v-for="(sug, i) in searchSuggestions" :key="'sug-' + i" class="search-suggestion-item"
+                                        :class="{ active: searchSuggestionIndex === i }"
+                                        @click="selectSuggestion(sug)">
+                                        <span class="sug-icon">🔍</span>
+                                        <span class="sug-query">{{ sug }}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Category Filter -->
+                    <!-- Category Filter (horizontal scroll on mobile) -->
                     <div class="category-filter">
                         <button v-for="category in allCategories" :key="category.id"
                             @click="toggleCategory(category.id)"
@@ -636,10 +1575,14 @@
                             <option value="oldest">Oldest First</option>
                             <option value="popular">Most Popular</option>
                         </select>
-                        <button v-if="hasFilters" @click="clearFilters" class="clear-filters">Clear Filters</button>
+                        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                            <span v-if="activeFilterCount > 0" class="active-filter-count">{{ activeFilterCount }} active</span>
+                            <button v-if="hasFilters" @click="clearFilters" class="clear-filters">Clear All</button>
+                        </div>
                     </div>
                 </div>
 
+                <!-- Posts -->
                 <div v-if="sortedFilteredPosts.length === 0" class="empty-state">
                     <h3 v-if="posts.length === 0">No posts yet</h3>
                     <h3 v-else>No posts match your search</h3>
@@ -647,27 +1590,45 @@
                     <p v-else>Try adjusting your search or filters.</p>
                 </div>
                 <div v-else>
-                    <!-- Results bar: count + sort info -->
                     <div class="results-bar">
                         <p class="result-count">
                             Showing <strong>{{ sortedFilteredPosts.length }}</strong> of <strong>{{ posts.length }}</strong> post{{ posts.length !== 1 ? 's' : '' }}
                             <span v-if="searchQuery"> for &ldquo;{{ searchQuery }}&rdquo;</span>
                         </p>
+                        <span v-if="sortedFilteredPosts.length > 0" style="font-size:0.75rem;color:var(--text-muted);">Press <kbd style="background:var(--bg-tertiary);padding:0.1rem 0.35rem;border-radius:3px;font-size:0.7rem;">/</kbd> to search</span>
                     </div>
                     <div class="posts-grid">
                         <a v-for="post in sortedFilteredPosts" :key="post.id" :href="'/post.html?id=' + post.id"
                             class="post-card">
+                            <!-- Bookmark -->
+                            <button class="bookmark-btn" :class="{ saved: isBookmarked(post.id) }"
+                                @click.prevent="toggleBookmark(post)"
+                                :title="isBookmarked(post.id) ? 'Remove bookmark' : 'Add bookmark'">
+                                {{ isBookmarked(post.id) ? '★' : '☆' }}
+                            </button>
+
                             <div v-if="post.image || post.video" class="post-card-image-container" style="position: relative;">
-                                <img v-if="post.image" :src="post.image" :alt="post.title" class="post-card-image">
-                                <div v-else-if="post.video" class="post-card-video-placeholder" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#000; color:#fff;">
+                                <img v-if="post.image" :src="post.image" :alt="post.title" class="post-card-image" loading="lazy">
+                                <div v-else-if="post.video" class="post-card-video-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--text-dark);color:var(--bg-secondary);">
                                     <span>🎥 Video Post</span>
                                 </div>
                                 <div v-if="post.video" class="video-badge" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">
                                     VIDEO
                                 </div>
-                                <!-- Reading time badge on image -->
                                 <span class="card-rt-badge">⏱ {{ getReadingMinutes(post.content) }} min</span>
                             </div>
+
+                            <!-- Reading Progress Ring -->
+                            <div class="card-progress-ring" :title="'Reading progress: ' + getReadingProgress(post.id) + '%'">
+                                <svg width="36" height="36" viewBox="0 0 36 36">
+                                    <circle class="bg-circle" cx="18" cy="18" r="15"></circle>
+                                    <circle class="progress-circle" cx="18" cy="18" r="15"
+                                        :style="{ strokeDasharray: 2 * Math.PI * 15, strokeDashoffset: 2 * Math.PI * 15 * (1 - getReadingProgress(post.id) / 100) }">
+                                    </circle>
+                                </svg>
+                                <span class="ring-icon">{{ getReadingProgress(post.id) > 0 ? '📖' : '' }}</span>
+                            </div>
+
                             <div class="post-header-with-author">
                                 <img v-if="authorInfo && authorInfo.profilePicture" 
                                      :src="authorInfo.profilePicture" 
@@ -683,7 +1644,7 @@
                             <div class="post-meta">{{ formatDate(post.date) }} &middot; {{ post.author || 'Unknown' }} &middot; {{ getReadingTime(post.content) }}</div>
                             <p class="post-excerpt">{{ getExcerpt(post.content) }}</p>
                             <div class="post-tags">
-                                <span v-for="tag in (post.tags || [])" :key="tag" class="tag">{{ tag }}</span>
+                                <span v-for="tag in getTags(post)" :key="tag" class="tag">{{ tag }}</span>
                             </div>
                             <div class="post-reactions-feed"
                                 v-if="(post.likes || 0) > 0 || (post.dislikes || 0) > 0 || true">
@@ -712,12 +1673,89 @@
                 </div>
             </div>
         </div>
+
+        <!-- Reading Mode Overlay -->
+        <div class="reading-mode-overlay" :class="{ active: readingModePost }" @click.self="closeReadingMode">
+            <div class="reading-mode-content" v-if="readingModePost">
+                <button class="reading-mode-close" @click="closeReadingMode">✕</button>
+                <h2>{{ readingModePost.title }}</h2>
+                <div class="post-meta" style="margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--bg-tertiary);">
+                    {{ formatDate(readingModePost.date) }} &middot; {{ getReadingTime(readingModePost.content) }}
+                </div>
+                <div v-html="getReadingContent(readingModePost.content)"></div>
+            </div>
+        </div>
+
+        <!-- Keyboard Shortcuts Hint -->
+        <div class="shortcut-hint" :class="{ active: showShortcuts }">
+            <button class="shortcut-close" @click="showShortcuts = false">✕</button>
+            <h3>⌨️ Keyboard Shortcuts</h3>
+            <div class="shortcut-row"><span>Search</span> <kbd>/</kbd></div>
+            <div class="shortcut-row"><span>Reading mode</span> <kbd>R</kbd></div>
+            <div class="shortcut-row"><span>Random post</span> <kbd>Space</kbd></div>
+            <div class="shortcut-row"><span>Back to top</span> <kbd>Esc</kbd></div>
+            <div class="shortcut-row"><span>Theme toggle</span> <kbd>T</kbd></div>
+            <div class="shortcut-row"><span>Show shortcuts</span> <kbd>?</kbd></div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <button class="quick-action-btn" @click="scrollToTop" title="Back to top">
+                ↑
+                <span class="tooltip">Back to Top</span>
+            </button>
+            <button class="quick-action-btn" @click="openRandomPost" title="Random post">
+                🎲
+                <span class="tooltip">Random Post</span>
+            </button>
+            <button class="quick-action-btn" @click="showBookmarks = !showBookmarks" title="Saved posts">
+                {{ showBookmarks ? '★' : '☆' }}
+                <span class="tooltip">{{ showBookmarks ? 'All Posts' : 'Saved' }}</span>
+            </button>
+            <button class="quick-action-btn" @click="cycleTheme" title="Cycle theme">
+                🎨
+                <span class="tooltip">Theme: {{ theme }}</span>
+            </button>
+        </div>
+
+        <!-- Mobile Bottom Navigation -->
+        <div class="bottom-nav">
+            <a href="/" class="active">
+                <span>🏠</span>
+                Home
+            </a>
+            <a href="#" @click.prevent="openRandomPost">
+                <span>🎲</span>
+                Random
+            </a>
+            <a href="#" @click.prevent="showBookmarks = !showBookmarks">
+                <span>{{ showBookmarks ? '★' : '☆' }}</span>
+                Saved
+            </a>
+            <a href="#" @click.prevent="cycleTheme">
+                <span>🎨</span>
+                Theme
+            </a>
+            <a href="/about.html">
+                <span>ℹ️</span>
+                About
+            </a>
+        </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+    <script src="/public/js/vue.global.js"></script>
     <script>
+        let vueRetries = 0;
+        const VUE_MAX_RETRIES = 100;
+
         function initVue() {
             if (typeof Vue === 'undefined') {
+                vueRetries++;
+                if (vueRetries > VUE_MAX_RETRIES) {
+                    document.getElementById('app').style.display = 'block';
+                    document.getElementById('app').innerHTML = '<div style="text-align:center;padding:4rem 2rem;color:var(--text-dark);"><h2>Failed to load application</h2><p>Please check your internet connection and refresh the page.</p></div>';
+                    return;
+                }
                 setTimeout(initVue, 50);
                 return;
             }
@@ -738,24 +1776,54 @@
                         sortBy: 'newest',
                         authorInfo: null,
                         lightboxImg: '',
-                        isLightboxOpen: false
+                        isLightboxOpen: false,
+                        loaded: false,
+                        theme: localStorage.getItem('blog_theme') || 'light',
+                        showSearchSuggestions: false,
+                        searchSuggestionIndex: -1,
+                        showShortcuts: false,
+                        filtersSticky: false,
+                        readingModePost: null,
+                        showBookmarks: false,
                     };
                 },
                 mounted() {
                     this.loadPosts();
                     this.loadCategories();
                     this.loadSettings();
+                    this.applyTheme(this.theme);
+                    this.$nextTick(() => {
+                        this.loaded = true;
+                    });
+
+                    window.addEventListener('scroll', this.onScroll);
+
+                    document.addEventListener('keydown', this.onKeydown);
+
+                    document.addEventListener('mousemove', (e) => {
+                        const glow = document.getElementById('cursor-glow');
+                        if (glow) {
+                            glow.style.left = e.clientX + 'px';
+                            glow.style.top = e.clientY + 'px';
+                            glow.classList.add('visible');
+                        }
+                    });
                 },
                 computed: {
                     filteredPosts() {
                         let filtered = this.posts;
 
+                        if (this.showBookmarks) {
+                            const saved = this.getBookmarkedIds();
+                            filtered = filtered.filter(post => saved.includes(post.id));
+                        }
+
                         if (this.searchQuery) {
                             const query = this.searchQuery.toLowerCase();
                             filtered = filtered.filter(post =>
-                                post.title.toLowerCase().includes(query) ||
-                                post.content.toLowerCase().includes(query) ||
-                                post.tags.some(tag => tag.toLowerCase().includes(query))
+                                (post.title || '').toLowerCase().includes(query) ||
+                                (post.content || '').toLowerCase().includes(query) ||
+                                (this.getTags(post)).some(tag => tag.toLowerCase().includes(query))
                             );
                         }
 
@@ -764,7 +1832,7 @@
                         }
 
                         if (this.selectedTag) {
-                            filtered = filtered.filter(post => post.tags.includes(this.selectedTag));
+                            filtered = filtered.filter(post => this.getTags(post).includes(this.selectedTag));
                         }
 
                         if (this.selectedArchive) {
@@ -788,8 +1856,6 @@
                         }
 
                         return filtered;
-                        // Sort
-                        // (sort is applied below after all filters)
                     },
                     sortedFilteredPosts() {
                         let filtered = this.filteredPosts;
@@ -798,13 +1864,22 @@
                         } else if (this.sortBy === 'popular') {
                             return [...filtered].sort((a, b) => ((b.likes || 0) + (b.dislikes || 0)) - ((a.likes || 0) + (a.dislikes || 0)));
                         }
-                        // default: newest
                         return [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
+                    },
+                    featuredPost() {
+                        if (this.posts.length === 0) return null;
+                        const pinned = this.posts.find(p => p.featured || p.pinned);
+                        return pinned || this.posts.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+                    },
+                    featuredImageStyle() {
+                        if (!this.featuredPost) return '';
+                        const img = this.featuredPost.image || (this.featuredPost.images && this.featuredPost.images[0]);
+                        return img ? `url('${img}')` : '';
                     },
                     allTags() {
                         const tags = new Set();
                         this.posts.forEach(post => {
-                            post.tags.forEach(tag => tags.add(tag));
+                            this.getTags(post).forEach(tag => tags.add(tag));
                         });
                         return Array.from(tags).sort();
                     },
@@ -826,17 +1901,61 @@
                     },
                     hasFilters() {
                         return this.searchQuery || this.selectedCategory || this.selectedTag || this.selectedArchive || this.selectedDate || this.sortBy !== 'newest';
+                    },
+                    activeFilterCount() {
+                        let count = 0;
+                        if (this.searchQuery) count++;
+                        if (this.selectedCategory) count++;
+                        if (this.selectedTag) count++;
+                        if (this.selectedArchive) count++;
+                        if (this.selectedDate) count++;
+                        if (this.sortBy !== 'newest') count++;
+                        return count;
+                    },
+                    searchSuggestions() {
+                        if (!this.searchQuery) return [];
+                        const q = this.searchQuery.toLowerCase();
+                        const matches = new Set();
+                        this.posts.forEach(post => {
+                            if ((post.title || '').toLowerCase().includes(q)) matches.add(post.title);
+                            this.getTags(post).forEach(tag => { if (tag.toLowerCase().includes(q)) matches.add(tag); });
+                            if ((post.author || '').toLowerCase().includes(q)) matches.add(post.author);
+                        });
+                        return Array.from(matches).slice(0, 6);
+                    },
+                    recentSearches() {
+                        try {
+                            return JSON.parse(localStorage.getItem('blog_recent_searches') || '[]');
+                        } catch { return []; }
+                    },
+                    continueReadingPosts() {
+                        const readIds = this.getReadingHistory();
+                        return this.posts.filter(p => readIds.includes(p.id)).slice(0, 6);
+                    },
+                    trendingPosts() {
+                        return [...this.posts]
+                            .sort((a, b) => ((b.likes || 0) + (b.dislikes || 0)) - ((a.likes || 0) + (a.dislikes || 0)))
+                            .slice(0, 6);
+                    },
+                    recentlyViewedPosts() {
+                        const viewedIds = this.getRecentlyViewed();
+                        return viewedIds.map(id => this.posts.find(p => p.id === id)).filter(Boolean).slice(0, 6);
                     }
                 },
                 methods: {
+                    getTags(post) {
+                        return Array.isArray(post?.tags) ? post.tags : [];
+                    },
                     async loadPosts() {
                         try {
                             const resp = await fetch(`/api/posts?t=${new Date().getTime()}`);
                             const data = await resp.json();
                             this.posts = data.posts || [];
+                            this.loaded = true;
                         } catch (e) {
                             console.error('Failed to load posts:', e);
                             this.posts = [];
+                            this.loaded = true;
                         }
                     },
                     async loadCategories() {
@@ -851,7 +1970,6 @@
                     },
                     async loadSettings() {
                         try {
-                            // Load background settings
                             const bgResp = await fetch(`/api/settings/background?t=${new Date().getTime()}`);
                             const bgData = await bgResp.json();
                             if (bgData.backgroundUrl) {
@@ -867,7 +1985,6 @@
                             console.error('Failed to load background settings:', e);
                         }
 
-                        // Load blog info settings (title)
                         try {
                             const blogResp = await fetch(`/api/settings/blog-info?t=${new Date().getTime()}`);
                             const blogData = await blogResp.json();
@@ -878,7 +1995,6 @@
                             console.error('Failed to load blog info settings:', e);
                         }
 
-                        // Load author settings for profile photo
                         try {
                             const authorResp = await fetch(`/api/settings/author?t=${new Date().getTime()}`);
                             const authorData = await authorResp.json();
@@ -896,6 +2012,12 @@
                         this.selectedArchive = '';
                         this.selectedDate = '';
                         this.sortBy = 'newest';
+                        this.showBookmarks = false;
+                    },
+                    clearSearch() {
+                        this.searchQuery = '';
+                        this.showSearchSuggestions = false;
+                        document.getElementById('search-input').focus();
                     },
                     toggleCategory(categoryId) {
                         if (categoryId === 'all') {
@@ -927,7 +2049,9 @@
                         });
                     },
                     getExcerpt(content) {
-                        return content.length > 150 ? content.substring(0, 150) + '...' : content;
+                        if (!content) return '';
+                        const text = content.replace(/<[^>]+>/g, '');
+                        return text.length > 150 ? text.substring(0, 150) + '...' : text;
                     },
                     getReaction(postId) {
                         return localStorage.getItem(`reaction_${postId}`) || null;
@@ -938,7 +2062,6 @@
                         const removing = current === type;
                         const action = removing ? 'remove' : 'add';
 
-                        // If switching reaction, remove the opposite first
                         if (!removing && current && current !== type) {
                             const opposite = current === 'like' ? 'like' : 'dislike';
                             await fetch(`/api/posts/${post.id}/${opposite}`, {
@@ -954,7 +2077,6 @@
                             localStorage.removeItem(reactionKey);
                         }
 
-                        // Toggle the selected reaction
                         try {
                             const resp = await fetch(`/api/posts/${post.id}/${type}`, {
                                 method: 'POST',
@@ -970,7 +2092,6 @@
                                 } else {
                                     localStorage.setItem(reactionKey, type);
                                 }
-                                // Trigger reactivity
                                 this.posts = [...this.posts];
                             }
                         } catch (e) {
@@ -978,12 +2099,241 @@
                         }
                     },
                     openLightbox(imgUrl) {
-                        console.log('Opening lightbox for:', imgUrl);
                         this.lightboxImg = imgUrl;
                         this.isLightboxOpen = true;
                     },
                     closeLightbox() {
                         this.isLightboxOpen = false;
+                    },
+
+                    // ── THEME FUNCTIONS ──
+                    applyTheme(theme) {
+                        document.documentElement.setAttribute('data-theme', theme);
+                        localStorage.setItem('blog_theme', theme);
+                    },
+                    setTheme(theme) {
+                        this.theme = theme;
+                        this.applyTheme(theme);
+                    },
+                    cycleTheme() {
+                        const themes = ['light', 'dark', 'glass', 'minimal'];
+                        const idx = themes.indexOf(this.theme);
+                        this.setTheme(themes[(idx + 1) % themes.length]);
+                        this.showToast(`Theme: ${this.theme.charAt(0).toUpperCase() + this.theme.slice(1)}`);
+                    },
+
+                    // ── SEARCH SUGGESTIONS ──
+                    hideSearchSuggestionsDelayed() {
+                        setTimeout(() => { this.showSearchSuggestions = false; }, 200);
+                    },
+                    selectSuggestion(sug) {
+                        this.searchQuery = sug;
+                        this.showSearchSuggestions = false;
+                        this.saveRecentSearch(sug);
+                    },
+                    saveRecentSearch(query) {
+                        if (!query) return;
+                        try {
+                            let searches = JSON.parse(localStorage.getItem('blog_recent_searches') || '[]');
+                            searches = searches.filter(s => s !== query);
+                            searches.unshift(query);
+                            if (searches.length > 5) searches = searches.slice(0, 5);
+                            localStorage.setItem('blog_recent_searches', JSON.stringify(searches));
+                        } catch (e) { /* ignore */ }
+                    },
+                    removeRecentSearch(index) {
+                        try {
+                            let searches = JSON.parse(localStorage.getItem('blog_recent_searches') || '[]');
+                            searches.splice(index, 1);
+                            localStorage.setItem('blog_recent_searches', JSON.stringify(searches));
+                            this.$forceUpdate();
+                        } catch (e) { /* ignore */ }
+                    },
+                    onSearchKeydown(e) {
+                        const suggestions = this.searchSuggestions;
+                        if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            if (this.searchSuggestionIndex < suggestions.length - 1) {
+                                this.searchSuggestionIndex++;
+                            }
+                        } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            if (this.searchSuggestionIndex > -1) {
+                                this.searchSuggestionIndex--;
+                            }
+                        } else if (e.key === 'Enter' && this.searchSuggestionIndex >= 0 && suggestions[this.searchSuggestionIndex]) {
+                            e.preventDefault();
+                            this.selectSuggestion(suggestions[this.searchSuggestionIndex]);
+                        } else if (e.key === 'Escape') {
+                            this.showSearchSuggestions = false;
+                        } else if (e.key === 'Enter' && this.searchQuery) {
+                            this.saveRecentSearch(this.searchQuery);
+                        }
+                    },
+
+                    // ── READING PROGRESS ──
+                    onScroll() {
+                        const scrollTop = window.scrollY;
+                        const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                        const progress = docHeight > 0 ? Math.min((scrollTop / docHeight) * 100, 100) : 0;
+                        const bar = document.getElementById('reading-progress-bar');
+                        if (bar) bar.style.width = progress + '%';
+
+                        this.filtersSticky = scrollTop > 200;
+                    },
+
+                    // ── READING HISTORY ──
+                    getReadingHistory() {
+                        try {
+                            return JSON.parse(localStorage.getItem('blog_reading_history') || '[]');
+                        } catch { return []; }
+                    },
+                    getReadingProgress(postId) {
+                        const history = this.getReadingHistory();
+                        return history.includes(postId) ? 45 : 0;
+                    },
+
+                    // ── RECENTLY VIEWED ──
+                    getRecentlyViewed() {
+                        try {
+                            return JSON.parse(localStorage.getItem('blog_recently_viewed') || '[]');
+                        } catch { return []; }
+                    },
+
+                    // ── BOOKMARKS ──
+                    getBookmarkedIds() {
+                        try {
+                            return JSON.parse(localStorage.getItem('blog_bookmarks') || '[]');
+                        } catch { return []; }
+                    },
+                    isBookmarked(postId) {
+                        return this.getBookmarkedIds().includes(postId);
+                    },
+                    toggleBookmark(post) {
+                        let bookmarks = this.getBookmarkedIds();
+                        if (bookmarks.includes(post.id)) {
+                            bookmarks = bookmarks.filter(id => id !== post.id);
+                            this.showToast('Bookmark removed');
+                        } else {
+                            bookmarks.unshift(post.id);
+                            this.showToast('Post bookmarked! ★');
+                            this.fireConfetti();
+                        }
+                        localStorage.setItem('blog_bookmarks', JSON.stringify(bookmarks));
+                        this.$forceUpdate();
+                    },
+
+                    // ── KEYBOARD SHORTCUTS ──
+                    onKeydown(e) {
+                        if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+                            const tag = e.target.tagName;
+                            if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+                                e.preventDefault();
+                                const input = document.getElementById('search-input');
+                                if (input) input.focus();
+                            }
+                        }
+                        if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+                            e.preventDefault();
+                            this.showShortcuts = !this.showShortcuts;
+                        }
+                        if (e.key === 'Escape') {
+                            if (this.showShortcuts) { this.showShortcuts = false; return; }
+                            if (this.readingModePost) { this.closeReadingMode(); return; }
+                            if (this.isLightboxOpen) { this.closeLightbox(); return; }
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                        if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) {
+                            const tag = e.target.tagName;
+                            if (tag !== 'INPUT' && tag !== 'TEXTAREA' && this.sortedFilteredPosts.length > 0) {
+                                e.preventDefault();
+                                const first = this.sortedFilteredPosts[0];
+                                if (first) this.openReadingMode(first);
+                            }
+                        }
+                        if (e.key === ' ' && !e.ctrlKey && !e.metaKey) {
+                            const tag = e.target.tagName;
+                            if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+                                e.preventDefault();
+                                this.openRandomPost();
+                            }
+                        }
+                        if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey) {
+                            const tag = e.target.tagName;
+                            if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+                                e.preventDefault();
+                                this.cycleTheme();
+                            }
+                        }
+                    },
+
+                    // ── READING MODE ──
+                    openReadingMode(post) {
+                        this.readingModePost = post;
+                        document.body.style.overflow = 'hidden';
+                    },
+                    closeReadingMode() {
+                        this.readingModePost = null;
+                        document.body.style.overflow = '';
+                    },
+                    getReadingContent(content) {
+                        if (!content) return '<p>No content available.</p>';
+                        const text = content.replace(/<[^>]+>/g, '');
+                        const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim());
+                        return paragraphs.map(p => `<p>${p.trim()}</p>`).join('');
+                    },
+
+                    // ── FEATURED POST ──
+                    openFeaturedPost() {
+                        if (this.featuredPost) {
+                            window.location.href = '/post.html?id=' + this.featuredPost.id;
+                        }
+                    },
+
+                    // ── RANDOM POST ──
+                    openRandomPost() {
+                        const visible = this.sortedFilteredPosts;
+                        if (visible.length === 0) return;
+                        const random = visible[Math.floor(Math.random() * visible.length)];
+                        window.location.href = '/post.html?id=' + random.id;
+                    },
+
+                    // ── SCROLL TO TOP ──
+                    scrollToTop() {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    },
+
+                    // ── TOAST ──
+                    showToast(message) {
+                        const toast = document.getElementById('toast');
+                        if (!toast) return;
+                        toast.textContent = message;
+                        toast.classList.add('visible');
+                        clearTimeout(this._toastTimeout);
+                        this._toastTimeout = setTimeout(() => {
+                            toast.classList.remove('visible');
+                        }, 2000);
+                    },
+
+                    // ── CONFETTI ──
+                    fireConfetti() {
+                        const container = document.getElementById('confetti-container');
+                        if (!container) return;
+                        const colors = ['#6366f1', '#06b6d4', '#f59e0b', '#ef4444', '#22c55e', '#ec4899'];
+                        for (let i = 0; i < 30; i++) {
+                            const piece = document.createElement('div');
+                            piece.className = 'confetti-piece';
+                            piece.style.left = Math.random() * 100 + '%';
+                            piece.style.top = '-10px';
+                            piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+                            piece.style.width = (Math.random() * 8 + 4) + 'px';
+                            piece.style.height = (Math.random() * 8 + 4) + 'px';
+                            piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                            piece.style.animationDuration = (Math.random() * 2 + 1.5) + 's';
+                            piece.style.animationDelay = (Math.random() * 0.5) + 's';
+                            container.appendChild(piece);
+                            setTimeout(() => piece.remove(), 3000);
+                        }
                     }
                 }
             }).mount('#app');
@@ -995,43 +2345,31 @@
             initVue();
         }
 
-        // Active Tab Highlighting Function
         function highlightActiveTab() {
             const currentPath = window.location.pathname;
             const navLinks = document.querySelectorAll('.nav a');
-
             navLinks.forEach(link => {
                 const href = link.getAttribute('href');
-
-                // Remove any existing active classes
                 link.classList.remove('active');
                 link.classList.remove('active-tab');
-
-                // Check if this link matches the current page
                 if (href === '/') {
-                    // Home page - highlight Blog
                     if (currentPath === '/' || currentPath === '/index.html' || currentPath.endsWith('/')) {
                         link.classList.add('active');
                         link.classList.add('active-tab');
                     }
                 } else if (href && currentPath.includes(href.replace('/', '').replace('.html', ''))) {
-                    // Other pages - highlight matching link
                     link.classList.add('active');
                     link.classList.add('active-tab');
                 }
             });
         }
 
-        // Run on page load
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', highlightActiveTab);
         } else {
             highlightActiveTab();
         }
-
-        // Also run when Vue mounts (for SPA-like behavior)
         window.addEventListener('load', highlightActiveTab);
     </script>
 </body>
-
 </html>
