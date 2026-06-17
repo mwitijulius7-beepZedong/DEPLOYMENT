@@ -4,5 +4,12 @@
     "email": "mwitijulius7@gmail.com",
     "passwordHash": "$2a$10$ZqigcUcGP/a9dzPzsRUai.avNPIkrPac.OCIVQrWX5iQ2dU9Om8ce",
     "role": "ADMIN"
+  },
+  "admin": {
+    "name": "Admin",
+    "email": "admin@example.com",
+    "passwordHash": "$2a$10$cQ4z8HHntY/qYS2fi6k0q.aDU5eMQna1lPx.FB2cXcbazCyW8rMmC",
+    "active": true,
+    "role": "ADMIN"
   }
 }
