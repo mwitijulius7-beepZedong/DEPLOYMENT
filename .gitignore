@@ -40,4 +40,5 @@ test.html
 temp-*.js
 
 # User-uploaded media
-uploads/
+uploads/*
+!uploads/.gitkeep
