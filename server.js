@@ -4,7 +4,6 @@ const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const fetch = require('node-fetch');
-const { OAuth2Client } = require('google-auth-library');
 const session = require('express-session');
 const path = require('path');
 const fileUpload = require('express-fileupload');
@@ -14,15 +13,18 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { put } = require('@vercel/blob');
-const { MongoClient, ObjectId } = require('mongodb');
 const cloudinary = require('cloudinary').v2;
+const { encryptText, decryptText, isLocalhostRequest, isLocalhostAdminKeyBypassEnabled, recordFailedAttempt, isLockedOut, clearBruteRecord, getClientIP, findUserKey } = require('./utils/adminKey');
+const { getMongoDB, setKV, ObjectId, saveWithFallback, loadWithFallback, loadWithFallbackSingle } = require('./utils/storage');
+const errorHandler = require('./middleware/errorHandler');
+const healthAndErrors = require('./middleware/health_and_errors');
 
-// Conditionally import @vercel/kv - handle case when env vars are missing
 let kv = null;
 try {
   if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
     const kvModule = require('@vercel/kv');
     kv = kvModule.kv;
+    setKV(kv);
     console.log('Vercel KV initialized successfully');
   } else {
     console.warn('Vercel KV: Missing KV_REST_API_URL or KV_REST_API_TOKEN - using fallback storage');
@@ -30,9 +32,6 @@ try {
 } catch (err) {
   console.warn('Vercel KV import failed:', err.message);
 }
-
-const errorHandler = require('./middleware/errorHandler');
-const healthAndErrors = require('./middleware/health_and_errors');
 
 // Session store for Vercel KV with fallback
 const { EventEmitter } = require('events');
@@ -138,49 +137,10 @@ const PORT = process.env.PORT || 3000;
 // Register health endpoint and global error handlers
 healthAndErrors(app);
 
-// MongoDB connection - lazy loaded for serverless
-let db;
-let mongoConnectionPromise = null;
-let mongoConnectionFailed = false;
-let mongoNextRetry = 0;
-const MONGO_RETRY_DELAY = 60000; // 1 minute
-
-async function getMongoDB() {
-  if (db) return db;
-  const mongoUri = process.env.MONGODB_URI || process.env.PERSONALBLOG_MONGODB_URI;
-  if (!mongoUri) return null;
-
-  // Circuit breaker: don't retry immediately if connection failed recently
-  if (mongoConnectionFailed && Date.now() < mongoNextRetry) {
-    return null;
-  }
-
-  // Deduplicate connection attempts
-  if (mongoConnectionPromise) return mongoConnectionPromise;
-
-  mongoConnectionPromise = (async () => {
-    try {
-      const client = await MongoClient.connect(mongoUri, {
-        serverSelectionTimeoutMS: 8000, // Increased for Vercel cold starts
-        connectTimeoutMS: 8000,
-        socketTimeoutMS: 10000
-      });
-      console.log('Connected to MongoDB');
-      db = client.db('blog');
-      mongoConnectionFailed = false;
-      return db;
-    } catch (error) {
-      console.error('MongoDB connection error:', error.message);
-      mongoConnectionFailed = true;
-      mongoNextRetry = Date.now() + MONGO_RETRY_DELAY;
-      return null;
-    } finally {
-      mongoConnectionPromise = null;
-    }
-  })();
-
-  return mongoConnectionPromise;
-}
+// MongoDB connection state — set by getMongoDB from utils/storage
+// Route handlers use `if (db)` to check MongoDB availability
+let db = null;
+getMongoDB().then(d => { db = d; }).catch(() => {});
 
 // Cloudinary configuration
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
@@ -302,7 +262,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 // Idle timeout configuration (in minutes)
 const ADMIN_IDLE_TIMEOUT_MINUTES = parseInt(process.env.ADMIN_IDLE_TIMEOUT_MINUTES) || 10;
 const ADMIN_IDLE_TIMEOUT_MS = ADMIN_IDLE_TIMEOUT_MINUTES * 60 * 1000;
-const ADMIN_IDLE_WARNING_MS = (ADMIN_IDLE_TIMEOUT_MINUTES - 1) * 60 * 1000; // Warning at 1 minute before timeout
 
 // Public (non-admin) config endpoint used by the frontend to align timers with the backend.
 // NOTE: does not reveal any secrets.
@@ -355,7 +314,8 @@ app.use((req, res, next) => {
 
 // 2026: cap raw body size to prevent DoS via oversized payloads
 app.use(express.json({ limit: '50kb' }));
-app.use(express.static(__dirname));
+// Cache public static assets aggressively
+app.use(express.static(__dirname, { maxAge: '1h', etag: true, lastModified: true }));
 app.use('/public', express.static(path.join(__dirname, 'public'), {
   maxAge: '1y',
   etag: true,
@@ -606,46 +566,13 @@ async function savePosts(posts) {
 
 async function loadCategories() {
   try {
-    // Try MongoDB first if available
-    const db = await getMongoDB();
-    if (db) {
-      try {
-        const categories = await db.collection('categories').find({}).toArray();
-        if (categories && Array.isArray(categories)) {
-          console.log('Loaded categories from MongoDB:', categories.length);
-          return categories.map(c => ({ ...c, id: (c._id || c.id).toString() }));
-        }
-      } catch (mongoErr) {
-        console.warn('MongoDB categories query error:', mongoErr.message);
-      }
-    }
-
-    // Try Vercel KV if available
-    if (process.env.VERCEL && kv) {
-      try {
-        const data = await kv.get('categories');
-        if (data) {
-          const parsed = JSON.parse(data);
-          if (Array.isArray(parsed)) {
-            console.log('Loaded categories from Vercel KV:', parsed.length);
-            return parsed.map(c => ({ ...c, id: String(c.id) }));
-          }
-        }
-      } catch (kvErr) {
-        console.warn('Vercel KV categories error:', kvErr.message);
-      }
-    }
-
-    // Fall back to local file
-    try {
-      const data = fs.readFileSync(CATEGORIES_FILE, 'utf8');
-      const cats = JSON.parse(data) || [];
-      console.log('Loaded categories from local file:', cats.length);
-      return cats.map(c => ({ ...c, id: String(c.id) }));
-    } catch (fileErr) {
-      console.warn('Local categories file error:', fileErr.message);
-      return [];
-    }
+    return await loadWithFallback({
+      collectionName: 'categories',
+      kvKey: 'categories',
+      filePath: CATEGORIES_FILE,
+      transform: c => ({ ...c, id: String(c.id) }),
+      defaultData: []
+    });
   } catch (e) {
     console.error('Fatal error in loadCategories:', e);
     return [];
@@ -658,89 +585,23 @@ async function saveCategories(categories) {
       console.error('saveCategories: categories is not an array', typeof categories);
       throw new Error('categories must be an array');
     }
-
-    const mongoDb = await getMongoDB();
-    if (mongoDb) {
-      const col = mongoDb.collection('categories');
-      if (categories.length === 0) {
-        await col.deleteMany({});
-      } else {
-        const ids = [];
-        const ops = categories.map(c => {
-          const { id, ...doc } = c;
-
-          let filterSelector;
-          if (typeof id === 'string' && id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id)) {
-            const oid = new ObjectId(id);
-            ids.push(oid, id);
-            filterSelector = { _id: { $in: [oid, id] } };
-          } else {
-            ids.push(id);
-            filterSelector = { _id: id };
-          }
-
-          return {
-            updateOne: {
-              filter: filterSelector,
-              update: { $set: { ...doc, id } },
-              upsert: true
-            }
-          };
-        });
-        await col.bulkWrite(ops, { ordered: false });
-        // Remove stale categories using _id
-        await col.deleteMany({ _id: { $nin: ids } });
-      }
-      console.log('Saved categories to MongoDB:', categories.length);
-      return;
-    }
-    if (process.env.VERCEL && kv) {
-      console.log('Saving to Vercel KV:', categories.length);
-      await kv.set('categories', JSON.stringify(categories));
-      return;
-    }
-    // Guard: on Vercel the filesystem is read-only — never attempt fs.writeFileSync
-    if (process.env.VERCEL) {
-      const hasMongoUri = !!(process.env.MONGODB_URI || process.env.PERSONALBLOG_MONGODB_URI);
-      const reason = hasMongoUri ? 'MongoDB connection failed' : 'MONGODB_URI / PERSONALBLOG_MONGODB_URI env var not set';
-      console.error(`saveCategories: cannot write on Vercel without storage. Reason: ${reason}`);
-      throw new Error(`No writable storage available on Vercel (${reason}). Configure MONGODB_URI.`);
-    }
-    console.log('Saving to file system:', categories.length);
-    fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
+    await saveWithFallback('categories', 'categories', CATEGORIES_FILE, categories);
   } catch (e) {
     console.error('Save categories error:', e);
-    throw e; // propagate so callers know it failed
+    throw e;
   }
 }
 
 async function loadAnalytics() {
   try {
-    const db = await getMongoDB();
-    if (db) {
-      const result = await db.collection('analytics').findOne({ type: 'data' });
-      // Seed from file if it has valid data
-      try {
-        const fileData = JSON.parse(fs.readFileSync(ANALYTICS_FILE, 'utf8'));
-        if (fileData && fileData.pageViews) {
-          const fileCount = fileData.pageViews.length;
-          const mongoCount = result?.data?.pageViews?.length || 0;
-          if (fileCount >= mongoCount) {
-            console.log(`Seeding analytics from file: ${fileCount} views (MongoDB had ${mongoCount})`);
-            await db.collection('analytics').updateOne(
-              { type: 'data' },
-              { $set: { data: fileData, updatedAt: new Date() } },
-              { upsert: true }
-            );
-            return fileData;
-          }
-        }
-      } catch (fErr) {}
-      
-      if (result) return result.data;
-      return { pageViews: [], postViews: [], interactions: [] };
-    }
-    return JSON.parse(fs.readFileSync(ANALYTICS_FILE, 'utf8')) || { pageViews: [], postViews: [], interactions: [] };
+    const result = await loadWithFallbackSingle({
+      collectionName: 'analytics',
+      mongoFilter: { type: 'data' },
+      kvKey: 'analytics',
+      filePath: ANALYTICS_FILE,
+      defaultData: { pageViews: [], postViews: [], interactions: [] }
+    });
+    return result?.data || result || { pageViews: [], postViews: [], interactions: [] };
   } catch (e) {
     return { pageViews: [], postViews: [], interactions: [] };
   }
@@ -863,32 +724,15 @@ async function uploadFileToStorage(file, folder = 'blog') {
 
 async function loadSecurityLogs() {
   try {
-    const db = await getMongoDB();
-    if (db) {
-      const result = await db.collection('security').findOne({ type: 'logs' });
-      return result?.logs || [];
-    }
-    return JSON.parse(fs.readFileSync(SECURITY_LOGS_FILE, 'utf8')) || [];
+    const result = await loadWithFallbackSingle({
+      collectionName: 'security',
+      mongoFilter: { type: 'logs' },
+      filePath: SECURITY_LOGS_FILE,
+      defaultData: []
+    });
+    return result?.logs || [];
   } catch (e) {
     return [];
-  }
-}
-
-async function saveSecurityLogs(logs) {
-  try {
-    const mongoDb = await getMongoDB();
-    if (mongoDb) {
-      await mongoDb.collection('security').updateOne(
-        { type: 'logs' },
-        { $set: { logs, updatedAt: new Date() } },
-        { upsert: true }
-      );
-      return;
-    }
-    if (process.env.VERCEL) return;
-    fs.writeFileSync(SECURITY_LOGS_FILE, JSON.stringify(logs, null, 2));
-  } catch (e) {
-    console.error('Save security logs error:', e);
   }
 }
 
@@ -1056,124 +900,6 @@ async function sendNewPostNotification(post) {
   } catch (err) {
     console.error('Error sending post notification:', err);
   }
-}
-
-// Simple AES-256-GCM encryption/decryption using SESSION_SECRET as key material
-function getEncKey() {
-  const secret = process.env.SESSION_SECRET || 'dev-secret';
-  return crypto.createHash('sha256').update(secret).digest(); // 32 bytes
-}
-function encryptText(plain) {
-  try {
-    const key = getEncKey();
-    const iv = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-    const enc = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
-    const tag = cipher.getAuthTag();
-    return Buffer.concat([iv, tag, enc]).toString('base64');
-  } catch (e) {
-    return '';
-  }
-}
-function decryptText(encStr) {
-  try {
-    if (!encStr) return '';
-    const buf = Buffer.from(encStr, 'base64');
-    const iv = buf.subarray(0, 12);
-    const tag = buf.subarray(12, 28);
-    const data = buf.subarray(28);
-    const key = getEncKey();
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAuthTag(tag);
-    const dec = Buffer.concat([decipher.update(data), decipher.final()]);
-    return dec.toString('utf8');
-  } catch (e) {
-    return '';
-  }
-}
-
-// ------------------------------------------------------------
-// Admin Entry Key: localhost bypass (for development convenience)
-// ------------------------------------------------------------
-// By default, localhost bypass is enabled to keep local development smooth.
-// To TEST the Admin Entry Key gate on localhost, set:
-//   DISABLE_LOCALHOST_ADMIN_KEY_BYPASS=true
-function isLocalhostRequest(req) {
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-  const host = req.get('host') || '';
-  return (
-    String(ip).includes('127.0.0.1') ||
-    ip === '::1' ||
-    host.includes('localhost') ||
-    host.includes('127.0.0.1') ||
-    host.includes('::1')
-  );
-}
-
-function isLocalhostAdminKeyBypassEnabled(req) {
-  try {
-    const disabled = String(process.env.DISABLE_LOCALHOST_ADMIN_KEY_BYPASS || '').toLowerCase() === 'true';
-    if (disabled) return false;
-    return isLocalhostRequest(req);
-  } catch (e) {
-    return false;
-  }
-}
-
-/**
- * Find the actual key used in the users object for a given username.
- * This makes username lookup case-insensitive while preserving stored casing.
- */
-function findUserKey(users, username) {
-  if (!users || !username) return null;
-  const keys = Object.keys(users || {});
-  // Exact match first
-  let k = keys.find(x => x === username);
-  if (k) return k;
-  // Case-insensitive match
-  const low = String(username).toLowerCase();
-  k = keys.find(x => String(x).toLowerCase() === low);
-  return k || null;
-}
-
-// ============================================================
-// 2026: Brute-force lockout (in-memory, per-IP)
-// ============================================================
-const BRUTE_MAX_ATTEMPTS = 5;
-const BRUTE_WINDOW_MS = 15 * 60 * 1000;  // 15 minutes
-const bruteStore = new Map(); // ip → { count, firstAt }
-
-function getBruteRecord(ip) {
-  return bruteStore.get(ip) || { count: 0, firstAt: Date.now() };
-}
-
-function recordFailedAttempt(ip) {
-  const rec = getBruteRecord(ip);
-  const now = Date.now();
-  // Reset window if it expired
-  if (now - rec.firstAt > BRUTE_WINDOW_MS) {
-    bruteStore.set(ip, { count: 1, firstAt: now });
-  } else {
-    bruteStore.set(ip, { count: rec.count + 1, firstAt: rec.firstAt });
-  }
-}
-
-function isLockedOut(ip) {
-  const rec = bruteStore.get(ip);
-  if (!rec) return false;
-  if (Date.now() - rec.firstAt > BRUTE_WINDOW_MS) {
-    bruteStore.delete(ip); // window expired
-    return false;
-  }
-  return rec.count >= BRUTE_MAX_ATTEMPTS;
-}
-
-function clearBruteRecord(ip) {
-  bruteStore.delete(ip);
-}
-
-function getClientIP(req) {
-  return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
 }
 
 function requireAuth(req, res, next) {
