@@ -100,6 +100,10 @@
             box-sizing: border-box;
         }
 
+        html {
+            overflow-x: hidden;
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
@@ -634,6 +638,11 @@
             color: var(--text-muted);
         }
         .result-count strong { color: var(--text-dark); }
+
+        /* ── POSTS CONTENT WRAPPER (matches filters-wrapper horizontal inset) ── */
+        .posts-content {
+            padding: 0 2rem;
+        }
 
         /* ── POSTS GRID ── */
         .posts-grid {
@@ -1583,6 +1592,7 @@
                 </div>
 
                 <!-- Posts -->
+                <div class="posts-content">
                 <div v-if="sortedFilteredPosts.length === 0" class="empty-state">
                     <h3 v-if="posts.length === 0">No posts yet</h3>
                     <h3 v-else>No posts match your search</h3>
@@ -1659,6 +1669,7 @@
                             </div>
                         </a>
                     </div>
+                </div>
                 </div>
             </div>
         </div>
@@ -1788,13 +1799,10 @@
                     };
                 },
                 mounted() {
-                    this.loadPosts();
-                    this.loadCategories();
-                    this.loadSettings();
                     this.applyTheme(this.theme);
-                    this.$nextTick(() => {
-                        this.loaded = true;
-                    });
+                    Promise.all([this.loadPosts(), this.loadCategories(), this.loadSettings()])
+                        .catch(() => {})
+                        .finally(() => { this.loaded = true; });
 
                     window.addEventListener('scroll', this.onScroll);
 
@@ -1872,9 +1880,11 @@
                         return pinned || this.posts.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
                     },
                     featuredImageStyle() {
-                        if (!this.featuredPost) return '';
+                        if (!this.featuredPost) return 'none';
                         const img = this.featuredPost.image || (this.featuredPost.images && this.featuredPost.images[0]);
-                        return img ? `url('${img}')` : '';
+                        if (!img) return 'none';
+                        const safeUrl = img.replace(/'/g, '%27');
+                        return `url('${safeUrl}')`;
                     },
                     allTags() {
                         const tags = new Set();
@@ -1951,11 +1961,9 @@
                             const resp = await fetch(`/api/posts?t=${new Date().getTime()}`);
                             const data = await resp.json();
                             this.posts = data.posts || [];
-                            this.loaded = true;
                         } catch (e) {
                             console.error('Failed to load posts:', e);
                             this.posts = [];
-                            this.loaded = true;
                         }
                     },
                     async loadCategories() {
@@ -1975,7 +1983,8 @@
                             if (bgData.backgroundUrl) {
                                 const appElement = document.getElementById('app');
                                 if (appElement) {
-                                    appElement.style.backgroundImage = `url('${bgData.backgroundUrl}')`;
+                                    const bgUrl = bgData.backgroundUrl.replace(/'/g, '%27');
+                                    appElement.style.backgroundImage = `url('${bgUrl}')`;
                                     appElement.style.backgroundSize = 'cover';
                                     appElement.style.backgroundPosition = 'center';
                                     appElement.style.backgroundAttachment = 'fixed';
