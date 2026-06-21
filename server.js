@@ -168,7 +168,7 @@ app.use(helmet({
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
+      imgSrc: ["'self'", "data:", "https:", "https://*.cloudinary.com"],
       connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com"],
       frameSrc: ["'self'", "https://accounts.google.com"],
     },
@@ -204,7 +204,7 @@ const authLimiter = rateLimit({
 // Moderate limiter for all API routes
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 60,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'too_many_requests', retryAfter: '15 minutes' }
