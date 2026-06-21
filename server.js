@@ -281,9 +281,13 @@ if (!process.env.GOOGLE_CLIENT_ID) {
   console.warn('WARNING: GOOGLE_CLIENT_ID is not set in .env - using dev fallback client id for local verification');
 }
 
-// Ensure uploads directory exists
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+// Ensure uploads directory exists (catch EROFS on Vercel read-only fs)
+try {
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Could not create uploads directory (read-only filesystem?):', e.message);
 }
 
 // CORS configuration
