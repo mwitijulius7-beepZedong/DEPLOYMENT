@@ -42,3 +42,4 @@ temp-*.js
 # User-uploaded media
 uploads/*
 !uploads/.gitkeep
+.env*
