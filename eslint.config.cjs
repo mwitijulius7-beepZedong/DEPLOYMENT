@@ -32,6 +32,22 @@ module.exports = [
         }
     },
 
+    // Vitest / test files (ESM)
+    {
+        files: ["tests/**/*.js", "vitest.config.js"],
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: "module",
+            globals: {
+                console: "readonly"
+            }
+        },
+        rules: {
+            "no-unused-vars": "warn",
+            "no-console": "off"
+        }
+    },
+
     // Frontend ESM files
     {
         files: ["public/js/**/*.js", "src/**/*.js", "idle-timeout.js"],
