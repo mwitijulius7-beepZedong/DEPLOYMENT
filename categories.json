@@ -1,14 +1,50 @@
 [
   {
-    "id": "1772392344526",
-    "name": "Test 1",
-    "slug": "test-1",
-    "description": "Test 1"
+    "_id": "69c240d9bab20d7496535d96",
+    "name": "2026 March Highlights",
+    "slug": "2026-march-highlights",
+    "description": "2026 March Highlights",
+    "createdAt": "2026-03-24T07:44:25.127Z",
+    "id": "69c240d9bab20d7496535d96"
   },
   {
-    "id": "1772392354343",
-    "name": "Test 2",
-    "slug": "test-2",
-    "description": "Test 2"
+    "_id": "69c240f7bab20d7496535d97",
+    "name": "2019 Chronicals",
+    "slug": "2019-chronicals",
+    "description": "2019 Chronicals",
+    "createdAt": "2026-03-24T07:44:55.563Z",
+    "id": "69c240f7bab20d7496535d97"
+  },
+  {
+    "_id": "69c9174697674c601baa3e40",
+    "name": "AI revolution",
+    "slug": "ai-revolution",
+    "description": "AI revolution",
+    "createdAt": "2026-03-29T12:12:54.964Z",
+    "id": "69c9174697674c601baa3e40"
+  },
+  {
+    "_id": "69c9175297674c601baa3e41",
+    "name": "Health and lifestyle",
+    "slug": "health-and-lifestyle",
+    "description": "Health and lifestyle",
+    "createdAt": "2026-03-29T12:13:06.625Z",
+    "id": "69c9175297674c601baa3e41"
+  },
+  {
+    "_id": "69e483f48cdfb1aabd03e8d7",
+    "name": "Arsenal FC",
+    "slug": "arsenal-fc",
+    "description": "Arsenal FC",
+    "createdAt": "2026-04-19T07:27:48.766Z",
+    "id": "69e483f48cdfb1aabd03e8d7"
+  },
+  {
+    "_id": "6a30687a94ff6db31f9cd3fe",
+    "name": "Test Category",
+    "slug": "test-category",
+    "description": "A test category",
+    "createdAt": "2026-06-15T21:02:50.622Z",
+    "id": "6a30687a94ff6db31f9cd3fe"
   }
 ]

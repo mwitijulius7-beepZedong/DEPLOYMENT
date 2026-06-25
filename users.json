@@ -1,15 +1,23 @@
-{
-  "Mwitijulius7": {
+[
+  {
+    "_id": "69a57745ecf7778af58f5e89",
+    "username": "Mwitijulius7",
     "name": "Mwitijulius7",
     "email": "mwitijulius7@gmail.com",
     "passwordHash": "$2a$10$ZqigcUcGP/a9dzPzsRUai.avNPIkrPac.OCIVQrWX5iQ2dU9Om8ce",
-    "role": "ADMIN"
+    "role": "ADMIN",
+    "adminKeySet": true,
+    "adminKeyHash": "$2a$12$n8IBUk/A9AtHPZww94NeOufIi3xR.n45ROytjCDm6iXXvD1/dpN7K",
+    "adminKeyEnc": "Lh+UT1N6WKFV84ufXF7WlolodG5vrDjI0ECRSofYRVjE9NuQDavBlA=="
   },
-  "admin": {
+  {
+    "_id": "69a57745ecf7778af58f5e8a",
+    "username": "admin",
     "name": "Admin",
-    "email": "mwitijulius7@gmail.com",
-    "passwordHash": "$2a$10$oK/zX.APSGpkQjyCiSEP9eBpXAL0syqWUwAnRXIR3VfVTEmuG6Mry",
+    "email": "mwitijulius8@gmail.com",
+    "passwordHash": "$2a$12$/39Mi5/v2hT8WyMn5SeiIeTh3GUw0vAsdk9BZy4sl.hlDmYdB812e",
     "active": true,
-    "role": "ADMIN"
+    "role": "ADMIN",
+    "adminKeySet": false
   }
-}
+]

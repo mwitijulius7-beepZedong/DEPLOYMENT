@@ -39,7 +39,6 @@ test.html
 # Temporary diagnostic scripts
 temp-*.js
 
-# User-uploaded media
-uploads/*
+# User-uploaded media (tracked for Vercel deployment)
 !uploads/.gitkeep
 .env*
