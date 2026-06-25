@@ -8,10 +8,12 @@
         "includeFiles": [
           "*.html",
           "*.css",
+          "*.json",
           "public/**",
           "styles/**",
           "components/**",
-          "src/**"
+          "src/**",
+          "uploads/**"
         ]
       }
     }
