@@ -719,7 +719,16 @@
                     credentials: 'include'
                 });
 
-                const data = await response.json();
+                let data;
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    data = await response.json();
+                } else {
+                    const text = await response.text();
+                    console.error('Non-JSON response:', text);
+                    showError(response.status === 504 ? 'Server timeout. Please try again.' : 'Server returned an unexpected response.');
+                    return;
+                }
 
                 if (data.success) {
                     // Persist JWT token for production requests
