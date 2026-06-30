@@ -140,7 +140,14 @@ healthAndErrors(app);
 // MongoDB connection state — set by getMongoDB from utils/storage
 // Route handlers use `if (db)` to check MongoDB availability
 let db = null;
-getMongoDB().then(d => { db = d; }).catch(() => {});
+(async () => {
+  try {
+    db = await getMongoDB();
+    if (db) console.log('MongoDB connected at startup');
+  } catch (e) {
+    console.warn('MongoDB startup connection failed:', e.message);
+  }
+})();
 
 // Cloudinary configuration
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'cloudinary') {
@@ -167,7 +174,7 @@ app.use(helmet({
       ],
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
       imgSrc: ["'self'", "data:", "https:", "https://*.cloudinary.com"],
       connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com"],
       frameSrc: ["'self'", "https://accounts.google.com"],

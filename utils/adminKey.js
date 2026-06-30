@@ -94,6 +94,12 @@ function clearBruteRecord(ip) {
   bruteStore.delete(ip);
 }
 
+function findUserKey(users, username) {
+  if (!users || !username) return null;
+  const lower = username.toLowerCase();
+  return Object.keys(users).find(k => k.toLowerCase() === lower) || null;
+}
+
 function getClientIP(req) {
   const forwarded = req?.headers?.['x-forwarded-for'];
   const socket = req?.socket?.remoteAddress;
@@ -111,6 +117,7 @@ module.exports = {
   recordFailedAttempt,
   isLockedOut,
   clearBruteRecord,
+  findUserKey,
   getClientIP,
   bruteStore
 };
