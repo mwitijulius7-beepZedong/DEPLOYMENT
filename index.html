@@ -1434,7 +1434,7 @@
         <div class="header">
             <div class="header-content">
                 <a href="/" class="logo">
-                    <img v-if="authorInfo && authorInfo.profilePicture" :src="authorInfo.profilePicture" alt="Profile" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.3);">
+                    <img v-if="authorInfo && authorInfo.profilePicture" :src="authorInfo.profilePicture" alt="Profile" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.3);" onerror="this.onerror=null;this.style.display='none'">
                     <span>{{ blogTitle }}</span>
                 </a>
                 <nav class="nav">
@@ -1484,7 +1484,7 @@
                     </div>
                     <div class="feed-horizontal-scroll">
                         <a v-for="post in continueReadingPosts" :key="'cr-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card">
-                            <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title">
+                            <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
                             <div class="fmc-title">{{ post.title }}</div>
                             <div class="fmc-meta">{{ getReadingTime(post.content) }}</div>
                             <div class="fmc-progress">
@@ -1501,7 +1501,7 @@
                     </div>
                     <div class="feed-horizontal-scroll">
                         <a v-for="post in trendingPosts" :key="'tr-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card">
-                            <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title">
+                            <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
                             <div class="fmc-title">{{ post.title }}</div>
                             <div class="fmc-meta">{{ (post.likes || 0) + (post.dislikes || 0) }} reactions <span class="trending-badge">Hot</span></div>
                         </a>
@@ -1514,7 +1514,7 @@
                     </div>
                     <div class="feed-horizontal-scroll">
                         <a v-for="post in recentlyViewedPosts" :key="'rv-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card">
-                            <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title">
+                            <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
                             <div class="fmc-title">{{ post.title }}</div>
                             <div class="fmc-meta">{{ formatDate(post.date) }}</div>
                         </a>
@@ -1618,7 +1618,7 @@
                             </button>
 
                             <div v-if="post.image || post.video" class="post-card-image-container" style="position: relative;">
-                                <img v-if="post.image" :src="post.image" :alt="post.title" class="post-card-image" loading="lazy">
+                                <img v-if="post.image" :src="post.image" :alt="post.title" class="post-card-image" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'250\' fill=\'%23f0f0f0\'><rect width=\'400\' height=\'250\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'18\' fill=\'%23999\'>Image unavailable</text></svg>'">
                                 <div v-else-if="post.video" class="post-card-video-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--text-dark);color:var(--bg-secondary);">
                                     <span>🎥 Video Post</span>
                                 </div>
@@ -1645,7 +1645,8 @@
                                      class="post-author-img" 
                                      @click.prevent="openLightbox(authorInfo.profilePicture)"
                                      title="View author profile"
-                                     alt="Author">
+                                     alt="Author"
+                                     @error="this.onerror=null;this.style.display='none'">
                                 <div>
                                     <div v-if="getCategoryName(post.categoryId)" class="post-card-category">{{ getCategoryName(post.categoryId) }}</div>
                                     <h2 class="post-title">{{ post.title || 'Untitled' }}</h2>
@@ -1678,7 +1679,7 @@
         <div id="lightbox" class="lightbox-modal" :class="{ active: isLightboxOpen }" @click.self="closeLightbox">
             <div class="lightbox-content">
                 <button class="lightbox-close" @click="closeLightbox">&times;</button>
-                <img :src="lightboxImg" class="lightbox-image" alt="Enlarged profile">
+                <img :src="lightboxImg" class="lightbox-image" alt="Enlarged profile" @error="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'200\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'200\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'14\' fill=\'%23999\'>Unavailable</text></svg>'">
                 <div class="lightbox-info">
                     <h3>{{ authorInfo ? authorInfo.name : 'Author' }}</h3>
                 </div>

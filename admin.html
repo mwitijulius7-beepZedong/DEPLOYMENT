@@ -577,6 +577,7 @@
                 // Featured image
                 if (post.image) {
                     previewImg.src = post.image;
+                    previewImg.onerror = function () { this.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" fill="%23ddd"><rect width="200" height="200"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="14" fill="%23999">Broken Image</text></svg>'; };
                     previewContainer.style.display = 'block';
                 } else {
                     previewContainer.style.display = 'none';
@@ -599,6 +600,7 @@
                         };
                         const img = document.createElement('img');
                         img.src = imgUrl;
+                        img.onerror = function () { this.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="%23ddd"><rect width="80" height="80"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="10" fill="%23999">Broken</text></svg>'; };
                         img.style.width = '100%';
                         img.style.height = '100%';
                         img.style.objectFit = 'cover';
@@ -1008,7 +1010,7 @@
                 <body>
                     <div class="preview">
                         <h1>${title}</h1>
-                        ${imagePreview ? `<img src="${imagePreview}" class="featured-image" alt="Featured image">` : ''}
+                        ${imagePreview ? `<img src="${imagePreview}" class="featured-image" alt="Featured image" onerror="this.onerror=null;this.style.display='none'">` : ''}
                         <div class="content">${content}</div>
                     </div>
                 </body>
@@ -3939,7 +3941,7 @@ window.uploadedProfilePictureUrl = '';
 <body>
     <div id="profile-lightbox" class="lightbox-modal" onclick="closeLightbox()">
         <div class="lightbox-content" onclick="event.stopPropagation()">
-            <img id="lightbox-img" src="" alt="Profile picture">
+            <img id="lightbox-img" src="" alt="Profile picture" onerror="this.onerror=null;this.alt='Image unavailable'">
             <div class="lightbox-actions">
                 <button class="set-profile-btn" onclick="setProfileFromLightbox()">Set as Profile Picture</button>
                 <button class="close-btn" onclick="closeLightbox()">Close</button>
@@ -3952,7 +3954,7 @@ window.uploadedProfilePictureUrl = '';
         <div class="lightbox-content" onclick="event.stopPropagation()">
             <h3 style="margin:0 0 12px;font-size:16px;">Preview Profile Picture</h3>
             <div style="text-align:center;margin-bottom:12px;">
-                <img id="upload-preview-img" src="" alt="Preview" style="max-width:100%;max-height:45vh;border-radius:8px;object-fit:contain;">
+                <img id="upload-preview-img" src="" alt="Preview" style="max-width:100%;max-height:45vh;border-radius:8px;object-fit:contain;" onerror="this.onerror=null;this.alt='Image unavailable'">
             </div>
             <div class="lightbox-actions">
                 <button class="set-profile-btn" onclick="confirmUploadPreview()">Confirm Upload</button>
@@ -4027,7 +4029,7 @@ window.uploadedProfilePictureUrl = '';
                 <div class="top-bar-actions">
                     <div class="user-menu">
                         <img id="topbar-avatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="User"
-                            class="user-avatar">
+                            class="user-avatar" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\' fill=\'%23636ff1\'><rect width=\'32\' height=\'32\' rx=\'16\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'16\' fill=\'white\'>A</text></svg>'">
                         <div class="user-info">
                             <span class="user-name">zedong254ke</span>
                             <span class="user-role">Administrator</span>
@@ -5357,7 +5359,7 @@ window.uploadedProfilePictureUrl = '';
                                             const isSelected = url === window.uploadedProfilePictureUrl;
                                             return `<div class="profile-pic-thumb ${isSelected ? 'selected' : ''}" data-url="${url}" style="width:60px;height:60px;cursor:pointer;border:3px solid ${isSelected ? 'var(--primary-color)' : 'transparent'};border-radius:8px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.1);position:relative;">
                                                 <input type="checkbox" class="photo-checkbox" data-url="${url}" onclick="event.stopPropagation();togglePhotoSelection()" style="position:absolute;top:2px;left:2px;width:16px;height:16px;cursor:pointer;z-index:1;">
-                                                <img src="${url}" style="width:100%;height:100%;object-fit:cover;" onclick="handleProfilePicClick('${url}', this.parentElement)">
+                                                <img src="${url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.outerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f0f0f0;color:#999;font-size:10px;\\'>Broken</div>'" onclick="handleProfilePicClick('${url}', this.parentElement)">
                                             </div>`;
                                         }).join('') + '</div>';
                                         updateSaveButtonVisibility();
@@ -5498,7 +5500,7 @@ window.uploadedProfilePictureUrl = '';
                                         newThumb.className = 'profile-pic-thumb selected';
                                         newThumb.onclick = function() { handleProfilePicClick(data.url, this); };
                                         newThumb.style.cssText = 'width:60px;height:60px;cursor:pointer;border:3px solid var(--primary-color);border-radius:8px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.1);';
-                                        newThumb.innerHTML = `<img src="${data.url}" style="width:100%;height:100%;object-fit:cover;">`;
+                                        newThumb.innerHTML = `<img src="${data.url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.outerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f0f0f0;color:#999;font-size:10px;\\'>Broken</div>'">`;
                                         gallery.insertBefore(newThumb, gallery.firstChild);
                                         document.querySelectorAll('.profile-pic-thumb').forEach(thumb => {
                                             if (thumb !== newThumb) thumb.style.borderColor = 'transparent';
@@ -5751,35 +5753,28 @@ window.loadPostsList = loadPostsList;
                             }
                         }
 
-                        // Run auto-login on page load
+                        // Run auto-login once on page load for localhost
                         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                            document.addEventListener('DOMContentLoaded', autoLoginForLocalhost);
-                            // Also try immediately in case DOM is already loaded
                             autoLoginForLocalhost();
                         }
 
-                        // Load blog info for sidebar
-                        fetch('/api/settings/blog-info')
-                            .then(res => res.json())
-                            .then(data => {
-                                if (data.blogInfo && data.blogInfo.title) {
-                                    const sidebarTitle = document.querySelector('.sidebar-logo .sidebar-logo-title');
-                                    if (sidebarTitle) sidebarTitle.textContent = data.blogInfo.title;
-                                    document.title = `Admin Panel - ${data.blogInfo.title}`;
-                                }
-                            })
-                            .catch(err => console.error('Error loading blog info:', err));
-
-                        // Load both blog-info and author settings to populate form fields
-                        Promise.all([
-                            fetch('/api/settings/blog-info').then(res => res.json()),
-                            fetch('/api/settings/author').then(res => res.json())
-                        ])
-                            .then(([blogInfoData, authorData]) => {
-                                console.log('Loading saved settings:', { blogInfo: blogInfoData.blogInfo, author: authorData.author });
+                        // Load settings to populate sidebar and form fields
+                        (async () => {
+                            try {
+                                const [blogInfoData, authorData] = await Promise.all([
+                                    fetch('/api/settings/blog-info').then(res => res.json()),
+                                    fetch('/api/settings/author').then(res => res.json())
+                                ]);
 
                                 const blogInfo = blogInfoData.blogInfo || {};
                                 const author = authorData.author || {};
+
+                                // Sidebar title and document title
+                                const sidebarTitle = document.querySelector('.sidebar-logo .sidebar-logo-title');
+                                if (sidebarTitle) sidebarTitle.textContent = blogInfo.title || 'Admin Panel';
+                                document.title = `Admin Panel - ${blogInfo.title || 'Blog'}`;
+
+                                console.log('Loading saved settings:', { blogInfo, author });
 
                                 // Populate form fields with saved values
                                 const blogTitle = document.getElementById('blog-title');
@@ -5795,11 +5790,11 @@ window.loadPostsList = loadPostsList;
                                 const authorInstagram = document.getElementById('author-instagram');
                                 const authorWebsite = document.getElementById('author-website');
 
-                                // Blog info fields - from blog-info endpoint
+                                // Blog info fields
                                 if (blogTitle) blogTitle.value = blogInfo.title || 'zedong254ke';
                                 if (blogDescription) blogDescription.value = blogInfo.description || 'Discover insights, tutorials, and thoughts on web development, programming, and technology.';
 
-                                // Author fields - from author endpoint
+                                // Author fields
                                 if (authorName) authorName.value = author.name || 'zedong254ke';
                                 if (authorEmail) authorEmail.value = author.email || '';
                                 if (authorBio) authorBio.value = author.bio || 'Passionate developer and blogger sharing insights on technology and programming.';
@@ -5818,8 +5813,10 @@ window.loadPostsList = loadPostsList;
                                 }
 
                                 console.log('Settings loaded and form populated successfully');
-                            })
-                            .catch(err => console.error('Error loading settings:', err));
+                            } catch (err) {
+                                console.error('Error loading settings:', err);
+                            }
+                        })();
 
                         // Function aliases for posts
 
@@ -6799,9 +6796,9 @@ window.loadPostsList = loadPostsList;
                         });
 
                         // Run initial check and handle routing after verification
-                        securityGatePromise.then(() => {
+                        (enforceSecurityGate() || Promise.resolve()).then(() => {
                             handleHashRoute();
-                        });
+                        }).catch(err => console.warn('Security gate check failed:', err));
                     </script>
 
                     <script>

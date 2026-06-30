@@ -1098,7 +1098,7 @@
     <div id="lightbox" class="lightbox-modal" onclick="closeLightbox(event)">
         <div class="lightbox-content">
             <button class="lightbox-close" onclick="closeLightbox(event)">×</button>
-            <img id="lightbox-img" class="lightbox-image" alt="Enlarged image">
+            <img id="lightbox-img" class="lightbox-image" alt="Enlarged image" onerror="this.onerror=null;this.alt='Image unavailable'">
             <div class="lightbox-info"><span id="lightbox-author-name"></span></div>
         </div>
     </div>
@@ -1198,11 +1198,11 @@
             const authorBio  = (globalAuthorInfo && globalAuthorInfo.bio) || 'Passionate writer covering football, Arsenal, and the beautiful game.';
 
             const authorImgHero = authorPic
-                ? `<img src="${authorPic}" class="hero-author-img" onclick="openLightbox('${authorPic}')" title="View author" alt="${authorName}">`
+                ? `<img src="${authorPic}" class="hero-author-img" onerror="this.style.display='none'" onclick="openLightbox('${authorPic}')" title="View author" alt="${authorName}">`
                 : '';
 
             const authorBioCard = authorPic
-                ? `<img src="${authorPic}" class="author-bio-avatar" onclick="openLightbox('${authorPic}')" alt="${authorName}">`
+                ? `<img src="${authorPic}" class="author-bio-avatar" onerror="this.outerHTML='<div class=\\'author-bio-avatar-placeholder\\'>${authorName.charAt(0).toUpperCase()}</div>'" onclick="openLightbox('${authorPic}')" alt="${authorName}">`
                 : `<div class="author-bio-avatar-placeholder">${authorName.charAt(0).toUpperCase()}</div>`;
 
             const categoryHtml = post.categoryName
@@ -1216,7 +1216,7 @@
             
             const heroBgHtml = heroImages.length > 0
                 ? `<div class="hero-carousel" style="position:absolute;inset:0;overflow:hidden;">
-                    ${heroImages.map((img, i) => `<div class="hero-carousel-slide" data-index="${i}" style="position:absolute;inset:0;background-image:url('${img}');background-size:cover;background-position:center;opacity:${i === 0 ? 1 : 0};transition:opacity 1s ease;"></div>`).join('')}
+                    ${heroImages.map((img, i) => `<div class="hero-carousel-slide" data-index="${i}" data-bg="${img.replace(/"/g, '&quot;')}" style="position:absolute;inset:0;background-color:#e0e0e0;background-size:cover;background-position:center;opacity:${i === 0 ? 1 : 0};transition:opacity 1s ease;"></div>`).join('')}
                    </div>`
                 : '';
 
@@ -1313,7 +1313,7 @@
                         <div class="post-meta-bar-inner">
                             <div class="meta-author">
                                 ${authorPic
-                                    ? `<img src="${authorPic}" class="meta-author-avatar" alt="${authorName}">`
+                                    ? `<img src="${authorPic}" class="meta-author-avatar" onerror="this.style.display='none'" alt="${authorName}">`
                                     : `<div class="meta-author-avatar-placeholder">${authorName.charAt(0).toUpperCase()}</div>`}
                                 <div>
                                     <div class="meta-author-label">Written by</div>
@@ -1382,6 +1382,16 @@
                     carouselSlides[currentSlide].style.opacity = 1;
                 }, 2000);
             }
+
+            // Preload hero background images with error fallback
+            carouselSlides.forEach(slide => {
+                const bgUrl = slide.getAttribute('data-bg');
+                if (!bgUrl) return;
+                const testImg = new Image();
+                testImg.onload = () => { slide.style.backgroundImage = `url('${bgUrl.replace(/'/g, "\\'")}')`; };
+                testImg.onerror = () => { slide.style.backgroundColor = '#e0e0e0'; };
+                testImg.src = bgUrl;
+            });
         }
 
         const AVATAR_COLORS = ['av-amber', 'av-coral', 'av-gray', 'av-teal', 'av-blue'];
@@ -1414,7 +1424,7 @@
                 const ctId     = `ct-${i}`;
                 const rmId     = `rm-${i}`;
                 const photoHtml = c.image
-                    ? `<img class="comment-photo" src="${c.image}" onclick="openCommentLightbox('${c.image}')" alt="comment photo">`
+                    ? `<img class="comment-photo" src="${c.image}" onerror="this.style.display='none'" onclick="openCommentLightbox('${c.image}')" alt="comment photo">`
                     : '';
                 return `
                     <div class="comment-card">
@@ -1645,7 +1655,7 @@
                     return `
                         <a href="/post.html?id=${p.id}" class="rp-card">
                             <div class="rp-card-img">
-                                ${img ? `<img src="${img}" alt="${p.title}" loading="lazy">` : '<div class="rp-card-img-ph"></div>'}
+                                ${img ? `<img src="${img}" alt="${p.title}" loading="lazy" onerror="this.onerror=null;this.outerHTML='<div class=\\'rp-card-img-ph\\'></div>'">` : '<div class="rp-card-img-ph"></div>'}
                                 <span class="rp-card-rt">\u23f1 ${rt} min</span>
                             </div>
                             <div class="rp-card-body">

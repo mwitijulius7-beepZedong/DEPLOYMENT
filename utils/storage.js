@@ -17,9 +17,9 @@ async function getMongoDB() {
   mongoConnectionPromise = (async () => {
     try {
       const client = await MongoClient.connect(mongoUri, {
-        serverSelectionTimeoutMS: 3000,
-        connectTimeoutMS: 3000,
-        socketTimeoutMS: 5000
+        serverSelectionTimeoutMS: 10000,
+        connectTimeoutMS: 10000,
+        socketTimeoutMS: 30000
       });
       console.log('Connected to MongoDB');
       db = client.db('blog');
