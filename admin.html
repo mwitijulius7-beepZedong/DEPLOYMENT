@@ -6795,10 +6795,8 @@ window.loadPostsList = loadPostsList;
                             if (e.key === 'Enter') verifyAdminKeyModal();
                         });
 
-                        // Run initial check and handle routing after verification
-                        (enforceSecurityGate() || Promise.resolve()).then(() => {
-                            handleHashRoute();
-                        }).catch(err => console.warn('Security gate check failed:', err));
+                        // Run initial check and handle routing
+                        handleHashRoute();
                     </script>
 
                     <script>
