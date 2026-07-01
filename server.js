@@ -483,9 +483,12 @@ async function loadPosts() {
     if (db) {
       try {
         const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
-        if (posts && Array.isArray(posts)) {
+        if (posts && Array.isArray(posts) && posts.length > 0) {
           console.log('Loaded posts from MongoDB:', posts.length, 'posts');
           return posts.map(normalizePost);
+        }
+        if (posts && posts.length === 0) {
+          console.log('MongoDB posts collection is empty, falling back to other sources to prevent data loss...');
         }
       } catch (mongoErr) {
         console.warn('MongoDB posts query error:', mongoErr.message);
@@ -499,7 +502,12 @@ async function loadPosts() {
         if (data) {
           const parsed = JSON.parse(data);
           console.log('Loaded posts from Vercel KV:', parsed.length, 'posts');
-          return parsed.map(normalizePost);
+          const posts = parsed.map(normalizePost);
+          if (db && posts.length > 0) {
+            console.log('Seeding MongoDB with posts from Vercel KV...');
+            await savePosts(posts);
+          }
+          return posts;
         }
       } catch (kvErr) {
         console.warn('Vercel KV posts error:', kvErr.message);
@@ -510,7 +518,12 @@ async function loadPosts() {
     try {
       const data = JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
       console.log('Loaded posts from local file:', data.length, 'posts');
-      return data.map(normalizePost);
+      const posts = data.map(normalizePost);
+      if (db && posts.length > 0) {
+        console.log('Seeding MongoDB with posts from local file...');
+        await savePosts(posts);
+      }
+      return posts;
     } catch (fileErr) {
       console.warn('Local posts file error:', fileErr.message);
       return [];
