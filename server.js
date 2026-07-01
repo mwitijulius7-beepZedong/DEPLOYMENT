@@ -407,7 +407,11 @@ async function loadUsers() {
     // Local file loader
     try {
       const dataStr = fs.readFileSync(USERS_FILE, 'utf8');
-      const data = JSON.parse(dataStr);
+      const raw = JSON.parse(dataStr);
+      // Normalize array format (from MongoDB sync) to object format keyed by username
+      const data = Array.isArray(raw)
+        ? Object.fromEntries(raw.map(u => [u.username, u]))
+        : raw;
       Object.values(data).forEach(u => { if (!u.role) u.role = 'ADMIN'; });
       console.log('Loaded users from local file:', Object.keys(data).length, 'users');
       return data;
