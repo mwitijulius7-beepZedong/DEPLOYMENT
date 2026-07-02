@@ -247,7 +247,7 @@ seedAdminIfNeeded();
 // Vercel serverless function export
 module.exports = app;
 
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const UPLOADS_DIR = process.env.VERCEL ? path.join('/tmp', 'uploads') : path.join(__dirname, 'uploads');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const POSTS_FILE = path.join(__dirname, 'posts.json');
 const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
