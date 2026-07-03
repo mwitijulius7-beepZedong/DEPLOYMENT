@@ -1401,6 +1401,53 @@
 
             .bookmark-btn { opacity: 1; transform: translateY(0); }
         }
+
+        /* Connect Section */
+        .connect-section {
+            padding: 2rem 1rem;
+            margin-top: 2rem;
+            border-top: 1px solid var(--bg-tertiary);
+        }
+        .connect-inner {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .connect-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 1.25rem;
+        }
+        .connect-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+        }
+        .connect-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--bg-tertiary);
+            color: var(--text-medium);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: var(--transition);
+        }
+        .connect-link:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-color);
+            color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+        .connect-icon {
+            font-size: 1.1rem;
+        }
     </style>
 </head>
 <body>
@@ -1671,6 +1718,39 @@
                         </a>
                     </div>
                 </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connect Section -->
+        <div v-if="authorInfo && authorInfo.social && hasSocialLinks" class="connect-section">
+            <div class="connect-inner">
+                <h3 class="connect-title">Connect With Me</h3>
+                <div class="connect-links">
+                    <a v-if="authorInfo.social.email" :href="'mailto:' + authorInfo.social.email" class="connect-link" title="Email">
+                        <span class="connect-icon">✉️</span>
+                        <span class="connect-label">Email</span>
+                    </a>
+                    <a v-if="authorInfo.social.website" :href="authorInfo.social.website" target="_blank" class="connect-link" title="Website">
+                        <span class="connect-icon">🌐</span>
+                        <span class="connect-label">Website</span>
+                    </a>
+                    <a v-if="authorInfo.social.twitter" :href="authorInfo.social.twitter" target="_blank" class="connect-link" title="Twitter/X">
+                        <span class="connect-icon">🐦</span>
+                        <span class="connect-label">Twitter/X</span>
+                    </a>
+                    <a v-if="authorInfo.social.facebook" :href="authorInfo.social.facebook" target="_blank" class="connect-link" title="Facebook">
+                        <span class="connect-icon">📘</span>
+                        <span class="connect-label">Facebook</span>
+                    </a>
+                    <a v-if="authorInfo.social.linkedin" :href="authorInfo.social.linkedin" target="_blank" class="connect-link" title="LinkedIn">
+                        <span class="connect-icon">💼</span>
+                        <span class="connect-label">LinkedIn</span>
+                    </a>
+                    <a v-if="authorInfo.social.instagram" :href="authorInfo.social.instagram" target="_blank" class="connect-link" title="Instagram">
+                        <span class="connect-icon">📷</span>
+                        <span class="connect-label">Instagram</span>
+                    </a>
                 </div>
             </div>
         </div>
@@ -1951,6 +2031,11 @@
                     recentlyViewedPosts() {
                         const viewedIds = this.getRecentlyViewed();
                         return viewedIds.map(id => this.posts.find(p => p.id === id)).filter(Boolean).slice(0, 6);
+                    },
+                    hasSocialLinks() {
+                        if (!this.authorInfo || !this.authorInfo.social) return false;
+                        const s = this.authorInfo.social;
+                        return s.email || s.website || s.twitter || s.facebook || s.linkedin || s.instagram;
                     }
                 },
                 methods: {

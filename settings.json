@@ -16,11 +16,11 @@
     "whatsapp": "",
     "profilePicture": "http://localhost:3000/uploads/1782998422045_love-wallpaper-preview.jpg",
     "social": {
-      "twitter": "",
-      "facebook": "",
-      "linkedin": "",
-      "instagram": "",
-      "website": ""
+      "twitter": "https://twitter.com/testuser",
+      "facebook": "https://facebook.com/testuser",
+      "linkedin": "https://linkedin.com/in/testuser",
+      "instagram": "https://instagram.com/testuser",
+      "website": "https://example.com"
     }
   },
   "blogInfo": {
