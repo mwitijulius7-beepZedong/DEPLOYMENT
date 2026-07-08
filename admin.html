@@ -1078,6 +1078,7 @@
             const authorFacebook = getVal('author-facebook');
             const authorLinkedin = getVal('author-linkedin');
             const authorInstagram = getVal('author-instagram');
+            const authorSocialEmail = getVal('author-social-email');
             const authorWebsite = getVal('author-website');
             const saveButton = event?.target || document.querySelector('#general-panel .btn-modern');
 
@@ -1108,6 +1109,7 @@
                             whatsapp: authorWhatsapp,
                             profilePicture: window.uploadedProfilePictureUrl,
                             social: {
+                                email: authorSocialEmail,
                                 twitter: authorTwitter,
                                 facebook: authorFacebook,
                                 linkedin: authorLinkedin,
@@ -4761,6 +4763,10 @@ window.uploadedProfilePictureUrl = '';
                                             <h3><i>🌐</i> Social Connections</h3>
                                             <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px;">
                                                 <div class="form-group">
+                                                    <label for="author-social-email" class="form-label" style="font-size: 11px; text-transform: uppercase;">Email</label>
+                                                    <input type="email" class="form-input" id="author-social-email" style="font-size: 13px;" placeholder="email@example.com">
+                                                </div>
+                                                <div class="form-group">
                                                     <label for="author-website" class="form-label" style="font-size: 11px; text-transform: uppercase;">Website</label>
                                                     <input type="url" class="form-input" id="author-website" style="font-size: 13px;" placeholder="https://...">
                                                 </div>
@@ -5789,6 +5795,7 @@ window.loadPostsList = loadPostsList;
                                 const authorLinkedin = document.getElementById('author-linkedin');
                                 const authorInstagram = document.getElementById('author-instagram');
                                 const authorWebsite = document.getElementById('author-website');
+                                const authorSocialEmail = document.getElementById('author-social-email');
 
                                 // Blog info fields
                                 if (blogTitle) blogTitle.value = blogInfo.title || 'zedong254ke';
@@ -5805,6 +5812,7 @@ window.loadPostsList = loadPostsList;
                                 if (authorLinkedin) authorLinkedin.value = author.social?.linkedin || '';
                                 if (authorInstagram) authorInstagram.value = author.social?.instagram || '';
                                 if (authorWebsite) authorWebsite.value = author.social?.website || '';
+                                if (authorSocialEmail) authorSocialEmail.value = author.social?.email || author.email || '';
 
                                 // Update top-bar avatar with saved profile picture
                                 if (author.profilePicture) {
