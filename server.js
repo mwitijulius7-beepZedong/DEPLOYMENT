@@ -3149,7 +3149,7 @@ app.get('/api/settings/author', async (req, res) => {
 
     // Local development - always read from local file
     const settings = readSettings();
-    const defaultAuthor = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+    const defaultAuthor = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
     const author = Object.assign({}, defaultAuthor, settings.author || {});
     return res.json({ author });
   } catch (e) {
@@ -3157,10 +3157,10 @@ app.get('/api/settings/author', async (req, res) => {
     // Fall back to local file on error
     try {
       const settings = readSettings();
-      const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+      const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
       return res.json({ author });
     } catch (innerErr) {
-      const author = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+      const author = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
       return res.json({ author });
     }
   }
@@ -3239,6 +3239,7 @@ app.post('/api/settings/author', requireAdmin, async (req, res) => {
         whatsapp: String(payload.whatsapp || ''),
         profilePicture: String(payload.profilePicture || ''),
         social: {
+          email: String(payload.social?.email || ''),
           twitter: String(payload.social?.twitter || ''),
           facebook: String(payload.social?.facebook || ''),
           linkedin: String(payload.social?.linkedin || ''),
@@ -3268,6 +3269,7 @@ app.post('/api/settings/author', requireAdmin, async (req, res) => {
       whatsapp: String(payload.whatsapp || ''),
       profilePicture: String(payload.profilePicture || ''),
       social: {
+        email: String(payload.social?.email || ''),
         twitter: String(payload.social?.twitter || ''),
         facebook: String(payload.social?.facebook || ''),
         linkedin: String(payload.social?.linkedin || ''),
