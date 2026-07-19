@@ -16,7 +16,6 @@ const { put } = require('@vercel/blob');
 const cloudinary = require('cloudinary').v2;
 const { encryptText, decryptText, isLocalhostRequest, isLocalhostAdminKeyBypassEnabled, recordFailedAttempt, isLockedOut, clearBruteRecord, getClientIP, findUserKey } = require('./utils/adminKey');
 const { getMongoDB, setKV, ObjectId, saveWithFallback, loadWithFallback, loadWithFallbackSingle } = require('./utils/storage');
-const SocialPoster = require('./utils/socialPoster');
 const errorHandler = require('./middleware/errorHandler');
 const healthAndErrors = require('./middleware/health_and_errors');
 
@@ -2580,6 +2579,7 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
         const settings = readSettings();
         const creds = settings.socialCredentials || {};
         if (Object.values(creds).some(c => c && c.enabled)) {
+          const SocialPoster = require('./utils/socialPoster');
           const poster = new SocialPoster(creds);
           const postUrl = `${req.protocol}://${req.get('host')}/post.html?id=${post.id}`;
           poster.postToAll(post, postUrl).then(results => {
@@ -4924,6 +4924,7 @@ app.get('/api/social/test', requireAdmin, async (req, res) => {
   try {
     const settings = readSettings();
     const creds = settings.socialCredentials || {};
+    const SocialPoster = require('./utils/socialPoster');
     const poster = new SocialPoster(creds);
     const testPost = {
       title: 'Test Post - Social Auto-Post Setup',

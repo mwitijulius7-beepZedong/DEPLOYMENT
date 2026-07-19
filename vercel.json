@@ -5,16 +5,18 @@
       "src": "server.js", 
       "use": "@vercel/node",
       "config": {
-        "includeFiles": [
-          "*.html",
-          "*.css",
-          "*.json",
-          "public/**",
-          "styles/**",
-          "components/**",
-          "src/**",
-          "uploads/**"
-        ]
+          "includeFiles": [
+            "*.html",
+            "*.css",
+            "*.json",
+            "public/**",
+            "styles/**",
+            "components/**",
+            "src/**",
+            "uploads/**",
+            "utils/**",
+            "middleware/**"
+          ]
       }
     }
   ],
