@@ -41,6 +41,12 @@
       "ip": "::4",
       "userAgent": "Mozilla/5.0 (Linux; Android 13) Chrome/120.0.0.0",
       "timestamp": "2026-06-07T09:15:00.000Z"
+    },
+    {
+      "page": "/post/69e686195db4701d1c174ede",
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "timestamp": "2026-07-19T08:36:56.492Z"
     }
   ],
   "postViews": [],

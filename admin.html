@@ -39,7 +39,7 @@
         }
 
         function hideAllSections() {
-            const sections = ['dashboard', 'posts-section', 'users-section', 'analytics-section', 'create-post-section', 'settings-section'];
+            const sections = ['dashboard', 'posts-section', 'users-section', 'analytics-section', 'create-post-section', 'settings-section', 'buyers-section'];
             sections.forEach(sectionId => {
                 const section = document.getElementById(sectionId);
                 if (section) section.style.display = 'none';
@@ -97,6 +97,76 @@
             showSection('settings-section', 'Settings', 'showSettingsSection');
         }
 
+        function showBuyersSection() {
+            showSection('buyers-section', 'Template Buyers', 'showBuyersSection');
+            if (typeof loadBuyers === 'function') loadBuyers();
+        }
+
+        async function loadBuyers() {
+            const listEl = document.getElementById('buyers-list');
+            if (!listEl) return;
+            try {
+                const response = await apiFetch('/api/admin/buyers');
+                const data = await response.json();
+                if (data.success && data.buyers.length > 0) {
+                    listEl.innerHTML = data.buyers.map(b => `
+                        <div style="padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: #fff;">
+                            <div>
+                                <strong style="color: var(--text-dark);">${b.name}</strong> <span style="font-size: 12px; color: var(--text-medium);">(${b.email})</span><br>
+                                <span style="font-size: 11px; background: #e0e7ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px; font-family: monospace;">Key: ${b.licenseKey}</span>
+                                <span style="font-size: 11px; color: var(--text-light); margin-left: 8px;">Purchased: ${new Date(b.purchaseDate).toLocaleDateString()}</span>
+                            </div>
+                            <button onclick="deleteBuyer('${b.id}')" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer;">Remove</button>
+                        </div>
+                    `).join('');
+                } else {
+                    listEl.innerHTML = '<div style="padding:12px;color:var(--text-medium);font-size:13px;">No buyers found.</div>';
+                }
+            } catch (err) {
+                listEl.innerHTML = '<div style="padding:12px;color:#dc2626;font-size:13px;">Error loading buyers.</div>';
+            }
+        }
+
+        async function addBuyer() {
+            const name = document.getElementById('new-buyer-name').value.trim();
+            const email = document.getElementById('new-buyer-email').value.trim();
+            const btn = document.querySelector('#create-buyer-form .um-create-btn');
+            
+            await withLoading(btn, async () => {
+                try {
+                    const response = await apiFetch('/api/admin/buyers', {
+                        method: 'POST',
+                        body: JSON.stringify({ name, email })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        alert(`Buyer added! License Key: ${data.buyer.licenseKey}`);
+                        document.getElementById('new-buyer-name').value = '';
+                        document.getElementById('new-buyer-email').value = '';
+                        loadBuyers();
+                    } else {
+                        alert(data.error || 'Failed to add buyer');
+                    }
+                } catch (err) {
+                    alert('Network error adding buyer');
+                }
+            }, 'Adding...');
+        }
+
+        async function deleteBuyer(id) {
+            if (!confirm('Remove this buyer and revoke their license key?')) return;
+            try {
+                const response = await apiFetch(`/api/admin/buyers/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    loadBuyers();
+                } else {
+                    alert('Failed to remove buyer');
+                }
+            } catch (err) {
+                alert('Network error removing buyer');
+            }
+        }
+
         function switchSettingsPanel(panelName) {
             console.log('switchSettingsPanel called with:', panelName);
 
@@ -142,6 +212,8 @@
                 if (typeof window.loadBackgroundGallery === 'function') window.loadBackgroundGallery();
             } else if (panelName === 'comments') {
                 if (typeof window.loadAllCommentsForAdmin === 'function') loadAllCommentsForAdmin();
+            } else if (panelName === 'social-autopost') {
+                if (typeof window.loadSocialCredentials === 'function') loadSocialCredentials();
             }
         }
 
@@ -1383,6 +1455,89 @@ window.uploadedProfilePictureUrl = '';
                     alert('Error saving content settings.');
                 }
             });
+        }
+
+        // Social Auto-Post functions
+        async function loadSocialCredentials() {
+            try {
+                const res = await apiFetch('/api/settings/social-credentials');
+                if (!res.ok) throw new Error('Failed to load');
+                const data = await res.json();
+                const creds = data.socialCredentials || {};
+
+                ['twitter', 'linkedin', 'facebook', 'mastodon'].forEach(platform => {
+                    const p = creds[platform] || {};
+                    const enabledEl = document.getElementById(`social-${platform}-enabled`);
+                    if (enabledEl) enabledEl.checked = !!p.enabled;
+
+                    Object.keys(p).forEach(key => {
+                        if (key === 'enabled') return;
+                        const el = document.getElementById(`social-${platform}-${key}`);
+                        if (el && p[key]) el.value = p[key];
+                    });
+                });
+            } catch (err) {
+                console.error('Error loading social credentials:', err);
+            }
+        }
+
+        async function saveSocialCredentials() {
+            const getVal = id => document.getElementById(id)?.value || '';
+            const getChecked = id => document.getElementById(id)?.checked || false;
+
+            const socialCredentials = {
+                twitter: {
+                    enabled: getChecked('social-twitter-enabled'),
+                    appKey: getVal('social-twitter-appKey'),
+                    appSecret: getVal('social-twitter-appSecret'),
+                    accessToken: getVal('social-twitter-accessToken'),
+                    accessSecret: getVal('social-twitter-accessSecret'),
+                },
+                linkedin: {
+                    enabled: getChecked('social-linkedin-enabled'),
+                    accessToken: getVal('social-linkedin-accessToken'),
+                    personUrn: getVal('social-linkedin-personUrn'),
+                },
+                facebook: {
+                    enabled: getChecked('social-facebook-enabled'),
+                    accessToken: getVal('social-facebook-accessToken'),
+                    pageId: getVal('social-facebook-pageId'),
+                },
+                mastodon: {
+                    enabled: getChecked('social-mastodon-enabled'),
+                    url: getVal('social-mastodon-url'),
+                    accessToken: getVal('social-mastodon-accessToken'),
+                },
+            };
+
+            try {
+                const res = await apiFetch('/api/settings/social-credentials', {
+                    method: 'PUT',
+                    body: JSON.stringify({ socialCredentials }),
+                });
+                if (!res.ok) throw new Error('Failed to save');
+                alert('Social auto-post settings saved!');
+                loadSocialCredentials();
+            } catch (err) {
+                console.error('Error saving social credentials:', err);
+                alert('Error saving social settings.');
+            }
+        }
+
+        async function testSocialConnections() {
+            const resultsDiv = document.getElementById('social-test-results');
+            const outputEl = document.getElementById('social-test-output');
+            resultsDiv.style.display = 'block';
+            outputEl.textContent = 'Testing connections...';
+
+            try {
+                const res = await apiFetch('/api/social/test');
+                if (!res.ok) throw new Error('Test endpoint unavailable');
+                const data = await res.json();
+                outputEl.textContent = JSON.stringify(data.results, null, 2);
+            } catch (err) {
+                outputEl.textContent = `Error: ${err.message}\n\nNote: Test endpoint may not be available yet. Save your settings and create a new post to test auto-sharing.`;
+            }
         }
 
         // Wrapper functions for settings functions to handle async loading
@@ -4006,6 +4161,12 @@ window.uploadedProfilePictureUrl = '';
                     </a>
                 </div>
                 <div class="nav-item">
+                    <a id="nav-buyers" href="#buyers" class="nav-link" onclick="showBuyersSection()">
+                        <i>🛍️</i>
+                        <span>Template Buyers</span>
+                    </a>
+                </div>
+                <div class="nav-item">
                     <a id="nav-settings" href="#settings" class="nav-link">
                         <i>⚙️</i>
                         <span>Settings</span>
@@ -4610,6 +4771,51 @@ window.uploadedProfilePictureUrl = '';
                     </div>
                 </div>
 
+                <!-- Template Buyers Section -->
+                <div id="buyers-section" class="section-content" style="display: none;">
+                    <div class="section-header" style="margin-bottom:10px;">
+                        <h3 class="section-title" style="display:flex;align-items:center;gap:6px;font-size:15px;"><i>🛍️</i> Template Buyers</h3>
+                        <p class="section-description" style="font-size:12px;">Manage customers who bought your blog template.</p>
+                    </div>
+
+                    <div class="section-body">
+                        <div class="um-card">
+                            <div class="um-card-label">
+                                <span class="icon-circle icl-plus"><i>➕</i></span>
+                                Add new buyer
+                            </div>
+                            <form id="create-buyer-form" onsubmit="event.preventDefault(); addBuyer();">
+                                <div class="um-form-grid">
+                                    <div class="form-group">
+                                        <label for="new-buyer-name">Full name</label>
+                                        <input type="text" id="new-buyer-name" class="form-input" placeholder="John Doe" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="new-buyer-email">Email</label>
+                                        <input type="email" id="new-buyer-email" class="form-input" placeholder="john@example.com" required>
+                                    </div>
+                                </div>
+                                <div class="um-form-actions">
+                                    <button type="submit" class="um-create-btn">
+                                        <i>👤</i>
+                                        Add Buyer
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="um-card" style="margin-top: 20px;">
+                            <div class="um-card-label">
+                                <span class="icon-circle icl-list"><i>📋</i></span>
+                                Buyers list
+                            </div>
+                            <div id="buyers-list">
+                                <div style="padding:12px;color:var(--text-medium);font-size:13px;">Loading buyers...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Settings Section -->
                 <div id="settings-section" class="section-content" style="display: none;">
                     <div class="section-header">
@@ -4677,6 +4883,13 @@ window.uploadedProfilePictureUrl = '';
                                             onclick="switchSettingsPanel('about')">
                                             <i>👤</i>
                                             About Me
+                                        </button>
+                                    </li>
+                                    <li class="settings-nav-item">
+                                        <button type="button" class="settings-nav-btn" data-panel="social-autopost"
+                                            onclick="switchSettingsPanel('social-autopost')">
+                                            <i>🔗</i>
+                                            Social Auto-Post
                                         </button>
                                     </li>
                                 </ul>
@@ -5178,6 +5391,134 @@ window.uploadedProfilePictureUrl = '';
                                                     No themes archived.
                                                 </div>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Social Auto-Post Settings Panel -->
+                                <div id="social-autopost-panel" class="settings-panel">
+                                    <div class="section-header-row" style="margin-bottom: 20px;">
+                                        <div class="section-header">
+                                            <h2 class="panel-title">Social Auto-Post</h2>
+                                            <p class="panel-description">Configure automatic sharing when new blog posts are published.</p>
+                                        </div>
+                                        <button class="btn-modern sm secondary" onclick="testSocialConnections()">
+                                            <i>🧪</i> Test Connections
+                                        </button>
+                                    </div>
+
+                                    <div class="grid-2-col">
+                                        <!-- Twitter/X -->
+                                        <div class="action-card">
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <h3><i>🐦</i> Twitter / X</h3>
+                                                <label class="checkbox-group" style="margin: 0;">
+                                                    <input type="checkbox" id="social-twitter-enabled">
+                                                    <span style="font-size: 13px;">Enable</span>
+                                                </label>
+                                            </div>
+                                            <p style="font-size: 11px; opacity: 0.6; margin: 6px 0 12px;">Auto-tweet new posts. Cost: ~$0.20 per post with link.</p>
+                                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
+                                                <div class="form-group">
+                                                    <label class="form-label" style="font-size: 10px; text-transform: uppercase;">API Key</label>
+                                                    <input type="password" class="form-input" id="social-twitter-appKey" style="font-size: 12px;" placeholder="Consumer API Key">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="form-label" style="font-size: 10px; text-transform: uppercase;">API Secret</label>
+                                                    <input type="password" class="form-input" id="social-twitter-appSecret" style="font-size: 12px;" placeholder="Consumer API Secret">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="form-label" style="font-size: 10px; text-transform: uppercase;">Access Token</label>
+                                                    <input type="password" class="form-input" id="social-twitter-accessToken" style="font-size: 12px;" placeholder="Access Token">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="form-label" style="font-size: 10px; text-transform: uppercase;">Access Secret</label>
+                                                    <input type="password" class="form-input" id="social-twitter-accessSecret" style="font-size: 12px;" placeholder="Access Token Secret">
+                                                </div>
+                                            </div>
+                                            <p style="font-size: 10px; opacity: 0.5; margin-top: 8px;">Get credentials from <a href="https://developer.x.com/" target="_blank" style="color: var(--primary-color);">developer.x.com</a></p>
+                                        </div>
+
+                                        <!-- LinkedIn -->
+                                        <div class="action-card">
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <h3><i>💼</i> LinkedIn</h3>
+                                                <label class="checkbox-group" style="margin: 0;">
+                                                    <input type="checkbox" id="social-linkedin-enabled">
+                                                    <span style="font-size: 13px;">Enable</span>
+                                                </label>
+                                            </div>
+                                            <p style="font-size: 11px; opacity: 0.6; margin: 6px 0 12px;">Auto-share to your LinkedIn profile. Free.</p>
+                                            <div class="form-grid" style="grid-template-columns: 1fr; gap: 10px;">
+                                                <div class="form-group">
+                                                    <label class="form-label" style="font-size: 10px; text-transform: uppercase;">Access Token</label>
+                                                    <input type="password" class="form-input" id="social-linkedin-accessToken" style="font-size: 12px;" placeholder="OAuth 2.0 Access Token">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="form-label" style="font-size: 10px; text-transform: uppercase;">Person URN</label>
+                                                    <input type="text" class="form-input" id="social-linkedin-personUrn" style="font-size: 12px;" placeholder="urn:li:person:XXXXXXX">
+                                                </div>
+                                            </div>
+                                            <p style="font-size: 10px; opacity: 0.5; margin-top: 8px;">Get credentials from <a href="https://www.linkedin.com/developers/" target="_blank" style="color: var(--primary-color);">linkedin.com/developers</a>. Scope: <code>w_member_social</code></p>
+                                        </div>
+
+                                        <!-- Facebook -->
+                                        <div class="action-card">
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <h3><i>📘</i> Facebook</h3>
+                                                <label class="checkbox-group" style="margin: 0;">
+                                                    <input type="checkbox" id="social-facebook-enabled">
+                                                    <span style="font-size: 13px;">Enable</span>
+                                                </label>
+                                            </div>
+                                            <p style="font-size: 11px; opacity: 0.6; margin: 6px 0 12px;">Auto-post to a Facebook Page. Free.</p>
+                                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
+                                                <div class="form-group">
+                                                    <label class="form-label" style="font-size: 10px; text-transform: uppercase;">Page Access Token</label>
+                                                    <input type="password" class="form-input" id="social-facebook-accessToken" style="font-size: 12px;" placeholder="Page Access Token">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="form-label" style="font-size: 10px; text-transform: uppercase;">Page ID</label>
+                                                    <input type="text" class="form-input" id="social-facebook-pageId" style="font-size: 12px;" placeholder="Facebook Page ID">
+                                                </div>
+                                            </div>
+                                            <p style="font-size: 10px; opacity: 0.5; margin-top: 8px;">Get credentials from <a href="https://developers.facebook.com/" target="_blank" style="color: var(--primary-color);">developers.facebook.com</a>. Permission: <code>pages_manage_posts</code></p>
+                                        </div>
+
+                                        <!-- Mastodon -->
+                                        <div class="action-card">
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <h3><i>🐘</i> Mastodon</h3>
+                                                <label class="checkbox-group" style="margin: 0;">
+                                                    <input type="checkbox" id="social-mastodon-enabled">
+                                                    <span style="font-size: 13px;">Enable</span>
+                                                </label>
+                                            </div>
+                                            <p style="font-size: 11px; opacity: 0.6; margin: 6px 0 12px;">Auto-post to your Mastodon instance. Free.</p>
+                                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
+                                                <div class="form-group">
+                                                    <label class="form-label" style="font-size: 10px; text-transform: uppercase;">Instance URL</label>
+                                                    <input type="url" class="form-input" id="social-mastodon-url" style="font-size: 12px;" placeholder="https://mastodon.social">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="form-label" style="font-size: 10px; text-transform: uppercase;">Access Token</label>
+                                                    <input type="password" class="form-input" id="social-mastodon-accessToken" style="font-size: 12px;" placeholder="Access Token">
+                                                </div>
+                                            </div>
+                                            <p style="font-size: 10px; opacity: 0.5; margin-top: 8px;">Create an app in your instance's Settings &gt; Development &gt; New Application. Scopes: <code>read write</code></p>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
+                                        <button class="btn-modern" onclick="saveSocialCredentials()">
+                                            <i>💾</i> Save Social Settings
+                                        </button>
+                                    </div>
+
+                                    <div id="social-test-results" style="margin-top: 16px; display: none;">
+                                        <div class="action-card">
+                                            <h3><i>📋</i> Test Results</h3>
+                                            <pre id="social-test-output" style="font-size: 11px; white-space: pre-wrap; background: #f8fafc; padding: 12px; border-radius: 8px; max-height: 200px; overflow-y: auto;"></pre>
                                         </div>
                                     </div>
                                 </div>
