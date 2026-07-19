@@ -1138,6 +1138,21 @@
 
                 renderPost(data.post);
                 loadComments(id);
+
+                try {
+                    const hist = JSON.parse(localStorage.getItem('blog_reading_history') || '[]');
+                    if (!hist.includes(id)) { hist.unshift(id); if (hist.length > 20) hist.pop(); }
+                    localStorage.setItem('blog_reading_history', JSON.stringify(hist));
+                } catch {}
+
+                try {
+                    const rv = JSON.parse(localStorage.getItem('blog_recently_viewed') || '[]');
+                    const idx = rv.indexOf(id);
+                    if (idx > -1) rv.splice(idx, 1);
+                    rv.unshift(id);
+                    if (rv.length > 20) rv.pop();
+                    localStorage.setItem('blog_recently_viewed', JSON.stringify(rv));
+                } catch {}
             } catch (error) {
                 console.error('Failed to load post:', error);
                 showError('Failed to load post. It may have been deleted or the link is invalid.');
@@ -1592,6 +1607,14 @@
 
             const bar = document.getElementById('reading-progress-bar');
             if (bar) bar.style.width = percent + '%';
+
+            if (postId && percent > 0) {
+                try {
+                    const prog = JSON.parse(localStorage.getItem('blog_reading_progress') || '{}');
+                    const prev = prog[postId] || 0;
+                    if (percent > prev) { prog[postId] = Math.round(percent); localStorage.setItem('blog_reading_progress', JSON.stringify(prog)); }
+                } catch {}
+            }
 
             // Reading time countdown pill
             const pill = document.getElementById('read-time-pill');

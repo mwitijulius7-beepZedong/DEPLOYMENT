@@ -1448,6 +1448,431 @@
         .connect-icon {
             font-size: 1.1rem;
         }
+
+        /* ── TEMPLATE PURCHASE SECTION ── */
+        .template-purchase-section {
+            margin: 3rem 0;
+            padding: 2rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(6, 182, 212, 0.08) 100%);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-lg);
+            backdrop-filter: blur(var(--glass-blur));
+            position: relative;
+            overflow: hidden;
+        }
+        .template-purchase-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .template-purchase-inner {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        .template-purchase-info {
+            flex: 1;
+            min-width: 280px;
+        }
+        .template-purchase-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 0.3rem 0.8rem;
+            border-radius: 999px;
+            margin-bottom: 0.75rem;
+        }
+        .template-purchase-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+        }
+        .template-purchase-desc {
+            color: var(--text-medium);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+        .template-price-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        .template-price-tag .currency {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+        .template-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.25rem;
+        }
+        .template-feature {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.8rem;
+            color: var(--text-medium);
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            padding: 0.3rem 0.7rem;
+            border-radius: 999px;
+        }
+        .template-feature .check {
+            color: #22c55e;
+            font-weight: 700;
+        }
+        .buy-template-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, #4CAF50, #388E3C);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 0.85rem 1.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 14px rgba(76, 175, 80, 0.35);
+            letter-spacing: 0.02em;
+        }
+        .buy-template-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.45);
+        }
+        .buy-template-btn:active {
+            transform: translateY(0);
+        }
+        .buy-template-btn .mpesa-logo {
+            width: 22px;
+            height: 22px;
+            background: #fff;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #4CAF50;
+            line-height: 1;
+        }
+        .template-purchase-preview {
+            flex: 0 0 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .template-preview-icon {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+            border: 2px solid var(--glass-border);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            box-shadow: var(--shadow-md);
+        }
+        .template-preview-text {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        /* ── PURCHASE MODAL ── */
+        .purchase-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 3000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+        .purchase-modal-overlay.active {
+            display: flex;
+        }
+        .purchase-modal {
+            background: var(--bg-secondary);
+            border-radius: var(--border-radius-lg);
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            animation: modalSlideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes modalSlideUp {
+            from { opacity: 0; transform: translateY(30px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .purchase-modal-header {
+            padding: 1.5rem 1.5rem 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .purchase-modal-header h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 0;
+        }
+        .purchase-modal-header p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin: 0.25rem 0 0;
+        }
+        .purchase-modal-close {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1rem;
+            color: var(--text-muted);
+            transition: var(--transition);
+            flex-shrink: 0;
+        }
+        .purchase-modal-close:hover {
+            background: var(--bg-secondary);
+            color: var(--text-dark);
+        }
+        .purchase-modal-body {
+            padding: 1.5rem;
+        }
+        .purchase-form-group {
+            margin-bottom: 1rem;
+        }
+        .purchase-form-group label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 0.4rem;
+        }
+        .purchase-form-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--glass-border);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            background: var(--bg-tertiary);
+            color: var(--text-dark);
+            transition: var(--transition);
+            box-sizing: border-box;
+        }
+        .purchase-form-group input:focus {
+            outline: none;
+            border-color: #4CAF50;
+            background: var(--bg-secondary);
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
+        }
+        .purchase-form-group input::placeholder {
+            color: var(--text-muted);
+        }
+        .purchase-form-group .input-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.3rem;
+        }
+        .purchase-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-top: 1px solid var(--bg-tertiary);
+            margin-top: 0.5rem;
+        }
+        .purchase-total-row .label {
+            font-size: 0.85rem;
+            color: var(--text-medium);
+        }
+        .purchase-total-row .amount {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        .purchase-submit-btn {
+            width: 100%;
+            padding: 0.85rem;
+            background: linear-gradient(135deg, #4CAF50, #388E3C);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .purchase-submit-btn:hover:not(:disabled) {
+            box-shadow: 0 4px 14px rgba(76, 175, 80, 0.4);
+            transform: translateY(-1px);
+        }
+        .purchase-submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .purchase-submit-btn .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ── PAYMENT STATUS STATES ── */
+        .payment-status {
+            text-align: center;
+            padding: 2rem 1.5rem;
+        }
+        .payment-status-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .payment-status h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+        .payment-status p {
+            font-size: 0.9rem;
+            color: var(--text-medium);
+            line-height: 1.5;
+        }
+        .payment-status .license-key-display {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-top: 1rem;
+            letter-spacing: 0.05em;
+            word-break: break-all;
+        }
+        .payment-status .copy-key-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--glass-border);
+            border-radius: 6px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+            color: var(--text-medium);
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 0.75rem;
+        }
+        .payment-status .copy-key-btn:hover {
+            background: var(--primary-light);
+            color: var(--primary-color);
+        }
+        .payment-status .polling-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+        .payment-status .polling-dot {
+            width: 8px;
+            height: 8px;
+            background: #f59e0b;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+        }
+        .payment-status .status-failed {
+            color: #dc2626;
+        }
+        .payment-status .retry-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 0.6rem 1.2rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: var(--transition);
+        }
+        .payment-status .retry-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 768px) {
+            .template-purchase-inner {
+                flex-direction: column;
+                text-align: center;
+            }
+            .template-purchase-preview {
+                order: -1;
+            }
+            .template-features {
+                justify-content: center;
+            }
+            .buy-template-btn {
+                margin: 0 auto;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1755,6 +2180,153 @@
             </div>
         </div>
 
+        <!-- Template Purchase Section -->
+        <div class="template-purchase-section" v-if="templatePrice">
+            <div class="template-purchase-inner">
+                <div class="template-purchase-info">
+                    <div class="template-purchase-badge">Blog Template for Sale</div>
+                    <h3 class="template-purchase-title">Get This Blog Template</h3>
+                    <p class="template-purchase-desc">
+                        Love this blog's design? Purchase the full template and use it for your own site. Clean code, responsive layout, and easy to customize.
+                    </p>
+                    <div class="template-price-tag">
+                        <span class="currency">KES</span>
+                        <span>{{ templatePrice.toLocaleString() }}</span>
+                    </div>
+                    <div class="template-features">
+                        <span class="template-feature"><span class="check">✓</span> Responsive</span>
+                        <span class="template-feature"><span class="check">✓</span> Dark Mode</span>
+                        <span class="template-feature"><span class="check">✓</span> SEO Ready</span>
+                        <span class="template-feature"><span class="check">✓</span> Fast Loading</span>
+                    </div>
+                    <button class="buy-template-btn" @click="openPurchaseModal">
+                        <span class="mpesa-logo">M</span>
+                        Buy with M-Pesa
+                    </button>
+                </div>
+                <div class="template-purchase-preview">
+                    <div class="template-preview-icon">📝</div>
+                    <div class="template-preview-text">Modern blog template<br>with premium features</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Purchase Modal -->
+        <div class="purchase-modal-overlay" :class="{ active: showPurchaseModal }" @click.self="closePurchaseModal">
+            <div class="purchase-modal" v-if="showPurchaseModal">
+                <!-- Payment Form State -->
+                <template v-if="paymentState === 'form'">
+                    <div class="purchase-modal-header">
+                        <div>
+                            <h3>Purchase Template</h3>
+                            <p>Pay securely via M-Pesa STK Push</p>
+                        </div>
+                        <button class="purchase-modal-close" @click="closePurchaseModal">✕</button>
+                    </div>
+                    <div class="purchase-modal-body">
+                        <div class="purchase-form-group">
+                            <label for="purchase-name">Full Name</label>
+                            <input type="text" id="purchase-name" v-model="purchaseForm.name" placeholder="John Doe" required>
+                        </div>
+                        <div class="purchase-form-group">
+                            <label for="purchase-email">Email Address</label>
+                            <input type="email" id="purchase-email" v-model="purchaseForm.email" placeholder="you@example.com" required>
+                            <div class="input-hint">Your license key will be sent to this email</div>
+                        </div>
+                        <div class="purchase-form-group">
+                            <label for="purchase-phone">M-Pesa Phone Number</label>
+                            <input type="tel" id="purchase-phone" v-model="purchaseForm.phone" placeholder="0712345678" required>
+                            <div class="input-hint">Format: 0712345678 or 254712345678</div>
+                        </div>
+                        <div class="purchase-total-row">
+                            <span class="label">Total Amount</span>
+                            <span class="amount">KES {{ (templatePrice || 0).toLocaleString() }}</span>
+                        </div>
+                        <button class="purchase-submit-btn" @click="initiatePayment" :disabled="isProcessingPayment">
+                            <span v-if="isProcessingPayment" class="spinner"></span>
+                            <span v-else class="mpesa-logo" style="width:20px;height:20px;background:#fff;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:800;color:#4CAF50;">M</span>
+                            {{ isProcessingPayment ? 'Sending STK Push...' : 'Pay Now via M-Pesa' }}
+                        </button>
+                        <p v-if="paymentError" style="color:#dc2626;font-size:0.82rem;margin-top:0.75rem;text-align:center;">{{ paymentError }}</p>
+                    </div>
+                </template>
+
+                <!-- Polling / Waiting State -->
+                <template v-if="paymentState === 'polling'">
+                    <div class="purchase-modal-header">
+                        <div>
+                            <h3>Complete Payment</h3>
+                            <p>Check your phone for the M-Pesa prompt</p>
+                        </div>
+                        <button class="purchase-modal-close" @click="cancelPayment">✕</button>
+                    </div>
+                    <div class="payment-status">
+                        <div class="payment-status-icon">📱</div>
+                        <h3>Waiting for Payment</h3>
+                        <p>An STK push has been sent to <strong>{{ purchaseForm.phone }}</strong>. Enter your M-Pesa PIN on your phone to complete the purchase.</p>
+                        <div class="polling-indicator">
+                            <span class="polling-dot"></span>
+                            Waiting for confirmation...
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Success State -->
+                <template v-if="paymentState === 'success'">
+                    <div class="purchase-modal-header">
+                        <div>
+                            <h3>Payment Successful!</h3>
+                        </div>
+                        <button class="purchase-modal-close" @click="closePurchaseModal">✕</button>
+                    </div>
+                    <div class="payment-status">
+                        <div class="payment-status-icon">🎉</div>
+                        <h3>Thank You, {{ purchaseForm.name }}!</h3>
+                        <p>Your template license has been generated. Save your key below — you'll need it to activate the template.</p>
+                        <div class="license-key-display">{{ purchasedLicenseKey }}</div>
+                        <button class="copy-key-btn" @click="copyLicenseKey">
+                            {{ licenseKeyCopied ? '✓ Copied!' : '📋 Copy License Key' }}
+                        </button>
+                    </div>
+                </template>
+
+                <!-- Failed State -->
+                <template v-if="paymentState === 'failed'">
+                    <div class="purchase-modal-header">
+                        <div>
+                            <h3>Payment Failed</h3>
+                        </div>
+                        <button class="purchase-modal-close" @click="closePurchaseModal">✕</button>
+                    </div>
+                    <div class="payment-status">
+                        <div class="payment-status-icon">❌</div>
+                        <h3 class="status-failed">Payment Not Completed</h3>
+                        <p>{{ paymentFailReason || 'The payment could not be completed. You were not charged. Please try again.' }}</p>
+                        <button class="retry-btn" @click="resetPurchaseForm">Try Again</button>
+                    </div>
+                </template>
+
+                <!-- Already Licensed State -->
+                <template v-if="paymentState === 'licensed'">
+                    <div class="purchase-modal-header">
+                        <div>
+                            <h3>Already Purchased</h3>
+                        </div>
+                        <button class="purchase-modal-close" @click="closePurchaseModal">✕</button>
+                    </div>
+                    <div class="payment-status">
+                        <div class="payment-status-icon">✅</div>
+                        <h3>You Already Own This Template</h3>
+                        <p>This email already has an active license. Here's your key:</p>
+                        <div class="license-key-display">{{ existingLicenseKey }}</div>
+                        <button class="copy-key-btn" @click="copyExistingKey">
+                            {{ existingKeyCopied ? '✓ Copied!' : '📋 Copy License Key' }}
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </div>
+
         <!-- Lightbox Modal -->
         <div id="lightbox" class="lightbox-modal" :class="{ active: isLightboxOpen }" @click.self="closeLightbox">
             <div class="lightbox-content">
@@ -1877,11 +2449,25 @@
                         filtersSticky: false,
                         readingModePost: null,
                         showBookmarks: false,
+                        // ── Template Purchase ──
+                        templatePrice: 0,
+                        showPurchaseModal: false,
+                        paymentState: 'form',
+                        isProcessingPayment: false,
+                        paymentError: '',
+                        paymentFailReason: '',
+                        purchaseForm: { name: '', email: '', phone: '' },
+                        currentCheckoutRequestId: null,
+                        pollingTimer: null,
+                        purchasedLicenseKey: '',
+                        licenseKeyCopied: false,
+                        existingLicenseKey: '',
+                        existingKeyCopied: false,
                     };
                 },
                 mounted() {
                     this.applyTheme(this.theme);
-                    Promise.all([this.loadPosts(), this.loadCategories(), this.loadSettings()])
+                    Promise.all([this.loadPosts(), this.loadCategories(), this.loadSettings(), this.loadTemplatePrice()])
                         .catch(() => {})
                         .finally(() => { this.loaded = true; });
 
@@ -2284,8 +2870,10 @@
                         } catch { return []; }
                     },
                     getReadingProgress(postId) {
-                        const history = this.getReadingHistory();
-                        return history.includes(postId) ? 45 : 0;
+                        try {
+                            const prog = JSON.parse(localStorage.getItem('blog_reading_progress') || '{}');
+                            return prog[postId] || 0;
+                        } catch { return 0; }
                     },
 
                     // ── RECENTLY VIEWED ──
@@ -2408,6 +2996,156 @@
                         this._toastTimeout = setTimeout(() => {
                             toast.classList.remove('visible');
                         }, 2000);
+                    },
+
+                    // ── TEMPLATE PURCHASE ──
+                    async loadTemplatePrice() {
+                        try {
+                            const resp = await fetch(`/api/payments/config?t=${new Date().getTime()}`);
+                            const data = await resp.json();
+                            if (data.success && data.templatePrice) {
+                                this.templatePrice = data.templatePrice;
+                            }
+                        } catch (e) {
+                            console.error('Failed to load template price:', e);
+                        }
+                    },
+                    openPurchaseModal() {
+                        this.showPurchaseModal = true;
+                        this.paymentState = 'form';
+                        this.paymentError = '';
+                        this.paymentFailReason = '';
+                        document.body.style.overflow = 'hidden';
+                    },
+                    closePurchaseModal() {
+                        this.showPurchaseModal = false;
+                        document.body.style.overflow = '';
+                        this.cancelPolling();
+                    },
+                    cancelPayment() {
+                        this.cancelPolling();
+                        this.paymentState = 'form';
+                    },
+                    cancelPolling() {
+                        if (this.pollingTimer) {
+                            clearInterval(this.pollingTimer);
+                            this.pollingTimer = null;
+                        }
+                    },
+                    async checkExistingLicense() {
+                        if (!this.purchaseForm.email) return false;
+                        try {
+                            const resp = await fetch(`/api/payments/license/${encodeURIComponent(this.purchaseForm.email)}`);
+                            const data = await resp.json();
+                            if (data.success && data.hasLicense) {
+                                this.existingLicenseKey = data.licenseKey;
+                                this.paymentState = 'licensed';
+                                return true;
+                            }
+                        } catch (e) { /* ignore */ }
+                        return false;
+                    },
+                    async initiatePayment() {
+                        this.paymentError = '';
+                        if (!this.purchaseForm.name.trim()) {
+                            this.paymentError = 'Please enter your full name.';
+                            return;
+                        }
+                        if (!this.purchaseForm.email.trim() || !this.purchaseForm.email.includes('@')) {
+                            this.paymentError = 'Please enter a valid email address.';
+                            return;
+                        }
+                        if (!this.purchaseForm.phone.trim()) {
+                            this.paymentError = 'Please enter your M-Pesa phone number.';
+                            return;
+                        }
+
+                        // Check if already licensed
+                        const alreadyLicensed = await this.checkExistingLicense();
+                        if (alreadyLicensed) return;
+
+                        this.isProcessingPayment = true;
+                        try {
+                            const resp = await fetch('/api/payments/checkout', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    name: this.purchaseForm.name.trim(),
+                                    email: this.purchaseForm.email.trim(),
+                                    phoneNumber: this.purchaseForm.phone.trim()
+                                })
+                            });
+                            const data = await resp.json();
+
+                            if (resp.ok && data.success) {
+                                this.currentCheckoutRequestId = data.checkoutRequestId;
+                                this.paymentState = 'polling';
+                                this.startPollingStatus(data.checkoutRequestId);
+                            } else {
+                                this.paymentError = data.error || 'Failed to initiate payment. Please try again.';
+                            }
+                        } catch (e) {
+                            this.paymentError = 'Network error. Please check your connection and try again.';
+                        } finally {
+                            this.isProcessingPayment = false;
+                        }
+                    },
+                    startPollingStatus(checkoutRequestId) {
+                        this.cancelPolling();
+                        let attempts = 0;
+                        const maxAttempts = 30;
+                        this.pollingTimer = setInterval(async () => {
+                            attempts++;
+                            if (attempts >= maxAttempts) {
+                                this.cancelPolling();
+                                this.paymentState = 'failed';
+                                this.paymentFailReason = 'Payment timed out. You were not charged. Please try again.';
+                                return;
+                            }
+                            try {
+                                const resp = await fetch(`/api/payments/status/${encodeURIComponent(checkoutRequestId)}`);
+                                const data = await resp.json();
+                                if (data.success) {
+                                    if (data.status === 'completed') {
+                                        this.cancelPolling();
+                                        this.paymentState = 'success';
+                                        this.purchasedLicenseKey = data.mpesaReceiptNumber ? `Receipt: ${data.mpesaReceiptNumber}` : 'License active';
+                                        // Reload buyers data in background
+                                        this.showToast('Payment successful!');
+                                    } else if (data.status === 'failed') {
+                                        this.cancelPolling();
+                                        this.paymentState = 'failed';
+                                        this.paymentFailReason = 'The payment was not completed. You were not charged.';
+                                    }
+                                }
+                            } catch (e) {
+                                // Silently retry on network errors
+                            }
+                        }, 3000);
+                    },
+                    resetPurchaseForm() {
+                        this.paymentState = 'form';
+                        this.paymentError = '';
+                        this.paymentFailReason = '';
+                        this.currentCheckoutRequestId = null;
+                    },
+                    copyLicenseKey() {
+                        const key = this.purchasedLicenseKey;
+                        if (navigator.clipboard && key) {
+                            navigator.clipboard.writeText(key).then(() => {
+                                this.licenseKeyCopied = true;
+                                setTimeout(() => { this.licenseKeyCopied = false; }, 2000);
+                            });
+                        }
+                    },
+                    copyExistingKey() {
+                        const key = this.existingLicenseKey;
+                        if (navigator.clipboard && key) {
+                            navigator.clipboard.writeText(key).then(() => {
+                                this.existingKeyCopied = true;
+                                setTimeout(() => { this.existingKeyCopied = false; }, 2000);
+                            });
+                        }
                     },
 
                     // ── CONFETTI ──

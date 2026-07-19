@@ -16,6 +16,7 @@ const { put } = require('@vercel/blob');
 const cloudinary = require('cloudinary').v2;
 const { encryptText, decryptText, isLocalhostRequest, isLocalhostAdminKeyBypassEnabled, recordFailedAttempt, isLockedOut, clearBruteRecord, getClientIP, findUserKey } = require('./utils/adminKey');
 const { getMongoDB, setKV, ObjectId, saveWithFallback, loadWithFallback, loadWithFallbackSingle } = require('./utils/storage');
+const SocialPoster = require('./utils/socialPoster');
 const errorHandler = require('./middleware/errorHandler');
 const healthAndErrors = require('./middleware/health_and_errors');
 
@@ -256,6 +257,9 @@ const SECURITY_LOGS_FILE = path.join(__dirname, 'security_logs.json');
 const COMMENTS_FILE = path.join(__dirname, 'comments.json');
 const SUBSCRIPTIONS_FILE = path.join(__dirname, 'subscriptions.json');
 const THEMES_FILE = path.join(__dirname, 'themes.json');
+const TEMPLATE_BUYERS_FILE = path.join(__dirname, 'template_buyers.json');
+const TEMPLATE_APPLICATIONS_FILE = path.join(__dirname, 'template_applications.json');
+const MPESA_TRANSACTIONS_FILE = path.join(__dirname, 'mpesa_transactions.json');
 
 // Google client ID (used to validate id_token audience in /auth/google)
 // For local dev, we fall back to the same client_id used in login.html so Google Sign-In works
@@ -504,8 +508,12 @@ async function loadPosts() {
           console.log('Loaded posts from Vercel KV:', parsed.length, 'posts');
           const posts = parsed.map(normalizePost);
           if (db && posts.length > 0) {
-            console.log('Seeding MongoDB with posts from Vercel KV...');
-            await savePosts(posts);
+            try {
+              console.log('Seeding MongoDB with posts from Vercel KV...');
+              await savePosts(posts);
+            } catch (seedErr) {
+              console.warn('Failed to seed MongoDB from Vercel KV:', seedErr.message);
+            }
           }
           return posts;
         }
@@ -520,8 +528,12 @@ async function loadPosts() {
       console.log('Loaded posts from local file:', data.length, 'posts');
       const posts = data.map(normalizePost);
       if (db && posts.length > 0) {
-        console.log('Seeding MongoDB with posts from local file...');
-        await savePosts(posts);
+        try {
+          console.log('Seeding MongoDB with posts from local file...');
+          await savePosts(posts);
+        } catch (seedErr) {
+          console.warn('Failed to seed MongoDB from local file:', seedErr.message);
+        }
       }
       return posts;
     } catch (fileErr) {
@@ -848,6 +860,256 @@ async function saveSubscriptions(subscriptions) {
   }
 }
 
+async function loadTemplateBuyers() {
+  try {
+    const db = await getMongoDB();
+    if (db) {
+      const buyers = await db.collection('template_buyers').find({}).toArray();
+      return buyers.map(b => ({ ...b, id: (b._id || b.id).toString() }));
+    }
+    if (process.env.VERCEL && kv) {
+      const data = await kv.get('template_buyers');
+      return data ? JSON.parse(data) : [];
+    }
+    if (!fs.existsSync(TEMPLATE_BUYERS_FILE)) return [];
+    return JSON.parse(fs.readFileSync(TEMPLATE_BUYERS_FILE, 'utf8')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function saveTemplateBuyers(buyers) {
+  try {
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('template_buyers').deleteMany({});
+      if (buyers.length > 0) {
+        const toSave = buyers.map(b => {
+          const { id, ...rest } = b;
+          return { ...rest, _id: id };
+        });
+        await mongoDb.collection('template_buyers').insertMany(toSave);
+      }
+      return;
+    }
+    if (process.env.VERCEL && kv) {
+      await kv.set('template_buyers', JSON.stringify(buyers));
+      return;
+    }
+    fs.writeFileSync(TEMPLATE_BUYERS_FILE, JSON.stringify(buyers, null, 2));
+  } catch (e) {
+    console.error('Save template buyers error:', e);
+  }
+}
+
+async function loadTemplateApplications() {
+  try {
+    const db = await getMongoDB();
+    if (db) {
+      const apps = await db.collection('template_applications').find({}).toArray();
+      return apps.map(b => ({ ...b, id: (b._id || b.id).toString() }));
+    }
+    if (process.env.VERCEL && kv) {
+      const data = await kv.get('template_applications');
+      return data ? JSON.parse(data) : [];
+    }
+    if (!fs.existsSync(TEMPLATE_APPLICATIONS_FILE)) return [];
+    return JSON.parse(fs.readFileSync(TEMPLATE_APPLICATIONS_FILE, 'utf8')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function saveTemplateApplications(apps) {
+  try {
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('template_applications').deleteMany({});
+      if (apps.length > 0) {
+        const toSave = apps.map(b => {
+          const { id, ...rest } = b;
+          return { ...rest, _id: id };
+        });
+        await mongoDb.collection('template_applications').insertMany(toSave);
+      }
+      return;
+    }
+    if (process.env.VERCEL && kv) {
+      await kv.set('template_applications', JSON.stringify(apps));
+      return;
+    }
+    fs.writeFileSync(TEMPLATE_APPLICATIONS_FILE, JSON.stringify(apps, null, 2));
+  } catch (e) {
+    console.error('Save template apps error:', e);
+  }
+}
+
+// ── MPesa Transactions Storage ──
+async function loadMpesaTransactions() {
+  try {
+    const db = await getMongoDB();
+    if (db) {
+      const txns = await db.collection('mpesa_transactions').find({}).toArray();
+      return txns.map(t => ({ ...t, id: (t._id || t.id).toString() }));
+    }
+    if (process.env.VERCEL && kv) {
+      const data = await kv.get('mpesa_transactions');
+      return data ? JSON.parse(data) : [];
+    }
+    if (!fs.existsSync(MPESA_TRANSACTIONS_FILE)) return [];
+    return JSON.parse(fs.readFileSync(MPESA_TRANSACTIONS_FILE, 'utf8')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function saveMpesaTransactions(txns) {
+  try {
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('mpesa_transactions').deleteMany({});
+      if (txns.length > 0) {
+        const toSave = txns.map(t => {
+          const { id, ...rest } = t;
+          return { ...rest, _id: id };
+        });
+        await mongoDb.collection('mpesa_transactions').insertMany(toSave);
+      }
+      return;
+    }
+    if (process.env.VERCEL && kv) {
+      await kv.set('mpesa_transactions', JSON.stringify(txns));
+      return;
+    }
+    fs.writeFileSync(MPESA_TRANSACTIONS_FILE, JSON.stringify(txns, null, 2));
+  } catch (e) {
+    console.error('Save MPesa transactions error:', e);
+  }
+}
+
+// ── MPesa API Helpers ──
+const MPESA_BASE_URL = {
+  sandbox: 'https://sandbox.safaricom.co.ke',
+  production: 'https://api.safaricom.co.ke'
+};
+
+function getMpesaConfig() {
+  const env = process.env.MPESA_ENVIRONMENT || 'sandbox';
+  return {
+    baseUrl: MPESA_BASE_URL[env] || MPESA_BASE_URL.sandbox,
+    consumerKey: process.env.MPESA_CONSUMER_KEY || '',
+    consumerSecret: process.env.MPESA_CONSUMER_SECRET || '',
+    shortcode: process.env.MPESA_SHORTCODE || '',
+    passkey: process.env.MPESA_PASSKEY || '',
+    callbackUrl: process.env.MPESA_CALLBACK_URL || ''
+  };
+}
+
+async function getMpesaAccessToken() {
+  const config = getMpesaConfig();
+  if (!config.consumerKey || !config.consumerSecret) {
+    throw new Error('MPesa credentials not configured');
+  }
+  const auth = Buffer.from(`${config.consumerKey}:${config.consumerSecret}`).toString('base64');
+  const resp = await fetch(`${config.baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
+    method: 'GET',
+    headers: { 'Authorization': `Basic ${auth}` }
+  });
+  const data = await resp.json();
+  if (!data.access_token) {
+    throw new Error('Failed to get MPesa access token');
+  }
+  return data.access_token;
+}
+
+function generateMpesaPassword(shortcode, passkey, timestamp) {
+  const dataToEncode = `${shortcode}${passkey}${timestamp}`;
+  return Buffer.from(dataToEncode).toString('base64');
+}
+
+function getMpesaTimestamp() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `${y}${m}${d}${hh}${mm}${ss}`;
+}
+
+async function initiateMpesaSTKPush(phoneNumber, amount, accountReference) {
+  const config = getMpesaConfig();
+  const accessToken = await getMpesaAccessToken();
+  const timestamp = getMpesaTimestamp();
+  const password = generateMpesaPassword(config.shortcode, config.passkey, timestamp);
+
+  // Normalize phone number to 2547XXXXXXXX format
+  let normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+  if (normalizedPhone.startsWith('0')) {
+    normalizedPhone = '254' + normalizedPhone.substring(1);
+  } else if (normalizedPhone.startsWith('+254')) {
+    normalizedPhone = normalizedPhone.substring(1);
+  } else if (!normalizedPhone.startsWith('254')) {
+    normalizedPhone = '254' + normalizedPhone;
+  }
+
+  const callbackUrl = config.callbackUrl || `${process.env.BASE_URL || 'http://localhost:3000'}/api/payments/callback`;
+
+  const payload = {
+    BusinessShortCode: config.shortcode,
+    Password: password,
+    Timestamp: timestamp,
+    TransactionType: 'CustomerPayBillOnline',
+    Amount: Math.round(amount),
+    PartyA: normalizedPhone,
+    PartyB: config.shortcode,
+    PhoneNumber: normalizedPhone,
+    CallBackURL: callbackUrl,
+    AccountReference: accountReference || 'BlogTemplate',
+    TransactionDesc: 'Blog Template Purchase'
+  };
+
+  const resp = await fetch(`${config.baseUrl}/mpesa/stkpush/v1/processrequest`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const result = await resp.json();
+  return result;
+}
+
+async function checkMpesaTransactionStatus(checkoutRequestId) {
+  const config = getMpesaConfig();
+  const accessToken = await getMpesaAccessToken();
+  const timestamp = getMpesaTimestamp();
+  const password = generateMpesaPassword(config.shortcode, config.passkey, timestamp);
+
+  const resp = await fetch(`${config.baseUrl}/mpesa/transactionstatus/v1/query`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      Initiator: config.shortcode,
+      SecurityCredential: password,
+      CommandID: 'TransactionStatusQuery',
+      TransactionID: checkoutRequestId,
+      PartyA: config.shortcode,
+      IdentifierType: '4',
+      ResultURL: `${config.callbackUrl || process.env.BASE_URL || 'http://localhost:3000'}/api/payments/result`,
+      QueueTimeOutURL: `${config.callbackUrl || process.env.BASE_URL || 'http://localhost:3000'}/api/payments/timeout`
+    })
+  });
+
+  return await resp.json();
+}
+
 async function loadThemes() {
   try {
     const db = await getMongoDB();
@@ -990,6 +1252,74 @@ function requireAdminRole(req, res, next) {
 }
 
 const requireAdmin = [requireAuth, requireAdminRole];
+
+// Admin: Template Buyers API (admin-only)
+app.get('/api/admin/buyers', requireAdmin, async (req, res) => {
+  try {
+    const buyers = await loadTemplateBuyers();
+    res.json({ success: true, buyers });
+  } catch (err) {
+    console.error('Error fetching template buyers:', err);
+    res.status(500).json({ error: 'failed_fetch_buyers' });
+  }
+});
+
+app.post('/api/admin/buyers', requireAdmin, async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ error: 'Missing name or email' });
+    }
+
+    const buyers = await loadTemplateBuyers();
+    
+    // Check if email already exists
+    if (buyers.find(b => b.email.toLowerCase() === email.toLowerCase())) {
+      return res.status(400).json({ error: 'Buyer with this email already exists' });
+    }
+
+    // Generate license key (e.g. BLG-ABCD-1234-EFGH)
+    const generateSegment = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+    const licenseKey = `BLG-${generateSegment()}-${generateSegment()}-${generateSegment()}`;
+
+    // Need ObjectId for id, using crypto if not from mongo
+    const id = (typeof ObjectId !== 'undefined') ? new ObjectId().toString() : Date.now().toString();
+
+    const newBuyer = {
+      id,
+      name,
+      email,
+      licenseKey,
+      purchaseDate: new Date().toISOString(),
+      status: 'active'
+    };
+
+    buyers.push(newBuyer);
+    await saveTemplateBuyers(buyers);
+
+    res.json({ success: true, buyer: newBuyer });
+  } catch (err) {
+    console.error('Error adding template buyer:', err);
+    res.status(500).json({ error: 'failed_add_buyer' });
+  }
+});
+
+app.delete('/api/admin/buyers/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    let buyers = await loadTemplateBuyers();
+    const initialLen = buyers.length;
+    buyers = buyers.filter(b => b.id !== id);
+    if (buyers.length === initialLen) {
+      return res.status(404).json({ error: 'Buyer not found' });
+    }
+    await saveTemplateBuyers(buyers);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting template buyer:', err);
+    res.status(500).json({ error: 'failed_delete_buyer' });
+  }
+});
 
 // Admin: Users API (admin-only)
 app.get('/api/users', requireAdmin, async (req, res) => {
@@ -2241,9 +2571,24 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
       await savePosts(posts);
     }
 
-    // Send notification if it's NOT a draft
+    // Send notification and auto-share if it's NOT a draft
     if (!post.isDraft && new Date(post.date) <= new Date()) {
       await sendNewPostNotification(post).catch(err => console.error('Notification error:', err));
+
+      // Auto-share to social media
+      try {
+        const settings = readSettings();
+        const creds = settings.socialCredentials || {};
+        if (Object.values(creds).some(c => c && c.enabled)) {
+          const poster = new SocialPoster(creds);
+          const postUrl = `${req.protocol}://${req.get('host')}/post.html?id=${post.id}`;
+          poster.postToAll(post, postUrl).then(results => {
+            console.log('Social auto-post results:', JSON.stringify(results));
+          }).catch(err => console.error('Social auto-post error:', err));
+        }
+      } catch (err) {
+        console.error('Social auto-post setup error:', err);
+      }
     }
 
     return res.json({ success: true, post });
@@ -2806,6 +3151,20 @@ function readSettings() {
     security: {
       adminEntryKeyHash: '',
       adminEntryKeyEnc: ''
+    },
+    payment: {
+      mpesaEnvironment: 'sandbox',
+      mpesaConsumerKey: '',
+      mpesaConsumerSecret: '',
+      mpesaShortcode: '',
+      mpesaPasskey: '',
+      templatePrice: 1000
+    },
+    socialCredentials: {
+      twitter: { enabled: false, appKey: '', appSecret: '', accessToken: '', accessSecret: '' },
+      linkedin: { enabled: false, accessToken: '', personUrn: '' },
+      facebook: { enabled: false, accessToken: '', pageId: '' },
+      mastodon: { enabled: false, url: '', accessToken: '' },
     }
   };
 }
@@ -3167,6 +3526,170 @@ app.get('/api/settings/author', async (req, res) => {
 });
 
 // Blog info settings API
+app.get('/api/settings/payment', async (req, res) => {
+  try {
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'payment' });
+      const payment = result?.payment || { mpesaEnvironment: 'sandbox', mpesaConsumerKey: '', mpesaConsumerSecret: '', mpesaShortcode: '', mpesaPasskey: '', templatePrice: 1000 };
+      return res.json({ payment });
+    }
+    const settings = readSettings();
+    return res.json({ payment: settings.payment || { mpesaEnvironment: 'sandbox', mpesaConsumerKey: '', mpesaConsumerSecret: '', mpesaShortcode: '', mpesaPasskey: '', templatePrice: 1000 } });
+  } catch (e) {
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+app.post('/api/settings/payment', requireAdmin, async (req, res) => {
+  try {
+    const payload = req.body && req.body.payment ? req.body.payment : req.body;
+    if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
+
+    const payment = {
+      mpesaEnvironment: String(payload.mpesaEnvironment || 'sandbox'),
+      mpesaConsumerKey: String(payload.mpesaConsumerKey || ''),
+      mpesaConsumerSecret: String(payload.mpesaConsumerSecret || ''),
+      mpesaShortcode: String(payload.mpesaShortcode || ''),
+      mpesaPasskey: String(payload.mpesaPasskey || ''),
+      templatePrice: Number(payload.templatePrice || 1000)
+    };
+
+    if (process.env.VERCEL && db) {
+      await db.collection('settings').updateOne(
+        { type: 'payment' },
+        { $set: { payment, updatedAt: new Date() } },
+        { upsert: true }
+      );
+      return res.json({ success: true, payment });
+    }
+
+    const settings = readSettings();
+    settings.payment = payment;
+    writeSettings(settings);
+    return res.json({ success: true, payment });
+  } catch (e) {
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Social auto-post credentials API
+const defaultSocialCredentials = {
+  twitter: { enabled: false, appKey: '', appSecret: '', accessToken: '', accessSecret: '' },
+  linkedin: { enabled: false, accessToken: '', personUrn: '' },
+  facebook: { enabled: false, accessToken: '', pageId: '' },
+  mastodon: { enabled: false, url: '', accessToken: '' },
+};
+
+function maskValue(val) {
+  if (!val || typeof val !== 'string' || val.length < 8) return val ? '***' : '';
+  return val.slice(0, 4) + '***' + val.slice(-4);
+}
+
+app.get('/api/settings/social-credentials', requireAdmin, async (req, res) => {
+  try {
+    let creds = defaultSocialCredentials;
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'socialCredentials' });
+      creds = result?.socialCredentials || defaultSocialCredentials;
+    } else {
+      const settings = readSettings();
+      creds = settings.socialCredentials || defaultSocialCredentials;
+    }
+    // Mask secrets before sending to client
+    const masked = JSON.parse(JSON.stringify(creds));
+    for (const platform of ['twitter', 'linkedin', 'facebook', 'mastodon']) {
+      if (!masked[platform]) continue;
+      const p = masked[platform];
+      for (const key of Object.keys(p)) {
+        if (key === 'enabled') continue;
+        if (typeof p[key] === 'string' && p[key].length > 0) {
+          p[key] = maskValue(p[key]);
+        }
+      }
+    }
+    return res.json({ socialCredentials: masked });
+  } catch (e) {
+    console.error('Error reading social credentials:', e);
+    return res.json({ socialCredentials: defaultSocialCredentials });
+  }
+});
+
+app.put('/api/settings/social-credentials', requireAdmin, async (req, res) => {
+  try {
+    const payload = req.body?.socialCredentials || req.body;
+    if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
+
+    const clean = (val) => {
+      if (!val || typeof val !== 'string') return '';
+      // If the value contains masked chars (***), return empty to keep existing
+      if (val.includes('***')) return '';
+      return val.trim();
+    };
+
+    const socialCredentials = {
+      twitter: {
+        enabled: !!payload.twitter?.enabled,
+        appKey: clean(payload.twitter?.appKey) || (payload.twitter?.appKey?.includes('***') ? '' : ''),
+        appSecret: clean(payload.twitter?.appSecret) || '',
+        accessToken: clean(payload.twitter?.accessToken) || '',
+        accessSecret: clean(payload.twitter?.accessSecret) || '',
+      },
+      linkedin: {
+        enabled: !!payload.linkedin?.enabled,
+        accessToken: clean(payload.linkedin?.accessToken) || '',
+        personUrn: clean(payload.linkedin?.personUrn) || '',
+      },
+      facebook: {
+        enabled: !!payload.facebook?.enabled,
+        accessToken: clean(payload.facebook?.accessToken) || '',
+        pageId: clean(payload.facebook?.pageId) || '',
+      },
+      mastodon: {
+        enabled: !!payload.mastodon?.enabled,
+        url: clean(payload.mastodon?.url) || '',
+        accessToken: clean(payload.mastodon?.accessToken) || '',
+      },
+    };
+
+    // For each platform, if a field is empty but was previously set (masked),
+    // we need to preserve the old value. Re-read existing and merge.
+    let existing = {};
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'socialCredentials' });
+      existing = result?.socialCredentials || {};
+    } else {
+      const settings = readSettings();
+      existing = settings.socialCredentials || {};
+    }
+
+    for (const platform of ['twitter', 'linkedin', 'facebook', 'mastodon']) {
+      for (const key of Object.keys(socialCredentials[platform])) {
+        if (key === 'enabled') continue;
+        if (socialCredentials[platform][key] === '' && existing[platform]?.[key]) {
+          socialCredentials[platform][key] = existing[platform][key];
+        }
+      }
+    }
+
+    if (process.env.VERCEL && db) {
+      await db.collection('settings').updateOne(
+        { type: 'socialCredentials' },
+        { $set: { socialCredentials, updatedAt: new Date() } },
+        { upsert: true }
+      );
+    } else {
+      const settings = readSettings();
+      settings.socialCredentials = socialCredentials;
+      writeSettings(settings);
+    }
+
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Error saving social credentials:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
 app.get('/api/settings/blog-info', async (req, res) => {
   try {
     // For Vercel, use MongoDB if available
@@ -4396,6 +4919,27 @@ app.get('/about.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'about.html'));
 });
 
+// Test social media connections
+app.get('/api/social/test', requireAdmin, async (req, res) => {
+  try {
+    const settings = readSettings();
+    const creds = settings.socialCredentials || {};
+    const poster = new SocialPoster(creds);
+    const testPost = {
+      title: 'Test Post - Social Auto-Post Setup',
+      subtitle: 'Connection test',
+      tags: ['test'],
+      content: 'This is a test post to verify social media auto-posting is working correctly.',
+    };
+    const testUrl = `${req.protocol}://${req.get('host')}/post.html?id=test`;
+    const results = await poster.postToAll(testPost, testUrl);
+    return res.json({ success: true, results });
+  } catch (e) {
+    console.error('Social test error:', e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 // Social sharing endpoint
 app.post('/api/share', async (req, res) => {
     const { postId, platforms } = req.body || {};
@@ -4455,6 +4999,206 @@ app.get('/favicon.ico', (req, res) => {
 // Handle robots.txt
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send('User-agent: *\nDisallow: /admin\nDisallow: /api\n');
+});
+
+// ── MPesa Template Purchase Endpoints ──
+
+// Public: Get template price
+app.get('/api/payments/config', async (req, res) => {
+  try {
+    let templatePrice = 1000;
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'payment' });
+      templatePrice = result?.payment?.templatePrice || 1000;
+    } else {
+      const settings = readSettings();
+      templatePrice = settings?.payment?.templatePrice || 1000;
+    }
+    res.json({ success: true, templatePrice });
+  } catch (e) {
+    res.json({ success: true, templatePrice: 1000 });
+  }
+});
+
+// Public: Initiate MPesa STK Push payment
+app.post('/api/payments/checkout', async (req, res) => {
+  try {
+    const { phoneNumber, name, email } = req.body;
+
+    if (!phoneNumber || !name || !email) {
+      return res.status(400).json({ error: 'Phone number, name, and email are required' });
+    }
+
+    // Validate phone number format
+    const cleanPhone = phoneNumber.replace(/[^0-9+]/g, '');
+    if (cleanPhone.length < 9 || cleanPhone.length > 15) {
+      return res.status(400).json({ error: 'Invalid phone number format' });
+    }
+
+    // Get template price from settings
+    let templatePrice = 1000;
+    if (process.env.VERCEL && db) {
+      const result = await db.collection('settings').findOne({ type: 'payment' });
+      templatePrice = result?.payment?.templatePrice || 1000;
+    } else {
+      const settings = readSettings();
+      templatePrice = settings?.payment?.templatePrice || 1000;
+    }
+
+    // Initiate STK Push
+    const stkResult = await initiateMpesaSTKPush(cleanPhone, templatePrice, 'BlogTemplate');
+
+    const txnId = (typeof ObjectId !== 'undefined') ? new ObjectId().toString() : Date.now().toString();
+
+    // Save transaction record
+    const transaction = {
+      id: txnId,
+      checkoutRequestId: stkResult.CheckoutRequestID || null,
+      merchantRequestId: stkResult.MerchantRequestID || null,
+      responseCode: stkResult.ResponseCode,
+      responseDescription: stkResult.ResponseDescription || '',
+      customerName: name,
+      customerEmail: email,
+      customerPhone: cleanPhone,
+      amount: templatePrice,
+      status: stkResult.ResponseCode === '0' ? 'pending' : 'failed',
+      createdAt: new Date().toISOString()
+    };
+
+    const txns = await loadMpesaTransactions();
+    txns.push(transaction);
+    await saveMpesaTransactions(txns);
+
+    if (stkResult.ResponseCode === '0') {
+      res.json({
+        success: true,
+        checkoutRequestId: stkResult.CheckoutRequestID,
+        merchantRequestId: stkResult.MerchantRequestID,
+        message: 'STK Push sent to your phone. Please enter your MPesa PIN to complete payment.',
+        transactionId: txnId
+      });
+    } else {
+      res.status(400).json({
+        error: stkResult.ResponseDescription || 'Payment initiation failed',
+        responseCode: stkResult.ResponseCode
+      });
+    }
+  } catch (e) {
+    console.error('MPesa checkout error:', e);
+    res.status(500).json({ error: 'Payment processing failed. Please try again.' });
+  }
+});
+
+// MPesa callback endpoint (called by Safaricom after STK push)
+app.post('/api/payments/callback', async (req, res) => {
+  try {
+    const callbackData = req.body;
+    const stkCallback = callbackData?.Body?.stkCallback;
+
+    if (!stkCallback) {
+      return res.status(200).json({ ResultCode: 0, ResultDesc: 'Success' });
+    }
+
+    const merchantRequestId = stkCallback.MerchantRequestID;
+    const checkoutRequestId = stkCallback.CheckoutRequestID;
+    const resultCode = stkCallback.ResultCode;
+    const resultDesc = stkCallback.ResultDesc;
+
+    // Find the transaction
+    const txns = await loadMpesaTransactions();
+    const txnIndex = txns.findIndex(t =>
+      t.checkoutRequestId === checkoutRequestId || t.merchantRequestId === merchantRequestId
+    );
+
+    if (txnIndex !== -1) {
+      txns[txnIndex].status = resultCode === 0 ? 'completed' : 'failed';
+      txns[txnIndex].resultCode = resultCode;
+      txns[txnIndex].resultDescription = resultDesc;
+      txns[txnIndex].completedAt = new Date().toISOString();
+
+      if (resultCode === 0 && stkCallback.CallbackMetadata?.Item) {
+        const items = stkCallback.CallbackMetadata.Item;
+        const mpesaReceipt = items.find(i => i.Name === 'MpesaReceiptNumber');
+        const amount = items.find(i => i.Name === 'Amount');
+        const phoneNumber = items.find(i => i.Name === 'PhoneNumber');
+
+        if (mpesaReceipt) txns[txnIndex].mpesaReceiptNumber = mpesaReceipt.Value;
+        if (amount) txns[txnIndex].paidAmount = amount.Value;
+        if (phoneNumber) txns[txnIndex].paidPhone = phoneNumber.Value;
+
+        // Auto-register as buyer on successful payment
+        const txn = txns[txnIndex];
+        const buyers = await loadTemplateBuyers();
+        if (!buyers.find(b => b.email.toLowerCase() === txn.customerEmail.toLowerCase())) {
+          const generateSegment = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+          const licenseKey = `BLG-${generateSegment()}-${generateSegment()}-${generateSegment()}`;
+          const id = (typeof ObjectId !== 'undefined') ? new ObjectId().toString() : Date.now().toString();
+          buyers.push({
+            id,
+            name: txn.customerName,
+            email: txn.customerEmail,
+            phone: txn.customerPhone,
+            licenseKey,
+            purchaseDate: new Date().toISOString(),
+            mpesaReceiptNumber: txn.mpesaReceiptNumber || null,
+            amountPaid: txn.paidAmount || txn.amount,
+            status: 'active'
+          });
+          await saveTemplateBuyers(buyers);
+          txns[txnIndex].buyerRegistered = true;
+        }
+      }
+
+      await saveMpesaTransactions(txns);
+    }
+
+    // Respond to Safaricom
+    res.status(200).json({ ResultCode: 0, ResultDesc: 'Success' });
+  } catch (e) {
+    console.error('MPesa callback error:', e);
+    res.status(200).json({ ResultCode: 0, ResultDesc: 'Processed' });
+  }
+});
+
+// Public: Check payment status
+app.get('/api/payments/status/:checkoutRequestId', async (req, res) => {
+  try {
+    const { checkoutRequestId } = req.params;
+    const txns = await loadMpesaTransactions();
+    const txn = txns.find(t => t.checkoutRequestId === checkoutRequestId || t.id === checkoutRequestId);
+
+    if (!txn) {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+
+    res.json({
+      success: true,
+      status: txn.status,
+      checkoutRequestId: txn.checkoutRequestId,
+      mpesaReceiptNumber: txn.mpesaReceiptNumber || null,
+      amount: txn.amount,
+      buyerRegistered: txn.buyerRegistered || false,
+      createdAt: txn.createdAt
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to check status' });
+  }
+});
+
+// Public: Check if email already has a license
+app.get('/api/payments/license/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const buyers = await loadTemplateBuyers();
+    const buyer = buyers.find(b => b.email.toLowerCase() === email.toLowerCase());
+
+    if (buyer) {
+      return res.json({ success: true, hasLicense: true, licenseKey: buyer.licenseKey });
+    }
+    res.json({ success: true, hasLicense: false });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to check license' });
+  }
 });
 
 // Error handler must be last middleware to catch errors from all routes
