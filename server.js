@@ -1330,6 +1330,7 @@ app.get('/api/users', requireAdmin, async (req, res) => {
       email: data?.email || '',
       role: data?.role || 'USER',
       active: data?.active ?? true,
+      rights: Array.isArray(data?.rights) ? data.rights : [],
       adminKeySet: !!(data?.adminKeyHash || data?.adminKeySet),
       adminKeyEncExists: !!data?.adminKeyEnc // 2026: Diagnostic flag
     }));
@@ -1342,7 +1343,7 @@ app.get('/api/users', requireAdmin, async (req, res) => {
 
 app.post('/api/users', requireAdmin, async (req, res) => {
   try {
-    const { username, password, name, email, role, adminKey } = req.body || {};
+    const { username, password, name, email, role, adminKey, rights } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'missing_username_or_password' });
     const users = await loadUsers();
     // Prevent creating a user if a case-insensitive match already exists
@@ -1352,7 +1353,7 @@ app.post('/api/users', requireAdmin, async (req, res) => {
     const hash = await bcrypt.hash(password, 12);
     // Store under the provided casing (preserve display), but ensure future lookups
     // will resolve case-insensitively via findUserKey.
-    users[username] = { name: name || '', email: email || '', passwordHash: hash, active: true, role: role || 'USER' };
+    users[username] = { name: name || '', email: email || '', passwordHash: hash, active: true, role: role || 'USER', rights: Array.isArray(rights) ? rights : [] };
     // Optional admin key at creation time
     if (adminKey && String(adminKey).trim()) {
       const keyHash = await bcrypt.hash(String(adminKey).trim(), 12);
@@ -1370,11 +1371,39 @@ app.post('/api/users', requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/users/:username - Get single user info (admin only)
+app.get('/api/users/:username', requireAdmin, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const users = await loadUsers();
+    const userKey = findUserKey(users, username);
+    if (!users || !userKey || !users[userKey]) {
+      return res.status(404).json({ error: 'user_not_found' });
+    }
+    const u = users[userKey];
+    return res.json({
+      success: true,
+      user: {
+        username: userKey,
+        name: u.name || '',
+        email: u.email || '',
+        role: u.role || 'USER',
+        active: u.active ?? true,
+        rights: Array.isArray(u.rights) ? u.rights : [],
+        adminKeySet: !!(u.adminKeyHash || u.adminKeySet)
+      }
+    });
+  } catch (e) {
+    console.error('Get user error:', e);
+    return res.status(500).json({ error: 'failed_to_get_user' });
+  }
+});
+
 // PUT /api/users/:username - Update user properties (admin only)
 app.put('/api/users/:username', requireAdmin, async (req, res) => {
   try {
     const { username } = req.params;
-    const { active, role, email, password, adminKey } = req.body || {};
+    const { active, role, email, password, adminKey, rights } = req.body || {};
 
     // Prevent deactivating self
     const requestUser = req.session?.user || req.user;
@@ -1397,6 +1426,9 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
     }
     if (email !== undefined) {
       users[userKey].email = String(email).trim();
+    }
+    if (rights !== undefined && Array.isArray(rights)) {
+      users[userKey].rights = rights;
     }
     if (password) {
       users[userKey].passwordHash = await bcrypt.hash(String(password), 12);
@@ -1423,7 +1455,8 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
         name: users[userKey].name,
         email: users[userKey].email,
         role: users[userKey].role,
-        active: users[userKey].active
+        active: users[userKey].active,
+        rights: Array.isArray(users[userKey].rights) ? users[userKey].rights : []
       }
     });
   } catch (e) {
@@ -2270,6 +2303,37 @@ app.post('/auth/logout', (req, res) => {
     // Send success response
     return res.json({ success: true, message: 'logged out successfully' });
   });
+});
+
+// GET /api/auth/me - Return current authenticated user info including rights
+app.get('/api/auth/me', requireAuth, async (req, res) => {
+  try {
+    const currentUser = req.session?.user || req.user;
+    const username = currentUser?.username;
+    if (!username) return res.status(401).json({ error: 'not authenticated' });
+
+    const users = await loadUsers();
+    const userKey = findUserKey(users, username);
+    if (!users || !userKey || !users[userKey]) {
+      return res.status(404).json({ error: 'user_not_found' });
+    }
+
+    const u = users[userKey];
+    return res.json({
+      success: true,
+      user: {
+        username: userKey,
+        name: u.name || '',
+        email: u.email || '',
+        role: u.role || 'USER',
+        active: u.active ?? true,
+        rights: Array.isArray(u.rights) ? u.rights : []
+      }
+    });
+  } catch (e) {
+    console.error('Auth/me error:', e);
+    return res.status(500).json({ error: 'internal_error' });
+  }
 });
 
 app.post('/auth/google', async (req, res) => {

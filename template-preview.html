@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Template Preview — Blog Template Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --primary-color: #D0271C;
+            --primary-hover: #A81E15;
+            --primary-light: #FBE4E2;
+            --primary-dark: #7A1610;
+            --accent-color: #171715;
+            --bg-color: #FAF8F4;
+            --bg-secondary: #FFFFFF;
+            --bg-tertiary: #F0EDE5;
+            --text-dark: #171715;
+            --text-medium: #4A4A45;
+            --text-light: #6B6B63;
+            --text-muted: #9C9A90;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 2px 6px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 6px 16px -3px rgba(0, 0, 0, 0.08);
+            --border-radius: 10px;
+            --border-radius-lg: 14px;
+            --transition: all 0.25s ease;
+            --glass-bg: #FFFFFF;
+            --glass-border: #E5E2D8;
+            --font-headline: 'Fraunces', Georgia, serif;
+            --font-body: 'Inter', -apple-system, sans-serif;
+        }
+        [data-theme="dark"] {
+            --bg-color: #121210;
+            --bg-secondary: #1B1B18;
+            --bg-tertiary: #262622;
+            --text-dark: #F2F0E9;
+            --text-medium: #C9C6BB;
+            --text-light: #9C9A90;
+            --text-muted: #6B6B63;
+            --glass-bg: #1B1B18;
+            --glass-border: #33332D;
+            --primary-color: #E8483B;
+            --primary-hover: #D0271C;
+            --primary-light: rgba(232, 72, 59, 0.12);
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-color);
+            color: var(--text-dark);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Preview Banner ── */
+        .preview-banner {
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 0.625rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--text-medium);
+            position: sticky;
+            top: 0;
+            z-index: 200;
+        }
+        .preview-banner-left {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .preview-banner-left i { color: var(--primary-color); font-size: 16px; }
+        .preview-banner-left strong { color: var(--text-dark); }
+        .preview-banner-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .preview-theme-btn {
+            display: flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px; border-radius: 8px;
+            border: 1px solid var(--glass-border);
+            background: var(--bg-secondary);
+            color: var(--text-medium);
+            cursor: pointer; font-size: 15px;
+            transition: var(--transition);
+        }
+        .preview-theme-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+        .preview-close-btn {
+            display: flex; align-items: center; gap: 0.375rem;
+            padding: 0.375rem 0.875rem; border-radius: 8px;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-medium); background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            cursor: pointer; text-decoration: none;
+            transition: var(--transition);
+        }
+        .preview-close-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+
+        /* ── Header ── */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1.25rem 0;
+            position: sticky; top: 39px; z-index: 100;
+            backdrop-filter: blur(12px);
+        }
+        .header-content {
+            max-width: 1200px; margin: 0 auto; padding: 0 2rem;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .logo {
+            font-family: var(--font-headline);
+            font-size: 1.6rem; font-weight: 700;
+            color: var(--text-dark); text-decoration: none;
+            display: flex; align-items: center; gap: 0.625rem;
+        }
+        .logo-icon {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: var(--primary-color); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: 700;
+        }
+        .nav { display: flex; align-items: center; gap: 1.5rem; }
+        .nav a {
+            font-size: 0.9rem; font-weight: 500;
+            color: var(--text-medium); text-decoration: none;
+            padding: 0.375rem 0.75rem; border-radius: 8px;
+            transition: var(--transition);
+        }
+        .nav a:hover, .nav a.active { color: var(--primary-color); background: var(--primary-light); }
+
+        /* ── Container ── */
+        .container { max-width: 1200px; margin: 2rem auto; padding: 0 2rem; }
+
+        /* ── Featured Hero ── */
+        .featured-hero {
+            position: relative; border-radius: 16px; overflow: hidden;
+            margin-bottom: 2.5rem; min-height: 320px;
+            background: var(--bg-tertiary); cursor: default;
+            border: 1px solid var(--glass-border);
+        }
+        .featured-hero-image {
+            width: 100%; height: 100%; object-fit: cover;
+            position: absolute; inset: 0;
+        }
+        .featured-hero-overlay {
+            position: absolute; inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%);
+            display: flex; flex-direction: column; justify-content: flex-end;
+            padding: 2rem;
+        }
+        .featured-badge {
+            display: inline-flex; align-items: center; gap: 0.375rem;
+            background: var(--primary-color); color: #fff;
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.08em; padding: 0.3rem 0.75rem;
+            border-radius: 99px; width: fit-content; margin-bottom: 0.75rem;
+        }
+        .featured-hero-title {
+            font-family: var(--font-headline);
+            font-size: 2rem; font-weight: 700; color: #fff;
+            line-height: 1.3; margin-bottom: 0.5rem;
+        }
+        .featured-hero-meta {
+            color: rgba(255,255,255,0.7); font-size: 0.85rem;
+        }
+
+        /* ── Content Layout ── */
+        .content-layout {
+            display: grid; grid-template-columns: 280px 1fr;
+            gap: 2rem; align-items: start;
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            position: sticky; top: 120px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-lg);
+            padding: 1.5rem;
+        }
+        .sidebar h3 {
+            font-family: var(--font-headline);
+            font-size: 1rem; font-weight: 700;
+            margin-bottom: 1rem; color: var(--text-dark);
+        }
+        .filter-group { margin-bottom: 1.25rem; }
+        .filter-label {
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.5rem;
+        }
+        .filter-tags { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+        .filter-tag {
+            background: var(--bg-secondary); color: var(--text-medium);
+            padding: 0.3rem 0.75rem; border-radius: 99px;
+            font-size: 12px; font-weight: 500;
+            border: 1px solid var(--glass-border); cursor: default;
+        }
+        .filter-tag.active {
+            background: var(--primary-color); color: #fff;
+            border-color: var(--primary-color);
+        }
+        .sidebar-search {
+            width: 100%; padding: 0.6rem 0.875rem;
+            font-size: 13px; color: var(--text-dark);
+            background: var(--bg-secondary); border: 1px solid var(--glass-border);
+            border-radius: 8px; outline: none;
+        }
+        .sidebar-search:focus { border-color: var(--primary-color); }
+        .sidebar-search::placeholder { color: var(--text-muted); }
+
+        /* ── Posts Grid ── */
+        .posts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        .post-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px; overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            cursor: default;
+        }
+        .post-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+            border-color: rgba(208, 39, 28, 0.15);
+        }
+        .post-card-image-wrap {
+            width: 100%; height: 180px; overflow: hidden;
+            background: var(--bg-tertiary);
+        }
+        .post-card-image {
+            width: 100%; height: 100%; object-fit: cover;
+            transition: transform 0.4s ease;
+        }
+        .post-card:hover .post-card-image { transform: scale(1.05); }
+        .post-card-body { padding: 1.25rem; }
+        .post-card-category {
+            display: inline-block; font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.13em;
+            color: var(--primary-color); margin-bottom: 0.375rem;
+        }
+        .post-card-title {
+            font-family: var(--font-headline);
+            font-size: 1.15rem; font-weight: 700; color: var(--text-dark);
+            line-height: 1.4; margin-bottom: 0.5rem;
+        }
+        .post-card-excerpt {
+            font-size: 0.875rem; color: var(--text-medium);
+            line-height: 1.6; margin-bottom: 0.75rem;
+            display: -webkit-box; -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .post-card-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            padding-top: 0.75rem; border-top: 1px solid var(--glass-border);
+        }
+        .post-card-meta {
+            font-size: 12px; color: var(--text-muted);
+        }
+        .post-card-readtime {
+            font-size: 12px; color: var(--text-muted);
+            display: flex; align-items: center; gap: 0.25rem;
+        }
+
+        /* ── Features Section ── */
+        .features-section {
+            margin-top: 3rem; padding: 2.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-lg);
+        }
+        .features-title {
+            font-family: var(--font-headline);
+            font-size: 1.5rem; font-weight: 700;
+            text-align: center; margin-bottom: 0.5rem;
+        }
+        .features-subtitle {
+            text-align: center; color: var(--text-medium);
+            font-size: 0.95rem; margin-bottom: 2rem;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+        }
+        .feature-card {
+            padding: 1.25rem; border-radius: 12px;
+            background: var(--bg-color);
+            border: 1px solid var(--glass-border);
+            text-align: center;
+        }
+        .feature-icon {
+            width: 48px; height: 48px; border-radius: 12px;
+            background: var(--primary-light); color: var(--primary-color);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; margin: 0 auto 0.75rem;
+        }
+        .feature-card h4 {
+            font-size: 0.95rem; font-weight: 600;
+            margin-bottom: 0.375rem; color: var(--text-dark);
+        }
+        .feature-card p {
+            font-size: 0.8rem; color: var(--text-medium); line-height: 1.5;
+        }
+
+        /* ── Footer ── */
+        .preview-footer {
+            margin-top: 3rem; padding: 1.5rem 0;
+            border-top: 1px solid var(--glass-border);
+            text-align: center; font-size: 13px; color: var(--text-muted);
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .container { padding: 0 1rem; margin: 1rem auto; }
+            .content-layout { grid-template-columns: 1fr; }
+            .sidebar { position: relative; top: 0; }
+            .featured-hero { min-height: 240px; }
+            .featured-hero-title { font-size: 1.4rem; }
+            .posts-grid { grid-template-columns: 1fr; }
+            .header-content { padding: 0 1rem; }
+            .nav { gap: 0.75rem; }
+            .nav a { font-size: 0.8rem; padding: 0.25rem 0.5rem; }
+            .preview-banner { padding: 0.5rem 1rem; font-size: 12px; }
+            .preview-banner-left span:last-child { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Preview Banner -->
+    <div class="preview-banner">
+        <div class="preview-banner-left">
+            <i class="ti ti-eye"></i>
+            <span>Template Preview</span>
+            <span>— <strong>Blog Template Pro</strong></span>
+        </div>
+        <div class="preview-banner-actions">
+            <button class="preview-theme-btn" onclick="toggleTheme()" title="Toggle dark mode">
+                <i class="ti ti-sun" id="theme-icon"></i>
+            </button>
+            <a href="/" class="preview-close-btn">
+                <i class="ti ti-arrow-left"></i>
+                Back to blog
+            </a>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <a href="#" class="logo">
+                <div class="logo-icon">B</div>
+                <span>BlogTemplate</span>
+            </a>
+            <nav class="nav">
+                <a href="#" class="active">Blog</a>
+                <a href="#">About</a>
+                <a href="#">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Featured Hero -->
+        <div class="featured-hero">
+            <div class="featured-hero-overlay">
+                <div class="featured-badge">
+                    <i class="ti ti-star"></i> Featured
+                </div>
+                <h1 class="featured-hero-title">Building Modern Blogs with Clean Design and Great Performance</h1>
+                <div class="featured-hero-meta">Jan 15, 2026 · 8 min read</div>
+            </div>
+        </div>
+
+        <!-- Content Layout -->
+        <div class="content-layout">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <h3>Filters</h3>
+                <div class="filter-group">
+                    <div class="filter-label">Search</div>
+                    <input type="text" class="sidebar-search" placeholder="Search posts..." readonly>
+                </div>
+                <div class="filter-group">
+                    <div class="filter-label">Categories</div>
+                    <div class="filter-tags">
+                        <span class="filter-tag active">All</span>
+                        <span class="filter-tag">Technology</span>
+                        <span class="filter-tag">Design</span>
+                        <span class="filter-tag">Development</span>
+                        <span class="filter-tag">Lifestyle</span>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <div class="filter-label">Sort by</div>
+                    <div class="filter-tags">
+                        <span class="filter-tag active">Newest</span>
+                        <span class="filter-tag">Oldest</span>
+                        <span class="filter-tag">Popular</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Posts Grid -->
+            <div>
+                <div class="posts-grid">
+                    <!-- Post 1 -->
+                    <div class="post-card">
+                        <div class="post-card-image-wrap">
+                            <div class="post-card-image" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);"></div>
+                        </div>
+                        <div class="post-card-body">
+                            <div class="post-card-category">Technology</div>
+                            <h3 class="post-card-title">The Future of Web Development in 2026</h3>
+                            <p class="post-card-excerpt">Exploring the latest trends in web development, from AI-powered tools to new JavaScript frameworks that are changing how we build for the web.</p>
+                            <div class="post-card-footer">
+                                <span class="post-card-meta">Jan 12, 2026</span>
+                                <span class="post-card-readtime"><i class="ti ti-clock"></i> 5 min</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Post 2 -->
+                    <div class="post-card">
+                        <div class="post-card-image-wrap">
+                            <div class="post-card-image" style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);"></div>
+                        </div>
+                        <div class="post-card-body">
+                            <div class="post-card-category">Design</div>
+                            <h3 class="post-card-title">Minimalist Design Principles for Modern Interfaces</h3>
+                            <p class="post-card-excerpt">How less becomes more in interface design. A deep dive into whitespace, typography, and color theory for clean layouts.</p>
+                            <div class="post-card-footer">
+                                <span class="post-card-meta">Jan 10, 2026</span>
+                                <span class="post-card-readtime"><i class="ti ti-clock"></i> 4 min</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Post 3 -->
+                    <div class="post-card">
+                        <div class="post-card-image-wrap">
+                            <div class="post-card-image" style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);"></div>
+                        </div>
+                        <div class="post-card-body">
+                            <div class="post-card-category">Development</div>
+                            <h3 class="post-card-title">Optimizing Performance: A Practical Guide</h3>
+                            <p class="post-card-excerpt">From lazy loading to code splitting, learn the techniques that make your web applications lightning fast.</p>
+                            <div class="post-card-footer">
+                                <span class="post-card-meta">Jan 8, 2026</span>
+                                <span class="post-card-readtime"><i class="ti ti-clock"></i> 7 min</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Post 4 -->
+                    <div class="post-card">
+                        <div class="post-card-image-wrap">
+                            <div class="post-card-image" style="background:linear-gradient(135deg,#43e97b 0%,#38f9d7 100%);"></div>
+                        </div>
+                        <div class="post-card-body">
+                            <div class="post-card-category">Lifestyle</div>
+                            <h3 class="post-card-title">Remote Work Setup: Creating Your Ideal Space</h3>
+                            <p class="post-card-excerpt">Tips and tricks for setting up a productive home office that keeps you focused and comfortable throughout the day.</p>
+                            <div class="post-card-footer">
+                                <span class="post-card-meta">Jan 5, 2026</span>
+                                <span class="post-card-readtime"><i class="ti ti-clock"></i> 3 min</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Post 5 -->
+                    <div class="post-card">
+                        <div class="post-card-image-wrap">
+                            <div class="post-card-image" style="background:linear-gradient(135deg,#fa709a 0%,#fee140 100%);"></div>
+                        </div>
+                        <div class="post-card-body">
+                            <div class="post-card-category">Technology</div>
+                            <h3 class="post-card-title">Understanding CSS Grid: Beyond the Basics</h3>
+                            <p class="post-card-excerpt">Advanced CSS Grid techniques including subgrid, auto-fill patterns, and responsive layouts without media queries.</p>
+                            <div class="post-card-footer">
+                                <span class="post-card-meta">Jan 3, 2026</span>
+                                <span class="post-card-readtime"><i class="ti ti-clock"></i> 6 min</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Post 6 -->
+                    <div class="post-card">
+                        <div class="post-card-image-wrap">
+                            <div class="post-card-image" style="background:linear-gradient(135deg,#a18cd1 0%,#fbc2eb 100%);"></div>
+                        </div>
+                        <div class="post-card-body">
+                            <div class="post-card-category">Design</div>
+                            <h3 class="post-card-title">Color Theory in Practice: Building Palettes</h3>
+                            <p class="post-card-excerpt">A hands-on guide to creating harmonious color palettes for your projects using modern tools and techniques.</p>
+                            <div class="post-card-footer">
+                                <span class="post-card-meta">Jan 1, 2026</span>
+                                <span class="post-card-readtime"><i class="ti ti-clock"></i> 5 min</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Features Section -->
+                <div class="features-section">
+                    <h2 class="features-title">What's Included</h2>
+                    <p class="features-subtitle">Everything you need to launch a professional blog</p>
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon"><i class="ti ti-device-mobile"></i></div>
+                            <h4>Fully Responsive</h4>
+                            <p>Looks great on phones, tablets, and desktops. Mobile-first design.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon"><i class="ti ti-moon-stars"></i></div>
+                            <h4>Dark Mode</h4>
+                            <p>Built-in dark theme with smooth transitions and proper contrast.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon"><i class="ti ti-search"></i></div>
+                            <h4>SEO Optimized</h4>
+                            <p>Semantic HTML, meta tags, and structured data for search engines.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon"><i class="ti ti-bolt"></i></div>
+                            <h4>Fast Loading</h4>
+                            <p>Optimized assets and lazy loading for near-instant page loads.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon"><i class="ti ti-palette"></i></div>
+                            <h4>Customizable</h4>
+                            <p>Easy-to-change CSS variables for colors, fonts, and spacing.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon"><i class="ti ti-layout-dashboard"></i></div>
+                            <h4>Admin Panel</h4>
+                            <p>Full-featured admin dashboard for managing posts, users, and settings.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="container">
+        <div class="preview-footer">
+            Blog Template Pro — Built with care for performance and design
+        </div>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            const icon = document.getElementById('theme-icon');
+            icon.className = next === 'dark' ? 'ti ti-moon' : 'ti ti-sun';
+        }
+    </script>
+</body>
+</html>
