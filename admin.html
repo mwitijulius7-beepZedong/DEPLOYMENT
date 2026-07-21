@@ -7,7 +7,7 @@
     <title>Admin Panel - Blog</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/chart.js@3.9.1/dist/chart.min.js'"></script>
@@ -751,7 +751,7 @@
                         if (r.success && r.facebookUrl) window.open(r.facebookUrl, '_blank');
                         if (r.success && r.linkedinUrl) window.open(r.linkedinUrl, '_blank');
                     }
-                    alert(`"${postTitle}" shared to all platforms! ✨`);
+                    alert(`"${postTitle}" shared to all platforms!`);
                 } else {
                     alert('Failed: ' + data.error);
                 }
@@ -4070,6 +4070,30 @@ window.uploadedProfilePictureUrl = '';
         .key-set   { color: #0F6E56; }
         .key-unset { color: #993C1D; }
 
+        .user-rights {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 8px; margin: 2px 0;
+            background: var(--bg-secondary, #FAFAF8);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+        .rights-label {
+            font-size: 10px; font-weight: 500; color: var(--text-medium);
+            display: flex; align-items: center; gap: 3px;
+            white-space: nowrap;
+        }
+        .right-toggle {
+            display: flex; align-items: center; gap: 4px;
+            cursor: pointer; font-size: 10px; color: var(--text-dark);
+        }
+        .right-toggle input[type="checkbox"] {
+            width: 14px; height: 14px; cursor: pointer;
+            accent-color: var(--primary-color, #6366f1);
+        }
+        .right-toggle-label {
+            font-weight: 500;
+        }
+
         .action-group { display: flex; flex-wrap: wrap; gap: 3px; }
         .action-btn {
             display: inline-flex; align-items: center; gap: 4px;
@@ -4168,7 +4192,7 @@ window.uploadedProfilePictureUrl = '';
                 </div>
                 <div class="nav-item">
                     <a id="nav-settings" href="#settings" class="nav-link">
-                        <i>⚙️</i>
+                        <i class="ti ti-settings"></i>
                         <span>Settings</span>
                     </a>
                 </div>
@@ -4819,7 +4843,7 @@ window.uploadedProfilePictureUrl = '';
                 <!-- Settings Section -->
                 <div id="settings-section" class="section-content" style="display: none;">
                     <div class="section-header">
-                        <h3 class="section-title">⚙️ Blog Settings</h3>
+                        <h3 class="section-title"><i class="ti ti-settings"></i> Blog Settings</h3>
                         <p class="section-description">Configure your blog settings, author information, and security
                             preferences.</p>
                     </div>
@@ -4839,7 +4863,7 @@ window.uploadedProfilePictureUrl = '';
                                     <li class="settings-nav-item">
                                         <button type="button" class="settings-nav-btn" data-panel="appearance"
                                             onclick="switchSettingsPanel('appearance')">
-                                            <i>🎨</i>
+                                            <i class="ti ti-palette"></i>
                                             Appearance
                                         </button>
                                     </li>
@@ -5013,7 +5037,7 @@ window.uploadedProfilePictureUrl = '';
                                         </div>
                                         <div style="display: flex; gap: 8px;">
                                             <button class="btn-modern secondary sm" onclick="saveThemeSettings()">
-                                                <i>🎨</i> Sync Theme
+                                                <i class="ti ti-palette"></i> Sync Theme
                                             </button>
                                             <button class="btn-modern sm" onclick="saveBackgroundSettings()">
                                                 <i>🖼️</i> Update Assets
@@ -5024,7 +5048,7 @@ window.uploadedProfilePictureUrl = '';
                                     <div class="grid-2-col">
                                         <!-- Branding Colors -->
                                         <div class="action-card">
-                                            <h3><i>🎨</i> Branding Colors</h3>
+                                            <h3><i class="ti ti-palette"></i> Branding Colors</h3>
                                             <div class="form-grid" style="grid-template-columns: 1fr; gap: 10px; margin-top: 12px;">
                                                 <div class="form-group">
                                                     <label for="primary-color" class="form-label" style="font-size: 11px; text-transform: uppercase;">Primary Color</label>
@@ -5188,7 +5212,7 @@ window.uploadedProfilePictureUrl = '';
                                                     <textarea class="form-input form-textarea" id="category-description" style="font-size: 13px; min-height: 80px;" placeholder="Briefly describe this category..."></textarea>
                                                 </div>
                                                 <button id="btn-add-category" class="btn-modern" type="button" onclick="addCategory()" style="margin-top: 8px;">
-                                                    <i>✨</i> Add Category
+                                                    <i class="ti ti-plus"></i> Add Category
                                                 </button>
                                             </div>
                                         </div>
@@ -5232,7 +5256,7 @@ window.uploadedProfilePictureUrl = '';
                                     <div class="grid-2-col">
                                         <!-- Visual Branding (Hero) Card -->
                                         <div class="action-card">
-                                            <h3><i>✨</i> Visual Branding</h3>
+                                            <h3><i class="ti ti-sparkles"></i> Visual Branding</h3>
                                             <div class="form-grid" style="grid-template-columns: 1fr; gap: 12px; margin-top: 12px;">
                                                 <div class="form-group">
                                                     <label for="about-hero-title" class="form-label" style="font-size: 11px; text-transform: uppercase;">Hero Title</label>
@@ -5375,7 +5399,7 @@ window.uploadedProfilePictureUrl = '';
                                                     <textarea class="form-input form-textarea" id="theme-description" style="font-size: 13px; min-height: 80px;" placeholder="A brief overview of this month's focus..."></textarea>
                                                 </div>
                                                 <button class="btn-modern" onclick="addTheme()" style="grid-column: span 2; margin-top: 8px;">
-                                                    <i>✨</i> Deploy Theme
+                                                    <i class="ti ti-rocket"></i> Deploy Theme
                                                 </button>
                                             </div>
                                         </div>
@@ -6418,6 +6442,8 @@ window.loadPostsList = loadPostsList;
                                         const initials = (u.username || '??').slice(0, 2).toUpperCase();
                                         const avatarClass = role === 'ADMIN' ? 'ua-purple' : 'ua-blue';
                                         const isDemote = role === 'ADMIN';
+                                        const userRights = Array.isArray(u.rights) ? u.rights : [];
+                                        const hasViewTemplate = userRights.includes('view_template');
                                         return `
                                           <div class="user-row">
                                             <div class="user-info">
@@ -6433,6 +6459,13 @@ window.loadPostsList = loadPostsList;
                                                   ${u.adminKeySet ? 'Admin key set' : 'Admin key not set'}
                                                 </div>
                                               </div>
+                                            </div>
+                                            <div class="user-rights">
+                                              <span class="rights-label"><i class="ti ti-shield"></i> Rights:</span>
+                                              <label class="right-toggle" title="Allow user to view the blog template">
+                                                <input type="checkbox" ${hasViewTemplate ? 'checked' : ''} onchange="toggleUserRight('${u.username}', 'view_template', this.checked)">
+                                                <span class="right-toggle-label">View Template</span>
+                                              </label>
                                             </div>
                                              <div class="action-group">
                                               <button class="action-btn btn-default" onclick="toggleUserRole('${u.username}', '${isDemote ? 'USER' : 'ADMIN'}')">
@@ -6588,6 +6621,42 @@ window.loadPostsList = loadPostsList;
                             } catch (e) {
                                 console.error('Error deleting user:', e);
                                 alert('Error deleting user');
+                            }
+                        };
+
+                        window.toggleUserRight = async function (username, right, enabled) {
+                            try {
+                                const res = await fetch(`/api/users/${encodeURIComponent(username)}`, {
+                                    method: 'GET',
+                                    credentials: 'include',
+                                    headers: getAuthHeaders()
+                                });
+                                const data = await res.json();
+                                if (!res.ok || !data.user) {
+                                    alert('Failed to load user rights: ' + (data.error || 'Unknown error'));
+                                    loadUsers();
+                                    return;
+                                }
+                                let currentRights = Array.isArray(data.user.rights) ? [...data.user.rights] : [];
+                                if (enabled && !currentRights.includes(right)) {
+                                    currentRights.push(right);
+                                } else if (!enabled) {
+                                    currentRights = currentRights.filter(r => r !== right);
+                                }
+                                const updateRes = await fetch(`/api/users/${encodeURIComponent(username)}`, {
+                                    method: 'PUT',
+                                    credentials: 'include',
+                                    headers: getAuthHeaders(),
+                                    body: JSON.stringify({ rights: currentRights })
+                                });
+                                const updateData = await updateRes.json();
+                                if (!updateRes.ok) {
+                                    alert('Failed to update rights: ' + (updateData.error || 'Unknown error'));
+                                }
+                                loadUsers();
+                            } catch (e) {
+                                console.error('Error updating user rights:', e);
+                                alert('Error updating user rights');
                             }
                         };
 
@@ -7457,6 +7526,19 @@ window.loadPostsList = loadPostsList;
                         window.toggleSelectAllComments = toggleSelectAllComments;
                         window.bulkDeleteComments = bulkDeleteComments;
                         window.bulkRestoreComments = bulkRestoreComments;
+
+                        // ── Admin Re-authentication on Portal Exit ───────────────────────────
+                        // Destroy server session when admin portal is closed/refreshed
+                        // to require re-authentication on next visit
+                        window.addEventListener('pagehide', function () {
+                            // Use navigator.sendBeacon for reliable delivery on page unload
+                            navigator.sendBeacon('/auth/logout', '');
+                        });
+
+                        // Also handle beforeunload as fallback for browsers without pagehide support
+                        window.addEventListener('beforeunload', function () {
+                            navigator.sendBeacon('/auth/logout', '');
+                        });
                     </script>
 </body>
 

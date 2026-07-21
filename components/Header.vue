@@ -14,7 +14,7 @@
           <button type="button" @click="toggleAnalytics">Analytics</button>
         </template>
         <button type="button" class="theme-toggle" @click="toggleTheme" :title="themeTitle">
-          {{ isDarkMode ? '☀️' : '🌙' }}
+          <i :class="isDarkMode ? 'ti ti-sun' : 'ti ti-moon'"></i>
         </button>
         <template v-if="currentView === 'admin' && isLoggedIn">
           <div class="settings-dropdown">
