@@ -1514,7 +1514,7 @@
         }
 
         .template-gate {
-            padding: 0 1.5rem 1.5rem;
+            margin-top: 1rem;
         }
         .template-gate-btn {
             display: flex;
@@ -1742,6 +1742,14 @@
                                 <button v-if="hasFilters" @click="clearFilters" class="clear-filters">Clear All</button>
                             </div>
                         </div>
+
+                        <!-- View Template Button (rights-gated) -->
+                        <div v-if="currentUserRights.includes('view_template')" class="template-gate">
+                            <a href="/template-preview.html" target="_blank" class="template-gate-btn">
+                                <i class="ti ti-layout-dashboard"></i>
+                                <span>View Template</span>
+                            </a>
+                        </div>
                     </aside>
 
                     <!-- Main Feed -->
@@ -1867,14 +1875,6 @@
                     </a>
                 </div>
             </div>
-        </div>
-
-        <!-- View Template Button (rights-gated) -->
-        <div v-if="currentUserRights.includes('view_template')" class="template-gate">
-            <a href="/template-preview.html" target="_blank" class="template-gate-btn">
-                <i class="ti ti-layout-dashboard"></i>
-                <span>View Template</span>
-            </a>
         </div>
 
         <!-- Lightbox Modal -->
