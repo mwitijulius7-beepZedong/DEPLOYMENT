@@ -176,7 +176,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
       imgSrc: ["'self'", "data:", "https:", "https://*.cloudinary.com"],
-      connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://cdn.jsdelivr.net"],
       frameSrc: ["'self'", "https://accounts.google.com"],
     },
   },
@@ -1250,10 +1250,32 @@ function requireAdminRole(req, res, next) {
   return next();
 }
 
-const requireAdmin = [requireAuth, requireAdminRole];
+// Allow both ADMIN and TEMPLATE_BUYER roles
+function requireAdminOrBuyer(req, res, next) {
+  const user = req.session?.user || req.user;
+  if (!user) return res.status(401).json({ error: 'not authenticated' });
+  const role = String(user.role || 'USER').toUpperCase();
+  if (role !== 'ADMIN' && role !== 'TEMPLATE_BUYER') {
+    return res.status(403).json({ error: 'admin_only' });
+  }
+  return next();
+}
 
-// Admin: Template Buyers API (admin-only)
-app.get('/api/admin/buyers', requireAdmin, async (req, res) => {
+// Seller-only: blocks TEMPLATE_BUYER from sensitive operations
+function requireSellerOnly(req, res, next) {
+  const user = req.session?.user || req.user;
+  if (!user) return res.status(401).json({ error: 'not authenticated' });
+  if (String(user.role || 'USER').toUpperCase() !== 'ADMIN') {
+    return res.status(403).json({ error: 'seller_only' });
+  }
+  return next();
+}
+
+const requireAdmin = [requireAuth, requireAdminRole];
+const requireAdminOrBuyerAuth = [requireAuth, requireAdminOrBuyer];
+
+// Admin: Template Buyers API (seller-only)
+app.get('/api/admin/buyers', requireSellerOnly, async (req, res) => {
   try {
     const buyers = await loadTemplateBuyers();
     res.json({ success: true, buyers });
@@ -1263,7 +1285,7 @@ app.get('/api/admin/buyers', requireAdmin, async (req, res) => {
   }
 });
 
-app.post('/api/admin/buyers', requireAdmin, async (req, res) => {
+app.post('/api/admin/buyers', requireSellerOnly, async (req, res) => {
   try {
     const { name, email } = req.body;
     if (!name || !email) {
@@ -1303,7 +1325,7 @@ app.post('/api/admin/buyers', requireAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/admin/buyers/:id', requireAdmin, async (req, res) => {
+app.delete('/api/admin/buyers/:id', requireSellerOnly, async (req, res) => {
   try {
     const { id } = req.params;
     let buyers = await loadTemplateBuyers();
@@ -1320,11 +1342,13 @@ app.delete('/api/admin/buyers/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Admin: Users API (admin-only)
-app.get('/api/users', requireAdmin, async (req, res) => {
+// Admin: Users API (admin-or-buyer: buyers see only themselves, admins see all)
+app.get('/api/users', requireAdminOrBuyerAuth, async (req, res) => {
   try {
     const users = await loadUsers();
-    const list = Object.entries(users || {}).map(([username, data]) => ({
+    const currentUser = req.session?.user || req.user;
+    const isAdmin = String(currentUser?.role || 'USER').toUpperCase() === 'ADMIN';
+    let list = Object.entries(users || {}).map(([username, data]) => ({
       username,
       name: data?.name || '',
       email: data?.email || '',
@@ -1332,8 +1356,13 @@ app.get('/api/users', requireAdmin, async (req, res) => {
       active: data?.active ?? true,
       rights: Array.isArray(data?.rights) ? data.rights : [],
       adminKeySet: !!(data?.adminKeyHash || data?.adminKeySet),
-      adminKeyEncExists: !!data?.adminKeyEnc // 2026: Diagnostic flag
+      adminKeyEncExists: !!data?.adminKeyEnc,
+      buyerId: data?.buyerId || null
     }));
+    // Template buyers can only see their own profile
+    if (!isAdmin) {
+      list = list.filter(u => u.username === currentUser.username);
+    }
     res.json({ users: list });
   } catch (e) {
     console.error('Load users error:', e);
@@ -1400,7 +1429,7 @@ app.get('/api/users/:username', requireAdmin, async (req, res) => {
 });
 
 // PUT /api/users/:username - Update user properties (admin only)
-app.put('/api/users/:username', requireAdmin, async (req, res) => {
+app.put('/api/users/:username', requireAdminOrBuyerAuth, async (req, res) => {
   try {
     const { username } = req.params;
     const { active, role, email, password, adminKey, rights } = req.body || {};
@@ -1411,39 +1440,55 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'cannot_deactivate_self' });
     }
 
+    // Buyers can only edit their own profile (name/email/password), not roles/rights
+    const isBuyer = String(requestUser?.role || 'USER').toUpperCase() === 'TEMPLATE_BUYER';
+    if (isBuyer && username !== requestUser?.username) {
+      return res.status(403).json({ error: 'cannot_edit_other_users' });
+    }
+
     const users = await loadUsers();
     const userKey = findUserKey(users, username);
     if (!users || !userKey || !users[userKey]) {
       return res.status(404).json({ error: 'user_not_found' });
     }
 
-    // Update user properties
-    if (active !== undefined) {
-      users[userKey].active = active;
-    }
-    if (role !== undefined) {
-      users[userKey].role = role;
-    }
-    if (email !== undefined) {
-      users[userKey].email = String(email).trim();
-    }
-    if (rights !== undefined && Array.isArray(rights)) {
-      users[userKey].rights = rights;
-    }
-    if (password) {
-      users[userKey].passwordHash = await bcrypt.hash(String(password), 12);
-    }
-    if (adminKey !== undefined) {
-      const trimmed = String(adminKey).trim();
-      if (trimmed) {
-        users[userKey].adminKeyHash = await bcrypt.hash(trimmed, 12);
-        users[userKey].adminKeyEnc = encryptText(trimmed);
-        users[userKey].adminKeySet = true;
-      } else {
-        // Empty string clears the admin key
-        delete users[userKey].adminKeyHash;
-        delete users[userKey].adminKeyEnc;
-        users[userKey].adminKeySet = false;
+    // Buyers: only allow email, name, password changes
+    if (isBuyer) {
+      if (email !== undefined) {
+        users[userKey].email = String(email).trim();
+      }
+      if (password) {
+        users[userKey].passwordHash = await bcrypt.hash(String(password), 12);
+      }
+    } else {
+      // Full admin updates
+      if (active !== undefined) {
+        users[userKey].active = active;
+      }
+      if (role !== undefined) {
+        users[userKey].role = role;
+      }
+      if (email !== undefined) {
+        users[userKey].email = String(email).trim();
+      }
+      if (rights !== undefined && Array.isArray(rights)) {
+        users[userKey].rights = rights;
+      }
+      if (password) {
+        users[userKey].passwordHash = await bcrypt.hash(String(password), 12);
+      }
+      if (adminKey !== undefined) {
+        const trimmed = String(adminKey).trim();
+        if (trimmed) {
+          users[userKey].adminKeyHash = await bcrypt.hash(trimmed, 12);
+          users[userKey].adminKeyEnc = encryptText(trimmed);
+          users[userKey].adminKeySet = true;
+        } else {
+          // Empty string clears the admin key
+          delete users[userKey].adminKeyHash;
+          delete users[userKey].adminKeyEnc;
+          users[userKey].adminKeySet = false;
+        }
       }
     }
 
@@ -1465,8 +1510,8 @@ app.put('/api/users/:username', requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/users/:username - Delete user account (admin only)
-app.delete('/api/users/:username', requireAdmin, async (req, res) => {
+// DELETE /api/users/:username - Delete user account (seller only)
+app.delete('/api/users/:username', requireSellerOnly, async (req, res) => {
   try {
     const { username } = req.params;
     const requestUser = req.session?.user || req.user;
@@ -2543,11 +2588,18 @@ app.get('/api/posts', async (req, res) => {
     const posts = await loadPosts();
     const includeDrafts = req.query.include_drafts === 'true';
     const isAdmin = isUserAdmin(req);
+    const currentUser = req.session?.user || req.user;
+    const isBuyer = String(currentUser?.role || 'USER').toUpperCase() === 'TEMPLATE_BUYER';
     const now = new Date();
 
     const filteredPosts = posts.filter(p => {
       // Basic filter: not deleted
       if (p.isDeleted) return false;
+
+      // Buyers only see their own posts when in admin mode (include_drafts)
+      if (includeDrafts && isBuyer && currentUser?.username) {
+        return p.authorUsername === currentUser.username;
+      }
 
       // Only include drafts if admin AND explicitly requested
       if (p.isDraft) return isAdmin && includeDrafts;
@@ -2593,20 +2645,23 @@ app.get('/api/posts/:id', async (req, res) => {
   }
 });
 
-app.post('/api/posts', requireAdmin, async (req, res) => {
+app.post('/api/posts', requireAdminOrBuyerAuth, async (req, res) => {
   const body = req.body;
   if (!body || !body.title || !body.content) return res.status(400).json({ error: 'missing title or content' });
+
+  const currentUser = req.session?.user || req.user;
+  const isBuyer = String(currentUser?.role || 'USER').toUpperCase() === 'TEMPLATE_BUYER';
 
   const post = {
     title: body.title,
     subtitle: body.subtitle || '',
-    author: body.author || (req.session?.user || req.user)?.name || 'Admin',
+    author: body.author || currentUser?.name || 'Admin',
     content: body.content,
     date: new Date().toISOString(),
     tags: Array.isArray(body.tags) ? body.tags : [],
     image: body.image || '',
     images: Array.isArray(body.images) ? body.images : [],
-    featured: !!body.featured,
+    featured: isBuyer ? false : !!body.featured,
     isDraft: !!body.isDraft,
     categoryId: body.categoryId || null,
     fontFamily: body.fontFamily || '',
@@ -2614,7 +2669,8 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
     sceneCard: body.sceneCard || '',
     closingBox: body.closingBox || '',
     likes: 0,
-    dislikes: 0
+    dislikes: 0,
+    authorUsername: currentUser?.username || null
   };
 
   try {
@@ -2662,16 +2718,23 @@ app.post('/api/posts', requireAdmin, async (req, res) => {
   }
 });
 
-// PUT /api/posts/:id - update (admin only)
-app.put('/api/posts/:id', requireAdmin, async (req, res) => {
+// PUT /api/posts/:id - update (admin or buyer for own posts)
+app.put('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
   const id = req.params.id;
   const body = req.body;
+  const currentUser = req.session?.user || req.user;
+  const isBuyer = String(currentUser?.role || 'USER').toUpperCase() === 'TEMPLATE_BUYER';
 
   try {
     if (db) {
       const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
       const existing = await db.collection('posts').findOne(filter);
       if (!existing) return res.status(404).json({ error: 'not found' });
+
+      // Buyers can only edit their own posts
+      if (isBuyer && existing.authorUsername !== currentUser.username) {
+        return res.status(403).json({ error: 'cannot_edit_other_posts' });
+      }
 
       const updatedFields = {};
       if (body.title !== undefined) updatedFields.title = body.title;
@@ -2705,6 +2768,11 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
       const posts = await loadPosts();
       const idx = posts.findIndex(p => p.id.toString() === id.toString());
       if (idx === -1) return res.status(404).json({ error: 'not found' });
+
+      // Buyers can only edit their own posts
+      if (isBuyer && posts[idx].authorUsername !== currentUser.username) {
+        return res.status(403).json({ error: 'cannot_edit_other_posts' });
+      }
 
       const updated = {
         ...posts[idx],
@@ -2742,19 +2810,29 @@ app.put('/api/posts/:id', requireAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/posts/:id', requireAdmin, async (req, res) => {
+app.delete('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
   try {
     const id = req.params.id;
+    const currentUser = req.session?.user || req.user;
+    const isBuyer = String(currentUser?.role || 'USER').toUpperCase() === 'TEMPLATE_BUYER';
+
     if (db) {
       const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
-      const result = await db.collection('posts').updateOne(filter, { 
+      const existing = await db.collection('posts').findOne(filter);
+      if (!existing) return res.status(404).json({ error: 'not found' });
+      if (isBuyer && existing.authorUsername !== currentUser.username) {
+        return res.status(403).json({ error: 'cannot_delete_other_posts' });
+      }
+      await db.collection('posts').updateOne(filter, { 
         $set: { isDeleted: true, deletedAt: new Date().toISOString() } 
       });
-      if (result.matchedCount === 0) return res.status(404).json({ error: 'not found' });
     } else {
       let posts = await loadPosts();
       const idx = posts.findIndex(p => p.id.toString() === id || p.id === parseInt(id, 10));
       if (idx === -1) return res.status(404).json({ error: 'not found' });
+      if (isBuyer && posts[idx].authorUsername !== currentUser.username) {
+        return res.status(403).json({ error: 'cannot_delete_other_posts' });
+      }
       
       posts[idx].isDeleted = true;
       posts[idx].deletedAt = new Date().toISOString();
@@ -3031,7 +3109,7 @@ app.post('/api/posts/:id/comments/:commentId/:type', async (req, res) => {
 });
 
 // Upload API with Cloudinary
-app.post('/api/upload', requireAdmin, async (req, res) => {
+app.post('/api/upload', requireAdminOrBuyerAuth, async (req, res) => {
   try {
     if (!req.files || (!req.files.image && !req.files.video)) return res.status(400).json({ error: 'no file uploaded' });
     const file = req.files.image || req.files.video;
@@ -5264,6 +5342,231 @@ app.get('/api/payments/license/:email', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: 'Failed to check license' });
   }
+});
+
+// ──────────────────────────────────────────────────────────────────────
+// TEMPLATE PURCHASE — creates a buyer account with TEMPLATE_BUYER role
+// ──────────────────────────────────────────────────────────────────────
+app.post('/api/template/purchase', async (req, res) => {
+  try {
+    const { name, email, phone, payment_method } = req.body || {};
+    if (!name || !email) return res.status(400).json({ success: false, message: 'Name and email are required.' });
+
+    const buyers = await loadTemplateBuyers();
+    if (buyers.find(b => b.email.toLowerCase() === email.toLowerCase())) {
+      return res.status(400).json({ success: false, message: 'An account with this email already exists.' });
+    }
+
+    const generateSegment = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+    const licenseKey = `BLG-${generateSegment()}-${generateSegment()}-${generateSegment()}`;
+    const id = (typeof ObjectId !== 'undefined') ? new ObjectId().toString() : Date.now().toString();
+
+    const buyer = {
+      id, name, email, phone: phone || '',
+      licenseKey, purchaseDate: new Date().toISOString(),
+      paymentMethod: payment_method || 'mpesa',
+      status: 'active'
+    };
+    buyers.push(buyer);
+    await saveTemplateBuyers(buyers);
+
+    // Auto-create a user account for the buyer so they can log in
+    const users = await loadUsers();
+    const buyerUsername = email.split('@')[0];
+    const existingKey = findUserKey(users, buyerUsername);
+    if (!existingKey) {
+      // Use license key as initial password hash (buyer will set real password via reset)
+      const tempHash = await bcrypt.hash(licenseKey, 12);
+      users[buyerUsername] = {
+        name: name || buyerUsername,
+        email: email,
+        passwordHash: tempHash,
+        active: true,
+        role: 'TEMPLATE_BUYER',
+        rights: ['view_template', 'manage_own_posts', 'manage_profile'],
+        buyerId: id,
+        createdAt: new Date().toISOString()
+      };
+      await saveUsers(users);
+    }
+
+    res.json({ success: true, license_key: licenseKey, buyer });
+  } catch (e) {
+    console.error('Template purchase error:', e);
+    res.status(500).json({ success: false, message: 'Purchase failed. Please try again.' });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────
+// LICENSE KEY LOGIN — template buyers log in with email + license key
+// ──────────────────────────────────────────────────────────────────────
+app.post('/auth/license-login', async (req, res) => {
+  try {
+    const { email, licenseKey } = req.body || {};
+    if (!email || !licenseKey) return res.status(400).json({ error: 'Email and license key are required.' });
+
+    const buyers = await loadTemplateBuyers();
+    const buyer = buyers.find(b => b.email.toLowerCase() === email.toLowerCase() && b.licenseKey === licenseKey);
+    if (!buyer) return res.status(401).json({ error: 'Invalid email or license key.' });
+    if (buyer.status === 'suspended') return res.status(403).json({ error: 'account_suspended', message: buyer.suspensionReason || 'Your account has been suspended.' });
+
+    // Find or create the user account
+    const users = await loadUsers();
+    const buyerUsername = email.split('@')[0];
+    let userKey = findUserKey(users, buyerUsername);
+
+    if (!userKey) {
+      const tempHash = await bcrypt.hash(licenseKey, 12);
+      users[buyerUsername] = {
+        name: buyer.name || buyerUsername,
+        email: email,
+        passwordHash: tempHash,
+        active: true,
+        role: 'TEMPLATE_BUYER',
+        rights: ['view_template', 'manage_own_posts', 'manage_profile'],
+        buyerId: buyer.id,
+        createdAt: new Date().toISOString()
+      };
+      await saveUsers(users);
+      userKey = buyerUsername;
+    }
+
+    // Check if user is suspended
+    const user = users[userKey];
+    if (user && user.active === false) {
+      return res.status(403).json({ error: 'account_suspended', message: user.suspensionReason || 'Your account has been suspended.' });
+    }
+
+    const token = jwt.sign({
+      username: userKey,
+      email: user.email,
+      name: user.name,
+      role: user.role || 'TEMPLATE_BUYER'
+    }, JWT_SECRET, { expiresIn: '8h' });
+
+    req.session.user = {
+      username: userKey,
+      email: user.email,
+      name: user.name,
+      role: user.role || 'TEMPLATE_BUYER'
+    };
+
+    return req.session.save((err) => {
+      if (err) console.error('Session save error:', err);
+      return res.json({ success: true, token, user: req.session.user });
+    });
+  } catch (e) {
+    console.error('License login error:', e);
+    res.status(500).json({ error: 'Login failed.' });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────
+// SENSITIVE CONTENT WARNINGS
+// ──────────────────────────────────────────────────────────────────────
+const SENSITIVE_KEYWORDS = [
+  'murder', 'kill', 'killing', 'homicide', 'assassinate',
+  'terrorist', 'terrorism', 'bomb', 'bombing',
+  'hate speech', 'racial slur', 'ethnic cleansing',
+  'self-harm', 'suicide', 'suicidal',
+  'sexual assault', 'rape', 'molestation',
+  'human trafficking', 'drug trafficking',
+  'mass shooting', 'school shooting'
+];
+
+function detectSensitiveContent(text) {
+  if (!text || typeof text !== 'string') return [];
+  const lower = text.toLowerCase();
+  return SENSITIVE_KEYWORDS.filter(kw => lower.includes(kw));
+}
+
+// Pre-publish content warning check endpoint
+app.post('/api/content/check-sensitive', requireAuth, (req, res) => {
+  const { title, content } = req.body || {};
+  const combined = `${title || ''} ${content || ''}`;
+  const matches = detectSensitiveContent(combined);
+  if (matches.length > 0) {
+    return res.json({ success: true, sensitive: true, keywords: matches });
+  }
+  res.json({ success: true, sensitive: false, keywords: [] });
+});
+
+// ──────────────────────────────────────────────────────────────────────
+// ACCOUNT SUSPENSION (Admin only)
+// ──────────────────────────────────────────────────────────────────────
+app.post('/api/admin/suspend-user', requireAdmin, async (req, res) => {
+  try {
+    const { username, reason } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'Username is required.' });
+
+    const users = await loadUsers();
+    const userKey = findUserKey(users, username);
+    if (!userKey) return res.status(404).json({ error: 'User not found.' });
+
+    // Cannot suspend the main admin
+    if (users[userKey].role === 'ADMIN' && !users[userKey].buyerId) {
+      return res.status(403).json({ error: 'Cannot suspend the main admin account.' });
+    }
+
+    users[userKey].active = false;
+    users[userKey].suspendedAt = new Date().toISOString();
+    users[userKey].suspensionReason = reason || 'Suspended by administrator.';
+    await saveUsers(users);
+
+    // Also suspend the buyer record if linked
+    if (users[userKey].buyerId) {
+      const buyers = await loadTemplateBuyers();
+      const buyer = buyers.find(b => b.id === users[userKey].buyerId);
+      if (buyer) {
+        buyer.status = 'suspended';
+        buyer.suspensionReason = reason || 'Suspended by administrator.';
+        buyer.suspendedAt = new Date().toISOString();
+        await saveTemplateBuyers(buyers);
+      }
+    }
+
+    res.json({ success: true, message: `User ${userKey} has been suspended.` });
+  } catch (e) {
+    console.error('Suspend user error:', e);
+    res.status(500).json({ error: 'Failed to suspend user.' });
+  }
+});
+
+app.post('/api/admin/unsuspend-user', requireAdmin, async (req, res) => {
+  try {
+    const { username } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'Username is required.' });
+
+    const users = await loadUsers();
+    const userKey = findUserKey(users, username);
+    if (!userKey) return res.status(404).json({ error: 'User not found.' });
+
+    users[userKey].active = true;
+    delete users[userKey].suspendedAt;
+    delete users[userKey].suspensionReason;
+    await saveUsers(users);
+
+    if (users[userKey].buyerId) {
+      const buyers = await loadTemplateBuyers();
+      const buyer = buyers.find(b => b.id === users[userKey].buyerId);
+      if (buyer) {
+        buyer.status = 'active';
+        delete buyer.suspensionReason;
+        delete buyer.suspendedAt;
+        await saveTemplateBuyers(buyers);
+      }
+    }
+
+    res.json({ success: true, message: `User ${userKey} has been unsuspended.` });
+  } catch (e) {
+    console.error('Unsuspend user error:', e);
+    res.status(500).json({ error: 'Failed to unsuspend user.' });
+  }
+});
+
+// Get sensitive content keyword list (for frontend warning)
+app.get('/api/content/sensitive-keywords', (req, res) => {
+  res.json({ success: true, keywords: SENSITIVE_KEYWORDS });
 });
 
 // Error handler must be last middleware to catch errors from all routes

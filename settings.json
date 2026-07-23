@@ -27,5 +27,29 @@
     "title": "zedong254ke",
     "description": "Discover insights, tutorials, and thoughts on web development, programming, and technology."
   },
-  "security": {}
+  "security": {},
+  "socialCredentials": {
+    "twitter": {
+      "enabled": true,
+      "appKey": "***REMOVED***",
+      "appSecret": "***REMOVED***",
+      "accessToken": "***REMOVED***",
+      "accessSecret": "***REMOVED***"
+    },
+    "linkedin": {
+      "enabled": false,
+      "accessToken": "",
+      "personUrn": ""
+    },
+    "facebook": {
+      "enabled": false,
+      "accessToken": "",
+      "pageId": ""
+    },
+    "mastodon": {
+      "enabled": false,
+      "url": "",
+      "accessToken": ""
+    }
+  }
 }
