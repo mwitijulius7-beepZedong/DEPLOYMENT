@@ -314,6 +314,43 @@
             margin-bottom: 16px;
         }
 
+        /* License Login Toggle */
+        .login-mode-toggle {
+            display: flex;
+            gap: 0;
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .login-mode-btn {
+            flex: 1;
+            padding: 10px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            border: none;
+            background: #f8fafc;
+            color: var(--text-medium);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .login-mode-btn.active {
+            background: var(--primary-color);
+            color: #fff;
+        }
+        .login-mode-btn:not(.active):hover {
+            background: #e2e8f0;
+        }
+        .license-form {
+            display: none;
+        }
+        .license-form.visible {
+            display: block;
+        }
+        .normal-form.hidden {
+            display: none;
+        }
+
         @media (max-width: 480px) {
             .login-container {
                 padding: 24px;
@@ -481,7 +518,14 @@
 
         <div id="errorMessage" class="error-message"></div>
 
-        <form class="login-form" id="loginForm">
+        <!-- Login Mode Toggle -->
+        <div class="login-mode-toggle">
+            <button type="button" class="login-mode-btn active" id="adminModeBtn" onclick="switchLoginMode('admin')">Admin Login</button>
+            <button type="button" class="login-mode-btn" id="licenseModeBtn" onclick="switchLoginMode('license')">Template License</button>
+        </div>
+
+        <!-- Admin Login Form -->
+        <form class="login-form normal-form" id="loginForm">
             <div class="form-group">
                 <input type="text" id="username" class="form-input" placeholder=" " required autocomplete="username"
                     maxlength="100">
@@ -538,6 +582,25 @@
             </svg>
             Sign in with Google
         </button>
+
+        <!-- License Key Login Form (hidden by default) -->
+        <form class="login-form license-form" id="licenseLoginForm">
+            <div class="form-group">
+                <input type="email" id="licenseEmail" class="form-input" placeholder=" " required autocomplete="email">
+                <label for="licenseEmail" class="form-label">Email Address</label>
+            </div>
+            <div class="form-group">
+                <input type="text" id="licenseKey" class="form-input" placeholder=" " required autocomplete="off"
+                    maxlength="30" style="text-transform:uppercase; letter-spacing:0.05em;">
+                <label for="licenseKey" class="form-label">License Key (BLG-XXXX-XXXX-XXXX)</label>
+            </div>
+            <button type="submit" class="login-btn" id="licenseLoginBtn">
+                <span>Activate with License</span>
+            </button>
+            <p style="font-size:12px;color:var(--text-medium);text-align:center;margin-top:12px;">
+                Don't have a license? <a href="/" style="color:var(--primary-color);font-weight:500;">Get the template</a>
+            </p>
+        </form>
 
         <div class="back-link">
             <a href="/">← Back to Blog</a>
@@ -917,6 +980,71 @@
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('username').focus();
         });
+
+        // ── Login Mode Toggle (Admin vs License) ──
+        function switchLoginMode(mode) {
+            const adminForm = document.getElementById('loginForm');
+            const licenseForm = document.getElementById('licenseLoginForm');
+            const adminBtn = document.getElementById('adminModeBtn');
+            const licenseBtn = document.getElementById('licenseModeBtn');
+            const forgotContainer = document.getElementById('forgotPasswordContainer');
+            const divider = document.querySelector('.divider');
+            const googleBtn = document.getElementById('googleBtn');
+            hideError();
+
+            if (mode === 'license') {
+                adminForm.classList.add('hidden');
+                licenseForm.classList.add('visible');
+                adminBtn.classList.remove('active');
+                licenseBtn.classList.add('active');
+                if (forgotContainer) forgotContainer.style.display = 'none';
+                if (divider) divider.style.display = 'none';
+                if (googleBtn) googleBtn.style.display = 'none';
+            } else {
+                adminForm.classList.remove('hidden');
+                licenseForm.classList.remove('visible');
+                adminBtn.classList.add('active');
+                licenseBtn.classList.remove('active');
+                if (forgotContainer) forgotContainer.style.display = '';
+                if (divider) divider.style.display = '';
+                if (googleBtn) googleBtn.style.display = '';
+            }
+        }
+
+        // License login form submission
+        const licenseLoginForm = document.getElementById('licenseLoginForm');
+        if (licenseLoginForm) {
+            licenseLoginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideError();
+                const email = document.getElementById('licenseEmail').value.trim();
+                const licenseKey = document.getElementById('licenseKey').value.trim().toUpperCase();
+                const btn = document.getElementById('licenseLoginBtn');
+                if (!email || !licenseKey) { showError('Please enter both email and license key.'); return; }
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span> Verifying...';
+                try {
+                    const resp = await fetch('/auth/license-login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ email, licenseKey })
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        try { localStorage.setItem('authToken', data.token || ''); } catch (_) {}
+                        window.location.href = '/admin.html';
+                    } else {
+                        showError(data.message || data.error || 'License verification failed.');
+                    }
+                } catch (err) {
+                    showError('An error occurred. Please try again.');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>Activate with License</span>';
+                }
+            });
+        }
     </script>
 </body>
 

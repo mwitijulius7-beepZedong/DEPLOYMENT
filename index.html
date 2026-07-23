@@ -1541,6 +1541,287 @@
         .template-gate-btn i {
             font-size: 1.1rem;
         }
+        .template-gate-btn[onclick] {
+            cursor: pointer;
+        }
+
+        /* Template Purchase Modal */
+        .template-modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            animation: tmFadeIn 0.2s ease-out;
+        }
+        @keyframes tmFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .template-modal-content {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            max-height: 88vh;
+            background: var(--bg-secondary, #fff);
+            border-radius: 14px;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: tmSlideIn 0.25s ease-out;
+        }
+        @keyframes tmSlideIn {
+            from { opacity: 0; transform: scale(0.95) translateY(12px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .template-modal-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 10;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color, #e2e8f0);
+            background: var(--bg-secondary, #fff);
+            color: var(--text-medium, #475569);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.15s ease;
+        }
+        .template-modal-close:hover {
+            border-color: var(--primary-color, #D0271C);
+            color: var(--primary-color, #D0271C);
+        }
+        [data-theme="dark"] .template-modal-close {
+            background: var(--bg-secondary, #1B1B18);
+            border-color: #33332D;
+            color: #C9C6BB;
+        }
+        [data-theme="dark"] .template-modal-close:hover {
+            border-color: var(--primary-color, #E8483B);
+            color: var(--primary-color, #E8483B);
+        }
+        [data-theme="dark"] .template-modal-content {
+            background: var(--bg-secondary, #1B1B18);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        /* Buyer portal accent */
+        .buyer-portal .template-modal-content {
+            border-top: 3px solid var(--primary-color, #D0271C);
+        }
+        @media (max-width: 768px) {
+            .template-modal-overlay { padding: 0; }
+            .template-modal-content { max-width: 100%; height: 100vh; max-height: 100vh; border-radius: 0; }
+        }
+
+        /* ── Modal inner steps ── */
+        .tm-step { padding: 1.5rem; }
+        .tm-centered { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 2.5rem 1.5rem; }
+        .tm-centered h3 { margin: 0 0 0.5rem; font-size: 18px; font-weight: 600; color: var(--text-dark, #0f172a); }
+        .tm-centered p { margin: 0; font-size: 14px; color: var(--text-medium, #475569); }
+
+        /* Back button */
+        .tm-back-btn {
+            display: inline-flex; align-items: center; gap: 0.375rem;
+            background: none; border: none; padding: 0.375rem 0.5rem; margin-bottom: 1rem;
+            font-size: 13px; font-weight: 500; color: var(--text-medium, #475569); cursor: pointer;
+            border-radius: 6px; transition: color 0.15s, background 0.15s;
+        }
+        .tm-back-btn:hover { color: var(--text-dark, #0f172a); background: var(--bg-tertiary, #f1f5f9); }
+        [data-theme="dark"] .tm-back-btn { color: #94a3b8; }
+        [data-theme="dark"] .tm-back-btn:hover { color: #f1f5f9; background: #334155; }
+
+        /* Preview banner inside modal */
+        .tm-preview-banner {
+            display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.5rem;
+            background: var(--bg-tertiary, #f0ede5); border-bottom: 1px solid var(--border-color, #e5e2d8);
+            font-size: 13px; color: var(--text-medium, #4A4A45);
+        }
+        .tm-preview-banner i { color: var(--primary-color, #D0271C); font-size: 15px; }
+        [data-theme="dark"] .tm-preview-banner { background: #262622; border-color: #33332D; }
+
+        /* Preview hero */
+        .tm-preview-hero { display: flex; flex-direction: column; }
+        .tm-preview-screenshot {
+            width: 100%; aspect-ratio: 16 / 9; background: var(--bg-tertiary, #f0ede5);
+            border-bottom: 1px solid var(--border-color, #e5e2d8); overflow: hidden;
+        }
+        [data-theme="dark"] .tm-preview-screenshot { background: #262622; }
+        .tm-screenshot-placeholder {
+            width: 100%; height: 100%; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 0.75rem;
+            background: linear-gradient(135deg, var(--primary-light, rgba(208,39,28,0.08)), var(--bg-tertiary, #f0ede5));
+            color: var(--text-muted, #9C9A90); font-size: 14px; font-weight: 500;
+        }
+        .tm-screenshot-placeholder i { font-size: 40px; color: var(--primary-color, #D0271C); opacity: 0.6; }
+        [data-theme="dark"] .tm-screenshot-placeholder { background: linear-gradient(135deg, rgba(232,72,59,0.12), #262622); }
+
+        .tm-preview-info { padding: 1.5rem; }
+        .tm-title { font-size: 20px; font-weight: 600; color: var(--text-dark, #0f172a); margin: 0 0 0.375rem; }
+        [data-theme="dark"] .tm-title { color: #f1f5f9; }
+        .tm-subtitle { font-size: 13px; color: var(--text-muted, #94a3b8); margin: 0 0 1rem; }
+
+        .tm-features { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem; }
+        .tm-feature {
+            display: flex; align-items: center; gap: 0.625rem; font-size: 13px;
+            color: var(--text-medium, #4A4A45); line-height: 1.4;
+        }
+        .tm-feature i { color: var(--primary-color, #D0271C); font-size: 16px; flex-shrink: 0; }
+        [data-theme="dark"] .tm-feature { color: #C9C6BB; }
+
+        .tm-price-row {
+            display: flex; align-items: baseline; justify-content: space-between;
+            padding: 0.875rem 1rem; background: var(--bg-tertiary, #f0ede5);
+            border: 1px solid var(--border-color, #e5e2d8); border-radius: 8px; margin-bottom: 1rem;
+        }
+        [data-theme="dark"] .tm-price-row { background: #262622; border-color: #33332D; }
+        .tm-price-label { font-size: 12px; font-weight: 500; color: var(--text-muted, #94a3b8); text-transform: uppercase; letter-spacing: 0.05em; }
+        .tm-price-value { font-size: 20px; font-weight: 600; color: var(--text-dark, #0f172a); }
+        [data-theme="dark"] .tm-price-value { color: #f1f5f9; }
+
+        .tm-buy-btn {
+            width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            padding: 0.875rem 1.5rem; font-size: 14px; font-weight: 600; color: #fff;
+            background: var(--primary-color, #D0271C); border: none; border-radius: 8px;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .tm-buy-btn:hover { background: var(--primary-hover, #A81E15); }
+        [data-theme="dark"] .tm-buy-btn { background: #E8483B; }
+        [data-theme="dark"] .tm-buy-btn:hover { background: #D0271C; }
+
+        /* Payment methods */
+        .tm-payment-methods { border: none; padding: 0; margin-bottom: 1.25rem; }
+        .tm-payment-options { display: flex; gap: 0.5rem; }
+        .tm-payment-option {
+            flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
+            gap: 0.5rem; padding: 0.625rem 1rem; border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 8px; background: var(--bg-secondary, #fff); cursor: pointer;
+            font-size: 13px; font-weight: 500; color: var(--text-medium, #475569);
+            transition: border-color 0.15s, background 0.15s;
+        }
+        [data-theme="dark"] .tm-payment-option { border-color: #33332D; background: #1B1B18; color: #cbd5e1; }
+        .tm-payment-option:hover { border-color: var(--primary-color, #D0271C); }
+        .tm-payment-option.selected { border-color: var(--primary-color, #D0271C); background: var(--primary-light, rgba(208,39,28,0.08)); color: var(--primary-color, #D0271C); }
+        [data-theme="dark"] .tm-payment-option.selected { background: rgba(232,72,59,0.12); color: #E8483B; }
+        .tm-radio { position: absolute; opacity: 0; pointer-events: none; }
+        .tm-payment-label { display: flex; align-items: center; gap: 0.375rem; }
+        .tm-payment-option i { color: var(--primary-color); font-size: 14px; }
+
+        /* Form fields */
+        .tm-form { margin-bottom: 1.25rem; animation: tmFadeIn 0.15s ease-out; }
+        .tm-field { margin-bottom: 1rem; }
+        .tm-field label { display: block; font-size: 13px; font-weight: 500; color: var(--text-dark, #0f172a); margin-bottom: 0.375rem; }
+        [data-theme="dark"] .tm-field label { color: #f1f5f9; }
+        .tm-field input {
+            width: 100%; padding: 0.625rem 0.875rem; font-size: 14px;
+            color: var(--text-dark, #0f172a); background: var(--bg-secondary, #fff);
+            border: 1px solid var(--border-color, #e2e8f0); border-radius: 6px;
+            box-sizing: border-box; transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        [data-theme="dark"] .tm-field input { color: #f1f5f9; background: #1B1B18; border-color: #33332D; }
+        .tm-field input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--primary-light, rgba(208,39,28,0.12)); }
+        [data-theme="dark"] .tm-field input:focus { box-shadow: 0 0 0 3px rgba(232,72,59,0.2); }
+        .tm-field input::placeholder { color: var(--text-muted, #94a3b8); }
+        [data-theme="dark"] .tm-field input::placeholder { color: #64748b; }
+        .tm-hint { display: block; font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 0.375rem; }
+        [data-theme="dark"] .tm-hint { color: #64748b; }
+
+        .tm-card-row { display: flex; gap: 0.5rem; }
+        .tm-card-row input { flex: 1; min-width: 0; }
+        .tm-card-row input:first-child { flex: 2; }
+
+        /* Submit button */
+        .tm-submit-btn {
+            width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            padding: 0.875rem 1.5rem; font-size: 14px; font-weight: 600; color: #fff;
+            background: var(--primary-color, #D0271C); border: none; border-radius: 8px;
+            cursor: pointer; transition: background 0.15s; margin-bottom: 0.75rem;
+        }
+        .tm-submit-btn:hover:not(:disabled) { background: var(--primary-hover, #A81E15); }
+        .tm-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        [data-theme="dark"] .tm-submit-btn { background: #E8483B; }
+        [data-theme="dark"] .tm-submit-btn:hover:not(:disabled) { background: #D0271C; }
+        .tm-spinner {
+            width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff; border-radius: 50%; animation: tmSpin 0.8s linear infinite;
+        }
+        @keyframes tmSpin { to { transform: rotate(360deg); } }
+        .tm-footer-note { font-size: 12px; color: var(--text-muted, #94a3b8); text-align: center; }
+
+        /* Processing */
+        .tm-big-spinner {
+            width: 40px; height: 40px; border: 3px solid var(--border-color, #e2e8f0);
+            border-top-color: var(--primary-color, #D0271C); border-radius: 50%;
+            animation: tmSpin 0.8s linear infinite; margin-bottom: 1.25rem;
+        }
+        .tm-processing-text { font-size: 15px; font-weight: 500; color: var(--text-dark, #0f172a) !important; margin-bottom: 0.5rem !important; }
+        .tm-processing-sub { font-size: 13px !important; color: var(--text-muted, #94a3b8) !important; }
+        .tm-dots span { animation: tmDotPulse 1.4s infinite ease-in-out both; display: inline-block; }
+        .tm-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .tm-dots span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes tmDotPulse { 0%,80%,100% { transform: scale(0); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
+
+        /* Success */
+        .tm-success-icon {
+            width: 56px; height: 56px; border-radius: 50%; background: #dcfce7; color: #166534;
+            display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; font-size: 28px;
+        }
+        [data-theme="dark"] .tm-success-icon { background: #14532d; color: #86efac; }
+        .tm-success-msg { max-width: 320px; margin-bottom: 1.25rem !important; }
+        .tm-license-box {
+            display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1rem;
+            background: var(--bg-tertiary, #f0ede5); border: 1px solid var(--border-color, #e5e2d8);
+            border-radius: 8px; margin-bottom: 0.75rem; width: 100%; max-width: 380px; box-sizing: border-box;
+        }
+        [data-theme="dark"] .tm-license-box { background: #262622; border-color: #33332D; }
+        .tm-license-box code {
+            flex: 1; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 14px;
+            color: var(--text-dark, #0f172a); text-align: center; letter-spacing: 0.05em; word-break: break-all;
+        }
+        [data-theme="dark"] .tm-license-box code { color: #f1f5f9; }
+        .tm-copy-btn {
+            padding: 0.5rem 1rem; font-size: 12px; font-weight: 500;
+            color: var(--primary-color); background: var(--primary-light, rgba(208,39,28,0.08));
+            border: 1px solid var(--primary-color); border-radius: 6px; cursor: pointer;
+            transition: background 0.15s, color 0.15s; white-space: nowrap; flex-shrink: 0;
+        }
+        .tm-copy-btn:hover:not(:disabled) { background: var(--primary-color); color: #fff; }
+        .tm-copy-btn:disabled { opacity: 0.7; cursor: default; }
+        [data-theme="dark"] .tm-copy-btn { background: rgba(232,72,59,0.12); border-color: #E8483B; color: #E8483B; }
+        [data-theme="dark"] .tm-copy-btn:hover:not(:disabled) { background: #E8483B; color: #fff; }
+        .tm-success-note { font-size: 12px !important; color: var(--text-muted) !important; margin-bottom: 1.25rem !important; }
+        .tm-done-btn {
+            padding: 0.625rem 2rem; font-size: 14px; font-weight: 600; color: var(--primary-color);
+            background: var(--primary-light, rgba(208,39,28,0.08)); border: 1px solid var(--primary-color);
+            border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s;
+        }
+        .tm-done-btn:hover { background: var(--primary-color); color: #fff; }
+        [data-theme="dark"] .tm-done-btn { border-color: #E8483B; color: #E8483B; background: rgba(232,72,59,0.12); }
+        [data-theme="dark"] .tm-done-btn:hover { background: #E8483B; color: #fff; }
+
+        /* Error */
+        .tm-error-icon {
+            width: 56px; height: 56px; border-radius: 50%; background: #fef2f2; color: #dc2626;
+            display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; font-size: 28px;
+        }
+        [data-theme="dark"] .tm-error-icon { background: #450a0a; color: #fca5a5; }
+        .tm-error-msg { max-width: 320px; margin-bottom: 1.25rem !important; }
+        .tm-retry-btn {
+            padding: 0.625rem 1.5rem; font-size: 14px; font-weight: 600;
+            color: var(--primary-color); background: var(--primary-light, rgba(208,39,28,0.08));
+            border: 1px solid var(--primary-color); border-radius: 8px;
+            cursor: pointer; transition: background 0.15s, color 0.15s;
+        }
+        .tm-retry-btn:hover { background: var(--primary-color); color: #fff; }
+        [data-theme="dark"] .tm-retry-btn { border-color: #E8483B; color: #E8483B; }
+        [data-theme="dark"] .tm-retry-btn:hover { background: #E8483B; color: #fff; }
     </style>
 </head>
 <body>
@@ -1745,10 +2026,10 @@
 
                         <!-- View Template Button (rights-gated) -->
                         <div v-if="currentUserRights.includes('view_template')" class="template-gate">
-                            <a href="/template-preview.html" target="_blank" class="template-gate-btn">
+                            <button type="button" class="template-gate-btn" @click="openTemplateModal()">
                                 <i class="ti ti-layout-dashboard"></i>
                                 <span>View Template</span>
-                            </a>
+                            </button>
                         </div>
                     </aside>
 
@@ -1955,8 +2236,152 @@
                 About
             </a>
         </div>
-    </div>
 
+        <!-- Template Purchase Modal -->
+        <div v-if="showTemplateModal" class="template-modal-overlay" @click.self="closeTemplateModal">
+            <div class="template-modal-content">
+                <button class="template-modal-close" @click="closeTemplateModal" type="button" aria-label="Close">
+                    <i class="ti ti-x"></i>
+                </button>
+
+                <!-- Preview step -->
+                <div v-if="checkoutStep === 'preview'" class="tm-step">
+                    <div class="tm-preview-banner">
+                        <i class="ti ti-eye"></i>
+                        <span>Template Preview</span>
+                    </div>
+                    <div class="tm-preview-hero">
+                        <div class="tm-preview-screenshot">
+                            <div class="tm-screenshot-placeholder">
+                                <i class="ti ti-layout-dashboard"></i>
+                                <span>Blog Template Pro</span>
+                            </div>
+                        </div>
+                        <div class="tm-preview-info">
+                            <h2 class="tm-title">Blog Template Pro</h2>
+                            <p class="tm-subtitle">Responsive · Dark mode · SEO ready · Fast loading</p>
+                            <div class="tm-features">
+                                <div class="tm-feature"><i class="ti ti-device-mobile"></i> Fully responsive mobile-first design</div>
+                                <div class="tm-feature"><i class="ti ti-moon-stars"></i> Built-in dark theme with smooth transitions</div>
+                                <div class="tm-feature"><i class="ti ti-search"></i> SEO-optimized semantic HTML</div>
+                                <div class="tm-feature"><i class="ti ti-bolt"></i> Optimized for fast loading speeds</div>
+                                <div class="tm-feature"><i class="ti ti-palette"></i> Easy CSS variable customization</div>
+                                <div class="tm-feature"><i class="ti ti-layout-dashboard"></i> Full admin dashboard included</div>
+                            </div>
+                            <div class="tm-price-row">
+                                <span class="tm-price-label">One-time price</span>
+                                <span class="tm-price-value">KES 1,000</span>
+                            </div>
+                            <button class="tm-buy-btn" @click="proceedToCheckout">
+                                <i class="ti ti-shopping-cart"></i>
+                                <span>Purchase Template</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment step -->
+                <div v-if="checkoutStep === 'payment'" class="tm-step">
+                    <button class="tm-back-btn" @click="checkoutStep = 'preview'" type="button">
+                        <i class="ti ti-arrow-left"></i>
+                        <span>Back to preview</span>
+                    </button>
+                    <h3 class="tm-section-title">Complete your purchase</h3>
+
+                    <fieldset class="tm-payment-methods" role="radiogroup" aria-label="Payment method">
+                        <div class="tm-payment-options">
+                            <label class="tm-payment-option" :class="{ selected: selectedPaymentMethod === 'mpesa' }">
+                                <input type="radio" :name="checkoutPaymentGroupName" value="mpesa" v-model="selectedPaymentMethod" class="tm-radio">
+                                <span class="tm-payment-label">M-Pesa</span>
+                                <i v-if="selectedPaymentMethod === 'mpesa'" class="ti ti-check"></i>
+                            </label>
+                            <label class="tm-payment-option" :class="{ selected: selectedPaymentMethod === 'card' }">
+                                <input type="radio" :name="checkoutPaymentGroupName" value="card" v-model="selectedPaymentMethod" class="tm-radio">
+                                <span class="tm-payment-label">Card</span>
+                                <i v-if="selectedPaymentMethod === 'card'" class="ti ti-check"></i>
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <!-- M-Pesa form -->
+                    <div v-if="selectedPaymentMethod === 'mpesa'" class="tm-form">
+                        <div class="tm-field">
+                            <label for="co-name">Full name</label>
+                            <input type="text" id="co-name" v-model="checkoutFormData.name" placeholder="John Doe" required autocomplete="name">
+                        </div>
+                        <div class="tm-field">
+                            <label for="co-email">Email address</label>
+                            <input type="email" id="co-email" v-model="checkoutFormData.email" placeholder="you@example.com" required autocomplete="email">
+                            <span class="tm-hint">Your license key will be sent here</span>
+                        </div>
+                        <div class="tm-field">
+                            <label for="co-phone">M-Pesa phone number</label>
+                            <input type="tel" id="co-phone" v-model="checkoutFormData.phone" placeholder="0712345678" required autocomplete="tel">
+                            <span class="tm-hint">Format: 0712345678 or 254712345678</span>
+                        </div>
+                    </div>
+
+                    <!-- Card form -->
+                    <div v-if="selectedPaymentMethod === 'card'" class="tm-form">
+                        <div class="tm-field">
+                            <label for="co-cc-name">Full name</label>
+                            <input type="text" id="co-cc-name" v-model="checkoutFormData.name" placeholder="John Doe" required autocomplete="name">
+                        </div>
+                        <div class="tm-field">
+                            <label for="co-cc-email">Email address</label>
+                            <input type="email" id="co-cc-email" v-model="checkoutFormData.email" placeholder="you@example.com" required autocomplete="email">
+                            <span class="tm-hint">Your license key will be sent here</span>
+                        </div>
+                        <div class="tm-field">
+                            <label for="co-cc-number">Card details</label>
+                            <div class="tm-card-row">
+                                <input type="text" id="co-cc-number" v-model="checkoutFormData.cardNumber" placeholder="1234 5678 9012 3456" maxlength="19" @input="formatCheckoutCardNumber" autocomplete="cc-number">
+                                <input type="text" v-model="checkoutFormData.cardExpiry" placeholder="MM/YY" maxlength="5" @input="formatCheckoutCardExpiry" autocomplete="cc-exp">
+                                <input type="text" v-model="checkoutFormData.cardCvc" placeholder="CVC" maxlength="4" autocomplete="cc-csc">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="tm-submit-btn" @click="submitCheckout" :disabled="!checkoutFormValid || checkoutProcessing" type="button">
+                        <span v-if="checkoutProcessing" class="tm-spinner"></span>
+                        <span v-else>Pay KES 1,000 with {{ selectedPaymentMethod === 'mpesa' ? 'M-Pesa' : 'Card' }}</span>
+                    </button>
+                    <p class="tm-footer-note">Secure checkout · License delivered instantly via email</p>
+                </div>
+
+                <!-- Processing step -->
+                <div v-if="checkoutStep === 'processing'" class="tm-step tm-centered">
+                    <div class="tm-big-spinner"></div>
+                    <p class="tm-processing-text">Processing payment<span class="tm-dots"><span>.</span><span>.</span><span>.</span></span></p>
+                    <p v-if="selectedPaymentMethod === 'mpesa'" class="tm-processing-sub">Check your phone for the M-Pesa prompt</p>
+                </div>
+
+                <!-- Success step -->
+                <div v-if="checkoutStep === 'success'" class="tm-step tm-centered">
+                    <div class="tm-success-icon"><i class="ti ti-check"></i></div>
+                    <h3>Payment successful!</h3>
+                    <p class="tm-success-msg">Thank you, {{ checkoutFormData.name }}! Your template license has been generated.</p>
+                    <div class="tm-license-box">
+                        <code>{{ checkoutLicenseKey }}</code>
+                        <button class="tm-copy-btn" @click="copyLicenseKey" :disabled="checkoutKeyCopied" type="button">
+                            {{ checkoutKeyCopied ? 'Copied!' : 'Copy key' }}
+                        </button>
+                    </div>
+                    <p class="tm-success-note">Save this key — you'll need it to activate the template.</p>
+                    <button class="tm-done-btn" @click="closeTemplateModal" type="button">Done</button>
+                </div>
+
+                <!-- Failed step -->
+                <div v-if="checkoutStep === 'failed'" class="tm-step tm-centered">
+                    <div class="tm-error-icon"><i class="ti ti-x"></i></div>
+                    <h3>Payment failed</h3>
+                    <p class="tm-error-msg">{{ checkoutError || 'The payment could not be completed. You were not charged. Please try again.' }}</p>
+                    <button class="tm-retry-btn" @click="resetCheckout" type="button">Try again</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
     <script src="/public/js/vue.global.js"></script>
     <script>
         let vueRetries = 0;
@@ -2000,6 +2425,23 @@
                         readingModePost: null,
                         showBookmarks: false,
                         currentUserRights: [],
+                        // Template modal & checkout
+                        showTemplateModal: false,
+                        checkoutStep: 'preview', // 'preview', 'payment', 'processing', 'success', 'failed'
+                        selectedPaymentMethod: 'mpesa',
+                        checkoutPaymentGroupName: 'pay-' + Date.now(),
+                        checkoutProcessing: false,
+                        checkoutError: '',
+                        checkoutLicenseKey: '',
+                        checkoutKeyCopied: false,
+                        checkoutFormData: {
+                            name: '',
+                            email: '',
+                            phone: '',
+                            cardNumber: '',
+                            cardExpiry: '',
+                            cardCvc: ''
+                        },
                     };
                 },
                 mounted() {
@@ -2161,6 +2603,13 @@
                         if (!this.authorInfo || !this.authorInfo.social) return false;
                         const s = this.authorInfo.social;
                         return s.email || s.website || s.twitter || s.facebook || s.linkedin || s.instagram;
+                    },
+                    checkoutFormValid() {
+                        const fd = this.checkoutFormData;
+                        if (this.selectedPaymentMethod === 'mpesa') {
+                            return fd.name.trim() && fd.email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fd.email) && fd.phone.trim();
+                        }
+                        return fd.name.trim() && fd.email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fd.email) && fd.cardNumber.replace(/\s/g, '').length >= 15 && fd.cardExpiry.length === 5 && fd.cardCvc.length >= 3;
                     }
                 },
                 methods: {
@@ -2474,6 +2923,7 @@
                             this.showShortcuts = !this.showShortcuts;
                         }
                         if (e.key === 'Escape') {
+                            if (this.showTemplateModal) { this.closeTemplateModal(); return; }
                             if (this.showShortcuts) { this.showShortcuts = false; return; }
                             if (this.readingModePost) { this.closeReadingMode(); return; }
                             if (this.isLightboxOpen) { this.closeLightbox(); return; }
@@ -2570,6 +3020,89 @@
                             container.appendChild(piece);
                             setTimeout(() => piece.remove(), 3000);
                         }
+                    },
+
+                    // ── TEMPLATE MODAL ──
+                    openTemplateModal() {
+                        this.showTemplateModal = true;
+                        this.checkoutStep = 'preview';
+                        this.checkoutProcessing = false;
+                        this.checkoutError = '';
+                        this.checkoutKeyCopied = false;
+                        document.body.style.overflow = 'hidden';
+                    },
+                    closeTemplateModal() {
+                        this.showTemplateModal = false;
+                        document.body.style.overflow = '';
+                    },
+                    proceedToCheckout() {
+                        this.checkoutStep = 'payment';
+                        this.checkoutFormData = { name: '', email: '', phone: '', cardNumber: '', cardExpiry: '', cardCvc: '' };
+                        this.selectedPaymentMethod = 'mpesa';
+                    },
+                    formatCheckoutCardNumber(e) {
+                        let v = e.target.value.replace(/\D/g, '');
+                        v = v.replace(/(\d{4})/g, '$1 ').trim();
+                        this.checkoutFormData.cardNumber = v.substring(0, 19);
+                    },
+                    formatCheckoutCardExpiry(e) {
+                        let v = e.target.value.replace(/\D/g, '');
+                        if (v.length >= 2) v = v.substring(0, 2) + '/' + v.substring(2, 4);
+                        this.checkoutFormData.cardExpiry = v.substring(0, 5);
+                    },
+                    async submitCheckout() {
+                        if (!this.checkoutFormValid || this.checkoutProcessing) return;
+                        this.checkoutProcessing = true;
+                        this.checkoutStep = 'processing';
+                        try {
+                            const fd = this.checkoutFormData;
+                            const payload = { name: fd.name.trim(), email: fd.email.trim(), payment_method: this.selectedPaymentMethod };
+                            if (this.selectedPaymentMethod === 'mpesa') {
+                                payload.phone = fd.phone.trim().replace(/\D/g, '');
+                            } else {
+                                payload.card_token = 'tok_' + Date.now();
+                            }
+                            const resp = await fetch('/api/template/purchase', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
+                                credentials: 'include',
+                                body: JSON.stringify(payload)
+                            });
+                            const data = await resp.json();
+                            if (resp.ok && data.success) {
+                                this.checkoutStep = 'success';
+                                this.checkoutLicenseKey = data.license_key || 'LIC-' + Date.now().toString(36).toUpperCase();
+                                this.fireConfetti();
+                            } else {
+                                this.checkoutStep = 'failed';
+                                this.checkoutError = data.message || 'Payment failed. Please try again.';
+                            }
+                        } catch (err) {
+                            this.checkoutStep = 'failed';
+                            this.checkoutError = 'Network error. Please check your connection and try again.';
+                        } finally {
+                            this.checkoutProcessing = false;
+                        }
+                    },
+                    resetCheckout() {
+                        this.checkoutStep = 'payment';
+                        this.checkoutError = '';
+                        this.checkoutProcessing = false;
+                    },
+                    copyLicenseKey() {
+                        navigator.clipboard.writeText(this.checkoutLicenseKey).then(() => {
+                            this.checkoutKeyCopied = true;
+                            setTimeout(() => { this.checkoutKeyCopied = false; }, 2000);
+                        }).catch(() => {
+                            const ta = document.createElement('textarea');
+                            ta.value = this.checkoutLicenseKey;
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(ta);
+                            this.checkoutKeyCopied = true;
+                            setTimeout(() => { this.checkoutKeyCopied = false; }, 2000);
+                        });
                     }
                 }
             }).mount('#app');
