@@ -947,6 +947,30 @@
                     return;
                 }
 
+                // Content sensitivity warning
+                try {
+                    const checkResp = await fetch('/api/content/check-sensitive', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title, content })
+                    });
+                    const checkData = await checkResp.json();
+                    if (checkData.sensitive) {
+                        const kwList = (checkData.keywords || []).join(', ');
+                        const proceed = confirm(
+                            `⚠️ Sensitive Content Warning\n\n` +
+                            `Your post contains potentially sensitive language: ${kwList}\n\n` +
+                            `Posts with violent, hateful, or extremely sensitive content may result in ` +
+                            `account suspension without notice.\n\n` +
+                            `Do you want to proceed with publishing?`
+                        );
+                        if (!proceed) return;
+                    }
+                } catch (e) {
+                    // Continue if check fails — don't block posting
+                }
+
                 try {
                     let imageUrl = document.getElementById('preview-img').src || '';
                     let videoUrl = document.getElementById('preview-video').src || '';
@@ -6433,10 +6457,19 @@ window.loadPostsList = loadPostsList;
 
                                 const users = Array.isArray(data.users) ? data.users : [];
 
+                                // For template buyers, hide the main admin account and other admin accounts
+                                const isBuyerPortal = window.__portalRole === 'TEMPLATE_BUYER';
+                                const filteredUsers = isBuyerPortal
+                                    ? users.filter(u => (u.role || '').toUpperCase() !== 'ADMIN' && !u.buyerId)
+                                    : users;
+
+                                // Determine if current user is the main seller (ADMIN without buyerId)
+                                const isSeller = window.__portalRole === 'ADMIN' && !window.__portalUser?.buyerId;
+
                                 // Render to Users panel with management controls
                                 const usersList = document.getElementById('users-list');
                                 if (usersList) {
-                                    usersList.innerHTML = users.map(u => {
+                                    usersList.innerHTML = filteredUsers.map(u => {
                                         const role = (u.role || 'USER').toUpperCase();
                                         const isActive = u.active !== false;
                                         const initials = (u.username || '??').slice(0, 2).toUpperCase();
@@ -6492,6 +6525,11 @@ window.loadPostsList = loadPostsList;
                                               <button class="action-btn btn-danger" onclick="deleteUser('${u.username}')">
                                                 <i class="ti ti-trash"></i> Delete
                                               </button>
+                                              ${isSeller ? `
+                                              <button class="action-btn ${isActive ? 'btn-warning' : 'btn-success'}" onclick="toggleUserSuspension('${u.username}', ${isActive})">
+                                                <i class="ti ${isActive ? 'ti-ban' : 'ti-check'}"></i> ${isActive ? 'Suspend' : 'Unsuspend'}
+                                              </button>
+                                              ` : ''}
                                             </div>
                                           </div>
                                         `;
@@ -6549,6 +6587,50 @@ window.loadPostsList = loadPostsList;
                             } catch (e) {
                                 console.error('Error updating user status:', e);
                                 alert('Error updating user status');
+                            }
+                        };
+
+                        // Suspend / unsuspend a user (seller-only action)
+                        window.toggleUserSuspension = async function (username, shouldSuspend) {
+                            if (shouldSuspend) {
+                                const reason = prompt(`Reason for suspending ${username}:\n(e.g. "Posting violent content without context")`);
+                                if (reason === null) return; // cancelled
+                                try {
+                                    const resp = await fetch('/api/admin/suspend-user', {
+                                        method: 'POST',
+                                        credentials: 'include',
+                                        headers: getAuthHeaders(),
+                                        body: JSON.stringify({ username, reason: reason || 'Suspended by administrator.' })
+                                    });
+                                    const data = await resp.json();
+                                    if (resp.ok && data.success) {
+                                        alert(`${username} has been suspended.`);
+                                        loadUsers();
+                                    } else {
+                                        alert('Failed to suspend: ' + (data.error || 'Unknown error'));
+                                    }
+                                } catch (e) {
+                                    alert('Error suspending user');
+                                }
+                            } else {
+                                if (!confirm(`Unsuspend ${username}?`)) return;
+                                try {
+                                    const resp = await fetch('/api/admin/unsuspend-user', {
+                                        method: 'POST',
+                                        credentials: 'include',
+                                        headers: getAuthHeaders(),
+                                        body: JSON.stringify({ username })
+                                    });
+                                    const data = await resp.json();
+                                    if (resp.ok && data.success) {
+                                        alert(`${username} has been unsuspended.`);
+                                        loadUsers();
+                                    } else {
+                                        alert('Failed to unsuspend: ' + (data.error || 'Unknown error'));
+                                    }
+                                } catch (e) {
+                                    alert('Error unsuspending user');
+                                }
                             }
                         };
 
@@ -7215,6 +7297,71 @@ window.loadPostsList = loadPostsList;
 
                         // Run initial check and handle routing
                         handleHashRoute();
+
+                        // ── Role-Based Portal Adaptation ──────────────────────────────
+                        // Fetch current user role and adapt the admin UI for template buyers
+                        (async function adaptPortalForRole() {
+                            try {
+                                const resp = await fetch('/api/auth/me', { credentials: 'include', headers: getAuthHeaders() });
+                                const data = await resp.json();
+                                if (!data.success || !data.user) return;
+                                const user = data.user;
+                                const role = (user.role || '').toUpperCase();
+                                const isBuyer = role === 'TEMPLATE_BUYER';
+
+                                // Store role globally for other functions
+                                window.__portalRole = role;
+                                window.__portalUser = user;
+
+                                if (isBuyer) {
+                                    // Hide seller-only sidebar items
+                                    const buyersNav = document.getElementById('nav-buyers');
+                                    if (buyersNav) buyersNav.closest('.nav-item').style.display = 'none';
+
+                                    // Hide analytics (seller-only)
+                                    const analyticsNav = document.getElementById('nav-analytics');
+                                    if (analyticsNav) analyticsNav.closest('.nav-item').style.display = 'none';
+
+                                    // Hide settings (seller-only)
+                                    const settingsNav = document.getElementById('nav-settings');
+                                    if (settingsNav) settingsNav.closest('.nav-item').style.display = 'none';
+
+                                    // Rename "Users" to "Profile"
+                                    const usersNav = document.getElementById('nav-users');
+                                    if (usersNav) {
+                                        usersNav.querySelector('span').textContent = 'Profile';
+                                        usersNav.querySelector('i').className = 'ti ti-user';
+                                    }
+
+                                    // Hide "Template Buyers" section
+                                    const buyersSection = document.getElementById('buyers-section');
+                                    if (buyersSection) buyersSection.style.display = 'none';
+
+                                    // Hide recycle bin on dashboard (seller manages trash)
+                                    const recycleBinCard = document.querySelector('#dashboard .action-card:last-child');
+                                    if (recycleBinCard) recycleBinCard.style.display = 'none';
+
+                                    // Update metric labels to say "My Posts" instead of "Total"
+                                    document.querySelectorAll('#dashboard .m-sub').forEach(el => {
+                                        if (el.textContent === 'posts') el.textContent = 'my posts';
+                                    });
+
+                                    // Add buyer-specific styling
+                                    document.body.classList.add('buyer-portal');
+
+                                    // Update page title
+                                    const titleEl = document.getElementById('page-title');
+                                    if (titleEl) titleEl.textContent = 'My Blog Dashboard';
+                                    const dashTitle = document.querySelector('#dashboard .dashboard-title');
+                                    if (dashTitle) dashTitle.textContent = 'My Blog Dashboard';
+                                }
+
+                                // Hide main admin (seller) account from user lists for ALL non-admin users
+                                // This is handled in loadUsers() via filter
+                            } catch (e) {
+                                console.warn('Role adaptation skipped:', e);
+                            }
+                        })();
                     </script>
 
                     <script>
