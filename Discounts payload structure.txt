@@ -1,0 +1,45 @@
+{
+  "name": "Zone 4 (2025-12-01 to 2025-12-31)",
+  "erp_reference": "6|2025-12-01|2025-12-31",
+  "promotion_code": "6|2025-12-01|2025-12-31",
+  "type": "discount",
+  "status": "1",
+  "pricelist_code": "6",
+  "start_date": "2025-12-01",
+  "end_date": "2025-12-31",
+  "organization_code": "ARYZE",
+  "items": [
+    {
+      "item_code": "FG0001",
+      "discount_percentage": 0.6
+    },
+    {
+      "item_code": "FG0003",
+      "discount_percentage": 0.64
+    },
+    {
+      "item_code": "FG0005",
+      "discount_percentage": 0.6
+    },
+    {
+      "item_code": "FG0006",
+      "discount_percentage": 0.42
+    },
+    {
+      "item_code": "FG0007",
+      "discount_percentage": 0.65
+    },
+    {
+      "item_code": "FG0008",
+      "discount_percentage": 0.46
+    },
+    {
+      "item_code": "FG0014",
+      "discount_percentage": 0.77
+    },
+    {
+      "item_code": "FG0016",
+      "discount_percentage": 1.87
+    }
+  ]
+}
