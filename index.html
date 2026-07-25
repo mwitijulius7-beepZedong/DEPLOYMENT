@@ -1565,8 +1565,8 @@
         .template-modal-content {
             position: relative;
             width: 100%;
-            max-width: 640px;
-            max-height: 88vh;
+            max-width: 820px;
+            max-height: 90vh;
             background: var(--bg-secondary, #fff);
             border-radius: 14px;
             overflow-y: auto;
@@ -1619,6 +1619,10 @@
         @media (max-width: 768px) {
             .template-modal-overlay { padding: 0; }
             .template-modal-content { max-width: 100%; height: 100vh; max-height: 100vh; border-radius: 0; }
+            .tm-preview-screenshot { height: 300px; }
+        }
+        @media (max-width: 480px) {
+            .tm-preview-screenshot { height: 200px; }
         }
 
         /* ── Modal inner steps ── */
@@ -1650,18 +1654,13 @@
         /* Preview hero */
         .tm-preview-hero { display: flex; flex-direction: column; }
         .tm-preview-screenshot {
-            width: 100%; aspect-ratio: 16 / 9; background: var(--bg-tertiary, #f0ede5);
+            width: 100%; height: 440px; background: #fff;
             border-bottom: 1px solid var(--border-color, #e5e2d8); overflow: hidden;
         }
-        [data-theme="dark"] .tm-preview-screenshot { background: #262622; }
-        .tm-screenshot-placeholder {
-            width: 100%; height: 100%; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 0.75rem;
-            background: linear-gradient(135deg, var(--primary-light, rgba(208,39,28,0.08)), var(--bg-tertiary, #f0ede5));
-            color: var(--text-muted, #9C9A90); font-size: 14px; font-weight: 500;
+        [data-theme="dark"] .tm-preview-screenshot { background: #1B1B18; }
+        .tm-preview-iframe {
+            width: 100%; height: 100%; border: none; display: block;
         }
-        .tm-screenshot-placeholder i { font-size: 40px; color: var(--primary-color, #D0271C); opacity: 0.6; }
-        [data-theme="dark"] .tm-screenshot-placeholder { background: linear-gradient(135deg, rgba(232,72,59,0.12), #262622); }
 
         .tm-preview-info { padding: 1.5rem; }
         .tm-title { font-size: 20px; font-weight: 600; color: var(--text-dark, #0f172a); margin: 0 0 0.375rem; }
@@ -2024,8 +2023,8 @@
                             </div>
                         </div>
 
-                        <!-- View Template Button (rights-gated) -->
-                        <div v-if="currentUserRights.includes('view_template')" class="template-gate">
+                        <!-- View Template Button -->
+                        <div class="template-gate">
                             <button type="button" class="template-gate-btn" @click="openTemplateModal()">
                                 <i class="ti ti-layout-dashboard"></i>
                                 <span>View Template</span>
@@ -2252,10 +2251,7 @@
                     </div>
                     <div class="tm-preview-hero">
                         <div class="tm-preview-screenshot">
-                            <div class="tm-screenshot-placeholder">
-                                <i class="ti ti-layout-dashboard"></i>
-                                <span>Blog Template Pro</span>
-                            </div>
+                            <iframe src="/template-preview.html" class="tm-preview-iframe" title="Template preview" loading="lazy"></iframe>
                         </div>
                         <div class="tm-preview-info">
                             <h2 class="tm-title">Blog Template Pro</h2>
