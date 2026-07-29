@@ -1191,6 +1191,38 @@ async function sendNewPostNotification(post) {
   }
 }
 
+async function sendLicenseEmail(buyer) {
+  try {
+    const fromAddress = (process.env.SMTP_FROM && String(process.env.SMTP_FROM).trim())
+      ? String(process.env.SMTP_FROM).trim()
+      : (process.env.ALLOWED_EMAIL || 'noreply@example.com');
+    const mailOptions = {
+      from: fromAddress,
+      to: buyer.email,
+      subject: 'Your Blog Template License Key',
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #eee; border-radius: 10px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h2 style="color: #333; margin: 0;">Blog Template License</h2>
+          </div>
+          <p style="color: #555; font-size: 16px;">Hello ${buyer.name || buyer.email},</p>
+          <p style="color: #555; font-size: 16px;">Thank you for your purchase! Your blog template license key is ready.</p>
+          <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; margin: 25px 0;">
+            <p style="color: #888; font-size: 14px; margin: 0 0 8px 0;">Your License Key</p>
+            <code style="font-size: 24px; font-weight: bold; color: #D0271C; letter-spacing: 2px; background: #fff; padding: 12px 24px; border-radius: 6px; border: 2px dashed #D0271C;">${buyer.licenseKey}</code>
+          </div>
+          <p style="color: #555; font-size: 14px;">Use this key to log in to your blog admin panel.</p>
+          <p style="color: #888; font-size: 12px; margin-top: 30px;">If you have any questions, please contact support.</p>
+        </div>
+      `
+    };
+    await transporter.sendMail(mailOptions);
+    console.log('License email sent to:', buyer.email);
+  } catch (e) {
+    console.error('Failed to send license email:', e.message);
+  }
+}
+
 function requireAuth(req, res, next) {
   console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
 
@@ -5272,11 +5304,12 @@ app.post('/api/payments/callback', async (req, res) => {
         // Auto-register as buyer on successful payment
         const txn = txns[txnIndex];
         const buyers = await loadTemplateBuyers();
-        if (!buyers.find(b => b.email.toLowerCase() === txn.customerEmail.toLowerCase())) {
+        let buyerRecord = buyers.find(b => b.email.toLowerCase() === txn.customerEmail.toLowerCase());
+        if (!buyerRecord) {
           const generateSegment = () => Math.random().toString(36).substring(2, 6).toUpperCase();
           const licenseKey = `BLG-${generateSegment()}-${generateSegment()}-${generateSegment()}`;
           const id = (typeof ObjectId !== 'undefined') ? new ObjectId().toString() : Date.now().toString();
-          buyers.push({
+          buyerRecord = {
             id,
             name: txn.customerName,
             email: txn.customerEmail,
@@ -5286,9 +5319,32 @@ app.post('/api/payments/callback', async (req, res) => {
             mpesaReceiptNumber: txn.mpesaReceiptNumber || null,
             amountPaid: txn.paidAmount || txn.amount,
             status: 'active'
-          });
+          };
+          buyers.push(buyerRecord);
           await saveTemplateBuyers(buyers);
           txns[txnIndex].buyerRegistered = true;
+
+          // Auto-create user account for the buyer
+          const users = await loadUsers();
+          const buyerUsername = txn.customerEmail.split('@')[0];
+          const existingKey = findUserKey(users, buyerUsername);
+          if (!existingKey) {
+            const tempHash = await bcrypt.hash(licenseKey, 12);
+            users[buyerUsername] = {
+              name: txn.customerName || buyerUsername,
+              email: txn.customerEmail,
+              passwordHash: tempHash,
+              active: true,
+              role: 'TEMPLATE_BUYER',
+              rights: ['view_template', 'manage_own_posts', 'manage_profile'],
+              buyerId: id,
+              createdAt: new Date().toISOString()
+            };
+            await saveUsers(users);
+          }
+
+          // Send license email
+          sendLicenseEmail(buyerRecord);
         }
       }
 
@@ -5314,6 +5370,13 @@ app.get('/api/payments/status/:checkoutRequestId', async (req, res) => {
       return res.status(404).json({ error: 'Transaction not found' });
     }
 
+    let licenseKey = null;
+    if (txn.status === 'completed' && txn.buyerRegistered) {
+      const buyers = await loadTemplateBuyers();
+      const buyer = buyers.find(b => b.email.toLowerCase() === (txn.customerEmail || '').toLowerCase());
+      if (buyer) licenseKey = buyer.licenseKey;
+    }
+
     res.json({
       success: true,
       status: txn.status,
@@ -5321,6 +5384,7 @@ app.get('/api/payments/status/:checkoutRequestId', async (req, res) => {
       mpesaReceiptNumber: txn.mpesaReceiptNumber || null,
       amount: txn.amount,
       buyerRegistered: txn.buyerRegistered || false,
+      license_key: licenseKey,
       createdAt: txn.createdAt
     });
   } catch (e) {
@@ -5349,8 +5413,46 @@ app.get('/api/payments/license/:email', async (req, res) => {
 // ──────────────────────────────────────────────────────────────────────
 app.post('/api/template/purchase', async (req, res) => {
   try {
-    const { name, email, phone, payment_method } = req.body || {};
+    const { name, email, phone, payment_method, card_token, checkoutRequestId } = req.body || {};
     if (!name || !email) return res.status(400).json({ success: false, message: 'Name and email are required.' });
+
+    // ── Payment Validation ──
+    if (payment_method === 'mpesa') {
+      // M-Pesa: validate via checkoutRequestId
+      if (!checkoutRequestId) {
+        return res.status(400).json({ success: false, message: 'Missing payment reference.' });
+      }
+      const txns = await loadMpesaTransactions();
+      const txn = txns.find(t => t.checkoutRequestId === checkoutRequestId || t.id === checkoutRequestId);
+      if (!txn) {
+        return res.status(400).json({ success: false, message: 'Payment transaction not found.' });
+      }
+      if (txn.status !== 'completed') {
+        return res.status(400).json({ success: false, message: 'Payment has not been completed.' });
+      }
+      if ((txn.customerEmail || '').toLowerCase() !== email.toLowerCase()) {
+        return res.status(400).json({ success: false, message: 'Payment email mismatch.' });
+      }
+    } else {
+      // Card: simulate payment validation with delay
+      if (!card_token) {
+        return res.status(400).json({ success: false, message: 'Missing card payment token.' });
+      }
+      // Simulate payment processing delay
+      await new Promise(r => setTimeout(r, 2000));
+
+      // Validate card token format (basic check)
+      if (!card_token.startsWith('tok_')) {
+        return res.status(400).json({ success: false, message: 'Invalid card payment token.' });
+      }
+
+      // Simulate 5% failure rate for realism
+      const cardHash = card_token.split('_')[1] || '';
+      const failSim = parseInt(cardHash.slice(-2), 36) % 20 === 0;
+      if (failSim) {
+        return res.status(400).json({ success: false, message: 'Card payment was declined. Please try a different card.' });
+      }
+    }
 
     const buyers = await loadTemplateBuyers();
     if (buyers.find(b => b.email.toLowerCase() === email.toLowerCase())) {
@@ -5389,6 +5491,9 @@ app.post('/api/template/purchase', async (req, res) => {
       };
       await saveUsers(users);
     }
+
+    // Send license key via email
+    sendLicenseEmail(buyer);
 
     res.json({ success: true, license_key: licenseKey, buyer });
   } catch (e) {

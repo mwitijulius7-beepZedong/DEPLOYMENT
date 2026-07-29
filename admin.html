@@ -6495,10 +6495,12 @@ window.loadPostsList = loadPostsList;
                                             </div>
                                             <div class="user-rights">
                                               <span class="rights-label"><i class="ti ti-shield"></i> Rights:</span>
+                                              ${isSeller ? `
                                               <label class="right-toggle" title="Allow user to view the blog template">
                                                 <input type="checkbox" ${hasViewTemplate ? 'checked' : ''} onchange="toggleUserRight('${u.username}', 'view_template', this.checked)">
                                                 <span class="right-toggle-label">View Template</span>
                                               </label>
+                                              ` : ''}
                                             </div>
                                              <div class="action-group">
                                               <button class="action-btn btn-default" onclick="toggleUserRole('${u.username}', '${isDemote ? 'USER' : 'ADMIN'}')">
