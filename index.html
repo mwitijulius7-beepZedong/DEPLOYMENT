@@ -2349,14 +2349,15 @@
                 <div v-if="checkoutStep === 'processing'" class="tm-step tm-centered">
                     <div class="tm-big-spinner"></div>
                     <p class="tm-processing-text">Processing payment<span class="tm-dots"><span>.</span><span>.</span><span>.</span></span></p>
-                    <p v-if="selectedPaymentMethod === 'mpesa'" class="tm-processing-sub">Check your phone for the M-Pesa prompt</p>
+                    <p v-if="selectedPaymentMethod === 'mpesa'" class="tm-processing-sub">Enter your M-Pesa PIN on your phone to complete payment</p>
+                    <p v-else class="tm-processing-sub">Validating your card payment</p>
                 </div>
 
                 <!-- Success step -->
                 <div v-if="checkoutStep === 'success'" class="tm-step tm-centered">
                     <div class="tm-success-icon"><i class="ti ti-check"></i></div>
                     <h3>Payment successful!</h3>
-                    <p class="tm-success-msg">Thank you, {{ checkoutFormData.name }}! Your template license has been generated.</p>
+                    <p class="tm-success-msg">Thank you, {{ checkoutFormData.name }}! Your template license has been generated and sent to {{ checkoutFormData.email }}.</p>
                     <div class="tm-license-box">
                         <code>{{ checkoutLicenseKey }}</code>
                         <button class="tm-copy-btn" @click="copyLicenseKey" :disabled="checkoutKeyCopied" type="button">
@@ -3052,26 +3053,76 @@
                         this.checkoutStep = 'processing';
                         try {
                             const fd = this.checkoutFormData;
-                            const payload = { name: fd.name.trim(), email: fd.email.trim(), payment_method: this.selectedPaymentMethod };
                             if (this.selectedPaymentMethod === 'mpesa') {
-                                payload.phone = fd.phone.trim().replace(/\D/g, '');
+                                // Step 1: Initiate M-Pesa STK Push
+                                const initResp = await fetch('/api/payments/checkout', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        phoneNumber: fd.phone.trim().replace(/\D/g, ''),
+                                        name: fd.name.trim(),
+                                        email: fd.email.trim()
+                                    })
+                                });
+                                const initData = await initResp.json();
+                                if (!initResp.ok || !initData.success) {
+                                    this.checkoutStep = 'failed';
+                                    this.checkoutError = initData.error || 'Failed to initiate payment. Please try again.';
+                                    this.checkoutProcessing = false;
+                                    return;
+                                }
+                                // Step 2: Poll for payment confirmation
+                                const checkoutRequestId = initData.checkoutRequestId;
+                                const maxAttempts = 40;
+                                let confirmed = false;
+                                for (let i = 0; i < maxAttempts; i++) {
+                                    await new Promise(r => setTimeout(r, 3000));
+                                    try {
+                                        const statusResp = await fetch(`/api/payments/status/${checkoutRequestId}`);
+                                        const statusData = await statusResp.json();
+                                        if (statusData.status === 'completed') {
+                                            this.checkoutStep = 'success';
+                                            this.checkoutLicenseKey = statusData.license_key || ('BLG-' + Date.now().toString(36).toUpperCase());
+                                            this.fireConfetti();
+                                            confirmed = true;
+                                            break;
+                                        } else if (statusData.status === 'failed') {
+                                            this.checkoutStep = 'failed';
+                                            this.checkoutError = 'Payment was declined. Please try again.';
+                                            confirmed = true;
+                                            break;
+                                        }
+                                    } catch (e) {
+                                        // Ignore polling errors, keep trying
+                                    }
+                                }
+                                if (!confirmed) {
+                                    this.checkoutStep = 'failed';
+                                    this.checkoutError = 'Payment timed out. Please check your M-Pesa and try again.';
+                                }
                             } else {
-                                payload.card_token = 'tok_' + Date.now();
-                            }
-                            const resp = await fetch('/api/template/purchase', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
-                                credentials: 'include',
-                                body: JSON.stringify(payload)
-                            });
-                            const data = await resp.json();
-                            if (resp.ok && data.success) {
-                                this.checkoutStep = 'success';
-                                this.checkoutLicenseKey = data.license_key || 'LIC-' + Date.now().toString(36).toUpperCase();
-                                this.fireConfetti();
-                            } else {
-                                this.checkoutStep = 'failed';
-                                this.checkoutError = data.message || 'Payment failed. Please try again.';
+                                // Card payment with validation
+                                const payload = {
+                                    name: fd.name.trim(),
+                                    email: fd.email.trim(),
+                                    payment_method: 'card',
+                                    card_token: 'tok_' + Date.now()
+                                };
+                                const resp = await fetch('/api/template/purchase', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
+                                    credentials: 'include',
+                                    body: JSON.stringify(payload)
+                                });
+                                const data = await resp.json();
+                                if (resp.ok && data.success) {
+                                    this.checkoutStep = 'success';
+                                    this.checkoutLicenseKey = data.license_key || 'LIC-' + Date.now().toString(36).toUpperCase();
+                                    this.fireConfetti();
+                                } else {
+                                    this.checkoutStep = 'failed';
+                                    this.checkoutError = data.message || 'Payment failed. Please try again.';
+                                }
                             }
                         } catch (err) {
                             this.checkoutStep = 'failed';
