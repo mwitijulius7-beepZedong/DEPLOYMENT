@@ -353,8 +353,10 @@ app.use(session({
     httpOnly: true,
     // 2026: Strict prevents CSRF via cross-site requests entirely
     sameSite: 'lax', // keep 'lax' so Google OAuth redirect works
-    // 2026: 8h session (was 24h)
-    maxAge: 8 * 60 * 60 * 1000
+    // 2026: Browser-session cookie (no maxAge/expires). The admin session must
+    // not survive closing the browser — login must never be cached across
+    // sessions for security. Tab-close logout is enforced client-side via a
+    // logout beacon + tab-scoped sessionStorage token.
   },
   // 2026: Obfuscate cookie name (don't reveal 'sessionId')
   name: '__s',

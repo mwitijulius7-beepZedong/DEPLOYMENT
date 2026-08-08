@@ -2673,7 +2673,7 @@
                     },
                     async checkUserRights() {
                         try {
-                            const token = localStorage.getItem('authToken');
+                            const token = sessionStorage.getItem('authToken');
                             const headers = { 'Content-Type': 'application/json' };
                             if (token) headers['Authorization'] = 'Bearer ' + token;
                             const resp = await fetch('/api/auth/me', { credentials: 'include', headers });
@@ -3110,7 +3110,7 @@
                                 };
                                 const resp = await fetch('/api/template/purchase', {
                                     method: 'POST',
-                                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') },
+                                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (sessionStorage.getItem('authToken') || '') },
                                     credentials: 'include',
                                     body: JSON.stringify(payload)
                                 });

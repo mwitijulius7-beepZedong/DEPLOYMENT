@@ -35,7 +35,7 @@ export async function loadPostsList() {
     try {
         const response = await fetch('/api/posts?include_drafts=true', {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
             },
             credentials: 'include'
         });
@@ -104,7 +104,7 @@ export async function showCreatePostSection() {
         try {
             const response = await fetch('/api/categories', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
                 },
                 credentials: 'include'
             });
@@ -137,7 +137,7 @@ export async function deletePost(postId) {
             const response = await fetch(`/api/posts/${postId}`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
                 },
                 credentials: 'include'
             });
@@ -199,7 +199,7 @@ export async function deleteSelectedPosts() {
             const response = await fetch(`/api/posts/${postId}`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
                 },
                 credentials: 'include'
             });
@@ -295,7 +295,7 @@ export async function saveNewPost() {
             method: 'POST',
             body: formData,
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
             },
             credentials: 'include'
         });

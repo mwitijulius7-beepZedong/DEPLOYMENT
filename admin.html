@@ -16,6 +16,25 @@
         // Define navigation functions IMMEDIATELY in <head> so inline onclick handlers can find them
         let isSaving = false; // Flag to prevent duplicate saves across all admin actions
 
+        // ── Security: active logout when the admin tab closes ──────────────────
+        // The session cookie is browser-session scoped, but closing just a tab does
+        // not clear it. Fire a logout beacon as the tab is torn down so the server
+        // session is destroyed and reopening admin.html requires a fresh login.
+        // Suppressed on reload: during a reload document.visibilityState stays
+        // 'visible', so the session is preserved for an in-place refresh.
+        let adminTabLogoutBeaconSent = false;
+        window.addEventListener('pagehide', () => {
+            if (adminTabLogoutBeaconSent) return;
+            if (document.visibilityState === 'hidden') {
+                adminTabLogoutBeaconSent = true;
+                try {
+                    navigator.sendBeacon('/auth/logout', new Blob([], { type: 'application/json' }));
+                } catch (_) {
+                    fetch('/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+                }
+            }
+        });
+
         /**
          * Generic wrapper for handling button loading states and preventing duplicate submissions.
          */
@@ -220,7 +239,7 @@
 
         // Helper function to get auth headers
         function getAuthHeaders() {
-            const token = localStorage.getItem('authToken');
+            const token = sessionStorage.getItem('authToken');
             const headers = {
                 'Content-Type': 'application/json'
             };
@@ -999,7 +1018,7 @@
                             const uploadResponse = await fetch('/api/upload', {
                                 method: 'POST',
                                 credentials: 'include',
-                                headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+                                headers: { 'Authorization': `Bearer ${sessionStorage.getItem('authToken')}` },
                                 body: formData
                             });
                             const uploadData = await uploadResponse.json();
@@ -1021,7 +1040,7 @@
                         const uploadResponse = await fetch('/api/upload', {
                             method: 'POST',
                             credentials: 'include',
-                            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+                            headers: { 'Authorization': `Bearer ${sessionStorage.getItem('authToken')}` },
                             body: formData
                         });
                         const uploadData = await uploadResponse.json();
@@ -1417,7 +1436,7 @@ window.uploadedProfilePictureUrl = '';
 
         // ── Helper to get current logged in user from JWT ───────────────────
         function getCurrentUser() {
-            const token = localStorage.getItem('authToken');
+            const token = sessionStorage.getItem('authToken');
             if (!token) return 'admin';
             try {
                 const parts = token.split('.');
@@ -1709,7 +1728,7 @@ window.uploadedProfilePictureUrl = '';
                     const formData = new FormData();
                     formData.append('image', croppedFile);
 
-                    const token = localStorage.getItem('authToken');
+                    const token = sessionStorage.getItem('authToken');
                     const headers = {};
                     if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -5882,7 +5901,7 @@ window.uploadedProfilePictureUrl = '';
                                 const formData = new FormData();
                                 formData.append('image', file);
                                 const options = { method: 'POST', credentials: 'include', body: formData };
-                                const token = localStorage.getItem('authToken');
+                                const token = sessionStorage.getItem('authToken');
                                 if (token) options.headers = { 'Authorization': `Bearer ${token}` };
                                 const response = await fetch('/api/upload', options);
                                 const data = await response.json();
@@ -6138,7 +6157,7 @@ window.loadPostsList = loadPostsList;
 
                                 const data = await response.json();
                                 if (data.success && data.token) {
-                                    localStorage.setItem('authToken', data.token);
+                                    sessionStorage.setItem('authToken', data.token);
                                     console.log('✓ Auto-login successful for localhost');
                                 } else {
                                     console.warn('✗ Auto-login failed for localhost:', data.error || 'Invalid credentials');
@@ -6148,9 +6167,39 @@ window.loadPostsList = loadPostsList;
                             }
                         }
 
-                        // Run auto-login once on page load for localhost
-                        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                            autoLoginForLocalhost();
+                        // Tab-scoped auth gate: the authToken lives in sessionStorage,
+                        // which the browser wipes when the tab closes. A freshly opened
+                        // admin tab therefore has no token and must re-authenticate —
+                        // this guarantees login is never cached across tab sessions.
+                        function forceLoginRedirect() {
+                            try { sessionStorage.removeItem('authToken'); } catch (_) { }
+                            try {
+                                navigator.sendBeacon('/auth/logout', new Blob([], { type: 'application/json' }));
+                            } catch (_) {
+                                fetch('/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+                            }
+                            window.location.href = '/login.html';
+                        }
+
+                        async function enforceTabAuthGate() {
+                            try {
+                                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                                    await autoLoginForLocalhost();
+                                }
+                                if (!sessionStorage.getItem('authToken')) {
+                                    forceLoginRedirect();
+                                }
+                            } catch (e) {
+                                console.error('Tab auth gate error:', e);
+                                forceLoginRedirect();
+                            }
+                        }
+
+                        // Run auto-login once on page load for localhost, then enforce the gate
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', enforceTabAuthGate);
+                        } else {
+                            enforceTabAuthGate();
                         }
 
                         // Load settings to populate sidebar and form fields
@@ -6355,7 +6404,7 @@ window.loadPostsList = loadPostsList;
 
                             try {
                                 const headers = getAuthHeaders();
-                                const token = localStorage.getItem('authToken');
+                                const token = sessionStorage.getItem('authToken');
                                 console.log('Creating user with token:', token ? 'Token found' : 'No token found');
 
                                 const body = { username, password, name, email, role };
@@ -7400,8 +7449,11 @@ window.loadPostsList = loadPostsList;
                             try {
                                 console.log('Logout initiated');
 
-                                // 1. Clear local session data immediately
-                                localStorage.removeItem('authToken');
+                                // 1. Clear local session data immediately.
+                                // authToken now lives in sessionStorage (per-tab, never cached).
+                                // Also clear any legacy localStorage token from older versions.
+                                try { sessionStorage.removeItem('authToken'); } catch (_) { }
+                                try { localStorage.removeItem('authToken'); } catch (_) { }
                                 localStorage.removeItem('user');
                                 localStorage.removeItem('adminCurrentSection');
                                 sessionStorage.clear();
