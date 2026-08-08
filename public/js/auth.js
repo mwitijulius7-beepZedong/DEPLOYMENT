@@ -4,7 +4,7 @@ import { loadDashboardStats } from './dashboard.js';
 export async function checkAuth() {
     console.log('Checking authentication status...');
     try {
-        const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : '';
+        const token = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('authToken') : '';
         const response = await fetch('/auth/status', { credentials: 'include', headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
         const data = await response.json();
         console.log('Auth response received:', { status: response.status, loggedIn: data.loggedIn });
@@ -33,7 +33,8 @@ export async function promptForAdminKey() {
 
 export async function logout() {
     try {
-        // Clear stored token
+        // Clear stored token (sessionStorage = per-tab, never cached)
+        try { sessionStorage.removeItem('authToken'); } catch (_) { }
         try { localStorage.removeItem('authToken'); } catch (_) { }
         await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
         window.location.href = '/';

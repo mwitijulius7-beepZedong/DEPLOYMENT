@@ -3,7 +3,7 @@ import { resetIdleTimer } from './idle-timeout.js';
 
 export async function checkAuth() {
   try {
-    const token = localStorage.getItem('authToken');
+    const token = sessionStorage.getItem('authToken');
     const res = await fetch('/auth/status', {
       credentials: 'include',
       headers: token ? { Authorization: `Bearer ${token}` } : {}
@@ -38,6 +38,7 @@ export async function checkAuth() {
 }
 
 export async function logout() {
+  sessionStorage.removeItem('authToken');
   localStorage.removeItem('authToken');
   await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
   window.location.href = '/';

@@ -13,7 +13,7 @@ export function showAnalyticsSection() {
 }
 export async function refreshAnalytics() {
     try {
-        const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : '';
+        const token = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('authToken') : '';
         const analyticsResponse = await fetch('/api/stats', { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
         const analyticsData = await analyticsResponse.json();
         document.getElementById('analytics-page-views').textContent = analyticsData.pageViews?.length || 0;
@@ -34,7 +34,7 @@ export async function viewEngagementDetails() {
 }
 export async function exportAnalytics() {
     try {
-        const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : '';
+        const token = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('authToken') : '';
         const response = await fetch('/api/stats/export', { headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
         if (response.ok) {
             const blob = await response.blob();
