@@ -7728,18 +7728,7 @@ window.loadPostsList = loadPostsList;
                         window.bulkDeleteComments = bulkDeleteComments;
                         window.bulkRestoreComments = bulkRestoreComments;
 
-                        // ── Admin Re-authentication on Portal Exit ───────────────────────────
-                        // Destroy server session when admin portal is closed/refreshed
-                        // to require re-authentication on next visit
-                        window.addEventListener('pagehide', function () {
-                            // Use navigator.sendBeacon for reliable delivery on page unload
-                            navigator.sendBeacon('/auth/logout', '');
-                        });
 
-                        // Also handle beforeunload as fallback for browsers without pagehide support
-                        window.addEventListener('beforeunload', function () {
-                            navigator.sendBeacon('/auth/logout', '');
-                        });
                     </script>
 </body>
 
