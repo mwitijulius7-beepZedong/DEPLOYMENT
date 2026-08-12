@@ -1225,6 +1225,12 @@ async function sendLicenseEmail(buyer) {
   }
 }
 
+function findUserKeyByEmail(users, email) {
+  if (!users || !email) return null;
+  const targetEmail = email.toLowerCase();
+  return Object.keys(users).find(k => users[k].email && users[k].email.toLowerCase() === targetEmail) || null;
+}
+
 function requireAuth(req, res, next) {
   console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
 
@@ -1307,9 +1313,10 @@ function requireSellerOnly(req, res, next) {
 
 const requireAdmin = [requireAuth, requireAdminRole];
 const requireAdminOrBuyerAuth = [requireAuth, requireAdminOrBuyer];
+const requireSeller = [requireAuth, requireSellerOnly];
 
 // Admin: Template Buyers API (seller-only)
-app.get('/api/admin/buyers', requireSellerOnly, async (req, res) => {
+app.get('/api/admin/buyers', requireSeller, async (req, res) => {
   try {
     const buyers = await loadTemplateBuyers();
     res.json({ success: true, buyers });
@@ -1319,7 +1326,7 @@ app.get('/api/admin/buyers', requireSellerOnly, async (req, res) => {
   }
 });
 
-app.post('/api/admin/buyers', requireSellerOnly, async (req, res) => {
+app.post('/api/admin/buyers', requireSeller, async (req, res) => {
   try {
     const { name, email } = req.body;
     if (!name || !email) {
@@ -1359,7 +1366,7 @@ app.post('/api/admin/buyers', requireSellerOnly, async (req, res) => {
   }
 });
 
-app.delete('/api/admin/buyers/:id', requireSellerOnly, async (req, res) => {
+app.delete('/api/admin/buyers/:id', requireSeller, async (req, res) => {
   try {
     const { id } = req.params;
     let buyers = await loadTemplateBuyers();
@@ -1545,7 +1552,7 @@ app.put('/api/users/:username', requireAdminOrBuyerAuth, async (req, res) => {
 });
 
 // DELETE /api/users/:username - Delete user account (seller only)
-app.delete('/api/users/:username', requireSellerOnly, async (req, res) => {
+app.delete('/api/users/:username', requireSeller, async (req, res) => {
   try {
     const { username } = req.params;
     const requestUser = req.session?.user || req.user;
@@ -5328,9 +5335,12 @@ app.post('/api/payments/callback', async (req, res) => {
 
           // Auto-create user account for the buyer
           const users = await loadUsers();
-          const buyerUsername = txn.customerEmail.split('@')[0];
-          const existingKey = findUserKey(users, buyerUsername);
+          let existingKey = findUserKeyByEmail(users, txn.customerEmail);
           if (!existingKey) {
+            let buyerUsername = txn.customerEmail.split('@')[0];
+            if (findUserKey(users, buyerUsername)) {
+              buyerUsername = `${buyerUsername}_${Math.random().toString(36).substring(2, 6)}`;
+            }
             const tempHash = await bcrypt.hash(licenseKey, 12);
             users[buyerUsername] = {
               name: txn.customerName || buyerUsername,
@@ -5476,9 +5486,12 @@ app.post('/api/template/purchase', async (req, res) => {
 
     // Auto-create a user account for the buyer so they can log in
     const users = await loadUsers();
-    const buyerUsername = email.split('@')[0];
-    const existingKey = findUserKey(users, buyerUsername);
+    let existingKey = findUserKeyByEmail(users, email);
     if (!existingKey) {
+      let buyerUsername = email.split('@')[0];
+      if (findUserKey(users, buyerUsername)) {
+        buyerUsername = `${buyerUsername}_${Math.random().toString(36).substring(2, 6)}`;
+      }
       // Use license key as initial password hash (buyer will set real password via reset)
       const tempHash = await bcrypt.hash(licenseKey, 12);
       users[buyerUsername] = {
@@ -5519,10 +5532,13 @@ app.post('/auth/license-login', async (req, res) => {
 
     // Find or create the user account
     const users = await loadUsers();
-    const buyerUsername = email.split('@')[0];
-    let userKey = findUserKey(users, buyerUsername);
+    let userKey = findUserKeyByEmail(users, email);
 
     if (!userKey) {
+      let buyerUsername = email.split('@')[0];
+      if (findUserKey(users, buyerUsername)) {
+        buyerUsername = `${buyerUsername}_${Math.random().toString(36).substring(2, 6)}`;
+      }
       const tempHash = await bcrypt.hash(licenseKey, 12);
       users[buyerUsername] = {
         name: buyer.name || buyerUsername,
