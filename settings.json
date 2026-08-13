@@ -1,5 +1,5 @@
 {
-  "backgroundUrl": "http://localhost:3000/uploads/1774216553618_background-cropped.jpg",
+  "backgroundUrl": "/uploads/1774216553618_background-cropped.jpg",
   "backgrounds": [
     "https://example.com/bg1.jpg",
     "https://example.com/bg2.jpg"
@@ -14,7 +14,7 @@
     "bio": "Passionate developer and blogger sharing insights on technology and programming.",
     "phone": "",
     "whatsapp": "",
-    "profilePicture": "http://localhost:3000/uploads/1782998422045_love-wallpaper-preview.jpg",
+    "profilePicture": "/uploads/1782998422045_love-wallpaper-preview.jpg",
     "social": {
       "twitter": "https://twitter.com/testuser",
       "facebook": "https://facebook.com/testuser",

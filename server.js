@@ -466,18 +466,55 @@ async function saveUsers(users) {
   }
 }
 
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
+
+// Rewrite absolute URLs that point at the machine the content was authored on
+// (e.g. http://localhost:3000/uploads/x.jpg) into host-relative paths so the
+// image resolves against whatever domain the site is actually served from.
+function normalizeAssetUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    try {
+      const parsed = new URL(url);
+      if (LOOPBACK_HOSTS.has(parsed.hostname)) {
+        return parsed.pathname + parsed.search + parsed.hash;
+      }
+    } catch (e) { /* leave malformed URLs untouched */ }
+  }
+  return url;
+}
+
+// In-place normalization of the image-bearing fields on a content object.
+function normalizeImageFields(obj) {
+  if (!obj) return obj;
+  if (typeof obj.image === 'string') obj.image = normalizeAssetUrl(obj.image);
+  if (Array.isArray(obj.images)) obj.images = obj.images.map(normalizeAssetUrl);
+  if (typeof obj.content === 'string') {
+    obj.content = obj.content
+      .replace(/https?:\/\/localhost(?::\d+)?/gi, '')
+      .replace(/https?:\/\/127\.0\.0\.1(?::\d+)?/gi, '')
+      .replace(/https?:\/\/0\.0\.0\.0(?::\d+)?/gi, '')
+      .replace(/https?:\/\/\[::1\](?::\d+)?/gi, '');
+  }
+  return obj;
+}
+
 function normalizePost(p) {
+  const post = { ...p };
+  normalizeImageFields(post);
   return {
-    ...p,
-    id: (p._id || p.id).toString(),
-    tags: Array.isArray(p.tags) ? p.tags : []
+    ...post,
+    id: (post._id || post.id).toString(),
+    tags: Array.isArray(post.tags) ? post.tags : []
   };
 }
 
 function normalizeComment(c) {
+  const comment = { ...c };
+  if (typeof comment.image === 'string') comment.image = normalizeAssetUrl(comment.image);
   return {
-    ...c,
-    id: (c._id || c.id).toString()
+    ...comment,
+    id: (comment._id || comment.id).toString()
   };
 }
 
@@ -2690,6 +2727,9 @@ app.post('/api/posts', requireAdminOrBuyerAuth, async (req, res) => {
   const body = req.body;
   if (!body || !body.title || !body.content) return res.status(400).json({ error: 'missing title or content' });
 
+  // Store image URLs as host-relative paths so they work from any domain
+  normalizeImageFields(body);
+
   const currentUser = req.session?.user || req.user;
   const isBuyer = String(currentUser?.role || 'USER').toUpperCase() === 'TEMPLATE_BUYER';
 
@@ -2765,6 +2805,9 @@ app.put('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
   const body = req.body;
   const currentUser = req.session?.user || req.user;
   const isBuyer = String(currentUser?.role || 'USER').toUpperCase() === 'TEMPLATE_BUYER';
+
+  // Store image URLs as host-relative paths so they work from any domain
+  normalizeImageFields(body);
 
   try {
     if (db) {
@@ -3169,11 +3212,9 @@ app.post('/api/upload', requireAdminOrBuyerAuth, async (req, res) => {
 
     const uploadRes = await uploadFileToStorage(file, 'blog');
     
-    // For local files, prefix with host if needed (legacy compatibility)
-    let url = uploadRes.url;
-    if (url.startsWith('/uploads/')) {
-       url = `${req.protocol}://${req.get('host')}${url}`;
-    }
+    // Return host-relative URLs (e.g. /uploads/x.jpg) so stored image URLs
+    // keep working no matter which domain the site is served from.
+    const url = uploadRes.url;
 
     return res.json({ 
       success: true, 
@@ -3524,10 +3565,10 @@ app.get('/api/settings/background', async (req, res) => {
   try {
     if (process.env.VERCEL && db) {
       const result = await db.collection('settings').findOne({ type: 'background' });
-      return res.json({ backgroundUrl: result?.backgroundUrl || '' });
+      return res.json({ backgroundUrl: normalizeAssetUrl(result?.backgroundUrl || '') });
     }
     const settings = readSettings();
-    return res.json({ backgroundUrl: settings.backgroundUrl || '' });
+    return res.json({ backgroundUrl: normalizeAssetUrl(settings.backgroundUrl || '') });
   } catch (e) {
     console.error('Error reading background settings:', e);
     return res.json({ backgroundUrl: '' });
@@ -3578,11 +3619,11 @@ app.get('/api/settings/backgrounds', async (req, res) => {
     if (process.env.VERCEL && db) {
       const result = await db.collection('settings').findOne({ type: 'background' });
       const arr = Array.isArray(result?.backgrounds) ? result.backgrounds : (result?.backgroundUrl ? [result.backgroundUrl] : []);
-      return res.json({ backgrounds: arr });
+      return res.json({ backgrounds: arr.map(normalizeAssetUrl) });
     }
     const settings = readSettings();
     const arr = Array.isArray(settings.backgrounds) ? settings.backgrounds : (settings.backgroundUrl ? [settings.backgroundUrl] : []);
-    return res.json({ backgrounds: arr });
+    return res.json({ backgrounds: arr.map(normalizeAssetUrl) });
   } catch (e) {
     console.error('Error reading backgrounds settings:', e);
     return res.json({ backgrounds: [] });
@@ -3684,6 +3725,7 @@ app.get('/api/settings/author', async (req, res) => {
       // If MongoDB has valid author data with at least some fields populated, use it
       if (result?.author && (result.author.name || result.author.email || result.author.phone || result.author.bio)) {
         const author = result.author;
+        if (typeof author.profilePicture === 'string') author.profilePicture = normalizeAssetUrl(author.profilePicture);
         return res.json({ author });
       }
       // Otherwise fall through to local file
@@ -3693,6 +3735,7 @@ app.get('/api/settings/author', async (req, res) => {
     const settings = readSettings();
     const defaultAuthor = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
     const author = Object.assign({}, defaultAuthor, settings.author || {});
+    if (typeof author.profilePicture === 'string') author.profilePicture = normalizeAssetUrl(author.profilePicture);
     return res.json({ author });
   } catch (e) {
     console.error('Error reading author settings:', e);
@@ -3700,6 +3743,7 @@ app.get('/api/settings/author', async (req, res) => {
     try {
       const settings = readSettings();
       const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
+      if (typeof author.profilePicture === 'string') author.profilePicture = normalizeAssetUrl(author.profilePicture);
       return res.json({ author });
     } catch (innerErr) {
       const author = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
