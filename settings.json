@@ -30,11 +30,11 @@
   "security": {},
   "socialCredentials": {
     "twitter": {
-      "enabled": true,
-      "appKey": "***REMOVED***",
-      "appSecret": "***REMOVED***",
-      "accessToken": "***REMOVED***",
-      "accessSecret": "***REMOVED***"
+      "enabled": false,
+      "appKey": "",
+      "appSecret": "",
+      "accessToken": "",
+      "accessSecret": ""
     },
     "linkedin": {
       "enabled": false,
