@@ -669,9 +669,10 @@
                 const data = await res.json().catch(() => ({}));
 
                 if (res.ok && data && data.success) {
-                    // Store keyToken for login request (serverless-compatible)
+                    // Store keyToken for login request (serverless-compatible).
+                    // sessionStorage keeps it scoped to this tab so it is never cached.
                     if (data.keyToken) {
-                        try { localStorage.setItem('adminKeyToken', data.keyToken); } catch (_) { }
+                        try { sessionStorage.setItem('adminKeyToken', data.keyToken); } catch (_) { }
                     }
                     // Verified: allow access to login page
                     showLoginUI();
@@ -770,7 +771,7 @@
             loginBtn.innerHTML = '<span class="spinner"></span> Signing in...';
 
             try {
-                const keyToken = localStorage.getItem('adminKeyToken');
+                const keyToken = sessionStorage.getItem('adminKeyToken');
                 const loginPayload = { username, password };
                 if (keyToken) loginPayload.keyToken = keyToken;
                 
@@ -795,10 +796,10 @@
                 }
 
                 if (data.success) {
-                    // Persist JWT token for production requests
-                    try { localStorage.setItem('authToken', data.token || ''); } catch (_) { }
+                    // Persist JWT token in sessionStorage only (per-tab, cleared on tab close)
+                    try { sessionStorage.setItem('authToken', data.token || ''); } catch (_) { }
                     // Clear any stored admin key token (no longer needed) and redirect
-                    try { localStorage.removeItem('adminKeyToken'); } catch (_) {}
+                    try { sessionStorage.removeItem('adminKeyToken'); } catch (_) {}
                     window.location.href = '/admin.html';
                 } else {
                     showError(data.error || 'Login failed');
@@ -819,7 +820,7 @@
             googleBtn.innerHTML = '<span class="spinner" style="border-color: rgba(0,0,0,0.2); border-top-color: #333;"></span> Signing in...';
 
             try {
-                const keyToken = localStorage.getItem('adminKeyToken');
+                const keyToken = sessionStorage.getItem('adminKeyToken');
                 const authResponse = await fetch('/auth/google', {
                     method: 'POST',
                     headers: {
@@ -832,8 +833,8 @@
                 const data = await authResponse.json();
 
                 if (data.success) {
-                    try { localStorage.setItem('authToken', data.token || ''); } catch (_) { }
-                    try { localStorage.removeItem('adminKeyToken'); } catch (_) {}
+                    try { sessionStorage.setItem('authToken', data.token || ''); } catch (_) { }
+                    try { sessionStorage.removeItem('adminKeyToken'); } catch (_) {}
                     window.location.href = '/admin.html';
                 } else {
                     showError(data.error || 'Google login failed');
@@ -1032,7 +1033,7 @@
                     });
                     const data = await resp.json();
                     if (data.success) {
-                        try { localStorage.setItem('authToken', data.token || ''); } catch (_) {}
+                        try { sessionStorage.setItem('authToken', data.token || ''); } catch (_) {}
                         window.location.href = '/admin.html';
                     } else {
                         showError(data.message || data.error || 'License verification failed.');
