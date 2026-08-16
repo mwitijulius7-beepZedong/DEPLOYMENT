@@ -2428,17 +2428,42 @@ app.post('/auth/logout', (req, res) => {
   });
 });
 
-// GET /api/auth/me - Return current authenticated user info including rights
-app.get('/api/auth/me', requireAuth, async (req, res) => {
-  try {
-    const currentUser = req.session?.user || req.user;
-    const username = currentUser?.username;
-    if (!username) return res.status(401).json({ error: 'not authenticated' });
+// GET /api/auth/me - Return current authenticated user info including rights.
+// Returns 200 + {success:false,user:null} for guests instead of 401 so public
+// pages don't log spurious auth errors. Storage is only touched when a valid
+// session or JWT is present (fast path for the unauthenticated majority).
+app.get('/api/auth/me', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
 
+  let currentUser = req.session?.user || null;
+
+  if (!currentUser) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const decoded = jwt.verify(authHeader.substring(7), JWT_SECRET);
+        currentUser = {
+          username: decoded.username,
+          email: decoded.email,
+          name: decoded.name,
+          role: decoded.role
+        };
+      } catch (e) {
+        // invalid/expired token — treat as guest
+      }
+    }
+  }
+
+  if (!currentUser || !currentUser.username) {
+    return res.json({ success: false, user: null });
+  }
+
+  try {
+    const username = currentUser.username;
     const users = await loadUsers();
     const userKey = findUserKey(users, username);
     if (!users || !userKey || !users[userKey]) {
-      return res.status(404).json({ error: 'user_not_found' });
+      return res.json({ success: false, user: null });
     }
 
     const u = users[userKey];

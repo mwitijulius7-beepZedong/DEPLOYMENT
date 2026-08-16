@@ -2634,41 +2634,33 @@
                         }
                     },
                     async loadSettings() {
-                        try {
-                            const bgResp = await fetch(`/api/settings/background?t=${new Date().getTime()}`);
-                            const bgData = await bgResp.json();
-                            if (bgData.backgroundUrl) {
-                                const appElement = document.getElementById('app');
-                                if (appElement) {
-                                    const bgUrl = bgData.backgroundUrl.replace(/'/g, '%27');
-                                    appElement.style.backgroundImage = `url('${bgUrl}')`;
-                                    appElement.style.backgroundSize = 'cover';
-                                    appElement.style.backgroundPosition = 'center';
-                                    appElement.style.backgroundAttachment = 'fixed';
-                                }
+                        const ts = new Date().getTime();
+                        const [bg, blog, author] = await Promise.allSettled([
+                            fetch(`/api/settings/background?t=${ts}`).then(r => r.json()).catch(() => null),
+                            fetch(`/api/settings/blog-info?t=${ts}`).then(r => r.json()).catch(() => null),
+                            fetch(`/api/settings/author?t=${ts}`).then(r => r.json()).catch(() => null)
+                        ]);
+
+                        const bgData = bg.value;
+                        if (bgData && bgData.backgroundUrl) {
+                            const appElement = document.getElementById('app');
+                            if (appElement) {
+                                const bgUrl = bgData.backgroundUrl.replace(/'/g, '%27');
+                                appElement.style.backgroundImage = `url('${bgUrl}')`;
+                                appElement.style.backgroundSize = 'cover';
+                                appElement.style.backgroundPosition = 'center';
+                                appElement.style.backgroundAttachment = 'fixed';
                             }
-                        } catch (e) {
-                            console.error('Failed to load background settings:', e);
                         }
 
-                        try {
-                            const blogResp = await fetch(`/api/settings/blog-info?t=${new Date().getTime()}`);
-                            const blogData = await blogResp.json();
-                            if (blogData.blogInfo && blogData.blogInfo.title) {
-                                this.blogTitle = blogData.blogInfo.title;
-                            }
-                        } catch (e) {
-                            console.error('Failed to load blog info settings:', e);
+                        const blogData = blog.value;
+                        if (blogData && blogData.blogInfo && blogData.blogInfo.title) {
+                            this.blogTitle = blogData.blogInfo.title;
                         }
 
-                        try {
-                            const authorResp = await fetch(`/api/settings/author?t=${new Date().getTime()}`);
-                            const authorData = await authorResp.json();
-                            if (authorData.author) {
-                                this.authorInfo = authorData.author;
-                            }
-                        } catch (e) {
-                            console.error('Failed to load author info settings:', e);
+                        const authorData = author.value;
+                        if (authorData && authorData.author) {
+                            this.authorInfo = authorData.author;
                         }
                     },
                     async checkUserRights() {
