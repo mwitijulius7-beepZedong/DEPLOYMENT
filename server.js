@@ -14,8 +14,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { put } = require('@vercel/blob');
 const cloudinary = require('cloudinary').v2;
-const { encryptText, decryptText, isLocalhostRequest, isLocalhostAdminKeyBypassEnabled, recordFailedAttempt, isLockedOut, clearBruteRecord, getClientIP, findUserKey } = require('./utils/adminKey');
-const { getMongoDB, setKV, ObjectId, saveWithFallback, loadWithFallback, loadWithFallbackSingle } = require('./utils/storage');
+const { encryptText, decryptText, isLocalhostRequest, isLocalhostAdminKeyBypassEnabled, recordFailedAttempt, isLockedOut, clearBruteRecord, getClientIP, findUserKey, findUserKeyByEmail } = require('./utils/adminKey');
+const { getMongoDB, setKV, ObjectId, saveWithFallback, loadWithFallback, loadWithFallbackSingle, loadSetting, saveSetting } = require('./utils/storage');
 const errorHandler = require('./middleware/errorHandler');
 const healthAndErrors = require('./middleware/health_and_errors');
 
@@ -105,6 +105,9 @@ class VercelKVStore extends EventEmitter {
     this.set(sid, session, callback);
   }
 
+  // Accepted no-ops: Vercel KV store doesn't enumerate all sessions. These are
+  // only used by express-session for optional housekeeping and are safe to omit
+  // enumeration semantics for (express-session handles this gracefully).
   all(callback) {
     callback(null, []);
   }
@@ -216,9 +219,6 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'too_many_requests', retryAfter: '15 minutes' }
 });
-// Global safety-net limiter
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
-app.use(limiter);
 app.use('/api', apiLimiter);
 // Apply strict limiter to all auth and key-gate endpoints
 app.use(['/auth/login', '/auth/google', '/api/settings/verify-entry-key'], authLimiter);
@@ -234,7 +234,7 @@ async function seedAdminIfNeeded() {
       return;
     }
     const seedPwd = process.env.DEV_ADMIN_PASSWORD || 'admin123';
-    const hash = await bcrypt.hash(seedPwd, 10);
+    const hash = await bcrypt.hash(seedPwd, BCRYPT_ROUNDS);
     const updated = Object.assign({}, users || {}, { admin: { name: 'Admin', email: 'admin@example.com', passwordHash: hash, active: true, role: 'ADMIN' } });
     await saveUsers(updated);
     console.log('Dev seed: admin user created (admin/admin)');
@@ -268,6 +268,8 @@ const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ((process.env.NODE_ENV !== 'pr
 const ALLOWED_EMAIL = process.env.ALLOWED_EMAIL || '';
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || '';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
+// bcrypt cost factor (used consistently across all password hashing)
+const BCRYPT_ROUNDS = 12;
 
 // Idle timeout configuration (in minutes)
 const ADMIN_IDLE_TIMEOUT_MINUTES = parseInt(process.env.ADMIN_IDLE_TIMEOUT_MINUTES) || 10;
@@ -282,11 +284,6 @@ app.get('/api/security/config', (req, res) => {
   });
 });
 
-// Set dev admin password for development
-if (process.env.NODE_ENV !== 'production') {
-  process.env.DEV_ADMIN_PASSWORD = 'Mwitijulius7@Jm';
-}
-
 if (!process.env.GOOGLE_CLIENT_ID) {
   console.warn('WARNING: GOOGLE_CLIENT_ID is not set in .env - using dev fallback client id for local verification');
 }
@@ -300,13 +297,18 @@ try {
   console.warn('Could not create uploads directory (read-only filesystem?):', e.message);
 }
 
-// CORS configuration
-app.use((req, res, next) => {
-  const allowedOrigins = [
+// CORS configuration (origins allowed via ALLOWED_ORIGINS env var, comma-separated)
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+  .concat([
     'http://localhost:3000',
     'https://zedong254personal-blog-aq9djywsi.vercel.app',
     'https://peronal-blog-hh0dt912e-juliusmwiti-solutechcos-projects.vercel.app'
-  ];
+  ]);
+
+app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
     res.header('Access-Control-Allow-Origin', origin || '*');
@@ -519,6 +521,12 @@ function normalizeComment(c) {
 }
 
 async function loadPosts() {
+  const now = Date.now();
+  if (postsCache && now - postsCacheTime < CACHE_TTL) {
+    return postsCache;
+  }
+
+  let result = [];
   try {
     // Try MongoDB first if available
     const db = await getMongoDB();
@@ -526,8 +534,10 @@ async function loadPosts() {
       try {
         const posts = await db.collection('posts').find({}).sort({ date: -1 }).toArray();
         if (posts && Array.isArray(posts) && posts.length > 0) {
-          console.log('Loaded posts from MongoDB:', posts.length, 'posts');
-          return posts.map(normalizePost);
+          result = posts.map(normalizePost);
+          postsCache = result;
+          postsCacheTime = now;
+          return result;
         }
         if (posts && posts.length === 0) {
           console.log('MongoDB posts collection is empty, falling back to other sources to prevent data loss...');
@@ -544,16 +554,18 @@ async function loadPosts() {
         if (data) {
           const parsed = JSON.parse(data);
           console.log('Loaded posts from Vercel KV:', parsed.length, 'posts');
-          const posts = parsed.map(normalizePost);
-          if (db && posts.length > 0) {
+          result = parsed.map(normalizePost);
+          if (db && result.length > 0) {
             try {
               console.log('Seeding MongoDB with posts from Vercel KV...');
-              await savePosts(posts);
+              await savePosts(result);
             } catch (seedErr) {
               console.warn('Failed to seed MongoDB from Vercel KV:', seedErr.message);
             }
           }
-          return posts;
+          postsCache = result;
+          postsCacheTime = now;
+          return result;
         }
       } catch (kvErr) {
         console.warn('Vercel KV posts error:', kvErr.message);
@@ -564,27 +576,30 @@ async function loadPosts() {
     try {
       const data = JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
       console.log('Loaded posts from local file:', data.length, 'posts');
-      const posts = data.map(normalizePost);
-      if (db && posts.length > 0) {
+      result = data.map(normalizePost);
+      if (db && result.length > 0) {
         try {
           console.log('Seeding MongoDB with posts from local file...');
-          await savePosts(posts);
+          await savePosts(result);
         } catch (seedErr) {
           console.warn('Failed to seed MongoDB from local file:', seedErr.message);
         }
       }
-      return posts;
+      postsCache = result;
+      postsCacheTime = now;
+      return result;
     } catch (fileErr) {
       console.warn('Local posts file error:', fileErr.message);
-      return [];
     }
   } catch (e) {
     console.error('Fatal error in loadPosts:', e);
-    return [];
   }
+  return [];
 }
 
 async function savePosts(posts) {
+  postsCache = null;
+  postsCacheTime = 0;
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -707,19 +722,29 @@ async function saveAnalytics(analytics) {
  */
 async function recordInteraction(type, target, value = '', req = null) {
   try {
-    const analytics = await loadAnalytics();
-    if (!analytics.interactions) analytics.interactions = [];
-    
     const interaction = {
       id: Date.now(),
       type: type,
       target: String(target || ''),
       value: String(value || ''),
-      ip: req ? (req.ip || req.connection.remoteAddress) : 'system',
+      ip: req ? (req.ip || req.socket?.remoteAddress) : 'system',
       userAgent: req ? (req.get('User-Agent') || '') : 'system',
       timestamp: new Date().toISOString()
     };
-    
+
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      // Atomic append — avoids racing read-modify-write on the whole doc
+      await mongoDb.collection('analytics').updateOne(
+        { type: 'data' },
+        { $push: { 'data.interactions': interaction }, $set: { updatedAt: new Date() } },
+        { upsert: true }
+      );
+      return;
+    }
+
+    const analytics = await loadAnalytics();
+    if (!analytics.interactions) analytics.interactions = [];
     analytics.interactions.push(interaction);
     await saveAnalytics(analytics);
     console.log(`[Analytics] Recorded interaction: ${type} on ${target}`);
@@ -733,16 +758,26 @@ async function recordInteraction(type, target, value = '', req = null) {
  */
 async function recordPageView(page, req) {
   try {
-    const analytics = await loadAnalytics();
-    if (!analytics.pageViews) analytics.pageViews = [];
-
     const view = {
       page: String(page || '/'),
-      ip: req ? (req.ip || req.connection.remoteAddress) : 'unknown',
+      ip: req ? (req.ip || req.socket?.remoteAddress) : 'unknown',
       userAgent: req ? (req.get('User-Agent') || '') : 'unknown',
       timestamp: new Date().toISOString()
     };
 
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      // Atomic append — avoids racing read-modify-write on the whole doc
+      await mongoDb.collection('analytics').updateOne(
+        { type: 'data' },
+        { $push: { 'data.pageViews': view }, $set: { updatedAt: new Date() } },
+        { upsert: true }
+      );
+      return;
+    }
+
+    const analytics = await loadAnalytics();
+    if (!analytics.pageViews) analytics.pageViews = [];
     analytics.pageViews.push(view);
     await saveAnalytics(analytics);
   } catch (e) {
@@ -805,6 +840,7 @@ async function loadSecurityLogs() {
     const result = await loadWithFallbackSingle({
       collectionName: 'security',
       mongoFilter: { type: 'logs' },
+      kvKey: 'security_logs',
       filePath: SECURITY_LOGS_FILE,
       defaultData: []
     });
@@ -817,6 +853,15 @@ async function loadSecurityLogs() {
 let commentsCache = null;
 let commentsCacheTime = 0;
 const CACHE_TTL = 5000; // 5 seconds
+
+// Short-lived in-process posts cache to avoid a MongoDB round-trip on
+// every read-heavy request (mirrors commentsCache). Invalidated on save.
+let postsCache = null;
+let postsCacheTime = 0;
+
+// post.html template cached in memory so OG-meta generation doesn't
+// re-read the file synchronously on every page load.
+let postHtmlTemplate = null;
 
 async function loadComments() {
   const now = Date.now();
@@ -849,9 +894,28 @@ async function saveComments(comments) {
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
-      await mongoDb.collection('comments').deleteMany({});
-      if (comments.length > 0) {
-        await mongoDb.collection('comments').insertMany(comments.map(c => ({ ...c, _id: c.id })));
+      const col = mongoDb.collection('comments');
+      if (comments.length === 0) {
+        await col.deleteMany({});
+      } else {
+        // Upsert per document (atomic, never leaves the collection half-written)
+        const ids = [];
+        const ops = comments.map(c => {
+          const id = c.id;
+          ids.push(String(id));
+          const doc = { ...c };
+          delete doc.id;
+          delete doc._id;
+          return {
+            updateOne: {
+              filter: { _id: id },
+              update: { $set: { ...doc, id } },
+              upsert: true
+            }
+          };
+        });
+        await col.bulkWrite(ops, { ordered: false });
+        await col.deleteMany({ _id: { $nin: ids } });
       }
       return;
     }
@@ -882,9 +946,27 @@ async function saveSubscriptions(subscriptions) {
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
-      await mongoDb.collection('subscriptions').deleteMany({});
-      if (subscriptions.length > 0) {
-        await mongoDb.collection('subscriptions').insertMany(subscriptions.map(s => ({ ...s, _id: s.id })));
+      const col = mongoDb.collection('subscriptions');
+      if (subscriptions.length === 0) {
+        await col.deleteMany({});
+      } else {
+        const ids = [];
+        const ops = subscriptions.map(s => {
+          const id = s.id;
+          ids.push(String(id));
+          const doc = { ...s };
+          delete doc.id;
+          delete doc._id;
+          return {
+            updateOne: {
+              filter: { _id: id },
+              update: { $set: { ...doc, id } },
+              upsert: true
+            }
+          };
+        });
+        await col.bulkWrite(ops, { ordered: false });
+        await col.deleteMany({ _id: { $nin: ids } });
       }
       return;
     }
@@ -1066,14 +1148,10 @@ function generateMpesaPassword(shortcode, passkey, timestamp) {
 }
 
 function getMpesaTimestamp() {
+  // YYYYMMDDHHMMSS using the server's local time (behaviour-preserving)
   const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  const ss = String(now.getSeconds()).padStart(2, '0');
-  return `${y}${m}${d}${hh}${mm}${ss}`;
+  const pad = n => String(n).padStart(2, '0');
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 }
 
 async function initiateMpesaSTKPush(phoneNumber, amount, accountReference) {
@@ -1170,13 +1248,27 @@ async function saveThemes(themes) {
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
-      await mongoDb.collection('themes').deleteMany({});
-      if (themes.length > 0) {
-        const toSave = themes.map(t => {
-          const { id, ...rest } = t;
-          return { ...rest, _id: id };
+      const col = mongoDb.collection('themes');
+      if (themes.length === 0) {
+        await col.deleteMany({});
+      } else {
+        const ids = [];
+        const ops = themes.map(t => {
+          const id = t.id;
+          ids.push(String(id));
+          const doc = { ...t };
+          delete doc.id;
+          delete doc._id;
+          return {
+            updateOne: {
+              filter: { _id: id },
+              update: { $set: { ...doc, id } },
+              upsert: true
+            }
+          };
         });
-        await mongoDb.collection('themes').insertMany(toSave);
+        await col.bulkWrite(ops, { ordered: false });
+        await col.deleteMany({ _id: { $nin: ids } });
       }
       return;
     }
@@ -1260,12 +1352,6 @@ async function sendLicenseEmail(buyer) {
   } catch (e) {
     console.error('Failed to send license email:', e.message);
   }
-}
-
-function findUserKeyByEmail(users, email) {
-  if (!users || !email) return null;
-  const targetEmail = email.toLowerCase();
-  return Object.keys(users).find(k => users[k].email && users[k].email.toLowerCase() === targetEmail) || null;
 }
 
 function requireAuth(req, res, next) {
@@ -1456,14 +1542,13 @@ app.post('/api/users', requireAdmin, async (req, res) => {
     // Prevent creating a user if a case-insensitive match already exists
     const existingKey = findUserKey(users, username);
     if (users && existingKey) return res.status(400).json({ error: 'user_exists' });
-    // 2026: bcrypt cost factor 12 (was 10)
-    const hash = await bcrypt.hash(password, 12);
+    const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     // Store under the provided casing (preserve display), but ensure future lookups
     // will resolve case-insensitively via findUserKey.
     users[username] = { name: name || '', email: email || '', passwordHash: hash, active: true, role: role || 'USER', rights: Array.isArray(rights) ? rights : [] };
     // Optional admin key at creation time
     if (adminKey && String(adminKey).trim()) {
-      const keyHash = await bcrypt.hash(String(adminKey).trim(), 12);
+      const keyHash = await bcrypt.hash(String(adminKey).trim(), BCRYPT_ROUNDS);
       users[username].adminKeyHash = keyHash;
       users[username].adminKeyEnc = encryptText(String(adminKey).trim());
       users[username].adminKeySet = true;
@@ -1536,7 +1621,7 @@ app.put('/api/users/:username', requireAdminOrBuyerAuth, async (req, res) => {
         users[userKey].email = String(email).trim();
       }
       if (password) {
-        users[userKey].passwordHash = await bcrypt.hash(String(password), 12);
+        users[userKey].passwordHash = await bcrypt.hash(String(password), BCRYPT_ROUNDS);
       }
     } else {
       // Full admin updates
@@ -1553,12 +1638,12 @@ app.put('/api/users/:username', requireAdminOrBuyerAuth, async (req, res) => {
         users[userKey].rights = rights;
       }
       if (password) {
-        users[userKey].passwordHash = await bcrypt.hash(String(password), 12);
+        users[userKey].passwordHash = await bcrypt.hash(String(password), BCRYPT_ROUNDS);
       }
       if (adminKey !== undefined) {
         const trimmed = String(adminKey).trim();
         if (trimmed) {
-          users[userKey].adminKeyHash = await bcrypt.hash(trimmed, 12);
+          users[userKey].adminKeyHash = await bcrypt.hash(trimmed, BCRYPT_ROUNDS);
           users[userKey].adminKeyEnc = encryptText(trimmed);
           users[userKey].adminKeySet = true;
         } else {
@@ -1647,8 +1732,7 @@ app.post('/api/users/:username/admin-key', requireAuth, async (req, res) => {
     }
 
     // Hash the admin key
-    // 2026: bcrypt cost factor 12
-    const keyHash = await bcrypt.hash(String(adminKey), 12);
+    const keyHash = await bcrypt.hash(String(adminKey), BCRYPT_ROUNDS);
     users[resolvedUserKey].adminKeyHash = keyHash;
     users[resolvedUserKey].adminKeyEnc = encryptText(String(adminKey));
     users[resolvedUserKey].adminKeySet = true;
@@ -1830,7 +1914,7 @@ app.post('/api/security/admin-key/set', requireAuth, async (req, res) => {
     const user = userKey ? users[userKey] : null;
     if (!user) return res.status(404).json({ error: 'user_not_found' });
 
-    user.adminKeyHash = await bcrypt.hash(trimmed, 12);
+    user.adminKeyHash = await bcrypt.hash(trimmed, BCRYPT_ROUNDS);
     user.adminKeyEnc = encryptText(trimmed);
     user.adminKeySet = true;
 
@@ -2112,20 +2196,20 @@ app.post('/auth/login', async (req, res) => {
   const user = userKey ? users[userKey] : null;
 
   // BYPASSED — admin key gate disabled
-  console.log('Login attempt for:', username);
-  console.log('User found in storage:', !!user);
-  if (user) console.log('User active status:', user.active);
-
-  // Check for dev admin credentials (admin/password)
   const isDev = !process.env.NODE_ENV || process.env.NODE_ENV !== 'production';
   const devPwd = process.env.DEV_ADMIN_PASSWORD || 'password';
-  console.log('Is Dev Mode:', isDev);
-  console.log('Dev Password configured:', !!process.env.DEV_ADMIN_PASSWORD);
 
-  const isDevAuth = (isDev && username === 'admin' && password === devPwd);
-  const isEnvAuth = (process.env.DEV_ADMIN_PASSWORD && username === 'admin' && password === process.env.DEV_ADMIN_PASSWORD);
+  // Only emit verbose/login diagnostics in dev mode (avoid leaking info in prod logs)
+  if (isDev) {
+    console.log('Login attempt for:', username);
+    console.log('User found in storage:', !!user);
+    if (user) console.log('User active status:', user.active);
+  }
 
-  if (isDevAuth || isEnvAuth) {
+  // Dev/Env admin credentials (single merged condition)
+  const isDevAuth = ((isDev || !!process.env.DEV_ADMIN_PASSWORD) && username === 'admin' && password === devPwd);
+
+  if (isDevAuth) {
     clearBruteRecord(ip);
     console.log('Authenticated via Dev/Env admin credentials');
     // Generate JWT token for dev admin
@@ -2340,7 +2424,7 @@ app.post('/auth/setup', async (req, res) => {
   }
 
   try {
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     // Ensure we don't create conflicting usernames differing only in case
     const existingKey = findUserKey(users, username);
     if (existingKey) {
@@ -2557,6 +2641,63 @@ app.post('/auth/google', async (req, res) => {
   }
 });
 
+// ── Persistent password-reset token store ──
+// Tokens are stored in MongoDB/KV (with the same fallback pattern as other data)
+// so they survive Vercel serverless cold starts, and are pruned when they expire.
+const RESET_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const RESET_TOKENS_KV_KEY = 'reset_tokens';
+const RESET_TOKENS_FILE = path.join(__dirname, 'reset_tokens.json');
+
+async function loadResetTokens() {
+  try {
+    const result = await loadWithFallbackSingle({
+      collectionName: 'reset_tokens',
+      mongoFilter: { type: 'tokens' },
+      kvKey: RESET_TOKENS_KV_KEY,
+      filePath: RESET_TOKENS_FILE,
+      defaultData: {}
+    });
+    const tokens = (result && result.tokens && typeof result.tokens === 'object' && !Array.isArray(result.tokens))
+      ? result.tokens
+      : {};
+    // Prune expired entries
+    let changed = false;
+    for (const key of Object.keys(tokens)) {
+      const entry = tokens[key];
+      if (!entry || !entry.expires || Date.now() > entry.expires) {
+        delete tokens[key];
+        changed = true;
+      }
+    }
+    if (changed) await saveResetTokens(tokens);
+    return tokens;
+  } catch (e) {
+    console.error('loadResetTokens error:', e.message);
+    return {};
+  }
+}
+
+async function saveResetTokens(tokens) {
+  try {
+    const mongoDb = await getMongoDB();
+    if (mongoDb) {
+      await mongoDb.collection('reset_tokens').updateOne(
+        { type: 'tokens' },
+        { $set: { tokens, updatedAt: new Date() } },
+        { upsert: true }
+      );
+      return;
+    }
+    if (process.env.VERCEL && kv) {
+      await kv.set(RESET_TOKENS_KV_KEY, JSON.stringify({ tokens }));
+      return;
+    }
+    fs.writeFileSync(RESET_TOKENS_FILE, JSON.stringify({ tokens }, null, 2));
+  } catch (e) {
+    console.error('saveResetTokens error:', e.message);
+  }
+}
+
 // Forgot password endpoint
 app.post('/auth/forgot', async (req, res) => {
   const { email } = req.body || {};
@@ -2606,9 +2747,10 @@ app.post('/auth/forgot', async (req, res) => {
     const tokenData = `${targetUser.username}|${Date.now()}|${resetToken}`;
     const encryptedToken = encryptText(tokenData);
 
-    // Store token temporarily (in production, use Redis or database)
-    if (!global.resetTokens) global.resetTokens = {};
-    global.resetTokens[resetToken] = { username: targetUser.username, expires: Date.now() + 24 * 60 * 60 * 1000 }; // 24 hours
+    // Store token persistently (survives serverless cold starts) with an expiry
+    const tokens = await loadResetTokens();
+    tokens[resetToken] = { username: targetUser.username, expires: Date.now() + RESET_TOKEN_TTL_MS };
+    await saveResetTokens(tokens);
 
     // Build admin-focused email with both password reset link and admin key guidance
     const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -2656,14 +2798,16 @@ app.post('/auth/reset', async (req, res) => {
   if (!token || !password) return res.status(400).json({ error: 'missing token or password' });
 
   try {
-    // Verify token
-    if (!global.resetTokens || !global.resetTokens[token]) {
+    // Verify token (from persistent store)
+    const tokens = await loadResetTokens();
+    const tokenInfo = tokens[token];
+    if (!tokenInfo) {
       return res.status(400).json({ error: 'invalid or expired token' });
     }
 
-    const tokenInfo = global.resetTokens[token];
     if (Date.now() > tokenInfo.expires) {
-      delete global.resetTokens[token];
+      delete tokens[token];
+      await saveResetTokens(tokens);
       return res.status(400).json({ error: 'token expired' });
     }
 
@@ -2672,12 +2816,13 @@ app.post('/auth/reset', async (req, res) => {
     const user = users[tokenInfo.username];
     if (!user) return res.status(404).json({ error: 'user not found' });
 
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     user.passwordHash = hash;
     await saveUsers(users);
 
     // Clean up token
-    delete global.resetTokens[token];
+    delete tokens[token];
+    await saveResetTokens(tokens);
 
     return res.json({ success: true, message: 'password reset successfully' });
   } catch (e) {
@@ -2999,26 +3144,56 @@ app.delete('/api/posts/:id/perma', requireAdmin, async (req, res) => {
   }
 });
 
+// Build a Mongo filter for a post id (handles ObjectId and string ids)
+function postIdFilter(id) {
+  if (typeof id === 'string' && id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id)) {
+    return { _id: new ObjectId(id) };
+  }
+  return { $or: [{ _id: id }, { id: String(id) }] };
+}
+
+// Atomically adjust a numeric counter (likes/dislikes) on a post.
+// Uses a targeted Mongo $inc update when available; otherwise falls back to
+// load-all + save (non-Mongo storage), invalidating the posts cache.
+// Returns the updated counter value, or null if the post was not found.
+async function adjustPostCounter(id, field, delta, action, type, req) {
+  const mongoDb = await getMongoDB();
+  if (mongoDb) {
+    const result = await mongoDb.collection('posts').findOneAndUpdate(
+      postIdFilter(id),
+      { $inc: { [field]: delta } },
+      { returnDocument: 'after' }
+    );
+    if (!result || !result.value) return null;
+    if (action === 'add') await recordInteraction(type, id, null, req);
+    postsCache = null; // reflect the counter change on the next read
+    postsCacheTime = 0;
+    return typeof result.value[field] === 'number' ? result.value[field] : 0;
+  }
+
+  const posts = await loadPosts();
+  const idx = posts.findIndex(p => p.id.toString() === id.toString());
+  if (idx === -1) return null;
+  if (typeof posts[idx][field] !== 'number') posts[idx][field] = 0;
+  if (action === 'remove') {
+    posts[idx][field] = Math.max(0, posts[idx][field] - 1);
+  } else {
+    posts[idx][field] += 1;
+    await recordInteraction(type, id, null, req);
+  }
+  await savePosts(posts);
+  return posts[idx][field];
+}
+
 // Like a post
 app.post('/api/posts/:id/like', async (req, res) => {
   try {
     const id = req.params.id;
-    const posts = await loadPosts();
-    const idx = posts.findIndex(p => p.id.toString() === id.toString());
-    if (idx === -1) return res.status(404).json({ error: 'not found' });
-
     const action = req.body && req.body.action === 'remove' ? 'remove' : 'add';
-
-    if (typeof posts[idx].likes !== 'number') posts[idx].likes = 0;
-
-    if (action === 'remove') {
-      posts[idx].likes = Math.max(0, posts[idx].likes - 1);
-    } else {
-      posts[idx].likes += 1;
-      await recordInteraction('like', id, null, req);
-    }
-    await savePosts(posts);
-    return res.json({ success: true, likes: posts[idx].likes });
+    const delta = action === 'remove' ? -1 : 1;
+    const likes = await adjustPostCounter(id, 'likes', delta, action, 'like', req);
+    if (likes === null) return res.status(404).json({ error: 'not found' });
+    return res.json({ success: true, likes });
   } catch (error) {
     console.error('Error liking post:', error);
     return res.status(500).json({ error: 'like_failed' });
@@ -3029,22 +3204,11 @@ app.post('/api/posts/:id/like', async (req, res) => {
 app.post('/api/posts/:id/dislike', async (req, res) => {
   try {
     const id = req.params.id;
-    const posts = await loadPosts();
-    const idx = posts.findIndex(p => p.id.toString() === id.toString());
-    if (idx === -1) return res.status(404).json({ error: 'not found' });
-
     const action = req.body && req.body.action === 'remove' ? 'remove' : 'add';
-
-    if (typeof posts[idx].dislikes !== 'number') posts[idx].dislikes = 0;
-
-    if (action === 'remove') {
-      posts[idx].dislikes = Math.max(0, posts[idx].dislikes - 1);
-    } else {
-      posts[idx].dislikes += 1;
-      await recordInteraction('dislike', id, null, req);
-    }
-    await savePosts(posts);
-    return res.json({ success: true, dislikes: posts[idx].dislikes });
+    const delta = action === 'remove' ? -1 : 1;
+    const dislikes = await adjustPostCounter(id, 'dislikes', delta, action, 'dislike', req);
+    if (dislikes === null) return res.status(404).json({ error: 'not found' });
+    return res.json({ success: true, dislikes });
   } catch (error) {
     console.error('Error disliking post:', error);
     return res.status(500).json({ error: 'dislike_failed' });
@@ -3588,9 +3752,9 @@ app.post('/api/about', requireAdmin, async (req, res) => {
 // Get current background image
 app.get('/api/settings/background', async (req, res) => {
   try {
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'background' });
-      return res.json({ backgroundUrl: normalizeAssetUrl(result?.backgroundUrl || '') });
+    const result = await loadSetting('background');
+    if (result) {
+      return res.json({ backgroundUrl: normalizeAssetUrl(result.backgroundUrl || '') });
     }
     const settings = readSettings();
     return res.json({ backgroundUrl: normalizeAssetUrl(settings.backgroundUrl || '') });
@@ -3606,19 +3770,13 @@ app.post('/api/settings/background', requireAdmin, async (req, res) => {
     const { backgroundUrl } = req.body || {};
     if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
 
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'background' });
-      const existingBackgrounds = Array.isArray(result?.backgrounds) ? result.backgrounds : [];
-      // Always append new URL to history (avoid duplicates)
+    const existing = await loadSetting('background');
+    if (existing) {
+      const existingBackgrounds = Array.isArray(existing.backgrounds) ? existing.backgrounds : [];
       const backgrounds = existingBackgrounds.includes(backgroundUrl)
         ? existingBackgrounds
         : [...existingBackgrounds, backgroundUrl];
-
-      await db.collection('settings').updateOne(
-        { type: 'background' },
-        { $set: { backgroundUrl, backgrounds, updatedAt: new Date() } },
-        { upsert: true }
-      );
+      await saveSetting('background', { backgroundUrl, backgrounds });
       return res.json({ success: true, backgroundUrl });
     }
 
@@ -3641,14 +3799,16 @@ app.post('/api/settings/background', requireAdmin, async (req, res) => {
 // Multiple backgrounds API
 app.get('/api/settings/backgrounds', async (req, res) => {
   try {
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'background' });
-      const arr = Array.isArray(result?.backgrounds) ? result.backgrounds : (result?.backgroundUrl ? [result.backgroundUrl] : []);
+    const result = await loadSetting('background');
+    const arr = result
+      ? (Array.isArray(result.backgrounds) ? result.backgrounds : (result.backgroundUrl ? [result.backgroundUrl] : []))
+      : null;
+    if (arr) {
       return res.json({ backgrounds: arr.map(normalizeAssetUrl) });
     }
     const settings = readSettings();
-    const arr = Array.isArray(settings.backgrounds) ? settings.backgrounds : (settings.backgroundUrl ? [settings.backgroundUrl] : []);
-    return res.json({ backgrounds: arr.map(normalizeAssetUrl) });
+    const localArr = Array.isArray(settings.backgrounds) ? settings.backgrounds : (settings.backgroundUrl ? [settings.backgroundUrl] : []);
+    return res.json({ backgrounds: localArr.map(normalizeAssetUrl) });
   } catch (e) {
     console.error('Error reading backgrounds settings:', e);
     return res.json({ backgrounds: [] });
@@ -3662,12 +3822,8 @@ app.post('/api/settings/backgrounds', requireAdmin, async (req, res) => {
     const urls = backgrounds.map(u => String(u)).filter(u => u.length > 0);
     const backgroundUrl = urls[0] || '';
 
-    if (process.env.VERCEL && db) {
-      await db.collection('settings').updateOne(
-        { type: 'background' },
-        { $set: { backgroundUrl, backgrounds: urls, updatedAt: new Date() } },
-        { upsert: true }
-      );
+    const saved = await saveSetting('background', { backgroundUrl, backgrounds: urls });
+    if (saved) {
       return res.json({ success: true, backgrounds: urls });
     }
 
@@ -3686,11 +3842,9 @@ app.post('/api/settings/backgrounds', requireAdmin, async (req, res) => {
 // Theme settings API
 app.get('/api/settings/theme', async (req, res) => {
   try {
-    // For Vercel, use MongoDB if available
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'theme' });
-      const theme = result?.theme || { primaryColor: '#F4A191', accentColor: '#4A9B9B' };
-      return res.json({ theme });
+    const result = await loadSetting('theme');
+    if (result) {
+      return res.json({ theme: result.theme || { primaryColor: '#F4A191', accentColor: '#4A9B9B' } });
     }
 
     // Local development
@@ -3706,33 +3860,22 @@ app.get('/api/settings/theme', async (req, res) => {
 
 app.post('/api/settings/theme', requireAdmin, async (req, res) => {
   try {
-    // For Vercel, use MongoDB if available
-    if (process.env.VERCEL && db) {
-      const payload = req.body && req.body.theme ? req.body.theme : req.body;
-      if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
+    const payload = req.body && req.body.theme ? req.body.theme : req.body;
+    if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
 
-      const theme = {
-        primaryColor: String(payload.primaryColor || '#F4A191'),
-        accentColor: String(payload.accentColor || '#4A9B9B')
-      };
+    const theme = {
+      primaryColor: String(payload.primaryColor || '#F4A191'),
+      accentColor: String(payload.accentColor || '#4A9B9B')
+    };
 
-      await db.collection('settings').updateOne(
-        { type: 'theme' },
-        { $set: { theme, updatedAt: new Date() } },
-        { upsert: true }
-      );
-
+    const saved = await saveSetting('theme', { theme });
+    if (saved) {
       return res.json({ success: true, theme });
     }
 
     // Local development
-    const payload = req.body && req.body.theme ? req.body.theme : req.body;
-    if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
     const settings = readSettings();
-    settings.theme = {
-      primaryColor: String(payload.primaryColor || '#F4A191'),
-      accentColor: String(payload.accentColor || '#4A9B9B')
-    };
+    settings.theme = theme;
     writeSettings(settings);
     return res.json({ success: true, theme: settings.theme });
   } catch (e) {
@@ -4118,7 +4261,7 @@ app.post('/api/settings/security', requireAdmin, async (req, res) => {
       // Previously we were hashing an empty string which made `hasEntryKey === true`
       // but impossible to satisfy from the UI (since the UI won't allow blank input).
       const isClearingKey = trimmed.length === 0;
-      const hash = isClearingKey ? '' : await bcrypt.hash(trimmed, 10);
+      const hash = isClearingKey ? '' : await bcrypt.hash(trimmed, BCRYPT_ROUNDS);
       const enc = isClearingKey ? '' : encryptText(trimmed);
 
       if (process.env.VERCEL) {
@@ -5128,31 +5271,36 @@ app.get('/login.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'login.html'));
 });
 
-app.get('/post.html', (req, res) => {
+app.get('/post.html', async (req, res) => {
   const postId = req.query.id;
   const baseUrl = `${req.protocol}://${req.get('host')}`;
-  
-  let html = fs.readFileSync(path.join(__dirname, 'post.html'), 'utf8');
-  
+
+  // Cache the template in memory (it never changes at runtime)
+  if (!postHtmlTemplate) {
+    postHtmlTemplate = fs.readFileSync(path.join(__dirname, 'post.html'), 'utf8');
+  }
+  let html = postHtmlTemplate;
+
   if (postId) {
     try {
-      const posts = JSON.parse(fs.readFileSync(path.join(__dirname, 'posts.json'), 'utf8'));
-      const post = posts.find(p => p.id == postId);
-      
+      // loadPosts() is storage-aware (Mongo/KV/file) and cached in-process
+      const posts = await loadPosts();
+      const post = posts.find(p => String(p.id) === String(postId));
+
       if (post) {
-        const settings = JSON.parse(fs.readFileSync(path.join(__dirname, 'settings.json'), 'utf8'));
-        const authorName = settings.author?.name || 'Admin';
+        const settings = readSettings();
+        const authorName = (settings && settings.author && settings.author.name) || 'Admin';
         const title = post.title || 'Untitled Post';
-        const description = post.content?.substring(0, 160).replace(/<[^>]*>/g, '') || 'Click to read more';
+        const description = (post.content || '').substring(0, 160).replace(/<[^>]*>/g, '') || 'Click to read more';
         const image = post.image || '';
         const postUrl = `${baseUrl}/post.html?id=${postId}`;
-        
+
         const ogMeta = `
-    <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
-    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
+    <meta property="og:title" content="${String(title).replace(/"/g, '&quot;')}">
+    <meta property="og:description" content="${String(description).replace(/"/g, '&quot;')}">
     <meta property="og:url" content="${postUrl}">
     <meta property="og:type" content="article">
-    <meta property="og:site_name" content="${authorName}">
+    <meta property="og:site_name" content="${String(authorName)}">
     <meta name="twitter:card" content="summary_large_image">
     ${image ? `<meta property="og:image" content="${image}">` : ''}
     <link rel="canonical" href="${postUrl}">
@@ -5163,7 +5311,7 @@ app.get('/post.html', (req, res) => {
       console.error('Error generating OG tags:', e.message);
     }
   }
-  
+
   res.send(html);
 });
 
@@ -5410,7 +5558,7 @@ app.post('/api/payments/callback', async (req, res) => {
             if (findUserKey(users, buyerUsername)) {
               buyerUsername = `${buyerUsername}_${Math.random().toString(36).substring(2, 6)}`;
             }
-            const tempHash = await bcrypt.hash(licenseKey, 12);
+            const tempHash = await bcrypt.hash(licenseKey, BCRYPT_ROUNDS);
             users[buyerUsername] = {
               name: txn.customerName || buyerUsername,
               email: txn.customerEmail,
@@ -5481,7 +5629,12 @@ app.get('/api/payments/license/:email', async (req, res) => {
     const buyer = buyers.find(b => b.email.toLowerCase() === email.toLowerCase());
 
     if (buyer) {
-      return res.json({ success: true, hasLicense: true, licenseKey: buyer.licenseKey });
+      // Only expose the license key to the authenticated buyer themselves.
+      const authedEmail = (req.session?.user?.email || req.user?.email || '').toLowerCase();
+      const isOwner = authedEmail && authedEmail === email.toLowerCase();
+      const payload = { success: true, hasLicense: true };
+      if (isOwner) payload.licenseKey = buyer.licenseKey;
+      return res.json(payload);
     }
     res.json({ success: true, hasLicense: false });
   } catch (e) {
@@ -5562,7 +5715,7 @@ app.post('/api/template/purchase', async (req, res) => {
         buyerUsername = `${buyerUsername}_${Math.random().toString(36).substring(2, 6)}`;
       }
       // Use license key as initial password hash (buyer will set real password via reset)
-      const tempHash = await bcrypt.hash(licenseKey, 12);
+      const tempHash = await bcrypt.hash(licenseKey, BCRYPT_ROUNDS);
       users[buyerUsername] = {
         name: name || buyerUsername,
         email: email,
@@ -5608,7 +5761,7 @@ app.post('/auth/license-login', async (req, res) => {
       if (findUserKey(users, buyerUsername)) {
         buyerUsername = `${buyerUsername}_${Math.random().toString(36).substring(2, 6)}`;
       }
-      const tempHash = await bcrypt.hash(licenseKey, 12);
+      const tempHash = await bcrypt.hash(licenseKey, BCRYPT_ROUNDS);
       users[buyerUsername] = {
         name: buyer.name || buyerUsername,
         email: email,
