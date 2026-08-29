@@ -100,6 +100,12 @@ function findUserKey(users, username) {
   return Object.keys(users).find(k => k.toLowerCase() === lower) || null;
 }
 
+function findUserKeyByEmail(users, email) {
+  if (!users || !email) return null;
+  const targetEmail = email.toLowerCase();
+  return Object.keys(users).find(k => users[k].email && users[k].email.toLowerCase() === targetEmail) || null;
+}
+
 function getClientIP(req) {
   const forwarded = req?.headers?.['x-forwarded-for'];
   const socket = req?.socket?.remoteAddress;
@@ -118,6 +124,7 @@ module.exports = {
   isLockedOut,
   clearBruteRecord,
   findUserKey,
+  findUserKeyByEmail,
   getClientIP,
   bruteStore
 };

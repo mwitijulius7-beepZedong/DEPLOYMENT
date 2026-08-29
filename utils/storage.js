@@ -204,6 +204,43 @@ async function loadWithFallbackSingle({ collectionName, mongoFilter, kvKey, file
   return loadFromFile(filePath, defaultData);
 }
 
+/**
+ * Load a typed settings document from the MongoDB `settings` collection.
+ * Returns the raw stored doc (minus none of its fields) or `null` when Mongo
+ * is unavailable so callers can fall back to the local settings file.
+ */
+async function loadSetting(type) {
+  const mongoDb = await getMongoDB();
+  if (!mongoDb) return null;
+  try {
+    return await mongoDb.collection('settings').findOne({ type });
+  } catch (e) {
+    console.warn(`MongoDB settings load error (${type}):`, e.message);
+    return null;
+  }
+}
+
+/**
+ * Atomically persist a typed settings document to the MongoDB `settings`
+ * collection (upsert by `type`). Returns `false` when Mongo is unavailable so
+ * callers can fall back to the local settings file.
+ */
+async function saveSetting(type, fields) {
+  const mongoDb = await getMongoDB();
+  if (!mongoDb) return false;
+  try {
+    await mongoDb.collection('settings').updateOne(
+      { type },
+      { $set: { ...fields, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    return true;
+  } catch (e) {
+    console.error(`MongoDB settings save error (${type}):`, e.message);
+    return false;
+  }
+}
+
 module.exports = {
   getMongoDB,
   setKV,
@@ -219,5 +256,7 @@ module.exports = {
   saveToFile,
   saveWithFallback,
   loadWithFallback,
-  loadWithFallbackSingle
+  loadWithFallbackSingle,
+  loadSetting,
+  saveSetting
 };
