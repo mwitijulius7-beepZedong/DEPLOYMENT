@@ -659,6 +659,8 @@
             align-items: center;
             justify-content: center;
             transition: transform 0.2s, box-shadow 0.2s;
+            min-width: 48px;
+            min-height: 48px;
         }
         .comments-popup-btn:hover {
             transform: scale(1.1);
@@ -910,6 +912,31 @@
             .post-reactions { flex-wrap: wrap; }
             #sticky-header .sh-title { display: none; }
             .site-nav a span { display: none; }
+
+            .comments-popup-btn { bottom: 20px; right: 20px; width: 52px; height: 52px; font-size: 20px; }
+            .comments-modal-content { max-height: 85vh; border-radius: 20px 20px 0 0; }
+            .rp-card-body { padding: 14px 16px 18px; }
+        }
+        @media (max-width: 480px) {
+            :root { --hero-height: 45vh; }
+            .hero-inner { padding: 32px 16px 24px; }
+            .hero-title { font-size: 1.7rem; }
+            .hero-subtitle { font-size: 0.95rem; }
+            .article-container { padding: 20px 16px 24px; }
+            .article-content { font-size: 1rem; }
+            .pull-quote { padding: 20px 16px; margin: 32px 0; }
+            .pull-quote p { font-size: 1.15rem; }
+            .post-meta-bar-inner { padding: 10px 12px; }
+            .meta-share-btn { width: 36px; height: 36px; font-size: 14px; }
+            .author-bio-card { padding: 20px 16px; }
+            .author-bio-card h4 { font-size: 1rem; }
+            .post-reactions { gap: 8px; }
+            .reaction-btn { padding: 8px 12px; font-size: 14px; min-height: 44px; }
+            .comments-popup-btn { bottom: 16px; right: 16px; width: 48px; height: 48px; font-size: 18px; min-width: 48px; min-height: 48px; }
+            .site-nav a { padding: 8px 10px; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
+            .rp-card-img { height: 140px; }
+            .rp-card-title { font-size: 0.9rem; }
+            .rp-card-excerpt { font-size: 12px; }
         }
 
         /* ── Reading time pill ── */
@@ -972,7 +999,15 @@
             #related-posts-section { padding: 48px 20px 60px; }
         }
         @media (max-width: 600px) {
-            .related-posts-grid { grid-template-columns: 1fr; }
+            .related-posts-grid { grid-template-columns: 1fr; gap: 16px; }
+            #related-posts-section { padding: 32px 16px 40px; }
+            .related-posts-header { margin-bottom: 24px; }
+        }
+        @media (max-width: 480px) {
+            .rp-card { border-radius: 10px; }
+            .rp-card-img { height: 120px; }
+            .rp-card-body { padding: 12px 14px 16px; }
+            .rp-card-title { font-size: 0.875rem; }
         }
         .rp-card {
             text-decoration: none;

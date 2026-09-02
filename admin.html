@@ -16,6 +16,17 @@
         // Define navigation functions IMMEDIATELY in <head> so inline onclick handlers can find them
         let isSaving = false; // Flag to prevent duplicate saves across all admin actions
 
+        // ── Theme: apply saved blog theme before render ──
+        (function () {
+            try {
+                var t = localStorage.getItem('blog_theme');
+                if (t === 'glass' || t === 'minimal') t = 'light';
+                document.documentElement.setAttribute('data-theme', t || 'light');
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+
         // ── Security: active logout when the admin tab closes ──────────────────
         // The session cookie is browser-session scoped, but closing just a tab does
         // not clear it. Fire a logout beacon as the tab is torn down so the server
@@ -1277,6 +1288,10 @@ window.uploadedProfilePictureUrl = '';
                     if (document.getElementById('about-contact-twitter')) document.getElementById('about-contact-twitter').value = about.contact?.twitter || '';
                     if (document.getElementById('about-contact-linkedin')) document.getElementById('about-contact-linkedin').value = about.contact?.linkedin || '';
                     if (document.getElementById('about-contact-github')) document.getElementById('about-contact-github').value = about.contact?.github || '';
+
+                    // Load snapshots
+                    window._aboutPhotos = Array.isArray(about.photos) ? about.photos.slice() : [];
+                    renderAboutPhotos();
                 }
             } catch (error) {
                 console.error('Error loading about settings:', error);
@@ -1301,6 +1316,7 @@ window.uploadedProfilePictureUrl = '';
                         content: document.getElementById('about-mission-content').value
                     }
                 ],
+                photos: Array.isArray(window._aboutPhotos) ? window._aboutPhotos : [],
                 contact: {
                     email: document.getElementById('about-contact-email').value,
                     twitter: document.getElementById('about-contact-twitter').value,
@@ -1332,6 +1348,76 @@ window.uploadedProfilePictureUrl = '';
 
         window.loadAboutSettings = loadAboutSettings;
         window.saveAboutSettings = saveAboutSettings;
+
+        // --- About Snapshots Logic ---
+        window._aboutPhotos = [];
+
+        function renderAboutPhotos() {
+            const grid = document.getElementById('about-photos-grid');
+            if (!grid) return;
+            const photos = window._aboutPhotos || [];
+            if (photos.length === 0) {
+                grid.innerHTML = '<p style="color: var(--text-muted); font-size: 12px; width: 100%; text-align: center; padding: 20px 0;">No photos yet. Upload photos to display on your About Me page.</p>';
+                return;
+            }
+            grid.innerHTML = photos.map((url, idx) => `
+                <div style="position: relative; width: 96px; height: 96px; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; background: #fff;">
+                    <img src="${url}" alt="About photo ${idx + 1}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                    <button type="button" onclick="removeAboutPhoto(${idx})" title="Remove photo" style="position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; border: none; cursor: pointer; font-size: 12px; line-height: 1; display: flex; align-items: center; justify-content: center;">&times;</button>
+                </div>
+            `).join('');
+        }
+
+        window.removeAboutPhoto = function (idx) {
+            if (!confirm('Remove this photo from the gallery?')) return;
+            const photos = window._aboutPhotos || [];
+            if (idx < 0 || idx >= photos.length) return;
+            photos.splice(idx, 1);
+            window._aboutPhotos = photos;
+            renderAboutPhotos();
+                    document.getElementById('about-photos-status').textContent = 'Snapshot removed. Remember to click "Update Profile" to save changes.';
+        };
+
+        window.handleAboutPhotoUpload = async function (input) {
+            const files = input.files;
+            if (!files || files.length === 0) return;
+            const statusEl = document.getElementById('about-photos-status');
+            let uploaded = 0;
+            for (const file of Array.from(files)) {
+                if (!file.type.startsWith('image/')) {
+                    statusEl.textContent = 'Skipped non-image file: ' + file.name;
+                    continue;
+                }
+                const formData = new FormData();
+                formData.append('image', file);
+                try {
+                    // Use direct fetch (not apiFetch) so the browser sets the
+                    // multipart Content-Type boundary automatically.
+                    const options = { method: 'POST', credentials: 'include', body: formData };
+                    const token = sessionStorage.getItem('authToken');
+                    if (token) options.headers = { 'Authorization': `Bearer ${token}` };
+                    const resp = await fetch('/api/upload', options);
+                    if (!resp.ok) {
+                        const err = await resp.json().catch(() => ({}));
+                        statusEl.textContent = 'Upload failed: ' + (err.error || 'Unknown error');
+                        continue;
+                    }
+                    const data = await resp.json();
+                    if (data.url) {
+                        window._aboutPhotos.push(data.url);
+                        uploaded++;
+                    }
+                } catch (e) {
+                    console.error('Photo upload error:', e);
+                    statusEl.textContent = 'Upload error: ' + (e.message || 'Unknown');
+                }
+            }
+            renderAboutPhotos();
+            statusEl.textContent = uploaded > 0
+                ? uploaded + ' snapshot(s) added. Click "Update Profile" to save.'
+                : 'No snapshots were added.';
+            input.value = '';
+        };
 
         // --- Monthly Themes CRUD Logic ---
         async function loadThemesList() {
@@ -1790,6 +1876,21 @@ window.uploadedProfilePictureUrl = '';
             --transition: all 0.2s ease;
             --sidebar-width: 280px;
             --sidebar-collapsed: 72px;
+        }
+
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --primary-color: #818cf8;
+            --primary-hover: #6366f1;
+            --accent-color: #34d399;
+            --accent-hover: #10b981;
+            --bg-color: #121210;
+            --bg-secondary: #1B1B18;
+            --bg-card: #1B1B18;
+            --text-dark: #F2F0E9;
+            --text-medium: #C9C6BB;
+            --text-light: #9C9A90;
+            --border-color: #33332D;
         }
 
         /* Custom Scrollbar */
@@ -3316,8 +3417,33 @@ window.uploadedProfilePictureUrl = '';
             .panel-title {
                 font-size: 22px;
             }
+
+            .page-title { font-size: 15px; }
+            .top-bar-left { gap: 8px; }
+            .user-menu { font-size: 13px; }
+            .stats-card { padding: 16px; }
+            .bg-gallery { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .welcome-section h1 { font-size: 20px; }
+            .table-wrap { overflow-x: auto; }
         }
 
+        /* Small tablets / large phones landscape */
+        @media (max-width: 640px) and (min-width: 481px) {
+            .top-bar { padding: 10px 16px; }
+            .content-area { padding: 20px 12px; }
+            .section-body { padding: 24px 16px; }
+            .page-title { font-size: 16px; }
+            .bg-gallery { grid-template-columns: repeat(2, 1fr); }
+            .table-wrap { overflow-x: auto; }
+        }
+
+        /* Safe-area insets for notched phones */
+        @supports (padding: env(safe-area-inset-bottom)) {
+            @media (max-width: 768px) {
+                .content-area { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+                .top-bar { padding-top: calc(12px + env(safe-area-inset-top)); }
+            }
+        }
 
         /* ══════════════════════════════════════════════════════════
            Security Panel – Modern Card Design
@@ -4157,8 +4283,90 @@ window.uploadedProfilePictureUrl = '';
         .btn-success:hover { background: #C8EDE0; }
         .btn-warning { background: #FAEEDA; color: #854F0B; }
         .btn-warning:hover { background: #F5DCB5; }
-        .btn-info    { background: #E6F1FB; color: #185FA5; }
+.btn-info    { background: #E6F1FB; color: #185FA5; }
         .btn-info:hover    { background: #CDE4F7; }
+
+        /* ══════════════════════════════════════════════════════════
+           Dark theme overrides (react to data-theme="dark")
+        ══════════════════════════════════════════════════════════ */
+
+        [data-theme="dark"] ::-webkit-scrollbar-thumb { background: #3F3F38; }
+        [data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #505049; }
+
+        /* Inputs / selects / textareas */
+        [data-theme="dark"] .form-input,
+        [data-theme="dark"] .form-input:focus,
+        [data-theme="dark"] .customize-options input,
+        [data-theme="dark"] .customize-options textarea,
+        [data-theme="dark"] .customize-options select,
+        [data-theme="dark"] select {
+            background-color: #121210;
+            color: var(--text-dark);
+            border-color: #3F3F38;
+        }
+        [data-theme="dark"] .form-input::placeholder,
+        [data-theme="dark"] .admin-key-input::placeholder { color: var(--text-light); }
+
+        /* Hover surfaces */
+        [data-theme="dark"] .compact-btn:hover,
+        [data-theme="dark"] .sidebar-toggle:hover,
+        [data-theme="dark"] .user-menu:hover { background: #262622; border-color: #3F3F38; }
+        [data-theme="dark"] .nav-link:hover,
+        [data-theme="dark"] .settings-nav-btn:hover { background: rgba(255, 255, 255, 0.05); }
+
+        /* Solid primary compact button (light-theme uses dark bg) */
+        [data-theme="dark"] .compact-btn.primary,
+        [data-theme="dark"] .compact-btn.primary:hover { background: var(--text-dark); color: var(--bg-secondary); border-color: var(--text-dark); }
+
+        /* Band / card surfaces with hardcoded light background */
+        [data-theme="dark"] .section-header { background: #262622; }
+        [data-theme="dark"] .post-item,
+        [data-theme="dark"] .post-item[style] { background: var(--bg-secondary) !important; border-color: var(--border-color) !important; }
+        [data-theme="dark"] .post-tag-badge { background: #262622; }
+
+        /* Analytics surfaces */
+        [data-theme="dark"] .bar-container,
+        [data-theme="dark"] .heatmap-cell,
+        [data-theme="dark"] .level-0 { background: #262622; }
+        [data-theme="dark"] .e-stat { background: #121210; }
+
+        /* File input */
+        [data-theme="dark"] .file-input-label { background: #121210; border-color: #3F3F38; color: var(--text-medium); }
+        [data-theme="dark"] .file-input-label:hover { background: #1B1B18; }
+
+        /* Security panel cards */
+        [data-theme="dark"] .sec-card { background: #1B1B18; border-color: #33332D; }
+        [data-theme="dark"] .sec-card:hover { box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45); }
+        [data-theme="dark"] .sec-card-header { background: #262622; border-bottom-color: #33332D; }
+        [data-theme="dark"] .sec-card-title { color: var(--text-dark); }
+        [data-theme="dark"] .sec-card-subtitle,
+        [data-theme="dark"] .sec-label { color: var(--text-medium); }
+        [data-theme="dark"] .sec-input,
+        [data-theme="dark"] .sec-input:focus { background: #121210; color: var(--text-dark); border-color: #3F3F38; }
+
+        /* Admin key modal */
+        [data-theme="dark"] .modal-card { background: #1B1B18; color: var(--text-dark); }
+        [data-theme="dark"] .admin-key-input { background: #121210; color: var(--text-dark); border-color: #3F3F38; }
+
+        /* Lightbox */
+        [data-theme="dark"] .lightbox-content { background: #1B1B18; }
+
+        /* Generated inline light cards (buyers, theme archive, snapshots, comments, filters) */
+        [data-theme="dark"] [style*="background: #fff"],
+        [data-theme="dark"] [style*="background:#fff"] { background: #1B1B18 !important; }
+
+        /* Soft action buttons */
+        [data-theme="dark"] .btn-default { background: #262622; color: #C9C6BB; }
+        [data-theme="dark"] .btn-default:hover { background: #33332D; }
+        [data-theme="dark"] .btn-danger { background: rgba(244, 63, 94, 0.14); color: #fda4af; }
+        [data-theme="dark"] .btn-danger:hover { background: rgba(244, 63, 94, 0.22); }
+        [data-theme="dark"] .btn-success { background: rgba(16, 185, 129, 0.14); color: #6ee7b7; }
+        [data-theme="dark"] .btn-success:hover { background: rgba(16, 185, 129, 0.22); }
+        [data-theme="dark"] .btn-warning { background: rgba(245, 158, 11, 0.14); color: #fcd34d; }
+        [data-theme="dark"] .btn-warning:hover { background: rgba(245, 158, 11, 0.22); }
+        [data-theme="dark"] .btn-info { background: rgba(59, 130, 246, 0.14); color: #93c5fd; }
+        [data-theme="dark"] .btn-info:hover { background: rgba(59, 130, 246, 0.22); }
+
     </style>
 </head>
 
@@ -5347,6 +5555,22 @@ window.uploadedProfilePictureUrl = '';
                                                     <label for="about-contact-github" class="form-label" style="font-size: 11px; text-transform: uppercase;">GitHub URL</label>
                                                     <input type="url" class="form-input" id="about-contact-github" style="font-size: 13px;" placeholder="https://github.com/...">
                                                 </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Snapshots Card -->
+                                        <div class="action-card" style="grid-column: span 2;">
+                                            <h3><i>🖼️</i> Snapshots</h3>
+                                            <p style="font-size: 12px; color: var(--text-medium); margin: 4px 0 12px;">Photos uploaded here are shown to visitors as "Snapshots" on your About Me page.</p>
+                                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;">
+                                                <label for="about-photos-file" class="file-input-label" style="font-size: 12px; padding: 8px 14px; background: var(--bg-light); border: 1px solid #ddd; border-radius: 6px; cursor: pointer;">
+                                                    <i>⬆️</i> Upload Snapshot
+                                                </label>
+                                                <input type="file" class="file-input" id="about-photos-file" accept="image/*" multiple onchange="handleAboutPhotoUpload(this)" style="display:none;">
+                                                <span id="about-photos-status" style="font-size: 12px; color: var(--text-muted);"></span>
+                                            </div>
+                                            <div id="about-photos-grid" style="display: flex; flex-wrap: wrap; gap: 10px; min-height: 80px; background: var(--bg-light); border: 1px dashed #ddd; border-radius: 8px; padding: 10px;">
+                                                <p style="color: var(--text-muted); font-size: 12px; width: 100%; text-align: center; padding: 20px 0;">No snapshots yet. Upload photos to display on your About Me page.</p>
                                             </div>
                                         </div>
                                     </div>

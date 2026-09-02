@@ -5,6 +5,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>About - zedong254ke Blog</title>
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('blog_theme');
+                if (t === 'glass' || t === 'minimal') t = 'light';
+                document.documentElement.setAttribute('data-theme', t || 'light');
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -121,6 +132,38 @@
             --z-tooltip: 1070;
         }
 
+        [data-theme="dark"] {
+            --primary-color: #818cf8;
+            --primary-hover: #6366f1;
+            --primary-light: rgba(99, 102, 241, 0.12);
+            --primary-dark: #4338ca;
+            --accent-color: #22d3ee;
+            --accent-hover: #06b6d4;
+            --accent-light: rgba(6, 182, 212, 0.12);
+            --accent-dark: #0e7490;
+
+            --bg-color: #121210;
+            --bg-secondary: #1B1B18;
+            --bg-tertiary: #262622;
+            --bg-gradient: none;
+
+            --card-bg: #1B1B18;
+            --card-bg-hover: #262622;
+            --surface-bg: #262622;
+            --surface-border: #33332D;
+
+            --text-dark: #F2F0E9;
+            --text-medium: #C9C6BB;
+            --text-light: #9C9A90;
+            --text-muted: #6B6B63;
+            --text-inverse: #F2F0E9;
+
+            --border-color: #33332D;
+            --border-light: #262622;
+            --border-medium: #3F3F38;
+            --border-dark: #505049;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -132,6 +175,7 @@
             background-color: var(--bg-color);
             color: var(--text-dark);
             line-height: 1.6;
+            transition: background 0.4s ease, color 0.4s ease;
         }
 
         /* Header Styles */
@@ -242,6 +286,10 @@
             color: white;
             padding: 60px 32px;
             text-align: center;
+        }
+
+        [data-theme="dark"] .about-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
         }
 
         .about-header h1 {
@@ -371,6 +419,15 @@
             gap: 20px;
         }
 
+        @media (min-width: 769px) and (max-width: 1024px) {
+            main {
+                padding: 32px 24px;
+            }
+            .contact-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
         .contact-item {
             display: flex;
             align-items: center;
@@ -394,18 +451,70 @@
             text-decoration: underline;
         }
 
+        /* About Snapshots */
+        .about-photos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+        .about-photo-item {
+            position: relative;
+            border-radius: var(--border-radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            box-shadow: var(--shadow-sm);
+            aspect-ratio: 4 / 3;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .about-photo-item:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+        .about-photo-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .about-photo-empty {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            text-align: center;
+            padding: 2rem 1rem;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .header-container {
                 padding: 0 16px;
+                height: auto;
+                min-height: 80px;
+                gap: 8px;
             }
 
             .logo .logo-title {
                 font-size: 20px;
             }
 
+            .logo img {
+                width: 40px;
+                height: 40px;
+            }
+
             nav {
                 gap: 16px;
+            }
+
+            nav a {
+                padding: 8px 10px;
+                min-height: 44px;
+                min-width: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
 
             nav a span {
@@ -434,6 +543,73 @@
 
             .contact-grid {
                 grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header-container {
+                padding: 0 12px;
+                flex-direction: column;
+                gap: 4px;
+                padding-top: 12px;
+                padding-bottom: 12px;
+            }
+
+            .logo .logo-title {
+                font-size: 18px;
+            }
+
+            .logo img {
+                width: 36px;
+                height: 36px;
+            }
+
+            nav {
+                gap: 8px;
+                width: 100%;
+                justify-content: center;
+            }
+
+            nav a {
+                padding: 0 8px;
+                min-height: 40px;
+            }
+
+            .about-header {
+                padding: 32px 16px;
+            }
+            .about-header h1 {
+                font-size: 2rem;
+                margin-bottom: 16px;
+            }
+            .about-header p {
+                font-size: 1.125rem;
+            }
+
+            .about-content {
+                padding: 24px 16px;
+            }
+            .about-section h2 {
+                font-size: 1.5rem;
+            }
+            .about-section p {
+                font-size: 16px;
+            }
+            .skill-card {
+                padding: 24px;
+            }
+            .contact-info {
+                padding: 24px 16px;
+            }
+            .about-photos-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+        }
+
+        @supports (padding: env(safe-area-inset-bottom)) {
+            @media (max-width: 768px) {
+                main { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
             }
         }
 
@@ -613,6 +789,13 @@
                     </ul>
                 </section>
 
+                <section class="about-section" id="section-photos" style="display: none;">
+                    <h2 id="about-photos-title">Snapshots</h2>
+                    <div id="about-photos-grid" class="about-photos-grid">
+                        <!-- Uploaded snapshots will be loaded here -->
+                    </div>
+                </section>
+
                 <div class="contact-info contact-section">
                     <h3>Get In Touch</h3>
                     <div class="contact-grid">
@@ -729,6 +912,23 @@
                         }
                     }
 
+                    // Update Snapshots
+                    const photos = Array.isArray(about.photos) ? about.photos : [];
+                    const photosSection = document.getElementById('section-photos');
+                    const photosGrid = document.getElementById('about-photos-grid');
+                    if (photosSection && photosGrid) {
+                        if (photos.length > 0) {
+                            photosSection.style.display = '';
+                            photosGrid.innerHTML = photos.map(url => `
+                                <div class="about-photo-item" onclick="openAboutPhoto(this)">
+                                    <img src="${url}" alt="Snapshot" loading="lazy">
+                                </div>
+                            `).join('');
+                        } else {
+                            photosSection.style.display = 'none';
+                        }
+                    }
+
                     // Update Contact
                     if (about.contact) {
                         const contactMap = {
@@ -756,6 +956,20 @@
             }
         }
         document.addEventListener('DOMContentLoaded', loadAboutContent);
+
+        // Open a minimal lightbox for about gallery photos
+        function openAboutPhoto(item) {
+            const img = item.querySelector('img');
+            if (!img || !img.src) return;
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:20px;';
+            const big = document.createElement('img');
+            big.src = img.src;
+            big.style.cssText = 'max-width:90%;max-height:90%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.5);object-fit:contain;';
+            overlay.appendChild(big);
+            overlay.addEventListener('click', () => overlay.remove());
+            document.body.appendChild(overlay);
+        }
     </script>
 </body>
 

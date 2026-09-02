@@ -351,9 +351,40 @@
             display: none;
         }
 
+        @media (max-width: 768px) {
+            body {
+                padding: 16px;
+            }
+            .login-header h1 {
+                font-size: 22px;
+            }
+            .login-btn,
+            .google-btn {
+                min-height: 52px;
+            }
+        }
+
         @media (max-width: 480px) {
             .login-container {
                 padding: 24px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .login-container {
+                padding: 20px;
+            }
+            .login-header h1 {
+                font-size: 20px;
+            }
+            .login-header p {
+                font-size: 13px;
+            }
+        }
+
+        @supports (padding: env(safe-area-inset-bottom)) {
+            .admin-key-overlay {
+                padding-bottom: calc(20px + env(safe-area-inset-bottom));
             }
         }
 

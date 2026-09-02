@@ -172,3 +172,43 @@
     right: -50px;
   }
 }
+
+@media (max-width: 480px) {
+  .header {
+    padding: 0.75rem 0;
+  }
+  .header-content {
+    padding: 0 0.75rem;
+    gap: 0.5rem;
+  }
+  .profile-photo {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .logo {
+    font-size: 1.3rem;
+  }
+  .nav button {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.6rem;
+    min-height: 40px;
+    min-width: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .theme-toggle {
+    padding: 0.4rem;
+    font-size: 1rem;
+  }
+  .dropdown-menu {
+    min-width: 160px;
+    right: -20px;
+  }
+  .dropdown-menu button {
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+}
