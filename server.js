@@ -3640,8 +3640,18 @@ async function loadAbout() {
       hero: { title: 'About Me', subtitle: '' },
       sections: [],
       skills: [],
-      contact: {}
+      contact: {},
+      photos: []
     };
+  }
+
+  // Normalize photo URLs so host-relative /uploads paths resolve regardless of domain
+  if (Array.isArray(aboutData.photos)) {
+    aboutData.photos = aboutData.photos.map(p =>
+      typeof p === 'string' ? normalizeAssetUrl(p) : p
+    );
+  } else {
+    aboutData.photos = [];
   }
 
   // Ensure all expected sections exist (repair data corrupted by old save logic)
@@ -3718,6 +3728,9 @@ app.post('/api/about', requireAdmin, async (req, res) => {
       hero: incoming.hero || existing.hero,
       sections: existing.sections, // start from existing to preserve points
       skills: existing.skills || [],
+      // Photos: use incoming if provided (array), otherwise preserve existing
+      photos: Array.isArray(incoming.photos) ? incoming.photos
+        : (Array.isArray(existing.photos) ? existing.photos : []),
       contact: {
         email: String(inContact.email ?? exContact.email ?? ''),
         twitter: String(inContact.twitter ?? exContact.twitter ?? ''),
