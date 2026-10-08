@@ -967,6 +967,47 @@
         /* Glow on progress bar */
         #reading-progress-bar { box-shadow: 0 0 8px rgba(192,57,43,0.55); }
 
+        /* ── Prev / Next navigation ── */
+        .post-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 32px 0;
+        }
+        .post-nav[hidden] { display: none; }
+        .post-nav-link {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-width: 46%;
+            padding: 16px 18px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--cream);
+            text-decoration: none;
+            color: inherit;
+            transition: border-color .2s ease, transform .2s ease;
+        }
+        .post-nav-link:hover { border-color: var(--text-muted); transform: translateY(-2px); }
+        .post-nav-next { margin-left: auto; text-align: right; }
+        .post-nav-dir {
+            font-family: var(--sans);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            color: var(--text-muted);
+        }
+        .post-nav-title { font-family: var(--serif-display); font-size: 1.02rem; font-weight: 600; line-height: 1.35; }
+        .post-nav-slot { flex: 1; }
+        @media (max-width: 600px) {
+            .post-nav { flex-direction: column; padding: 24px 16px 0; gap: 12px; }
+            .post-nav-link { max-width: 100%; }
+            .post-nav-next { margin-left: 0; text-align: left; }
+        }
+
         /* ── Related Posts ── */
         #related-posts-section {
             background: var(--cream);
@@ -1139,6 +1180,9 @@
         </div>
     </div>
 
+    <!-- Prev / Next navigation -->
+    <nav id="post-nav" class="post-nav" hidden></nav>
+
     <!-- Related Posts -->
     <div id="related-posts-section"></div>
 
@@ -1151,6 +1195,14 @@
         const postId = urlParams.get('id');
         let globalAuthorInfo = null;
         let globalPostTitle = '';
+        // Prev/next/related navigation returned by /api/posts/:id
+        let postNavData = null;
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
 
         if (!postId) {
             showError('No post ID provided');
@@ -1172,7 +1224,10 @@
                     console.error('Failed to load author info:', e);
                 }
 
+                postNavData = { prev: data.prev || null, next: data.next || null, related: data.related || null };
+
                 renderPost(data.post);
+                renderPostNav();
                 loadComments(id);
 
                 try {
@@ -1686,31 +1741,58 @@
         window.addEventListener('scroll', onScroll, { passive: true });
         window.addEventListener('load', onScroll);
 
+        // Prev/next pager — driven by the API so it works without a full-list fetch
+        function renderPostNav() {
+            const nav = document.getElementById('post-nav');
+            if (!nav || !postNavData) return;
+            const { prev, next } = postNavData;
+            if (!prev && !next) { nav.hidden = true; return; }
+
+            const link = (p, dir) => {
+                if (!p) return '<span class="post-nav-slot"></span>';
+                const label = dir === 'prev' ? '← Previous' : 'Next →';
+                return `
+                    <a class="post-nav-link post-nav-${dir}" href="/post.html?id=${encodeURIComponent(p.id)}">
+                        <span class="post-nav-dir">${label}</span>
+                        <span class="post-nav-title">${escapeHtml(p.title)}</span>
+                    </a>`;
+            };
+            nav.innerHTML = link(prev, 'prev') + link(next, 'next');
+            nav.hidden = false;
+        }
+
         async function loadRelatedPosts(currentPost) {
             const section = document.getElementById('related-posts-section');
             if (!section) return;
             try {
-                const resp = await fetch(`/api/posts?t=${Date.now()}`);
-                const data = await resp.json();
-                const allPosts = (data.posts || []).filter(p => p.id !== currentPost.id);
-                if (allPosts.length === 0) { section.style.display = 'none'; return; }
+                let top;
+                if (Array.isArray(postNavData && postNavData.related)) {
+                    // Server-computed related posts (summaries) — no extra fetch
+                    top = postNavData.related;
+                } else {
+                    const resp = await fetch(`/api/posts?t=${Date.now()}`);
+                    const data = await resp.json();
+                    const allPosts = (data.posts || []).filter(p => p.id !== currentPost.id);
+                    if (allPosts.length === 0) { section.style.display = 'none'; return; }
 
-                // Score by shared tags + same category, fall back to recency
-                const scored = allPosts.map(p => {
-                    let score = 0;
-                    const curTags = currentPost.tags || [];
-                    (p.tags || []).forEach(t => { if (curTags.includes(t)) score += 2; });
-                    if (p.categoryId && p.categoryId === currentPost.categoryId) score += 1;
-                    return { post: p, score };
-                });
-                scored.sort((a, b) => b.score - a.score || new Date(b.post.date) - new Date(a.post.date));
-                const top = scored.slice(0, 3).map(s => s.post);
+                    // Score by shared tags + same category, fall back to recency
+                    const scored = allPosts.map(p => {
+                        let score = 0;
+                        const curTags = currentPost.tags || [];
+                        (p.tags || []).forEach(t => { if (curTags.includes(t)) score += 2; });
+                        if (p.categoryId && p.categoryId === currentPost.categoryId) score += 1;
+                        return { post: p, score };
+                    });
+                    scored.sort((a, b) => b.score - a.score || new Date(b.post.date) - new Date(a.post.date));
+                    top = scored.slice(0, 3).map(s => s.post);
+                }
+                if (!top || top.length === 0) { section.style.display = 'none'; return; }
 
                 const cards = top.map(p => {
                     const img = (p.images && p.images[0]) || p.image || '';
-                    const rt  = Math.max(1, Math.ceil(((p.content || '').trim().split(/\s+/).length) / 200));
+                    const rt  = p.readingMinutes || Math.max(1, Math.ceil(((p.content || '').trim().split(/\s+/).length) / 200));
                     const dt  = new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                    const ex  = (p.content || '').replace(/<[^>]+>/g, '').substring(0, 110).trim() + '\u2026';
+                    const ex  = p.excerpt || ((p.content || '').replace(/<[^>]+>/g, '').substring(0, 110).trim() + '\u2026');
                     return `
                         <a href="/post.html?id=${p.id}" class="rp-card">
                             <div class="rp-card-img">

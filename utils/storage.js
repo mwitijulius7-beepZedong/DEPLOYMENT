@@ -24,6 +24,7 @@ async function getMongoDB() {
       console.log('Connected to MongoDB');
       db = client.db('blog');
       mongoConnectionFailed = false;
+      ensureIndexes(db).catch(e => console.warn('Index creation warning:', e.message));
       return db;
     } catch (error) {
       console.error('MongoDB connection error:', error.message);
@@ -39,6 +40,34 @@ async function getMongoDB() {
 
 let kv = null;
 function setKV(kvInstance) { kv = kvInstance; }
+
+// Create the indexes the app's hot queries rely on. Non-fatal: runs once per
+// connection and MongoDB will simply skip specs that already exist.
+let indexesEnsured = false;
+async function ensureIndexes(database) {
+  if (indexesEnsured) return;
+  indexesEnsured = true;
+  const specs = [
+    ['posts', { date: -1 }, { name: 'posts_by_date' }],
+    ['posts', { isDraft: 1, isDeleted: 1, date: -1 }, { name: 'posts_by_status_date' }],
+    ['posts', { tags: 1 }, { name: 'posts_by_tags' }],
+    ['posts', { authorUsername: 1 }, { name: 'posts_by_author' }],
+    ['comments', { postId: 1, timestamp: -1 }, { name: 'comments_by_post' }],
+    ['analytics', { type: 1 }, { name: 'analytics_by_type' }],
+    ['security', { type: 1 }, { name: 'security_by_type' }],
+    ['reset_tokens', { type: 1 }, { name: 'reset_tokens_by_type' }],
+    ['subscriptions', { email: 1 }, { name: 'subscriptions_by_email' }],
+    ['template_buyers', { email: 1 }, { name: 'buyers_by_email' }],
+    ['users', { email: 1 }, { name: 'users_by_email' }]
+  ];
+  for (const [collection, keys, options] of specs) {
+    try {
+      await database.collection(collection).createIndex(keys, options);
+    } catch (e) {
+      console.warn(`Index ${options.name} skipped:`, e.message);
+    }
+  }
+}
 
 function isObjectId(id) {
   return typeof id === 'string' && id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id);

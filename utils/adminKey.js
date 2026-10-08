@@ -42,15 +42,13 @@ function decryptText(encStr) {
 
 function isLocalhostRequest(req) {
   if (!req) return false;
-  const ip = req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || '';
-  const host = req.get?.('host') || '';
-  return (
-    String(ip).includes('127.0.0.1') ||
-    ip === '::1' ||
-    host.includes('localhost') ||
-    host.includes('127.0.0.1') ||
-    host.includes('::1')
-  );
+  // Trust only the effective peer address (req.ip honours Express 'trust proxy'
+  // hop counts, socket.remoteAddress otherwise). Never read x-forwarded-for or
+  // Host directly: a remote client can spoof both, and this check gates
+  // localhost-only paths (/auth/dev-login, first-run setup, admin-key bypass).
+  const raw = req.ip || req.socket?.remoteAddress || '';
+  const ip = String(raw).replace(/^::ffff:/i, '').trim().toLowerCase();
+  return ip === '127.0.0.1' || ip === '::1' || ip === 'localhost';
 }
 
 function isLocalhostAdminKeyBypassEnabled(req) {

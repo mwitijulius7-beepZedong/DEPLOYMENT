@@ -11,6 +11,7 @@ dist/
 server.log
 smoke-output.txt
 security_logs.json
+reset_tokens.json
 
 # Temporary files
 temp_*.html
@@ -43,3 +44,9 @@ temp-*.js
 # User-uploaded media (tracked for Vercel deployment)
 !uploads/.gitkeep
 .env*
+
+# Local data store — MongoDB/KV is the source of truth in production.
+# These can contain password hashes, emails and site configuration, so they
+# are not committed (delete a local copy freely; it regenerates on save).
+users.json
+settings.json

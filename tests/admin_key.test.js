@@ -52,9 +52,16 @@ describe('admin key utilities', () => {
       expect(isLocalhostRequest(mockReq)).toBe(true);
     });
 
-    it('should return true for x-forwarded-for containing 127.0.0.1', () => {
+    it('should ignore spoofed x-forwarded-for from a remote client', () => {
+      mockReq.socket.remoteAddress = '203.0.113.7';
       mockReq.headers['x-forwarded-for'] = '192.168.1.1, 127.0.0.1';
-      expect(isLocalhostRequest(mockReq)).toBe(true);
+      expect(isLocalhostRequest(mockReq)).toBe(false);
+    });
+
+    it('should ignore a spoofed localhost Host header from a remote client', () => {
+      mockReq.socket.remoteAddress = '203.0.113.7';
+      mockReq.get = () => 'localhost:3000';
+      expect(isLocalhostRequest(mockReq)).toBe(false);
     });
 
     it('should return false for external IP and host', () => {
