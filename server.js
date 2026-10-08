@@ -176,7 +176,7 @@ app.use(helmet({
         "https://accounts.google.com"
       ],
       scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com", "https://accounts.google.com"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
       imgSrc: ["'self'", "data:", "https:", "https://*.cloudinary.com"],
       connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://cdn.jsdelivr.net"],
@@ -248,17 +248,20 @@ seedAdminIfNeeded();
 module.exports = app;
 
 const UPLOADS_DIR = process.env.VERCEL ? path.join('/tmp', 'uploads') : path.join(__dirname, 'uploads');
-const USERS_FILE = path.join(__dirname, 'users.json');
-const POSTS_FILE = path.join(__dirname, 'posts.json');
-const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
-const ANALYTICS_FILE = path.join(__dirname, 'analytics.json');
-const SECURITY_LOGS_FILE = path.join(__dirname, 'security_logs.json');
-const COMMENTS_FILE = path.join(__dirname, 'comments.json');
-const SUBSCRIPTIONS_FILE = path.join(__dirname, 'subscriptions.json');
-const THEMES_FILE = path.join(__dirname, 'themes.json');
-const TEMPLATE_BUYERS_FILE = path.join(__dirname, 'template_buyers.json');
-const TEMPLATE_APPLICATIONS_FILE = path.join(__dirname, 'template_applications.json');
-const MPESA_TRANSACTIONS_FILE = path.join(__dirname, 'mpesa_transactions.json');
+// Where the JSON fallback data lives. Tests point this at a temp directory so
+// they never mutate the tracked data files in the repo root.
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const POSTS_FILE = path.join(DATA_DIR, 'posts.json');
+const CATEGORIES_FILE = path.join(DATA_DIR, 'categories.json');
+const ANALYTICS_FILE = path.join(DATA_DIR, 'analytics.json');
+const SECURITY_LOGS_FILE = path.join(DATA_DIR, 'security_logs.json');
+const COMMENTS_FILE = path.join(DATA_DIR, 'comments.json');
+const SUBSCRIPTIONS_FILE = path.join(DATA_DIR, 'subscriptions.json');
+const THEMES_FILE = path.join(DATA_DIR, 'themes.json');
+const TEMPLATE_BUYERS_FILE = path.join(DATA_DIR, 'template_buyers.json');
+const TEMPLATE_APPLICATIONS_FILE = path.join(DATA_DIR, 'template_applications.json');
+const MPESA_TRANSACTIONS_FILE = path.join(DATA_DIR, 'mpesa_transactions.json');
 
 // Google client ID (used to validate id_token audience in /auth/google)
 // For local dev, we fall back to the same client_id used in login.html so Google Sign-In works
@@ -270,6 +273,8 @@ const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || '';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 // bcrypt cost factor (used consistently across all password hashing)
 const BCRYPT_ROUNDS = 12;
+// Shared dev-mode flag — verbose auth/session logs are only emitted in dev
+const IS_DEV = !process.env.NODE_ENV || process.env.NODE_ENV !== 'production';
 
 // Idle timeout configuration (in minutes)
 const ADMIN_IDLE_TIMEOUT_MINUTES = parseInt(process.env.ADMIN_IDLE_TIMEOUT_MINUTES) || 10;
@@ -284,8 +289,20 @@ app.get('/api/security/config', (req, res) => {
   });
 });
 
+// Public: the Google OAuth client id the browser must use for Google Sign-In.
+// Client ids are not secrets (they are visible in every GSI page load); serving
+// it here means rotating the id only requires updating GOOGLE_CLIENT_ID.
+app.get('/api/auth/google-client', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300');
+  return res.json({ clientId: CLIENT_ID || '' });
+});
+
 if (!process.env.GOOGLE_CLIENT_ID) {
-  console.warn('WARNING: GOOGLE_CLIENT_ID is not set in .env - using dev fallback client id for local verification');
+  if (IS_DEV) {
+    console.warn('WARNING: GOOGLE_CLIENT_ID is not set in .env - using dev fallback client id for local verification');
+  } else {
+    console.warn('[SECURITY] GOOGLE_CLIENT_ID is not set - Google Sign-In will be rejected in production');
+  }
 }
 
 // Ensure uploads directory exists (catch EROFS on Vercel read-only fs)
@@ -330,8 +347,22 @@ app.use((req, res, next) => {
 
 // 2026: cap raw body size to prevent DoS via oversized payloads
 app.use(express.json({ limit: '50kb' }));
-// Cache public static assets aggressively
-app.use(express.static(__dirname, { maxAge: '1h', etag: true, lastModified: true }));
+// Cache public static assets aggressively.
+// NOTE: '/' and '/post.html' are rendered dynamically (SSR'd list + OG/JSON-LD
+// meta tags), so they must fall through to their dedicated routes below.
+const rootStatic = express.static(__dirname, { maxAge: '1h', etag: true, lastModified: true });
+app.use((req, res, next) => {
+  if ((req.method === 'GET' || req.method === 'HEAD') && (req.path === '/' || req.path === '/post.html')) return next();
+  return rootStatic(req, res, next);
+});
+app.use('/public/js', express.static(path.join(__dirname, 'public', 'js'), {
+  // App scripts (home-app.js, admin-app-*.js) ship from the HTML that
+  // references them; a 1y cache would pin returning visitors to stale JS for
+  // up to a year after a deploy. Revalidate hourly like the root static.
+  maxAge: '1h',
+  etag: true,
+  lastModified: true
+}));
 app.use('/public', express.static(path.join(__dirname, 'public'), {
   maxAge: '1y',
   etag: true,
@@ -863,6 +894,9 @@ let postsCacheTime = 0;
 // re-read the file synchronously on every page load.
 let postHtmlTemplate = null;
 
+// index.html template cached in memory for the SSR'd homepage inject.
+let indexHtmlTemplate = null;
+
 async function loadComments() {
   const now = Date.now();
   if (commentsCache && now - commentsCacheTime < CACHE_TTL) {
@@ -1355,7 +1389,7 @@ async function sendLicenseEmail(buyer) {
 }
 
 function requireAuth(req, res, next) {
-  console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
+  if (IS_DEV) console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
 
   // Check session first
   if (req.session && req.session.user) return next();
@@ -2196,22 +2230,21 @@ app.post('/auth/login', async (req, res) => {
   const user = userKey ? users[userKey] : null;
 
   // BYPASSED — admin key gate disabled
-  const isDev = !process.env.NODE_ENV || process.env.NODE_ENV !== 'production';
   const devPwd = process.env.DEV_ADMIN_PASSWORD || 'password';
 
   // Only emit verbose/login diagnostics in dev mode (avoid leaking info in prod logs)
-  if (isDev) {
+  if (IS_DEV) {
     console.log('Login attempt for:', username);
     console.log('User found in storage:', !!user);
     if (user) console.log('User active status:', user.active);
   }
 
   // Dev/Env admin credentials (single merged condition)
-  const isDevAuth = ((isDev || !!process.env.DEV_ADMIN_PASSWORD) && username === 'admin' && password === devPwd);
+  const isDevAuth = ((IS_DEV || !!process.env.DEV_ADMIN_PASSWORD) && username === 'admin' && password === devPwd);
 
   if (isDevAuth) {
     clearBruteRecord(ip);
-    console.log('Authenticated via Dev/Env admin credentials');
+    if (IS_DEV) console.log('Authenticated via Dev/Env admin credentials');
     // Generate JWT token for dev admin
     const token = jwt.sign({
       username: 'admin',
@@ -2220,7 +2253,7 @@ app.post('/auth/login', async (req, res) => {
       role: (user && user.role) || 'ADMIN'
     }, JWT_SECRET, { expiresIn: '8h' });
 
-    console.log('Login successful for admin (dev password), JWT token generated');
+    if (IS_DEV) console.log('Login successful for admin (dev password), JWT token generated');
 
     // Ensure session-based auth works without JWT header
     req.session.user = {
@@ -2291,7 +2324,7 @@ app.post('/auth/login', async (req, res) => {
     role: user.role || 'USER'
   }, JWT_SECRET, { expiresIn: '8h' });
 
-  console.log('Login successful, JWT token generated for:', username, 'Role:', user.role || 'USER');
+  if (IS_DEV) console.log('Login successful, JWT token generated for:', username, 'Role:', user.role || 'USER');
 
   // Ensure session-based auth works without JWT header
   req.session.user = {
@@ -2313,21 +2346,21 @@ app.post('/auth/login', async (req, res) => {
   try {
     const keyToken = String(req.body?.keyToken || '').trim();
     if (keyToken) {
-      console.log('Login: keyToken present in login payload — verifying');
+      if (IS_DEV) console.log('Login: keyToken present in login payload — verifying');
       try {
         const decoded = jwt.verify(keyToken, JWT_SECRET);
         if (decoded && decoded.purpose === 'admin_key_gate') {
           req.session.adminKeyVerified = true;
           req.session.adminKeyVerifiedAt = Date.now();
           req.session.adminKeyVerifiedUsername = username;
-          console.log('Login: keyToken valid; session.adminKeyVerified set for', username);
-        } else {
+          if (IS_DEV) console.log('Login: keyToken valid; session.adminKeyVerified set for', username);
+        } else if (IS_DEV) {
           console.log('Login: keyToken decoded but purpose mismatch');
         }
       } catch (ve) {
         console.warn('Login: keyToken verification failed:', ve && ve.message);
       }
-    } else {
+    } else if (IS_DEV) {
       console.log('Login: no keyToken provided in login payload');
     }
   } catch (e) {
@@ -2338,7 +2371,7 @@ app.post('/auth/login', async (req, res) => {
   // Ensure session is saved before returning response
   return req.session.save((err) => {
     if (err) console.error('Session save error (login):', err);
-    console.log('Login response: session.adminKeyVerified=', req.session.adminKeyVerified, 'verifiedFor=', req.session.adminKeyVerifiedUsername, 'user=', req.session.user && req.session.user.username);
+    if (IS_DEV) console.log('Login response: session.adminKeyVerified=', req.session.adminKeyVerified, 'verifiedFor=', req.session.adminKeyVerifiedUsername, 'user=', req.session.user && req.session.user.username);
     return res.json({ success: true, token, user: req.session.user });
   });
 });
@@ -2413,13 +2446,25 @@ app.post('/auth/setup', async (req, res) => {
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       isAuthenticated = true;
-      console.log('JWT token verified for setup:', decoded.username);
+      if (IS_DEV) console.log('JWT token verified for setup:', decoded.username);
     } catch (e) {
       console.error('JWT verification failed:', e.message);
     }
   }
 
-  if (hasAny && !isAuthenticated) {
+  // First-run bootstrap: creating the *first* account must be explicit.
+  // users.json/settings.json are no longer committed, so an empty user store
+  // on a fresh deploy must not let anyone on the internet claim admin.
+  const isFirstRun = !hasAny;
+  const openFirstRun = isFirstRun && (isLocalhostRequest(req) || process.env.ALLOW_FIRST_RUN_SETUP === 'true');
+
+  if (!isAuthenticated && !openFirstRun) {
+    if (isFirstRun) {
+      return res.status(403).json({
+        error: 'first_run_setup_disabled',
+        message: 'Set ALLOW_FIRST_RUN_SETUP=true (then unset it) or run setup from localhost.'
+      });
+    }
     return res.status(401).json({ error: 'not authenticated' });
   }
 
@@ -2457,7 +2502,7 @@ app.get('/auth/status', (req, res) => {
     const token = authHeader.substring(7);
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      console.log('JWT token verified for user:', decoded.username);
+      if (IS_DEV) console.log('JWT token verified for user:', decoded.username);
       return res.json({
         loggedIn: true,
         user: {
@@ -2477,7 +2522,7 @@ app.get('/auth/status', (req, res) => {
 });
 
 app.post('/auth/logout', (req, res) => {
-  console.log('Logout requested - Session exists:', !!req.session, 'User:', req.session?.user?.username || 'none');
+  if (IS_DEV) console.log('Logout requested - Session exists:', !!req.session, 'User:', req.session?.user?.username || 'none');
 
   // Check if session exists and has user data
   if (!req.session || !req.session.user) {
@@ -2495,7 +2540,7 @@ app.post('/auth/logout', (req, res) => {
     }
 
     // Always clear the cookie and send response, regardless of destroy success
-    console.log('Session destroy completed for user:', username);
+    if (IS_DEV) console.log('Session destroy completed for user:', username);
 
     // Clear the session cookie with all required options
     res.clearCookie('__s', {
@@ -2646,7 +2691,7 @@ app.post('/auth/google', async (req, res) => {
 // so they survive Vercel serverless cold starts, and are pruned when they expire.
 const RESET_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const RESET_TOKENS_KV_KEY = 'reset_tokens';
-const RESET_TOKENS_FILE = path.join(__dirname, 'reset_tokens.json');
+const RESET_TOKENS_FILE = path.join(DATA_DIR, 'reset_tokens.json');
 
 async function loadResetTokens() {
   try {
@@ -2831,6 +2876,34 @@ app.post('/auth/reset', async (req, res) => {
   }
 });
 
+// ── Post list helpers ────────────────────────────────────────────────
+function stripHtml(html) {
+  return String(html || '').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ').trim();
+}
+
+function excerptOf(content, max = 240) {
+  const text = stripHtml(content);
+  return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
+}
+
+function readingMinutesOf(content) {
+  const words = stripHtml(content).split(' ').filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+
+// Lightweight list item: no body HTML (payload win on list/archive responses)
+function toSummary(post) {
+  const { content, ...rest } = post;
+  return { ...rest, excerpt: excerptOf(content), readingMinutes: readingMinutesOf(content) };
+}
+
+function publishedPosts(posts) {
+  const now = new Date();
+  return posts.filter(p => !p.isDeleted && !p.isDraft && new Date(p.date) <= now);
+}
+
 app.get('/api/posts', async (req, res) => {
   try {
     const posts = await loadPosts();
@@ -2858,6 +2931,37 @@ app.get('/api/posts', async (req, res) => {
       return new Date(p.date) <= now;
     });
 
+    // Optional tag archive filter: /api/posts?tag=javascript
+    const tag = String(req.query.tag || '').trim().toLowerCase();
+    const visiblePosts = tag
+      ? filteredPosts.filter(p => (p.tags || []).some(t => String(t).toLowerCase() === tag))
+      : filteredPosts;
+
+    // Optional list-mode controls (backwards compatible: omitted => full list)
+    const wantsSummary = ['1', 'true'].includes(String(req.query.summary || '').toLowerCase());
+    const page = parseInt(req.query.page, 10);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 12));
+    const paginated = Number.isFinite(page) && page > 0;
+
+    let items = visiblePosts;
+    if (paginated) {
+      // Stable ordering required for paging
+      items = [...visiblePosts].sort((a, b) => new Date(b.date) - new Date(a.date));
+      items = items.slice((page - 1) * limit, page * limit);
+    }
+    if (wantsSummary) items = items.map(toSummary);
+
+    if (paginated || wantsSummary || tag) {
+      return res.json({
+        posts: items,
+        summary: wantsSummary,
+        tag: req.query.tag || '',
+        total: visiblePosts.length,
+        page,
+        limit,
+        hasMore: paginated && page * limit < visiblePosts.length
+      });
+    }
     return res.json({ posts: filteredPosts });
   } catch (error) {
     console.error('Error in GET /api/posts:', error);
@@ -2886,7 +2990,27 @@ app.get('/api/posts/:id', async (req, res) => {
     // Record view for analytics
     if (!isAdmin) await recordPageView(`/post/${encodeURIComponent(id)}`, req);
 
-    return res.json({ post });
+    // Prev/next (chronological) + related posts (shared tags / same category),
+    // returned as summaries so clients don't need a full-list fetch.
+    const chronology = publishedPosts(posts).sort((a, b) => new Date(a.date) - new Date(b.date));
+    const pos = chronology.findIndex(p => String(p.id) === String(post.id));
+    const prev = pos > 0 ? toSummary(chronology[pos - 1]) : null;
+    const next = pos > -1 && pos < chronology.length - 1 ? toSummary(chronology[pos + 1]) : null;
+
+    const postTags = new Set((post.tags || []).map(t => String(t).toLowerCase()));
+    const related = chronology
+      .filter(p => String(p.id) !== String(post.id))
+      .map(p => {
+        const sharedTags = (p.tags || []).filter(t => postTags.has(String(t).toLowerCase())).length;
+        const sameCategory = p.categoryId && post.categoryId && p.categoryId === post.categoryId ? 1 : 0;
+        return { post: p, score: sharedTags * 2 + sameCategory };
+      })
+      .filter(entry => entry.score > 0)
+      .sort((a, b) => b.score - a.score || new Date(b.post.date) - new Date(a.post.date))
+      .slice(0, 3)
+      .map(entry => toSummary(entry.post));
+
+    return res.json({ post, prev, next, related });
   } catch (error) {
     console.error('Error in GET /api/posts/:id:', error);
     return res.status(500).json({ error: 'Failed to load post' });
@@ -3536,8 +3660,8 @@ app.delete('/api/admin/themes/:id', requireAdmin, async (req, res) => {
   }
 });
 
-const settingsPath = path.join(__dirname, 'settings.json');
-const aboutPath = path.join(__dirname, 'about.json');
+const settingsPath = path.join(DATA_DIR, 'settings.json');
+const aboutPath = path.join(DATA_DIR, 'about.json');
 
 // Helper function to read settings
 function readSettings() {
@@ -3640,8 +3764,18 @@ async function loadAbout() {
       hero: { title: 'About Me', subtitle: '' },
       sections: [],
       skills: [],
-      contact: {}
+      contact: {},
+      photos: []
     };
+  }
+
+  // Normalize photo URLs so host-relative /uploads paths resolve regardless of domain
+  if (Array.isArray(aboutData.photos)) {
+    aboutData.photos = aboutData.photos.map(p =>
+      typeof p === 'string' ? normalizeAssetUrl(p) : p
+    );
+  } else {
+    aboutData.photos = [];
   }
 
   // Ensure all expected sections exist (repair data corrupted by old save logic)
@@ -3718,6 +3852,9 @@ app.post('/api/about', requireAdmin, async (req, res) => {
       hero: incoming.hero || existing.hero,
       sections: existing.sections, // start from existing to preserve points
       skills: existing.skills || [],
+      // Photos: use incoming if provided (array), otherwise preserve existing
+      photos: Array.isArray(incoming.photos) ? incoming.photos
+        : (Array.isArray(existing.photos) ? existing.photos : []),
       contact: {
         email: String(inContact.email ?? exContact.email ?? ''),
         twitter: String(inContact.twitter ?? exContact.twitter ?? ''),
@@ -4921,7 +5058,9 @@ app.get('/api/stats', requireAdmin, async (req, res) => {
       devices: devAndBrowser.devices,
       browsers: devAndBrowser.browsers,
       heatmap: getHeatmap(rawAnalytics.pageViews),
+      // NOTE: countries is illustrative demo data — no geo-IP resolution yet
       countries: getTopCountries(currentViews),
+      countriesDemoData: true,
       
       engagement: {
         avgScrollDepth: '74%',
@@ -5226,7 +5365,7 @@ app.get('/api/birthday', (req, res) => {
   return res.json({ message: 'Happy Birthday! Wishing you a fantastic year ahead!' });
 });
 
-// Temporary admin endpoint to delete all posts (for production cleanup)
+// Admin-only maintenance endpoint to delete all posts (for production cleanup)
 app.delete('/api/admin/delete-all-posts', requireAdmin, async (req, res) => {
   try {
     console.log('Admin requested to delete all posts');
@@ -5249,10 +5388,6 @@ app.delete('/api/admin/delete-all-posts', requireAdmin, async (req, res) => {
     console.error('Error deleting all posts:', error);
     return res.status(500).json({ error: 'Failed to delete posts' });
   }
-});
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.get('/admin', (req, res) => {
@@ -5295,6 +5430,22 @@ app.get('/post.html', async (req, res) => {
         const image = post.image || '';
         const postUrl = `${baseUrl}/post.html?id=${postId}`;
 
+        // Structured data for search engines / social crawlers
+        const jsonLd = {
+          '@context': 'https://schema.org',
+          '@type': 'BlogPosting',
+          headline: title,
+          description,
+          datePublished: post.date || undefined,
+          dateModified: post.updatedAt || post.date || undefined,
+          mainEntityOfPage: { '@type': 'WebPage', '@id': postUrl },
+          author: { '@type': 'Person', name: post.author || authorName },
+          publisher: { '@type': 'Person', name: authorName },
+          keywords: Array.isArray(post.tags) && post.tags.length ? post.tags.join(', ') : undefined,
+          timeRequired: `PT${readingMinutesOf(post.content)}M`,
+          ...(image ? { image: [absoluteUrl(image, baseUrl)] } : {})
+        };
+
         const ogMeta = `
     <meta property="og:title" content="${String(title).replace(/"/g, '&quot;')}">
     <meta property="og:description" content="${String(description).replace(/"/g, '&quot;')}">
@@ -5304,6 +5455,7 @@ app.get('/post.html', async (req, res) => {
     <meta name="twitter:card" content="summary_large_image">
     ${image ? `<meta property="og:image" content="${image}">` : ''}
     <link rel="canonical" href="${postUrl}">
+    <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>
 `;
         html = html.replace('</head>', `${ogMeta}\n</head>`);
       }
@@ -5313,6 +5465,65 @@ app.get('/post.html', async (req, res) => {
   }
 
   res.send(html);
+});
+
+// ── SSR homepage ─────────────────────────────────────────────────────
+// The homepage is a Vue SPA; search engines and no-JS clients additionally
+// get a server-rendered post archive + JSON-LD so the content is indexable.
+function htmlEscape(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+app.get('/', async (req, res) => {
+  try {
+    if (!indexHtmlTemplate) {
+      indexHtmlTemplate = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+    }
+
+    const base = publicBaseUrl(req);
+    const meta = siteMeta();
+    const posts = publishedPosts(await loadPosts())
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    const recent = posts.slice(0, 20);
+
+    const blogLd = {
+      '@context': 'https://schema.org',
+      '@type': 'Blog',
+      name: meta.title,
+      description: meta.description,
+      url: `${base}/`,
+      author: { '@type': 'Person', name: meta.author },
+      blogPost: recent.slice(0, 10).map(p => ({
+        '@type': 'BlogPosting',
+        headline: p.title,
+        url: `${base}/post.html?id=${encodeURIComponent(p.id)}`,
+        datePublished: p.date || undefined
+      }))
+    };
+
+    const archive = recent.map(p =>
+      `        <li><a href="/post.html?id=${encodeURIComponent(p.id)}">${htmlEscape(p.title)}</a> — ${htmlEscape(excerptOf(p.content, 160))}</li>`
+    ).join('\n');
+
+    const inject = `
+    <script type="application/ld+json">${JSON.stringify(blogLd).replace(/</g, '\\u003c')}</script>
+    <noscript>
+      <h1>${htmlEscape(meta.title)}</h1>
+      <p>${htmlEscape(meta.description)}</p>
+      <ol>
+${archive}
+      </ol>
+    </noscript>
+`;
+
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=600')
+      .send(indexHtmlTemplate.replace('</head>', `${inject}</head>`));
+  } catch (e) {
+    console.error('Homepage render error:', e.message);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.get('/about.html', (req, res) => {
@@ -5349,7 +5560,7 @@ app.post('/api/share', async (req, res) => {
     }
 
     try {
-        const posts = JSON.parse(fs.readFileSync(path.join(__dirname, 'posts.json'), 'utf8'));
+        const posts = await loadPosts();
         const post = posts.find(p => p.id == postId);
         if (!post) {
             return res.status(404).json({ error: 'Post not found' });
@@ -5397,9 +5608,124 @@ app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
 });
 
+// ── SEO: canonical base URL, sitemap, RSS feed ───────────────────────
+function publicBaseUrl(req) {
+  if (process.env.BASE_URL) return process.env.BASE_URL.replace(/\/$/, '');
+  return `${req.protocol}://${req.get('host')}`;
+}
+
+function xmlEscape(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+function absoluteUrl(src, base) {
+  const value = String(src || '');
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  return `${base}${value.startsWith('/') ? '' : '/'}${value}`;
+}
+
+function siteMeta() {
+  let settings = {};
+  try { settings = readSettings() || {}; } catch (e) { settings = {}; }
+  const blogInfo = settings.blogInfo || {};
+  const author = settings.author || {};
+  return {
+    title: blogInfo.title || author.name || 'Blog',
+    description: blogInfo.description || author.bio || 'Personal blog',
+    author: author.name || 'Admin'
+  };
+}
+
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const base = publicBaseUrl(req);
+    const posts = publishedPosts(await loadPosts())
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const staticPages = [
+      { loc: `${base}/`, lastmod: posts[0] ? posts[0].date : new Date().toISOString() },
+      { loc: `${base}/about.html`, lastmod: new Date().toISOString() }
+    ];
+
+    const xml = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">',
+      ...staticPages.map(p =>
+        `  <url><loc>${xmlEscape(p.loc)}</loc><lastmod>${new Date(p.lastmod).toISOString()}</lastmod></url>`),
+      ...posts.map(p => {
+        const image = p.image
+          ? `<image:image><image:loc>${xmlEscape(absoluteUrl(p.image, base))}</image:loc><image:title>${xmlEscape(p.title)}</image:title></image:image>`
+          : '';
+        return `  <url><loc>${xmlEscape(`${base}/post.html?id=${encodeURIComponent(p.id)}`)}</loc>` +
+          `<lastmod>${new Date(p.date).toISOString()}</lastmod>` +
+          (p.title ? `<image:title>${xmlEscape(p.title)}</image:title>` : '') + image + '</url>';
+      }),
+      '</urlset>'
+    ].join('\n');
+
+    res.type('application/xml').send(xml);
+  } catch (e) {
+    console.error('sitemap error:', e.message);
+    res.status(500).type('application/xml').send('<?xml version="1.0"?><urlset/>');
+  }
+});
+
+async function buildRssFeed(baseUrl) {
+  const meta = siteMeta();
+  const posts = publishedPosts(await loadPosts())
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 30);
+
+  const items = posts.map(p => {
+    const link = `${baseUrl}/post.html?id=${encodeURIComponent(p.id)}`;
+    const excerpt = excerptOf(p.content, 400);
+    return [
+      '    <item>',
+      `      <title>${xmlEscape(p.title)}</title>`,
+      `      <link>${xmlEscape(link)}</link>`,
+      `      <guid isPermaLink="true">${xmlEscape(link)}</guid>`,
+      `      <pubDate>${new Date(p.date).toUTCString()}</pubDate>`,
+      `      <description>${xmlEscape(excerpt)}</description>`,
+      ...(Array.isArray(p.tags) ? p.tags.map(t => `      <category>${xmlEscape(t)}</category>`) : []),
+      '    </item>'
+    ].join('\n');
+  }).join('\n');
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">',
+    '  <channel>',
+    `    <title>${xmlEscape(meta.title)}</title>`,
+    `    <link>${xmlEscape(baseUrl)}</link>`,
+    `    <description>${xmlEscape(meta.description)}</description>`,
+    `    <language>en</language>`,
+    `    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>`,
+    `    <atom:link href="${xmlEscape(`${baseUrl}/feed.xml`)}" rel="self" type="application/rss+xml"/>`,
+    items,
+    '  </channel>',
+    '</rss>'
+  ].filter(line => line !== null).join('\n');
+}
+
+async function rssHandler(req, res) {
+  try {
+    const xml = await buildRssFeed(publicBaseUrl(req));
+    res.type('application/xml').send(xml);
+  } catch (e) {
+    console.error('feed error:', e.message);
+    res.status(500).type('application/xml').send('<?xml version="1.0"?><rss version="2.0"><channel/></rss>');
+  }
+}
+app.get('/feed.xml', rssHandler);
+app.get('/rss.xml', rssHandler);
+
 // Handle robots.txt
 app.get('/robots.txt', (req, res) => {
-  res.type('text/plain').send('User-agent: *\nDisallow: /admin\nDisallow: /api\n');
+  const base = publicBaseUrl(req);
+  res.type('text/plain').send(`User-agent: *\nDisallow: /admin\nDisallow: /api\nAllow: /\n\nSitemap: ${base}/sitemap.xml\n`);
 });
 
 // ── MPesa Template Purchase Endpoints ──
@@ -5917,6 +6243,7 @@ app.get('/api/content/sensitive-keywords', (req, res) => {
 // Error handler must be last middleware to catch errors from all routes
 app.use(errorHandler);
 
-if (process.env.NODE_ENV !== 'production') {
+// Tests import the app and bind their own ephemeral port (DISABLE_LISTEN=true)
+if (process.env.NODE_ENV !== 'production' && process.env.DISABLE_LISTEN !== 'true') {
   app.listen(PORT, () => console.log(`Auth server listening on http://localhost:${PORT}`));
 }

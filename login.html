@@ -351,9 +351,40 @@
             display: none;
         }
 
+        @media (max-width: 768px) {
+            body {
+                padding: 16px;
+            }
+            .login-header h1 {
+                font-size: 22px;
+            }
+            .login-btn,
+            .google-btn {
+                min-height: 52px;
+            }
+        }
+
         @media (max-width: 480px) {
             .login-container {
                 padding: 24px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .login-container {
+                padding: 20px;
+            }
+            .login-header h1 {
+                font-size: 20px;
+            }
+            .login-header p {
+                font-size: 13px;
+            }
+        }
+
+        @supports (padding: env(safe-area-inset-bottom)) {
+            .admin-key-overlay {
+                padding-bottom: calc(20px + env(safe-area-inset-bottom));
             }
         }
 
@@ -867,35 +898,57 @@
 
         // Initialize Google Sign-In once
         let googleSignInInitialized = false;
+        let googleClientIdPromise = null;
+        // Legacy fallback (kept only if the config endpoint is unreachable)
+        const FALLBACK_GOOGLE_CLIENT_ID = '338774598801-rmbjl0aprte0l23ja5u3t3fm222jkbq1.apps.googleusercontent.com';
 
-        function initGoogleSignIn() {
-            if (googleSignInInitialized) return;
-            if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) return;
+        function getGoogleClientId() {
+            if (!googleClientIdPromise) {
+                googleClientIdPromise = fetch('/api/auth/google-client', { credentials: 'same-origin' })
+                    .then(r => (r.ok ? r.json() : null))
+                    .then(d => (d && d.clientId) ? d.clientId : '')
+                    .catch(() => FALLBACK_GOOGLE_CLIENT_ID);
+            }
+            return googleClientIdPromise;
+        }
+
+        async function initGoogleSignIn() {
+            if (googleSignInInitialized) return true;
+            if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) return false;
+
+            const clientId = await getGoogleClientId();
+            if (!clientId) return false;
+            if (googleSignInInitialized) return true;
 
             google.accounts.id.initialize({
-                client_id: '338774598801-rmbjl0aprte0l23ja5u3t3fm222jkbq1.apps.googleusercontent.com',
+                client_id: clientId,
                 callback: handleSignInResponse,
                 auto_select: false,
                 cancel_on_tap_outside: false
             });
             googleSignInInitialized = true;
+            return true;
         }
 
         // Initialize when DOM is ready
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initGoogleSignIn);
+            document.addEventListener('DOMContentLoaded', () => { initGoogleSignIn().catch(() => {}); });
         } else {
-            initGoogleSignIn();
+            initGoogleSignIn().catch(() => {});
         }
 
         // Handle Google sign-in button click
-        googleBtn.addEventListener('click', () => {
+        googleBtn.addEventListener('click', async () => {
             hideError();
             if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
                 showError('Google Sign-In is loading. Please wait and try again.');
                 return;
             }
-            initGoogleSignIn();
+            const ready = await initGoogleSignIn();
+            if (!ready) {
+                showError('Google Sign-In is not configured on this server.');
+                return;
+            }
             google.accounts.id.prompt();
         });
 
