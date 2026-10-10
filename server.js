@@ -3105,7 +3105,7 @@ app.put('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
 
   try {
     if (db) {
-      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const filter = postIdFilter(id);
       const existing = await db.collection('posts').findOne(filter);
       if (!existing) return res.status(404).json({ error: 'not found' });
 
@@ -3195,7 +3195,7 @@ app.delete('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
     const isBuyer = String(currentUser?.role || 'USER').toUpperCase() === 'TEMPLATE_BUYER';
 
     if (db) {
-      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const filter = postIdFilter(id);
       const existing = await db.collection('posts').findOne(filter);
       if (!existing) return res.status(404).json({ error: 'not found' });
       if (isBuyer && existing.authorUsername !== currentUser.username) {
@@ -3268,12 +3268,21 @@ app.delete('/api/posts/:id/perma', requireAdmin, async (req, res) => {
   }
 });
 
-// Build a Mongo filter for a post id (handles ObjectId and string ids)
+// Build a Mongo filter for a post id. Post ids have been stored over time as
+// ObjectIds, hex strings, numeric timestamps, or string timestamps, so match
+// `_id`/`id` against every sensible representation to stay compatible.
 function postIdFilter(id) {
-  if (typeof id === 'string' && id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id)) {
-    return { _id: new ObjectId(id) };
-  }
-  return { $or: [{ _id: id }, { id: String(id) }] };
+  const s = String(id);
+  const variants = [s];
+  if (/^\d+$/.test(s)) variants.push(Number(s));
+  if (s.length === 24 && /^[0-9a-fA-F]{24}$/.test(s)) variants.push(new ObjectId(s));
+  const unique = [...new Set(variants)];
+  return {
+    $or: [
+      { _id: { $in: unique } },
+      { id: { $in: unique } }
+    ]
+  };
 }
 
 // Atomically adjust a numeric counter (likes/dislikes) on a post.
