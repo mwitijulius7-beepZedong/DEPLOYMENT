@@ -23,3 +23,14 @@ Notes
 - For production, run under HTTPS, set `cookie.secure = true` and use a strong `SESSION_SECRET`.
 - **Comments Photo Upload**: The blog now supports readers attaching images when leaving comments. The images are stored securely by the backend via the `/api/upload` API and automatically rendered on the frontend.
 - Consider fetching token verification libraries from Google for more robust validation instead of tokeninfo endpoint.
+
+## Data and file storage
+
+The app uses **Supabase** (Postgres + Storage) automatically when
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set. Without them it falls
+back to MongoDB → Vercel KV → local JSON files, and Cloudinary → Vercel Blob →
+local `uploads/`.
+
+Set up the project, run the schema, and migrate existing data by following
+[`supabase/README.md`](supabase/README.md). `DATA_BACKEND=mongo` or
+`DATA_BACKEND=file` forces the legacy backends and is the rollback switch.

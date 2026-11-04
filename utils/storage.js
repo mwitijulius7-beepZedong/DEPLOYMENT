@@ -1,6 +1,8 @@
 const { MongoClient, ObjectId } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
+const { isSupabaseEnabled } = require('./supabase');
+const supabaseStore = require('./supabaseStore');
 
 let db = null;
 let mongoConnectionPromise = null;
@@ -9,6 +11,11 @@ let mongoNextRetry = 0;
 const MONGO_RETRY_DELAY = 60000;
 
 async function getMongoDB() {
+  // When Supabase is the active backend, never touch MongoDB. This also makes
+  // every legacy `if (db)` route branch fall through to the load/save helpers.
+  if (isSupabaseEnabled()) return null;
+  // DATA_BACKEND=file deliberately skips MongoDB (KV then JSON files).
+  if (String(process.env.DATA_BACKEND || '').toLowerCase() === 'file') return null;
   if (db) return db;
   const mongoUri = process.env.MONGODB_URI || process.env.PERSONALBLOG_MONGODB_URI;
   if (!mongoUri) return null;
@@ -239,6 +246,7 @@ async function loadWithFallbackSingle({ collectionName, mongoFilter, kvKey, file
  * is unavailable so callers can fall back to the local settings file.
  */
 async function loadSetting(type) {
+  if (isSupabaseEnabled()) return supabaseStore.loadSetting(type);
   const mongoDb = await getMongoDB();
   if (!mongoDb) return null;
   try {
@@ -255,6 +263,7 @@ async function loadSetting(type) {
  * callers can fall back to the local settings file.
  */
 async function saveSetting(type, fields) {
+  if (isSupabaseEnabled()) return supabaseStore.saveSetting(type, fields);
   const mongoDb = await getMongoDB();
   if (!mongoDb) return false;
   try {
