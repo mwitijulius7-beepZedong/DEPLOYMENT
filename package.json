@@ -6,11 +6,15 @@
     "start": "node server.js",
     "dev": "node server.js",
     "start:force-gate": "node scripts/start-force-gate.js",
+    "migrate:supabase": "node scripts/migrate-to-supabase.js",
+    "migrate:uploads": "node scripts/migrate-uploads-to-supabase.js",
+    "backup": "node scripts/backup-from-supabase.js",
     "lint": "eslint . --ext .js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "@vercel/blob": "^2.0.0",
     "@vercel/kv": "^1.0.1",
     "bcryptjs": "^2.4.3",

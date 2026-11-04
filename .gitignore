@@ -50,3 +50,5 @@ temp-*.js
 # are not committed (delete a local copy freely; it regenerates on save).
 users.json
 settings.json
+# Local backup exports (contain real user data: emails, hashes, transactions)
+backups/

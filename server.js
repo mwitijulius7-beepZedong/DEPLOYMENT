@@ -15,7 +15,9 @@ const jwt = require('jsonwebtoken');
 const { put } = require('@vercel/blob');
 const cloudinary = require('cloudinary').v2;
 const { encryptText, decryptText, isLocalhostRequest, isLocalhostAdminKeyBypassEnabled, recordFailedAttempt, isLockedOut, clearBruteRecord, getClientIP, findUserKey, findUserKeyByEmail } = require('./utils/adminKey');
-const { getMongoDB, setKV, ObjectId, saveWithFallback, loadWithFallback, loadWithFallbackSingle, loadSetting, saveSetting } = require('./utils/storage');
+const { getMongoDB, setKV, ObjectId, saveWithFallback, loadWithFallback, loadWithFallbackSingle } = require('./utils/storage');
+const { isSupabaseEnabled, uploadToSupabaseStorage, listSupabaseStorage, deleteFromSupabaseStorage } = require('./utils/supabase');
+const supabaseStore = require('./utils/supabaseStore');
 const errorHandler = require('./middleware/errorHandler');
 const healthAndErrors = require('./middleware/health_and_errors');
 
@@ -179,6 +181,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com", "https://accounts.google.com"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
       imgSrc: ["'self'", "data:", "https:", "https://*.cloudinary.com"],
+      mediaSrc: ["'self'", "https:"],
       connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://cdn.jsdelivr.net"],
       frameSrc: ["'self'", "https://accounts.google.com"],
     },
@@ -403,6 +406,28 @@ app.use(fileUpload({
 }));
 
 async function loadUsers() {
+  if (isSupabaseEnabled()) {
+    const users = await supabaseStore.loadUsers();
+    if (Object.keys(users).length > 0) return users;
+
+    // Bootstrap an empty users table from the repo snapshot so a deploy made
+    // before the migration script runs cannot lock everyone out.
+    try {
+      if (fs.existsSync(USERS_FILE)) {
+        const raw = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+        const data = Array.isArray(raw) ? Object.fromEntries(raw.map(u => [u.username, u])) : raw;
+        Object.values(data).forEach(u => { if (!u.role) u.role = 'ADMIN'; });
+        if (Object.keys(data).length > 0) {
+          console.log('Seeding Supabase users from local snapshot to prevent lockout...');
+          await supabaseStore.saveUsers(data);
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not seed Supabase users from local snapshot:', e.message);
+    }
+    return users;
+  }
   try {
     // Try MongoDB first if available
     const db = await getMongoDB();
@@ -464,6 +489,7 @@ async function loadUsers() {
 }
 
 async function saveUsers(users) {
+  if (isSupabaseEnabled()) return supabaseStore.saveUsers(users);
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -552,6 +578,7 @@ function normalizeComment(c) {
 }
 
 async function loadPosts() {
+  if (isSupabaseEnabled()) return (await supabaseStore.loadPosts()).map(normalizePost);
   const now = Date.now();
   if (postsCache && now - postsCacheTime < CACHE_TTL) {
     return postsCache;
@@ -629,6 +656,11 @@ async function loadPosts() {
 }
 
 async function savePosts(posts) {
+  if (isSupabaseEnabled()) {
+    postsCache = null;
+    postsCacheTime = 0;
+    return supabaseStore.savePosts(posts);
+  }
   postsCache = null;
   postsCacheTime = 0;
   try {
@@ -689,6 +721,7 @@ async function savePosts(posts) {
 }
 
 async function loadCategories() {
+  if (isSupabaseEnabled()) return supabaseStore.loadCategories();
   try {
     return await loadWithFallback({
       collectionName: 'categories',
@@ -704,6 +737,10 @@ async function loadCategories() {
 }
 
 async function saveCategories(categories) {
+  if (isSupabaseEnabled()) {
+    if (!Array.isArray(categories)) throw new Error('categories must be an array');
+    return supabaseStore.saveCategories(categories);
+  }
   try {
     if (!Array.isArray(categories)) {
       console.error('saveCategories: categories is not an array', typeof categories);
@@ -717,6 +754,14 @@ async function saveCategories(categories) {
 }
 
 async function loadAnalytics() {
+  if (isSupabaseEnabled()) {
+    try {
+      return await supabaseStore.loadAnalytics();
+    } catch (e) {
+      console.error('Supabase analytics load failed:', e.message);
+      return { pageViews: [], postViews: [], interactions: [] };
+    }
+  }
   try {
     const result = await loadWithFallbackSingle({
       collectionName: 'analytics',
@@ -732,6 +777,7 @@ async function loadAnalytics() {
 }
 
 async function saveAnalytics(analytics) {
+  if (isSupabaseEnabled()) return supabaseStore.saveAnalytics(analytics);
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -752,6 +798,14 @@ async function saveAnalytics(analytics) {
  * Centrally records a user interaction for the analytics dashboard
  */
 async function recordInteraction(type, target, value = '', req = null) {
+  if (isSupabaseEnabled()) {
+    try {
+      return await supabaseStore.recordInteraction(type, target, value, req);
+    } catch (e) {
+      console.error('Supabase interaction record failed:', e.message);
+      return;
+    }
+  }
   try {
     const interaction = {
       id: Date.now(),
@@ -788,6 +842,14 @@ async function recordInteraction(type, target, value = '', req = null) {
  * Records a page view for analytics
  */
 async function recordPageView(page, req) {
+  if (isSupabaseEnabled()) {
+    try {
+      return await supabaseStore.recordPageView(page, req);
+    } catch (e) {
+      console.error('Supabase page view record failed:', e.message);
+      return;
+    }
+  }
   try {
     const view = {
       page: String(page || '/'),
@@ -820,6 +882,12 @@ async function recordPageView(page, req) {
  * Helper to upload a file to the configured storage (Cloudinary, Vercel Blob, or Local)
  */
 async function uploadFileToStorage(file, folder = 'blog') {
+  if (isSupabaseEnabled()) {
+    const safe = path.basename(file.name).replace(/[^a-z0-9.\-\_]/gi, '_');
+    const filename = Date.now() + '_' + safe;
+    return uploadToSupabaseStorage(file.data, filename, file.mimetype, folder);
+  }
+
   const isVideo = file.mimetype.startsWith('video/');
   
   // Use Cloudinary if configured
@@ -867,6 +935,14 @@ async function uploadFileToStorage(file, folder = 'blog') {
 }
 
 async function loadSecurityLogs() {
+  if (isSupabaseEnabled()) {
+    try {
+      return await supabaseStore.loadSecurityLogs();
+    } catch (e) {
+      console.error('Supabase security logs load failed:', e.message);
+      return [];
+    }
+  }
   try {
     const result = await loadWithFallbackSingle({
       collectionName: 'security',
@@ -898,6 +974,17 @@ let postHtmlTemplate = null;
 let indexHtmlTemplate = null;
 
 async function loadComments() {
+  if (isSupabaseEnabled()) {
+    try {
+      const comments = await supabaseStore.loadComments();
+      commentsCache = comments.map(normalizeComment);
+      commentsCacheTime = Date.now();
+      return commentsCache;
+    } catch (e) {
+      console.error('Supabase comments load failed:', e.message);
+      return [];
+    }
+  }
   const now = Date.now();
   if (commentsCache && now - commentsCacheTime < CACHE_TTL) {
     return commentsCache;
@@ -925,6 +1012,7 @@ function invalidateCommentsCache() {
 
 async function saveComments(comments) {
   invalidateCommentsCache();
+  if (isSupabaseEnabled()) return supabaseStore.saveComments(comments);
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -964,6 +1052,7 @@ async function saveComments(comments) {
 }
 
 async function loadSubscriptions() {
+  if (isSupabaseEnabled()) return supabaseStore.loadSubscriptions();
   try {
     const db = await getMongoDB();
     if (db) {
@@ -977,6 +1066,7 @@ async function loadSubscriptions() {
 }
 
 async function saveSubscriptions(subscriptions) {
+  if (isSupabaseEnabled()) return supabaseStore.saveSubscriptions(subscriptions);
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -1015,6 +1105,7 @@ async function saveSubscriptions(subscriptions) {
 }
 
 async function loadTemplateBuyers() {
+  if (isSupabaseEnabled()) return supabaseStore.loadTemplateBuyers();
   try {
     const db = await getMongoDB();
     if (db) {
@@ -1033,6 +1124,7 @@ async function loadTemplateBuyers() {
 }
 
 async function saveTemplateBuyers(buyers) {
+  if (isSupabaseEnabled()) return supabaseStore.saveTemplateBuyers(buyers);
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -1057,6 +1149,7 @@ async function saveTemplateBuyers(buyers) {
 }
 
 async function loadTemplateApplications() {
+  if (isSupabaseEnabled()) return supabaseStore.loadTemplateApplications();
   try {
     const db = await getMongoDB();
     if (db) {
@@ -1075,6 +1168,7 @@ async function loadTemplateApplications() {
 }
 
 async function saveTemplateApplications(apps) {
+  if (isSupabaseEnabled()) return supabaseStore.saveTemplateApplications(apps);
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -1100,6 +1194,7 @@ async function saveTemplateApplications(apps) {
 
 // ── MPesa Transactions Storage ──
 async function loadMpesaTransactions() {
+  if (isSupabaseEnabled()) return supabaseStore.loadMpesaTransactions();
   try {
     const db = await getMongoDB();
     if (db) {
@@ -1118,6 +1213,7 @@ async function loadMpesaTransactions() {
 }
 
 async function saveMpesaTransactions(txns) {
+  if (isSupabaseEnabled()) return supabaseStore.saveMpesaTransactions(txns);
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -1261,6 +1357,7 @@ async function checkMpesaTransactionStatus(checkoutRequestId) {
 }
 
 async function loadThemes() {
+  if (isSupabaseEnabled()) return supabaseStore.loadThemes();
   try {
     const db = await getMongoDB();
     if (db) {
@@ -1279,6 +1376,7 @@ async function loadThemes() {
 }
 
 async function saveThemes(themes) {
+  if (isSupabaseEnabled()) return supabaseStore.saveThemes(themes);
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -2169,42 +2267,45 @@ const transporter = (process.env.SMTP_HOST && process.env.SMTP_USER)
     }
   );
 
-// Integrated data migration endpoint — Migrates all data from KV/File to MongoDB
-app.post('/api/admin/migrate-to-mongodb', requireAdmin, async (req, res) => {
+// Data backend status. Supabase is the default when configured; Mongo/file
+// remain available as fallbacks (or as explicit migration sources).
+app.get('/api/admin/data-backend', requireAdmin, async (req, res) => {
   try {
-    const report = {
-      users: 0,
-      posts: 0,
-      categories: 0
-    };
+    const backend = isSupabaseEnabled()
+      ? 'supabase'
+      : ((process.env.DATA_BACKEND || '').toLowerCase() === 'file' ? 'file' : 'mongo');
+    const report = { backend, supabase: isSupabaseEnabled() };
 
-    // 1. Migrate Users
-    const users = await loadUsers();
-    if (Object.keys(users).length > 0) {
-      await saveUsers(users);
-      report.users = Object.keys(users).length;
+    if (isSupabaseEnabled()) {
+      const [users, posts, comments, categories] = await Promise.all([
+        loadUsers(),
+        loadPosts(),
+        loadComments(),
+        loadCategories()
+      ]);
+      report.counts = {
+        users: Object.keys(users).length,
+        posts: posts.length,
+        comments: comments.length,
+        categories: categories.length
+      };
     }
 
-    // 2. Migrate Posts
-    const posts = await loadPosts();
-    if (posts.length > 0) {
-      await savePosts(posts);
-      report.posts = posts.length;
-    }
-
-    // 3. Migrate Categories
-    const categories = await loadCategories();
-    if (categories.length > 0) {
-      await saveCategories(categories);
-      report.categories = categories.length;
-    }
-
-    console.log('Migration completed:', report);
-    return res.json({ success: true, report });
+    return res.json({ success: true, ...report });
   } catch (e) {
-    console.error('Migration error:', e);
-    return res.status(500).json({ error: 'migration_failed', details: e.message });
+    console.error('Data backend status error:', e);
+    return res.status(500).json({ success: false, error: 'status_failed', details: e.message });
   }
+});
+
+// Retired: the old KV/file -> Mongo migration is superseded by
+// `node scripts/migrate-to-supabase.js`.
+app.post('/api/admin/migrate-to-mongodb', requireAdmin, (req, res) => {
+  return res.status(410).json({
+    success: false,
+    error: 'endpoint_retired',
+    message: 'Data migration now runs from the CLI: node scripts/migrate-to-supabase.js (see supabase/README.md).'
+  });
 });
 
 // Auth routes
@@ -2694,6 +2795,24 @@ const RESET_TOKENS_KV_KEY = 'reset_tokens';
 const RESET_TOKENS_FILE = path.join(DATA_DIR, 'reset_tokens.json');
 
 async function loadResetTokens() {
+  if (isSupabaseEnabled()) {
+    try {
+      const tokens = await supabaseStore.loadResetTokens();
+      let changed = false;
+      for (const key of Object.keys(tokens)) {
+        const entry = tokens[key];
+        if (!entry || !entry.expires || Date.now() > entry.expires) {
+          delete tokens[key];
+          changed = true;
+        }
+      }
+      if (changed) await supabaseStore.saveResetTokens(tokens);
+      return tokens;
+    } catch (e) {
+      console.error('Supabase reset tokens load failed:', e.message);
+      return {};
+    }
+  }
   try {
     const result = await loadWithFallbackSingle({
       collectionName: 'reset_tokens',
@@ -2723,6 +2842,7 @@ async function loadResetTokens() {
 }
 
 async function saveResetTokens(tokens) {
+  if (isSupabaseEnabled()) return supabaseStore.saveResetTokens(tokens);
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -2757,7 +2877,7 @@ app.post('/auth/forgot', async (req, res) => {
     try {
       adminEmail = (users['admin'] && users['admin'].email) ? users['admin'].email : '';
       if (!adminEmail) {
-        const settings = readSettings();
+        const settings = await readSettings();
         adminEmail = (settings && settings.author && settings.author.email) ? settings.author.email : '';
       }
       if (!adminEmail) adminEmail = process.env.ALLOWED_EMAIL || '';
@@ -3071,7 +3191,7 @@ app.post('/api/posts', requireAdminOrBuyerAuth, async (req, res) => {
 
       // Auto-share to social media
       try {
-        const settings = readSettings();
+        const settings = await readSettings();
         const creds = settings.socialCredentials || {};
         if (Object.values(creds).some(c => c && c.enabled)) {
           const SocialPoster = require('./utils/socialPoster');
@@ -3105,7 +3225,7 @@ app.put('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
 
   try {
     if (db) {
-      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const filter = postIdFilter(id);
       const existing = await db.collection('posts').findOne(filter);
       if (!existing) return res.status(404).json({ error: 'not found' });
 
@@ -3195,7 +3315,7 @@ app.delete('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
     const isBuyer = String(currentUser?.role || 'USER').toUpperCase() === 'TEMPLATE_BUYER';
 
     if (db) {
-      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const filter = postIdFilter(id);
       const existing = await db.collection('posts').findOne(filter);
       if (!existing) return res.status(404).json({ error: 'not found' });
       if (isBuyer && existing.authorUsername !== currentUser.username) {
@@ -3268,12 +3388,21 @@ app.delete('/api/posts/:id/perma', requireAdmin, async (req, res) => {
   }
 });
 
-// Build a Mongo filter for a post id (handles ObjectId and string ids)
+// Build a Mongo filter for a post id. Post ids have been stored over time as
+// ObjectIds, hex strings, numeric timestamps, or string timestamps, so match
+// `_id`/`id` against every sensible representation to stay compatible.
 function postIdFilter(id) {
-  if (typeof id === 'string' && id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id)) {
-    return { _id: new ObjectId(id) };
-  }
-  return { $or: [{ _id: id }, { id: String(id) }] };
+  const s = String(id);
+  const variants = [s];
+  if (/^\d+$/.test(s)) variants.push(Number(s));
+  if (s.length === 24 && /^[0-9a-fA-F]{24}$/.test(s)) variants.push(new ObjectId(s));
+  const unique = [...new Set(variants)];
+  return {
+    $or: [
+      { _id: { $in: unique } },
+      { id: { $in: unique } }
+    ]
+  };
 }
 
 // Atomically adjust a numeric counter (likes/dislikes) on a post.
@@ -3281,6 +3410,13 @@ function postIdFilter(id) {
 // load-all + save (non-Mongo storage), invalidating the posts cache.
 // Returns the updated counter value, or null if the post was not found.
 async function adjustPostCounter(id, field, delta, action, type, req) {
+  if (isSupabaseEnabled()) {
+    const value = await supabaseStore.adjustPostCounter(id, field, delta);
+    if (value === null) return null;
+    if (action === 'add') await recordInteraction(type, id, null, req);
+    return value;
+  }
+
   const mongoDb = await getMongoDB();
   if (mongoDb) {
     const result = await mongoDb.collection('posts').findOneAndUpdate(
@@ -3382,7 +3518,6 @@ app.post('/api/posts/:id/comments', async (req, res) => {
       imageUrl = uploadRes.url;
     }
 
-    const allComments = await loadComments();
     const newComment = {
       id: Date.now().toString(),
       postId: postId,
@@ -3395,8 +3530,15 @@ app.post('/api/posts/:id/comments', async (req, res) => {
       likes: 0,
       dislikes: 0
     };
-    allComments.push(newComment);
-    await saveComments(allComments);
+    if (isSupabaseEnabled()) {
+      // Insert only the new row; a load-all + replace would drop comments
+      // created by concurrent requests.
+      await supabaseStore.insertComment(newComment);
+    } else {
+      const allComments = await loadComments();
+      allComments.push(newComment);
+      await saveComments(allComments);
+    }
 
     await recordInteraction('comment', postId, null, req);
 
@@ -3545,11 +3687,17 @@ app.post('/api/upload', requireAdminOrBuyerAuth, async (req, res) => {
 // List uploaded files
 app.get('/api/uploads', async (req, res) => {
   try {
+    if (isSupabaseEnabled()) {
+      const objects = await listSupabaseStorage();
+      const images = objects.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name));
+      return res.json({ files: images.map(f => f.url) });
+    }
     const files = fs.readdirSync(UPLOADS_DIR);
     const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f));
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     res.json({ files: images.map(f => `${baseUrl}/uploads/${f}`) });
   } catch (err) {
+    console.error('List uploads error:', err.message);
     res.json({ files: [] });
   }
 });
@@ -3559,7 +3707,12 @@ app.delete('/api/uploads', requireAdmin, async (req, res) => {
   try {
     const { url } = req.body || {};
     if (!url) return res.status(400).json({ success: false, error: 'URL is required' });
-    
+
+    if (isSupabaseEnabled()) {
+      const removed = await deleteFromSupabaseStorage(url);
+      return res.json({ success: true, filename: removed });
+    }
+
     const urlObj = new URL(url);
     const filename = path.basename(urlObj.pathname);
     const filePath = path.join(UPLOADS_DIR, filename);
@@ -3663,53 +3816,175 @@ app.delete('/api/admin/themes/:id', requireAdmin, async (req, res) => {
 const settingsPath = path.join(DATA_DIR, 'settings.json');
 const aboutPath = path.join(DATA_DIR, 'about.json');
 
-// Helper function to read settings
-function readSettings() {
-  try {
-    if (fs.existsSync(settingsPath)) {
-      const data = fs.readFileSync(settingsPath, 'utf8');
-      return JSON.parse(data);
-    }
-  } catch (error) {
-    console.error('Error reading settings:', error);
+const DEFAULT_SETTINGS = {
+  backgroundUrl: '',
+  backgrounds: [],
+  author: {
+    name: '',
+    email: '',
+    bio: '',
+    phone: '',
+    whatsapp: '',
+    profilePicture: '',
+    social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' }
+  },
+  security: {
+    adminEntryKeyHash: '',
+    adminEntryKeyEnc: ''
+  },
+  payment: {
+    mpesaEnvironment: 'sandbox',
+    mpesaConsumerKey: '',
+    mpesaConsumerSecret: '',
+    mpesaShortcode: '',
+    mpesaPasskey: '',
+    templatePrice: 1000
+  },
+  socialCredentials: {
+    twitter: { enabled: false, appKey: '', appSecret: '', accessToken: '', accessSecret: '' },
+    linkedin: { enabled: false, accessToken: '', personUrn: '' },
+    facebook: { enabled: false, accessToken: '', pageId: '' },
+    mastodon: { enabled: false, url: '', accessToken: '' },
   }
-  return {
-    backgroundUrl: '',
-    backgrounds: [],
-    author: {
-      name: '',
-      email: '',
-      bio: '',
-      phone: '',
-      whatsapp: '',
-      profilePicture: '',
-      social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' }
-    },
-    security: {
-      adminEntryKeyHash: '',
-      adminEntryKeyEnc: ''
-    },
-    payment: {
-      mpesaEnvironment: 'sandbox',
-      mpesaConsumerKey: '',
-      mpesaConsumerSecret: '',
-      mpesaShortcode: '',
-      mpesaPasskey: '',
-      templatePrice: 1000
-    },
-    socialCredentials: {
-      twitter: { enabled: false, appKey: '', appSecret: '', accessToken: '', accessSecret: '' },
-      linkedin: { enabled: false, accessToken: '', personUrn: '' },
-      facebook: { enabled: false, accessToken: '', pageId: '' },
-      mastodon: { enabled: false, url: '', accessToken: '' },
+};
+
+// Settings are read on most requests, so keep a very short-lived cache to
+// avoid a Supabase round-trip per call. Writes invalidate it immediately.
+const SETTINGS_CACHE_TTL_MS = 5000;
+let settingsCache = null;
+let settingsCacheAt = 0;
+
+// Legacy Mongo stored settings as one document per feature. Merge them (and the
+// newer single `type: 'app'` document) into the settings object the app uses.
+async function readSettingsFromMongo() {
+  const mongoDb = await getMongoDB();
+  if (!mongoDb) return null;
+  try {
+    const docs = await mongoDb.collection('settings').find({}).toArray();
+    if (!docs.length) return null;
+
+    const byType = new Map();
+    for (const doc of docs) {
+      if (doc && doc.type) byType.set(doc.type, doc);
     }
-  };
+
+    const merged = {};
+    let found = false;
+    const appDoc = byType.get('app');
+    if (appDoc && appDoc.data && typeof appDoc.data === 'object') {
+      Object.assign(merged, appDoc.data);
+      found = true;
+    }
+
+    const background = byType.get('background');
+    if (background) {
+      for (const field of ['backgroundUrl', 'backgrounds']) {
+        if (background[field] !== undefined) { merged[field] = background[field]; found = true; }
+      }
+    }
+    const security = byType.get('security');
+    if (security) {
+      for (const field of ['adminEntryKeyHash', 'adminEntryKeyEnc']) {
+        if (security[field] !== undefined) { merged[field] = security[field]; found = true; }
+      }
+    }
+    const blogInfo = byType.get('blog-info') || byType.get('blogInfo');
+    if (blogInfo && blogInfo.blogInfo !== undefined) {
+      merged.blogInfo = blogInfo.blogInfo;
+      found = true;
+    }
+    for (const type of ['theme', 'author', 'socialCredentials', 'notifications', 'content', 'payment']) {
+      const doc = byType.get(type);
+      if (doc && doc[type] !== undefined) { merged[type] = doc[type]; found = true; }
+    }
+
+    return found ? merged : null;
+  } catch (e) {
+    console.warn('MongoDB settings read error:', e.message);
+    return null;
+  }
 }
 
-// Helper function to write settings
-function writeSettings(settings) {
+// Helper function to read settings (Supabase, then Mongo, then local file)
+async function readSettings() {
+  if (settingsCache && Date.now() - settingsCacheAt < SETTINGS_CACHE_TTL_MS) {
+    return JSON.parse(JSON.stringify(settingsCache));
+  }
+
+  let stored = null;
+  if (isSupabaseEnabled()) {
+    try {
+      stored = await supabaseStore.loadSettingsObject();
+    } catch (error) {
+      console.error('Supabase settings read failed:', error.message);
+    }
+  } else {
+    stored = await readSettingsFromMongo();
+  }
+
+  if (!stored) {
+    try {
+      if (fs.existsSync(settingsPath)) {
+        const data = fs.readFileSync(settingsPath, 'utf8');
+        stored = JSON.parse(data);
+      }
+    } catch (error) {
+      console.error('Error reading settings:', error);
+    }
+  }
+
+  const result = { ...DEFAULT_SETTINGS, ...(stored || {}) };
+  settingsCache = result;
+  settingsCacheAt = Date.now();
+  return JSON.parse(JSON.stringify(result));
+}
+
+// Helper function to write settings (Supabase, then Mongo, then local file)
+async function writeSettings(settings) {
+  if (isSupabaseEnabled()) {
+    await supabaseStore.saveSettingsObject(settings);
+    settingsCache = settings;
+    settingsCacheAt = Date.now();
+    return;
+  }
+
+  const mongoDb = await getMongoDB();
+  if (mongoDb) {
+    const updatedAt = new Date();
+    const doc = (type, fields) => ({
+      updateOne: {
+        filter: { type },
+        update: { $set: { type, ...fields, updatedAt } },
+        upsert: true
+      }
+    });
+    const ops = [
+      doc('app', { data: settings }),
+      doc('background', {
+        backgroundUrl: settings.backgroundUrl || '',
+        backgrounds: Array.isArray(settings.backgrounds) ? settings.backgrounds : []
+      }),
+      doc('blog-info', { blogInfo: settings.blogInfo }),
+      doc('security', settings.security || {})
+    ];
+    for (const type of ['theme', 'author', 'socialCredentials', 'notifications', 'content', 'payment']) {
+      if (settings[type] !== undefined) ops.push(doc(type, { [type]: settings[type] }));
+    }
+
+    await mongoDb.collection('settings').bulkWrite(ops);
+    settingsCache = settings;
+    settingsCacheAt = Date.now();
+    return;
+  }
+
+  if (process.env.VERCEL) {
+    throw new Error('No persistent settings storage on Vercel (configure Supabase or MongoDB).');
+  }
+
   try {
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    settingsCache = settings;
+    settingsCacheAt = Date.now();
   } catch (error) {
     console.error('Error writing settings:', error);
   }
@@ -3719,7 +3994,45 @@ function writeSettings(settings) {
 const EXPECTED_SECTIONS = ['who-i-am', 'mission'];
 const DEFAULT_SECTION_TITLES = { 'who-i-am': 'Who I Am', 'mission': 'My Mission' };
 
+function normalizeAbout(aboutData) {
+  const data = { ...(aboutData || {}) };
+  if (Array.isArray(data.photos)) {
+    data.photos = data.photos.map(p => typeof p === 'string' ? normalizeAssetUrl(p) : p);
+  } else {
+    data.photos = [];
+  }
+  if (!Array.isArray(data.sections)) data.sections = [];
+  EXPECTED_SECTIONS.forEach(secId => {
+    if (!data.sections.find(s => s.id === secId)) {
+      data.sections.push({ id: secId, title: DEFAULT_SECTION_TITLES[secId], content: '' });
+    }
+  });
+  return data;
+}
+
 async function loadAbout() {
+  if (isSupabaseEnabled()) {
+    try {
+      const stored = await supabaseStore.loadAbout();
+      if (stored && typeof stored === 'object') return normalizeAbout(stored);
+
+      // No row yet: seed from the repo snapshot once, then serve it.
+      if (fs.existsSync(aboutPath)) {
+        const seeded = JSON.parse(fs.readFileSync(aboutPath, 'utf8'));
+        if (seeded) {
+          try { await supabaseStore.saveAbout(seeded); } catch (e) {
+            console.warn('Could not seed about data into Supabase:', e.message);
+          }
+          return normalizeAbout(seeded);
+        }
+      }
+      return normalizeAbout({});
+    } catch (e) {
+      console.error('Supabase about load failed:', e.message);
+      return normalizeAbout({});
+    }
+  }
+
   let aboutData = null;
   try {
     const db = await getMongoDB();
@@ -3727,7 +4040,8 @@ async function loadAbout() {
       try {
         const aboutDoc = await db.collection('about').findOne({ _id: 'about_data' });
         if (aboutDoc) {
-          const { _id, ...data } = aboutDoc;
+          const data = { ...aboutDoc };
+          delete data._id;
           aboutData = data;
         }
       } catch (mongoErr) {
@@ -3759,38 +4073,12 @@ async function loadAbout() {
     console.error('Error loading about info:', error);
   }
 
-  if (!aboutData) {
-    aboutData = {
-      hero: { title: 'About Me', subtitle: '' },
-      sections: [],
-      skills: [],
-      contact: {},
-      photos: []
-    };
-  }
-
-  // Normalize photo URLs so host-relative /uploads paths resolve regardless of domain
-  if (Array.isArray(aboutData.photos)) {
-    aboutData.photos = aboutData.photos.map(p =>
-      typeof p === 'string' ? normalizeAssetUrl(p) : p
-    );
-  } else {
-    aboutData.photos = [];
-  }
-
-  // Ensure all expected sections exist (repair data corrupted by old save logic)
-  if (!Array.isArray(aboutData.sections)) aboutData.sections = [];
-  EXPECTED_SECTIONS.forEach(secId => {
-    if (!aboutData.sections.find(s => s.id === secId)) {
-      aboutData.sections.push({ id: secId, title: DEFAULT_SECTION_TITLES[secId], content: '' });
-    }
-  });
-
-  return aboutData;
+  return normalizeAbout(aboutData);
 }
 
 // Helper function to write about info
 async function saveAbout(about) {
+  if (isSupabaseEnabled()) return supabaseStore.saveAbout(about);
   try {
     const db = await getMongoDB();
     if (db) {
@@ -3889,11 +4177,7 @@ app.post('/api/about', requireAdmin, async (req, res) => {
 // Get current background image
 app.get('/api/settings/background', async (req, res) => {
   try {
-    const result = await loadSetting('background');
-    if (result) {
-      return res.json({ backgroundUrl: normalizeAssetUrl(result.backgroundUrl || '') });
-    }
-    const settings = readSettings();
+    const settings = await readSettings();
     return res.json({ backgroundUrl: normalizeAssetUrl(settings.backgroundUrl || '') });
   } catch (e) {
     console.error('Error reading background settings:', e);
@@ -3907,24 +4191,14 @@ app.post('/api/settings/background', requireAdmin, async (req, res) => {
     const { backgroundUrl } = req.body || {};
     if (!backgroundUrl) return res.status(400).json({ error: 'missing backgroundUrl' });
 
-    const existing = await loadSetting('background');
-    if (existing) {
-      const existingBackgrounds = Array.isArray(existing.backgrounds) ? existing.backgrounds : [];
-      const backgrounds = existingBackgrounds.includes(backgroundUrl)
-        ? existingBackgrounds
-        : [...existingBackgrounds, backgroundUrl];
-      await saveSetting('background', { backgroundUrl, backgrounds });
-      return res.json({ success: true, backgroundUrl });
-    }
-
-    const settings = readSettings();
+    const settings = await readSettings();
     settings.backgroundUrl = backgroundUrl;
     // Always append new URL to history (avoid duplicates)
     if (!Array.isArray(settings.backgrounds)) settings.backgrounds = [];
     if (!settings.backgrounds.includes(backgroundUrl)) {
       settings.backgrounds.push(backgroundUrl);
     }
-    writeSettings(settings);
+    await writeSettings(settings);
 
     return res.json({ success: true, backgroundUrl });
   } catch (e) {
@@ -3936,16 +4210,9 @@ app.post('/api/settings/background', requireAdmin, async (req, res) => {
 // Multiple backgrounds API
 app.get('/api/settings/backgrounds', async (req, res) => {
   try {
-    const result = await loadSetting('background');
-    const arr = result
-      ? (Array.isArray(result.backgrounds) ? result.backgrounds : (result.backgroundUrl ? [result.backgroundUrl] : []))
-      : null;
-    if (arr) {
-      return res.json({ backgrounds: arr.map(normalizeAssetUrl) });
-    }
-    const settings = readSettings();
-    const localArr = Array.isArray(settings.backgrounds) ? settings.backgrounds : (settings.backgroundUrl ? [settings.backgroundUrl] : []);
-    return res.json({ backgrounds: localArr.map(normalizeAssetUrl) });
+    const settings = await readSettings();
+    const list = Array.isArray(settings.backgrounds) ? settings.backgrounds : (settings.backgroundUrl ? [settings.backgroundUrl] : []);
+    return res.json({ backgrounds: list.map(normalizeAssetUrl) });
   } catch (e) {
     console.error('Error reading backgrounds settings:', e);
     return res.json({ backgrounds: [] });
@@ -3959,16 +4226,11 @@ app.post('/api/settings/backgrounds', requireAdmin, async (req, res) => {
     const urls = backgrounds.map(u => String(u)).filter(u => u.length > 0);
     const backgroundUrl = urls[0] || '';
 
-    const saved = await saveSetting('background', { backgroundUrl, backgrounds: urls });
-    if (saved) {
-      return res.json({ success: true, backgrounds: urls });
-    }
-
-    const settings = readSettings();
+    const settings = await readSettings();
     settings.backgrounds = urls;
     // Keep legacy single backgroundUrl aligned to first
     settings.backgroundUrl = backgroundUrl;
-    writeSettings(settings);
+    await writeSettings(settings);
     return res.json({ success: true, backgrounds: urls });
   } catch (e) {
     console.error('save backgrounds error:', e);
@@ -3979,13 +4241,7 @@ app.post('/api/settings/backgrounds', requireAdmin, async (req, res) => {
 // Theme settings API
 app.get('/api/settings/theme', async (req, res) => {
   try {
-    const result = await loadSetting('theme');
-    if (result) {
-      return res.json({ theme: result.theme || { primaryColor: '#F4A191', accentColor: '#4A9B9B' } });
-    }
-
-    // Local development
-    const settings = readSettings();
+    const settings = await readSettings();
     const theme = settings.theme || { primaryColor: '#F4A191', accentColor: '#4A9B9B' };
     return res.json({ theme });
   } catch (e) {
@@ -4005,15 +4261,9 @@ app.post('/api/settings/theme', requireAdmin, async (req, res) => {
       accentColor: String(payload.accentColor || '#4A9B9B')
     };
 
-    const saved = await saveSetting('theme', { theme });
-    if (saved) {
-      return res.json({ success: true, theme });
-    }
-
-    // Local development
-    const settings = readSettings();
+    const settings = await readSettings();
     settings.theme = theme;
-    writeSettings(settings);
+    await writeSettings(settings);
     return res.json({ success: true, theme: settings.theme });
   } catch (e) {
     console.error('Error saving theme settings:', e);
@@ -4024,20 +4274,8 @@ app.post('/api/settings/theme', requireAdmin, async (req, res) => {
 // Author settings API
 app.get('/api/settings/author', async (req, res) => {
   try {
-    // For Vercel with MongoDB, check if data exists in MongoDB
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'author' });
-      // If MongoDB has valid author data with at least some fields populated, use it
-      if (result?.author && (result.author.name || result.author.email || result.author.phone || result.author.bio)) {
-        const author = result.author;
-        if (typeof author.profilePicture === 'string') author.profilePicture = normalizeAssetUrl(author.profilePicture);
-        return res.json({ author });
-      }
-      // Otherwise fall through to local file
-    }
-
-    // Local development - always read from local file
-    const settings = readSettings();
+    // Read from the configured backend (Supabase, Mongo, or local file)
+    const settings = await readSettings();
     const defaultAuthor = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
     const author = Object.assign({}, defaultAuthor, settings.author || {});
     if (typeof author.profilePicture === 'string') author.profilePicture = normalizeAssetUrl(author.profilePicture);
@@ -4046,7 +4284,7 @@ app.get('/api/settings/author', async (req, res) => {
     console.error('Error reading author settings:', e);
     // Fall back to local file on error
     try {
-      const settings = readSettings();
+      const settings = await readSettings();
       const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
       if (typeof author.profilePicture === 'string') author.profilePicture = normalizeAssetUrl(author.profilePicture);
       return res.json({ author });
@@ -4060,12 +4298,7 @@ app.get('/api/settings/author', async (req, res) => {
 // Blog info settings API
 app.get('/api/settings/payment', async (req, res) => {
   try {
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'payment' });
-      const payment = result?.payment || { mpesaEnvironment: 'sandbox', mpesaConsumerKey: '', mpesaConsumerSecret: '', mpesaShortcode: '', mpesaPasskey: '', templatePrice: 1000 };
-      return res.json({ payment });
-    }
-    const settings = readSettings();
+    const settings = await readSettings();
     return res.json({ payment: settings.payment || { mpesaEnvironment: 'sandbox', mpesaConsumerKey: '', mpesaConsumerSecret: '', mpesaShortcode: '', mpesaPasskey: '', templatePrice: 1000 } });
   } catch (e) {
     return res.status(500).json({ error: 'internal' });
@@ -4086,18 +4319,9 @@ app.post('/api/settings/payment', requireAdmin, async (req, res) => {
       templatePrice: Number(payload.templatePrice || 1000)
     };
 
-    if (process.env.VERCEL && db) {
-      await db.collection('settings').updateOne(
-        { type: 'payment' },
-        { $set: { payment, updatedAt: new Date() } },
-        { upsert: true }
-      );
-      return res.json({ success: true, payment });
-    }
-
-    const settings = readSettings();
+    const settings = await readSettings();
     settings.payment = payment;
-    writeSettings(settings);
+    await writeSettings(settings);
     return res.json({ success: true, payment });
   } catch (e) {
     return res.status(500).json({ error: 'internal' });
@@ -4119,14 +4343,8 @@ function maskValue(val) {
 
 app.get('/api/settings/social-credentials', requireAdmin, async (req, res) => {
   try {
-    let creds = defaultSocialCredentials;
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'socialCredentials' });
-      creds = result?.socialCredentials || defaultSocialCredentials;
-    } else {
-      const settings = readSettings();
-      creds = settings.socialCredentials || defaultSocialCredentials;
-    }
+    const settings = await readSettings();
+    let creds = settings.socialCredentials || defaultSocialCredentials;
     // Mask secrets before sending to client
     const masked = JSON.parse(JSON.stringify(creds));
     for (const platform of ['twitter', 'linkedin', 'facebook', 'mastodon']) {
@@ -4183,16 +4401,9 @@ app.put('/api/settings/social-credentials', requireAdmin, async (req, res) => {
       },
     };
 
-    // For each platform, if a field is empty but was previously set (masked),
-    // we need to preserve the old value. Re-read existing and merge.
-    let existing = {};
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'socialCredentials' });
-      existing = result?.socialCredentials || {};
-    } else {
-      const settings = readSettings();
-      existing = settings.socialCredentials || {};
-    }
+    // Re-read existing settings and merge so masked secrets are preserved.
+    const settings = await readSettings();
+    const existing = settings.socialCredentials || {};
 
     for (const platform of ['twitter', 'linkedin', 'facebook', 'mastodon']) {
       for (const key of Object.keys(socialCredentials[platform])) {
@@ -4203,17 +4414,8 @@ app.put('/api/settings/social-credentials', requireAdmin, async (req, res) => {
       }
     }
 
-    if (process.env.VERCEL && db) {
-      await db.collection('settings').updateOne(
-        { type: 'socialCredentials' },
-        { $set: { socialCredentials, updatedAt: new Date() } },
-        { upsert: true }
-      );
-    } else {
-      const settings = readSettings();
-      settings.socialCredentials = socialCredentials;
-      writeSettings(settings);
-    }
+    settings.socialCredentials = socialCredentials;
+    await writeSettings(settings);
 
     return res.json({ success: true });
   } catch (e) {
@@ -4224,15 +4426,7 @@ app.put('/api/settings/social-credentials', requireAdmin, async (req, res) => {
 
 app.get('/api/settings/blog-info', async (req, res) => {
   try {
-    // For Vercel, use MongoDB if available
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'blog-info' });
-      const blogInfo = result?.blogInfo || { title: 'zedong254ke', description: 'Discover insights, tutorials, and thoughts on web development, programming, and technology.' };
-      return res.json({ blogInfo });
-    }
-
-    // Local development
-    const settings = readSettings();
+    const settings = await readSettings();
     const blogInfo = settings.blogInfo || { title: 'zedong254ke', description: 'Discover insights, tutorials, and thoughts on web development, programming, and technology.' };
     return res.json({ blogInfo });
   } catch (e) {
@@ -4244,34 +4438,14 @@ app.get('/api/settings/blog-info', async (req, res) => {
 
 app.post('/api/settings/blog-info', requireAdmin, async (req, res) => {
   try {
-    // For Vercel, use MongoDB if available
-    if (process.env.VERCEL && db) {
-      const payload = req.body && req.body.blogInfo ? req.body.blogInfo : req.body;
-      if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
-
-      const blogInfo = {
-        title: String(payload.title || 'zedong254ke'),
-        description: String(payload.description || 'Discover insights, tutorials, and thoughts on web development, programming, and technology.')
-      };
-
-      await db.collection('settings').updateOne(
-        { type: 'blog-info' },
-        { $set: { blogInfo, updatedAt: new Date() } },
-        { upsert: true }
-      );
-
-      return res.json({ success: true, blogInfo });
-    }
-
-    // Local development
     const payload = req.body && req.body.blogInfo ? req.body.blogInfo : req.body;
     if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
-    const settings = readSettings();
+    const settings = await readSettings();
     settings.blogInfo = {
       title: String(payload.title || 'zedong254ke'),
       description: String(payload.description || 'Discover insights, tutorials, and thoughts on web development, programming, and technology.')
     };
-    writeSettings(settings);
+    await writeSettings(settings);
     return res.json({ success: true, blogInfo: settings.blogInfo });
   } catch (e) {
     console.error('Error saving blog info settings:', e);
@@ -4281,41 +4455,9 @@ app.post('/api/settings/blog-info', requireAdmin, async (req, res) => {
 
 app.post('/api/settings/author', requireAdmin, async (req, res) => {
   try {
-    // For Vercel, use MongoDB if available
-    if (process.env.VERCEL && db) {
-      const payload = req.body && req.body.author ? req.body.author : req.body;
-      if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
-
-      const author = {
-        name: String(payload.name || ''),
-        email: String(payload.email || ''),
-        bio: String(payload.bio || ''),
-        phone: String(payload.phone || ''),
-        whatsapp: String(payload.whatsapp || ''),
-        profilePicture: String(payload.profilePicture || ''),
-        social: {
-          email: String(payload.social?.email || ''),
-          twitter: String(payload.social?.twitter || ''),
-          facebook: String(payload.social?.facebook || ''),
-          linkedin: String(payload.social?.linkedin || ''),
-          instagram: String(payload.social?.instagram || ''),
-          website: String(payload.social?.website || '')
-        }
-      };
-
-      await db.collection('settings').updateOne(
-        { type: 'author' },
-        { $set: { author, updatedAt: new Date() } },
-        { upsert: true }
-      );
-
-      return res.json({ success: true, author });
-    }
-
-    // Local development
     const payload = req.body && req.body.author ? req.body.author : req.body;
     if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
-    const settings = readSettings();
+    const settings = await readSettings();
     settings.author = {
       name: String(payload.name || ''),
       email: String(payload.email || ''),
@@ -4332,7 +4474,7 @@ app.post('/api/settings/author', requireAdmin, async (req, res) => {
         website: String(payload.social?.website || '')
       }
     };
-    writeSettings(settings);
+    await writeSettings(settings);
     return res.json({ success: true, author: settings.author });
   } catch (e) {
     console.error('Error saving author settings:', e);
@@ -4401,28 +4543,11 @@ app.post('/api/settings/security', requireAdmin, async (req, res) => {
       const hash = isClearingKey ? '' : await bcrypt.hash(trimmed, BCRYPT_ROUNDS);
       const enc = isClearingKey ? '' : encryptText(trimmed);
 
-      if (process.env.VERCEL) {
-        const mongoDb = await getMongoDB();
-        if (!mongoDb) {
-          return res.status(500).json({
-            success: false,
-            error: 'no_persistent_storage_on_vercel',
-            message: 'Cannot save Admin Entry Key on Vercel without MongoDB. Configure MONGODB_URI or set ADMIN_ENTRY_KEY env var.'
-          });
-        }
-
-        await mongoDb.collection('settings').updateOne(
-          { type: 'security' },
-          { $set: { adminEntryKeyHash: hash, adminEntryKeyEnc: enc, updatedAt: new Date() } },
-          { upsert: true }
-        );
-      } else {
-        const settings = readSettings();
-        if (!settings.security) settings.security = {};
-        settings.security.adminEntryKeyHash = hash;
-        settings.security.adminEntryKeyEnc = enc;
-        writeSettings(settings);
-      }
+      const settings = await readSettings();
+      if (!settings.security) settings.security = {};
+      settings.security.adminEntryKeyHash = hash;
+      settings.security.adminEntryKeyEnc = enc;
+      await writeSettings(settings);
       return res.json({
         success: true,
         message: isClearingKey ? 'Admin entry key cleared successfully' : 'Admin entry key updated successfully'
@@ -4549,19 +4674,8 @@ app.post('/api/settings/security/key-view', requireAdmin, async (req, res) => {
     const ok = await bcrypt.compare(String(password), user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'invalid password' });
 
-    let enc = '';
-    if (process.env.VERCEL) {
-      const mongoDb = await getMongoDB();
-      if (!mongoDb) {
-        enc = '';
-      } else {
-        const result = await mongoDb.collection('settings').findOne({ type: 'security' });
-        enc = result?.adminEntryKeyEnc || '';
-      }
-    } else {
-      const settings = readSettings();
-      enc = settings.security?.adminEntryKeyEnc || '';
-    }
+    const settings = await readSettings();
+    const enc = settings.security?.adminEntryKeyEnc || '';
 
     const key = decryptText(enc);
     return res.json({ success: true, key: key || '' });
@@ -4574,20 +4688,7 @@ app.post('/api/settings/security/key-view', requireAdmin, async (req, res) => {
 // Notifications settings API
 app.get('/api/settings/notifications', async (req, res) => {
   try {
-    // For Vercel, use MongoDB if available
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'notifications' });
-      const notifications = result?.notifications || {
-        emailNotifications: true,
-        commentNotifications: true,
-        subscriptionNotifications: true,
-        adminEmail: ''
-      };
-      return res.json({ notifications });
-    }
-
-    // Local development
-    const settings = readSettings();
+    const settings = await readSettings();
     const notifications = settings.notifications || {
       emailNotifications: true,
       commentNotifications: true,
@@ -4609,38 +4710,16 @@ app.get('/api/settings/notifications', async (req, res) => {
 
 app.post('/api/settings/notifications', requireAdmin, async (req, res) => {
   try {
-    // For Vercel, use MongoDB if available
-    if (process.env.VERCEL && db) {
-      const payload = req.body && req.body.notifications ? req.body.notifications : req.body;
-      if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
-
-      const notifications = {
-        emailNotifications: Boolean(payload.emailNotifications !== false),
-        commentNotifications: Boolean(payload.commentNotifications !== false),
-        subscriptionNotifications: Boolean(payload.subscriptionNotifications !== false),
-        adminEmail: String(payload.adminEmail || '')
-      };
-
-      await db.collection('settings').updateOne(
-        { type: 'notifications' },
-        { $set: { notifications, updatedAt: new Date() } },
-        { upsert: true }
-      );
-
-      return res.json({ success: true, notifications });
-    }
-
-    // Local development
     const payload = req.body && req.body.notifications ? req.body.notifications : req.body;
     if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
-    const settings = readSettings();
+    const settings = await readSettings();
     settings.notifications = {
       emailNotifications: Boolean(payload.emailNotifications !== false),
       commentNotifications: Boolean(payload.commentNotifications !== false),
       subscriptionNotifications: Boolean(payload.subscriptionNotifications !== false),
       adminEmail: String(payload.adminEmail || '')
     };
-    writeSettings(settings);
+    await writeSettings(settings);
     return res.json({ success: true, notifications: settings.notifications });
   } catch (e) {
     console.error('Error saving notifications settings:', e);
@@ -4651,21 +4730,7 @@ app.post('/api/settings/notifications', requireAdmin, async (req, res) => {
 // Content settings API
 app.get('/api/settings/content', async (req, res) => {
   try {
-    // For Vercel, use MongoDB if available
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'content' });
-      const content = result?.content || {
-        enableComments: true,
-        enableSubscriptions: true,
-        postsPerPage: 10,
-        featuredPostsCount: 3,
-        enableRichTextEditor: true
-      };
-      return res.json({ content });
-    }
-
-    // Local development
-    const settings = readSettings();
+    const settings = await readSettings();
     const content = settings.content || {
       enableComments: true,
       enableSubscriptions: true,
@@ -4689,32 +4754,9 @@ app.get('/api/settings/content', async (req, res) => {
 
 app.post('/api/settings/content', requireAdmin, async (req, res) => {
   try {
-    // For Vercel, use MongoDB if available
-    if (process.env.VERCEL && db) {
-      const payload = req.body && req.body.content ? req.body.content : req.body;
-      if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
-
-      const content = {
-        enableComments: Boolean(payload.enableComments !== false),
-        enableSubscriptions: Boolean(payload.enableSubscriptions !== false),
-        postsPerPage: Math.max(1, Math.min(50, parseInt(payload.postsPerPage) || 10)),
-        featuredPostsCount: Math.max(0, Math.min(10, parseInt(payload.featuredPostsCount) || 3)),
-        enableRichTextEditor: Boolean(payload.enableRichTextEditor !== false)
-      };
-
-      await db.collection('settings').updateOne(
-        { type: 'content' },
-        { $set: { content, updatedAt: new Date() } },
-        { upsert: true }
-      );
-
-      return res.json({ success: true, content });
-    }
-
-    // Local development
     const payload = req.body && req.body.content ? req.body.content : req.body;
     if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
-    const settings = readSettings();
+    const settings = await readSettings();
     settings.content = {
       enableComments: Boolean(payload.enableComments !== false),
       enableSubscriptions: Boolean(payload.enableSubscriptions !== false),
@@ -4722,7 +4764,7 @@ app.post('/api/settings/content', requireAdmin, async (req, res) => {
       featuredPostsCount: Math.max(0, Math.min(10, parseInt(payload.featuredPostsCount) || 3)),
       enableRichTextEditor: Boolean(payload.enableRichTextEditor !== false)
     };
-    writeSettings(settings);
+    await writeSettings(settings);
     return res.json({ success: true, content: settings.content });
   } catch (e) {
     console.error('Error saving content settings:', e);
@@ -5160,7 +5202,6 @@ app.post('/api/comments', async (req, res) => {
       imageUrl = uploadRes.url;
     }
 
-    const comments = await loadComments();
     const commentId = Date.now().toString();
     const comment = {
       id: commentId,
@@ -5174,8 +5215,13 @@ app.post('/api/comments', async (req, res) => {
       approved: false
     };
 
-    comments.push(comment);
-    await saveComments(comments);
+    if (isSupabaseEnabled()) {
+      await supabaseStore.insertComment(comment);
+    } else {
+      const comments = await loadComments();
+      comments.push(comment);
+      await saveComments(comments);
+    }
 
     await recordInteraction('comment', String(postId), null, req);
 
@@ -5183,14 +5229,19 @@ app.post('/api/comments', async (req, res) => {
       const subscriptions = await loadSubscriptions();
       const existingSub = subscriptions.find(s => s.email === email && String(s.postId) === String(postId));
       if (!existingSub) {
-        subscriptions.push({
+        const subscription = {
           id: Date.now(),
           postId: String(postId),
           email: email.trim(),
           name: name.trim(),
           subscribedAt: new Date().toISOString()
-        });
-        await saveSubscriptions(subscriptions);
+        };
+        if (isSupabaseEnabled()) {
+          await supabaseStore.insertSubscription(subscription);
+        } else {
+          subscriptions.push(subscription);
+          await saveSubscriptions(subscriptions);
+        }
       }
     }
 
@@ -5423,7 +5474,7 @@ app.get('/post.html', async (req, res) => {
       const post = posts.find(p => String(p.id) === String(postId));
 
       if (post) {
-        const settings = readSettings();
+        const settings = await readSettings();
         const authorName = (settings && settings.author && settings.author.name) || 'Admin';
         const title = post.title || 'Untitled Post';
         const description = (post.content || '').substring(0, 160).replace(/<[^>]*>/g, '') || 'Click to read more';
@@ -5483,7 +5534,7 @@ app.get('/', async (req, res) => {
     }
 
     const base = publicBaseUrl(req);
-    const meta = siteMeta();
+    const meta = await siteMeta();
     const posts = publishedPosts(await loadPosts())
       .sort((a, b) => new Date(b.date) - new Date(a.date));
     const recent = posts.slice(0, 20);
@@ -5533,7 +5584,7 @@ app.get('/about.html', (req, res) => {
 // Test social media connections
 app.get('/api/social/test', requireAdmin, async (req, res) => {
   try {
-    const settings = readSettings();
+    const settings = await readSettings();
     const creds = settings.socialCredentials || {};
     const SocialPoster = require('./utils/socialPoster');
     const poster = new SocialPoster(creds);
@@ -5566,7 +5617,7 @@ app.post('/api/share', async (req, res) => {
             return res.status(404).json({ error: 'Post not found' });
         }
 
-        const settings = readSettings();
+        const settings = await readSettings();
         const author = settings.author || {};
         const social = author.social || {};
 
@@ -5627,9 +5678,9 @@ function absoluteUrl(src, base) {
   return `${base}${value.startsWith('/') ? '' : '/'}${value}`;
 }
 
-function siteMeta() {
+async function siteMeta() {
   let settings = {};
-  try { settings = readSettings() || {}; } catch (e) { settings = {}; }
+  try { settings = await readSettings() || {}; } catch (e) { settings = {}; }
   const blogInfo = settings.blogInfo || {};
   const author = settings.author || {};
   return {
@@ -5674,7 +5725,7 @@ app.get('/sitemap.xml', async (req, res) => {
 });
 
 async function buildRssFeed(baseUrl) {
-  const meta = siteMeta();
+  const meta = await siteMeta();
   const posts = publishedPosts(await loadPosts())
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 30);
@@ -5734,13 +5785,8 @@ app.get('/robots.txt', (req, res) => {
 app.get('/api/payments/config', async (req, res) => {
   try {
     let templatePrice = 1000;
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'payment' });
-      templatePrice = result?.payment?.templatePrice || 1000;
-    } else {
-      const settings = readSettings();
-      templatePrice = settings?.payment?.templatePrice || 1000;
-    }
+    const settings = await readSettings();
+    templatePrice = settings?.payment?.templatePrice || 1000;
     res.json({ success: true, templatePrice });
   } catch (e) {
     res.json({ success: true, templatePrice: 1000 });
@@ -5764,13 +5810,8 @@ app.post('/api/payments/checkout', async (req, res) => {
 
     // Get template price from settings
     let templatePrice = 1000;
-    if (process.env.VERCEL && db) {
-      const result = await db.collection('settings').findOne({ type: 'payment' });
-      templatePrice = result?.payment?.templatePrice || 1000;
-    } else {
-      const settings = readSettings();
-      templatePrice = settings?.payment?.templatePrice || 1000;
-    }
+    const settings = await readSettings();
+    templatePrice = settings?.payment?.templatePrice || 1000;
 
     // Initiate STK Push
     const stkResult = await initiateMpesaSTKPush(cleanPhone, templatePrice, 'BlogTemplate');
