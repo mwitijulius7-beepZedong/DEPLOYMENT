@@ -2749,10 +2749,19 @@ app.post('/auth/google', async (req, res) => {
       }
     }
 
-    req.session.user = {
+    // Look up the matching user record so the response carries proper
+    // username/role (Google-only users may not have a record).
+    const matchedUser = Object.entries(users).find(([, u]) => u && u.email === email);
+    const sessionUser = {
+      username: (matchedUser && matchedUser[0]) || email,
       email: payload.email,
-      name: payload.name || 'Google User'
+      name: payload.name || 'Google User',
+      role: matchedUser
+        ? (String(matchedUser[1].role || 'USER').toUpperCase() || 'USER')
+        : (ALLOWED_EMAIL && email === ALLOWED_EMAIL ? 'ADMIN' : 'USER')
     };
+
+    req.session.user = sessionUser;
 
     // If the client provided a pre-login key token, validate and mark session verified
     try {
@@ -2769,11 +2778,15 @@ app.post('/auth/google', async (req, res) => {
       console.warn('Google login: provided admin key token invalid or expired');
     }
 
-    // For Vercel, also return a simple token
+    // 2026: Always return a signed JWT (8h, same as password login) so auth
+    // survives hosts where the server-side session store cannot persist
+    // (e.g. serverless without KV). /auth/status and requireAuth fall back to
+    // this Bearer token via the client's sessionStorage authToken.
     let authToken = '';
-    if (process.env.VERCEL) {
-      const tokenData = `${payload.email}|${Date.now()}`;
-      authToken = Buffer.from(tokenData).toString('base64');
+    try {
+      authToken = jwt.sign(sessionUser, JWT_SECRET, { expiresIn: '8h' });
+    } catch (e) {
+      console.error('JWT sign error (google login):', e.message);
     }
 
     // Ensure session is saved before returning response
