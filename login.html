@@ -14,6 +14,8 @@
         :root {
             --primary-color: #6366f1;
             --primary-hover: #4f46e5;
+            --violet: #7c3aed;
+            --ring: rgba(99, 102, 241, 0.15);
             --bg-color: #f1f5f9;
             --card-bg: #ffffff;
             --text-dark: #1e293b;
@@ -21,8 +23,8 @@
             --error-color: #ef4444;
             --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-            --border-radius: 16px;
+            --shadow-lg: 0 20px 50px rgba(99, 102, 241, 0.15), 0 8px 16px -8px rgb(0 0 0 / 0.08);
+            --border-radius: 20px;
             --transition: all 0.2s ease-out;
         }
 
@@ -34,31 +36,57 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            background-image: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            /* Slightly stronger indigo/violet tint so the card pops */
+            background-color: #f5f7ff;
+            background-image:
+                radial-gradient(circle at 15% 10%, #c7d2fe 0%, transparent 45%),
+                radial-gradient(circle at 85% 90%, #ddd6fe 0%, transparent 45%);
+            background-attachment: fixed;
             line-height: 1.6;
+            /* flex + margin:auto keeps the card centered yet scrollable
+               when it is taller than the viewport (no clipping) */
             display: flex;
-            justify-content: center;
-            align-items: center;
             min-height: 100vh;
-            padding: 20px;
+            padding: 24px;
+            position: relative;
+        }
+
+        /* Soft blurred shapes behind the card */
+        .bg-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(70px);
+            opacity: 0.55;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .bg-blob-1 {
+            width: 420px; height: 420px;
+            top: -120px; left: -100px;
+            background: radial-gradient(circle, rgba(99,102,241,0.4), transparent 70%);
+        }
+        .bg-blob-2 {
+            width: 460px; height: 460px;
+            bottom: -160px; right: -120px;
+            background: radial-gradient(circle, rgba(124,58,237,0.36), transparent 70%);
         }
 
         .login-container {
             background: var(--card-bg);
+            margin: auto;
             padding: 40px;
             border-radius: var(--border-radius);
+            border: 1px solid rgba(99, 102, 241, 0.12);
             box-shadow: var(--shadow-lg);
             width: 100%;
             max-width: 380px;
-            transform: translateY(0);
-            animation: slideUp 0.5s ease-out;
+            animation: rise 0.3s ease-out;
         }
 
-        @keyframes slideUp {
+        @keyframes rise {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(12px);
             }
 
             to {
@@ -69,12 +97,27 @@
 
         .login-header {
             text-align: center;
-            margin-bottom: 32px;
+            margin-bottom: 28px;
+        }
+
+        .brand-icon {
+            width: 52px;
+            height: 52px;
+            margin: 0 auto 16px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #6366f1, #7c3aed);
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
         }
 
         .login-header h1 {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
             margin-bottom: 8px;
             color: var(--text-dark);
         }
@@ -87,162 +130,239 @@
         .login-form {
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 20px;
+        }
+
+        .forgot-password-form {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .forgot-password-form .form-group {
+            margin-bottom: 16px;
         }
 
         .forgot-password {
-            text-align: center;
-            margin-top: 16px;
+            text-align: right;
         }
 
         .forgot-password a {
             color: var(--primary-color);
             text-decoration: none;
             font-weight: 500;
+            font-size: 13px;
             transition: var(--transition);
         }
 
         .forgot-password a:hover {
+            color: var(--primary-hover);
             text-decoration: underline;
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
+            gap: 6px;
             position: relative;
         }
 
-        .password-toggle {
+        /* Visible labels above inputs */
+        .form-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-dark);
+            letter-spacing: 0.01em;
+            pointer-events: none;
+        }
+
+        .input-wrap {
+            position: relative;
+            width: 100%;
+        }
+
+        /* Leading icons inside inputs (user / lock) */
+        .input-icon {
             position: absolute;
-            right: 16px;
+            left: 14px;
             top: 50%;
             transform: translateY(-50%);
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: var(--text-medium);
-            transition: var(--transition);
-            padding: 4px;
-            z-index: 10;
-        }
-
-        .password-toggle:hover {
-            color: var(--text-dark);
-        }
-
-        .form-label {
-            position: absolute;
-            left: 16px;
-            top: 16px;
-            color: var(--text-medium);
-            font-size: 15px;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
             pointer-events: none;
-            transition: var(--transition);
-            background: transparent;
-            padding: 0 4px;
+            z-index: 2;
+        }
+
+        .form-input.has-icon {
+            padding-left: 42px;
         }
 
         .form-input {
-            padding: 24px 16px 8px;
-            height: 56px;
+            padding: 0 16px;
+            height: 52px;
             border: 1px solid #e2e8f0;
-            border-radius: 8px;
+            border-radius: 12px;
             font-size: 15px;
-            transition: var(--transition);
-            background: #f8fafc;
+            color: var(--text-dark);
+            transition: border-color .15s, box-shadow .15s;
+            background: #ffffff;
             width: 100%;
+        }
+
+        .form-input::placeholder {
+            color: #64748b;
         }
 
         .form-input:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            box-shadow: 0 0 0 4px var(--ring);
             background: #ffffff;
         }
 
-        .form-input:focus~.form-label,
-        .form-input:not(:placeholder-shown)~.form-label {
-            transform: translateY(-10px) scale(0.85);
-            transform-origin: left top;
-            color: var(--primary-color);
+        /* Global focus-visible ring for keyboard users */
+        :focus-visible {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
         }
 
+        .form-input:focus-visible {
+            outline: none;
+        }
+
+        /* Inline field validation error */
+        .field-error {
+            display: none;
+            color: var(--error-color);
+            font-size: 12.5px;
+            font-weight: 500;
+            margin-top: 2px;
+        }
+
+        .form-group.has-error .form-input {
+            border-color: var(--error-color);
+        }
+
+        .form-group.has-error .field-error {
+            display: block;
+        }
+
+        .login-container.shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* Remember me + forgot link on one row */
+        .row-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13.5px;
+            color: var(--text-medium);
+            user-select: none;
+        }
+
+        .remember-me input {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary-color);
+            cursor: pointer;
+        }
+
+        .remember-me label {
+            cursor: pointer;
+        }
+
+        /* Gradient Sign In button */
         .login-btn {
-            background: var(--primary-color);
+            background: linear-gradient(135deg, #6366f1, #7c3aed);
             color: white;
             border: none;
             padding: 0 24px;
             height: 52px;
-            border-radius: 8px;
+            border-radius: 12px;
             font-size: 15px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
-            transition: var(--transition);
-            margin-top: 8px;
+            transition: transform .15s, box-shadow .15s;
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
+            margin-top: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            width: 100%;
         }
 
         .login-btn:hover {
-            background: var(--primary-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 22px rgba(99, 102, 241, 0.28);
         }
 
         .login-btn:disabled {
             background: var(--text-medium);
             cursor: not-allowed;
             transform: none;
+            box-shadow: none;
         }
 
+        /* Full-width outlined Google button — same height as Sign In */
         .google-btn {
+            width: 100%;
             background: #ffffff;
             color: var(--text-dark);
             border: 1px solid #e2e8f0;
             padding: 0 24px;
             height: 52px;
-            border-radius: 8px;
+            border-radius: 12px;
             font-size: 15px;
             font-weight: 500;
             cursor: pointer;
-            transition: var(--transition);
+            transition: border-color .15s, background .15s, transform .15s;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 12px;
-            margin-top: 16px;
+            margin-top: 0;
         }
 
         .google-btn:hover {
             background: #f8fafc;
             border-color: #cbd5e1;
-            transform: translateY(-2px);
+            transform: translateY(-1px);
+        }
+
+        .google-btn:disabled {
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.8;
         }
 
         .divider {
-            text-align: center;
-            margin: 24px 0;
-            position: relative;
-            color: var(--text-medium);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0;
+            color: #94a3b8;
+            font-size: 13px;
         }
 
-        .divider::before {
+        .divider::before,
+        .divider::after {
             content: '';
-            position: absolute;
-            top: 50%;
-            left: 0;
-            right: 0;
-            height: 0;
-            background: #e9ecef;
-            border-top: 1px solid #e2e8f0;
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
         }
 
         .divider span {
-            background: var(--card-bg);
-            padding: 0 16px;
-            font-size: 13px;
+            flex-shrink: 0;
         }
 
         .error-message {
@@ -295,14 +415,32 @@
         }
 
         .back-link a {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             color: var(--text-medium);
             text-decoration: none;
             font-weight: 500;
             font-size: 14px;
         }
 
+        .back-link a .arrow {
+            transition: transform 0.2s ease;
+        }
+
         .back-link a:hover {
             color: var(--primary-color);
+        }
+
+        .back-link a:hover .arrow {
+            transform: translateX(-4px);
+        }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 12px;
+            color: var(--text-medium);
         }
 
         .forgot-password-form {
@@ -314,41 +452,107 @@
             margin-bottom: 16px;
         }
 
-        /* License Login Toggle */
-        .login-mode-toggle {
-            display: flex;
-            gap: 0;
-            margin-bottom: 20px;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        .login-mode-btn {
-            flex: 1;
-            padding: 10px 12px;
-            font-size: 13px;
-            font-weight: 500;
+        /* Right-aligned password visibility toggle inside .input-wrap */
+        .password-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
             border: none;
-            background: #f8fafc;
+            cursor: pointer;
+            color: var(--text-medium);
+            transition: var(--transition);
+            padding: 4px;
+            line-height: 0;
+            z-index: 10;
+        }
+
+        .password-toggle:hover {
+            color: var(--text-dark);
+        }
+
+        /* License Login Toggle — segmented control with sliding pill */
+        .login-mode-toggle {
+            position: relative;
+            display: flex;
+            margin-bottom: 20px;
+            padding: 4px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+        }
+
+        .login-mode-indicator {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            width: calc(50% - 4px);
+            background: #ffffff;
+            border-radius: 9px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.08);
+            transition: transform 0.25s ease;
+            z-index: 0;
+        }
+
+        .login-mode-toggle.license .login-mode-indicator {
+            transform: translateX(100%);
+        }
+
+        .login-mode-btn {
+            position: relative;
+            flex: 1;
+            padding: 9px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            background: transparent;
             color: var(--text-medium);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: color 0.2s;
+            border-radius: 9px;
+            z-index: 1;
         }
+
         .login-mode-btn.active {
-            background: var(--primary-color);
-            color: #fff;
+            color: var(--text-dark);
         }
+
         .login-mode-btn:not(.active):hover {
-            background: #e2e8f0;
+            color: var(--text-dark);
         }
+
         .license-form {
             display: none;
         }
+
         .license-form.visible {
             display: block;
+            animation: fadeSwitch 0.25s ease-out;
         }
+
+        .normal-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            animation: fadeSwitch 0.25s ease-out;
+        }
+
         .normal-form.hidden {
             display: none;
+        }
+
+        @keyframes fadeSwitch {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         @media (max-width: 768px) {
@@ -356,7 +560,7 @@
                 padding: 16px;
             }
             .login-header h1 {
-                font-size: 22px;
+                font-size: 24px;
             }
             .login-btn,
             .google-btn {
@@ -403,25 +607,34 @@
 
         .admin-key-card {
             width: 100%;
-            max-width: 360px;
+            max-width: 380px;
             background: var(--card-bg);
             border-radius: var(--border-radius);
             box-shadow: var(--shadow-lg);
-            padding: 20px;
-            border: 1px solid rgba(148, 163, 184, 0.25);
+            padding: 32px 28px;
+            border: 1px solid rgba(99, 102, 241, 0.12);
+            text-align: center;
+            animation: rise 0.3s ease-out;
+        }
+
+        .admin-key-card .brand-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 14px;
         }
 
         .admin-key-card h2 {
-            margin: 0 0 8px;
-            font-size: 16px;
-            color: var(--text-dark);
+            margin: 0 0 6px;
+            font-size: 22px;
+            font-weight: 700;
             letter-spacing: -0.02em;
+            color: var(--text-dark);
         }
 
         .admin-key-card p {
             margin: 0 0 18px;
             color: var(--text-medium);
-            font-size: 12.5px;
+            font-size: 13px;
         }
 
         .admin-key-error {
@@ -433,12 +646,14 @@
             border-radius: 10px;
             font-size: 13px;
             margin-bottom: 12px;
+            text-align: left;
         }
 
         .admin-key-field {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
+            text-align: left;
         }
 
         .admin-key-help {
@@ -446,10 +661,11 @@
             color: var(--text-medium);
             margin-top: 8px;
             line-height: 1.3;
+            text-align: left;
         }
 
         .admin-key-label {
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 600;
             color: var(--text-dark);
         }
@@ -461,17 +677,24 @@
 
         .admin-key-input {
             width: 100%;
-            padding: 12px 44px 12px 14px;
+            padding: 0 44px 0 42px;
+            height: 52px;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
             font-size: 14px;
-            background: #f8fafc;
+            background: #ffffff;
+            color: var(--text-dark);
+            transition: border-color .15s, box-shadow .15s;
+        }
+
+        .admin-key-input::placeholder {
+            color: #64748b;
         }
 
         .admin-key-input:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+            box-shadow: 0 0 0 4px var(--ring);
             background: #ffffff;
         }
 
@@ -482,9 +705,9 @@
             transform: translateY(-50%);
             width: 32px;
             height: 32px;
-            border: 1px solid #e2e8f0;
+            border: none;
             border-radius: 10px;
-            background: #ffffff;
+            background: transparent;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
@@ -511,16 +734,36 @@
 </head>
 
 <body>
+    <!-- Soft background shapes -->
+    <div class="bg-blob bg-blob-1" aria-hidden="true"></div>
+    <div class="bg-blob bg-blob-2" aria-hidden="true"></div>
+
     <!-- Admin Entry Key Gate -->
     <div class="admin-key-overlay" id="adminKeyOverlay" aria-hidden="true">
         <div class="admin-key-card" role="dialog" aria-modal="true" aria-labelledby="adminKeyTitle">
+            <div class="brand-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2l7 3v6c0 4.97-2.98 8.68-7 10-4.02-1.32-7-5.03-7-10V5l7-3z"></path>
+                    <path d="M12 11v4"></path>
+                    <path d="M9.5 12.5h5"></path>
+                </svg>
+            </div>
             <h2 id="adminKeyTitle">Subscriber ID Required</h2>
+            <p>This is a protected area. Enter your subscriber ID to continue.</p>
             
             <div class="admin-key-error" id="adminKeyError"></div>
 
             <div class="admin-key-field">
                 <div class="admin-key-label" id="adminKeyLabel">Subscriber ID</div>
                 <div class="admin-key-input-wrap">
+                    <span class="input-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </span>
                     <input class="admin-key-input" id="adminKeyInput" type="password" placeholder="Enter subscriber ID"
                         autocomplete="off" maxlength="200" aria-labelledby="adminKeyLabel" />
                     <button class="admin-key-toggle" id="adminKeyToggle" type="button" aria-label="Show subscriber ID"
@@ -543,37 +786,78 @@
 
     <div class="login-container" id="loginContainer" style="display:none;">
         <div class="login-header">
+            <div class="brand-icon" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2l7 3v6c0 4.97-2.98 8.68-7 10-4.02-1.32-7-5.03-7-10V5l7-3z"></path>
+                    <path d="M12 11v4"></path>
+                    <path d="M9.5 12.5h5"></path>
+                </svg>
+            </div>
             <h1>Welcome Back</h1>
-            <p>Sign in to access the admin panel</p>
+            <p id="loginSubtitle">Sign in to access the admin panel</p>
         </div>
 
         <div id="errorMessage" class="error-message"></div>
 
-        <!-- Login Mode Toggle -->
-        <div class="login-mode-toggle">
+        <!-- Login Mode Toggle (segmented control) -->
+        <div class="login-mode-toggle" id="loginModeToggle">
+            <span class="login-mode-indicator" aria-hidden="true"></span>
             <button type="button" class="login-mode-btn active" id="adminModeBtn" onclick="switchLoginMode('admin')">Admin Login</button>
             <button type="button" class="login-mode-btn" id="licenseModeBtn" onclick="switchLoginMode('license')">Template License</button>
         </div>
 
         <!-- Admin Login Form -->
-        <form class="login-form normal-form" id="loginForm">
-            <div class="form-group">
-                <input type="text" id="username" class="form-input" placeholder=" " required autocomplete="username"
-                    maxlength="100">
+        <form class="login-form normal-form" id="loginForm" novalidate>
+            <div class="form-group" id="usernameGroup">
                 <label for="username" class="form-label">Username</label>
+                <div class="input-wrap">
+                    <span class="input-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </span>
+                    <input type="text" id="username" class="form-input has-icon" placeholder="Enter your username"
+                        required autocomplete="username" maxlength="100">
+                </div>
+                <div class="field-error" id="usernameError"></div>
             </div>
 
-            <div class="form-group">
-                <input type="password" id="password" class="form-input" placeholder=" " required
-                    autocomplete="current-password" maxlength="200" style="padding-right: 48px;">
+            <div class="form-group" id="passwordGroup">
                 <label for="password" class="form-label">Password</label>
-                <button type="button" class="password-toggle" id="passwordToggle"
-                    aria-label="Toggle password visibility">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                </button>
+                <div class="input-wrap">
+                    <span class="input-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </span>
+                    <input type="password" id="password" class="form-input has-icon"
+                        placeholder="Enter your password" required autocomplete="current-password" maxlength="200"
+                        style="padding-right: 48px;">
+                    <button type="button" class="password-toggle" id="passwordToggle"
+                        aria-label="Show password" aria-pressed="false" title="Show password">
+                        <svg id="passwordToggleIcon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+                <div class="field-error" id="passwordError"></div>
+            </div>
+
+            <div class="row-between">
+                <div class="remember-me">
+                    <input type="checkbox" id="rememberMe" checked>
+                    <label for="rememberMe">Remember me</label>
+                </div>
+                <div class="forgot-password" id="forgotPasswordContainer">
+                    <a href="#" id="forgotPasswordLink">Forgot password?</a>
+                </div>
             </div>
 
             <button type="submit" class="login-btn" id="loginBtn">
@@ -581,14 +865,21 @@
             </button>
         </form>
 
-        <div class="forgot-password" id="forgotPasswordContainer">
-            <a href="#" id="forgotPasswordLink">Forgot your password?</a>
-        </div>
-
-        <form class="forgot-password-form" id="forgotPasswordForm">
-            <div class="form-group">
-                <input type="email" id="resetEmail" class="form-input" placeholder=" " required autocomplete="email">
+        <form class="forgot-password-form" id="forgotPasswordForm" novalidate>
+            <div class="form-group" id="resetEmailGroup">
                 <label for="resetEmail" class="form-label">Email Address</label>
+                <div class="input-wrap">
+                    <span class="input-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                            <path d="M22 6l-10 7L2 6"></path>
+                        </svg>
+                    </span>
+                    <input type="email" id="resetEmail" class="form-input has-icon" placeholder="you@example.com"
+                        required autocomplete="email">
+                </div>
+                <div class="field-error" id="resetEmailError"></div>
             </div>
             <button type="submit" class="login-btn" id="resetBtn">Send Reset Email</button>
             <div class="forgot-password" style="margin-top: 12px;">
@@ -596,34 +887,55 @@
             </div>
         </form>
 
-        <div class="divider">
+        <div class="divider" id="signInDivider">
             <span>or</span>
         </div>
 
         <button class="google-btn" id="googleBtn">
-            <svg width="20" height="20" viewBox="0 0 24 24">
-                <path fill="currentColor"
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#4285F4"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="currentColor"
+                <path fill="#34A853"
                     d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="currentColor"
+                <path fill="#FBBC05"
                     d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="currentColor"
+                <path fill="#EA4335"
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
             Sign in with Google
         </button>
 
         <!-- License Key Login Form (hidden by default) -->
-        <form class="login-form license-form" id="licenseLoginForm">
-            <div class="form-group">
-                <input type="email" id="licenseEmail" class="form-input" placeholder=" " required autocomplete="email">
+        <form class="login-form license-form" id="licenseLoginForm" novalidate>
+            <div class="form-group" id="licenseEmailGroup">
                 <label for="licenseEmail" class="form-label">Email Address</label>
+                <div class="input-wrap">
+                    <span class="input-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                            <path d="M22 6l-10 7L2 6"></path>
+                        </svg>
+                    </span>
+                    <input type="email" id="licenseEmail" class="form-input has-icon" placeholder="you@example.com"
+                        required autocomplete="email">
+                </div>
+                <div class="field-error" id="licenseEmailError"></div>
             </div>
-            <div class="form-group">
-                <input type="text" id="licenseKey" class="form-input" placeholder=" " required autocomplete="off"
-                    maxlength="30" style="text-transform:uppercase; letter-spacing:0.05em;">
+            <div class="form-group" id="licenseKeyGroup">
                 <label for="licenseKey" class="form-label">License Key (BLG-XXXX-XXXX-XXXX)</label>
+                <div class="input-wrap">
+                    <span class="input-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                        </svg>
+                    </span>
+                    <input type="text" id="licenseKey" class="form-input has-icon" placeholder="BLG-XXXX-XXXX-XXXX"
+                        required autocomplete="off" maxlength="30"
+                        style="text-transform:uppercase; letter-spacing:0.05em;">
+                </div>
+                <div class="field-error" id="licenseKeyError"></div>
             </div>
             <button type="submit" class="login-btn" id="licenseLoginBtn">
                 <span>Activate with License</span>
@@ -634,8 +946,10 @@
         </form>
 
         <div class="back-link">
-            <a href="/">← Back to Blog</a>
+            <a href="/"><span class="arrow" aria-hidden="true">←</span> Back to Blog</a>
         </div>
+
+        <p class="footer-note">Protected area. Authorized users only.</p>
     </div>
 
     <script>
@@ -746,9 +1060,11 @@
         });
 
         if (adminKeyToggleBtn && adminKeyInputEl) {
+            adminKeyToggleBtn.setAttribute('aria-pressed', 'false');
             adminKeyToggleBtn.addEventListener('click', () => {
                 const isPassword = adminKeyInputEl.getAttribute('type') === 'password';
                 adminKeyInputEl.setAttribute('type', isPassword ? 'text' : 'password');
+                adminKeyToggleBtn.setAttribute('aria-pressed', isPassword ? 'true' : 'false');
                 adminKeyToggleBtn.setAttribute('aria-label', isPassword ? 'Hide subscriber ID' : 'Show subscriber ID');
                 adminKeyToggleBtn.title = isPassword ? 'Hide' : 'Show';
 
@@ -785,18 +1101,67 @@
             errorMessage.style.display = 'none';
         }
 
+        // ── Inline field validation helpers ──
+        function setFieldError(groupId, message) {
+            const group = document.getElementById(groupId);
+            if (!group) return false;
+            group.classList.add('has-error');
+            const el = group.querySelector('.field-error');
+            if (el) el.textContent = message;
+            return false;
+        }
+
+        function clearFieldErrors(formEl) {
+            if (!formEl) return;
+            formEl.querySelectorAll('.form-group.has-error').forEach(g => {
+                g.classList.remove('has-error');
+                const el = g.querySelector('.field-error');
+                if (el) el.textContent = '';
+            });
+        }
+
+        function shakeContainer() {
+            const container = document.getElementById('loginContainer');
+            if (!container) return;
+            container.classList.remove('shake');
+            // force reflow so the animation restarts
+            void container.offsetWidth;
+            container.classList.add('shake');
+        }
+
+        // Official 4-color Google "G" logo (brand guideline colors)
+        const GOOGLE_LOGO_SVG = `
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>`;
+
         // Handle form submission
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             hideError();
+            clearFieldErrors(loginForm);
 
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
+            const rememberChecked = document.getElementById('rememberMe').checked;
+            const usernameField = document.getElementById('username');
+            const passwordField = document.getElementById('password');
+            const username = usernameField.value.trim();
+            const password = passwordField.value.trim();
 
-            if (!username || !password) {
-                showError('Please enter both username and password');
-                return;
-            }
+            let valid = true;
+            if (!username) valid = setFieldError('usernameGroup', 'Please enter your username');
+            if (!password) valid = setFieldError('passwordGroup', 'Please enter your password');
+            if (!valid) { shakeContainer(); usernameField.focus(); return; }
+
+            try {
+                if (rememberChecked) {
+                    try { localStorage.setItem('rememberedUsername', username); } catch (_) { }
+                } else {
+                    try { localStorage.removeItem('rememberedUsername'); } catch (_) { }
+                }
+            } catch (_) { }
 
             loginBtn.disabled = true;
             loginBtn.innerHTML = '<span class="spinner"></span> Signing in...';
@@ -834,10 +1199,12 @@
                     window.location.href = '/admin.html';
                 } else {
                     showError(data.error || 'Login failed');
+                    shakeContainer();
                 }
             } catch (error) {
                 console.error('Login error:', error);
                 showError('An error occurred. Please try again.');
+                shakeContainer();
             } finally {
                 loginBtn.disabled = false;
                 loginBtn.innerHTML = '<span>Sign In</span>';
@@ -869,28 +1236,18 @@
                     window.location.href = '/admin.html';
                 } else {
                     showError(data.error || 'Google login failed');
+                    shakeContainer();
                     googleBtn.disabled = false;
-                    googleBtn.innerHTML = `
-                        <svg width="20" height="20" viewBox="0 0 24 24">
-                            <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                            <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                            <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                            <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                        </svg>
+                    googleBtn.innerHTML = `${GOOGLE_LOGO_SVG}
                         Sign in with Google
                     `;
                 }
             } catch (error) {
                 console.error('Google login error:', error);
                 showError('An error occurred. Please try again.');
+                shakeContainer();
                 googleBtn.disabled = false;
-                googleBtn.innerHTML = `
-                    <svg width="20" height="20" viewBox="0 0 24 24">
-                        <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
+                googleBtn.innerHTML = `${GOOGLE_LOGO_SVG}
                     Sign in with Google
                 `;
             }
@@ -960,9 +1317,15 @@
             const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
             passwordInput.setAttribute('type', type);
 
+            // Dynamic tooltip, accessible name and toggle state (mirrors admin-key toggle)
+            const shown = type === 'text';
+            passwordToggle.setAttribute('aria-pressed', shown ? 'true' : 'false');
+            passwordToggle.setAttribute('aria-label', shown ? 'Hide password' : 'Show password');
+            passwordToggle.title = shown ? 'Hide password' : 'Show password';
+
             // Update icon
-            const icon = passwordToggle.querySelector('svg');
-            if (type === 'password') {
+            const icon = passwordToggle.querySelector('#passwordToggleIcon');
+            if (!shown) {
                 icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
             } else {
                 icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
@@ -973,9 +1336,12 @@
         forgotPasswordLink.addEventListener('click', (e) => {
             e.preventDefault();
             hideError();
+            clearFieldErrors(loginForm);
+            setSubtitle('forgot');
             loginForm.style.display = 'none';
             forgotPasswordForm.style.display = 'block';
             forgotPasswordContainer.style.display = 'none';
+            document.getElementById('loginModeToggle').style.display = 'none';
             resetEmail.focus();
         });
 
@@ -983,9 +1349,12 @@
         backToLoginLink.addEventListener('click', (e) => {
             e.preventDefault();
             hideError();
+            clearFieldErrors(forgotPasswordForm);
+            setSubtitle('admin');
             forgotPasswordForm.style.display = 'none';
             loginForm.style.display = 'flex';
-            forgotPasswordContainer.style.display = 'block';
+            forgotPasswordContainer.style.display = '';
+            document.getElementById('loginModeToggle').style.display = '';
             document.getElementById('username').focus();
         });
 
@@ -993,11 +1362,18 @@
         forgotPasswordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             hideError();
+            clearFieldErrors(forgotPasswordForm);
 
             const email = resetEmail.value.trim();
 
             if (!email) {
-                showError('Please enter your email address');
+                setFieldError('resetEmailGroup', 'Please enter your email address');
+                resetEmail.focus();
+                return;
+            }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                setFieldError('resetEmailGroup', 'Please enter a valid email address');
+                resetEmail.focus();
                 return;
             }
 
@@ -1030,10 +1406,29 @@
             }
         });
 
-        // Focus on username field
+        // Focus on username field, prefill remembered username, spellcheck off
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('username').focus();
+            const usernameField = document.getElementById('username');
+            try {
+                const remembered = localStorage.getItem('rememberedUsername');
+                if (remembered) {
+                    usernameField.value = remembered;
+                    document.getElementById('rememberMe').checked = true;
+                }
+            } catch (_) { }
+            usernameField.focus();
         });
+
+        // Contextual subtitle per active mode
+        const loginSubtitle = document.getElementById('loginSubtitle');
+        const SUBTITLES = {
+            admin: 'Sign in to access the admin panel',
+            license: 'Enter your template license key',
+            forgot: 'Enter the email tied to your account'
+        };
+        function setSubtitle(mode) {
+            if (loginSubtitle && SUBTITLES[mode]) loginSubtitle.textContent = SUBTITLES[mode];
+        }
 
         // ── Login Mode Toggle (Admin vs License) ──
         function switchLoginMode(mode) {
@@ -1042,26 +1437,34 @@
             const adminBtn = document.getElementById('adminModeBtn');
             const licenseBtn = document.getElementById('licenseModeBtn');
             const forgotContainer = document.getElementById('forgotPasswordContainer');
-            const divider = document.querySelector('.divider');
+            const divider = document.getElementById('signInDivider');
             const googleBtn = document.getElementById('googleBtn');
+            const toggle = document.getElementById('loginModeToggle');
             hideError();
+            clearFieldErrors(adminForm);
+            clearFieldErrors(licenseForm);
+            setSubtitle(mode);
 
             if (mode === 'license') {
                 adminForm.classList.add('hidden');
                 licenseForm.classList.add('visible');
                 adminBtn.classList.remove('active');
                 licenseBtn.classList.add('active');
+                toggle.classList.add('license');
                 if (forgotContainer) forgotContainer.style.display = 'none';
                 if (divider) divider.style.display = 'none';
                 if (googleBtn) googleBtn.style.display = 'none';
+                setTimeout(() => document.getElementById('licenseEmail').focus(), 60);
             } else {
                 adminForm.classList.remove('hidden');
                 licenseForm.classList.remove('visible');
                 adminBtn.classList.add('active');
                 licenseBtn.classList.remove('active');
+                toggle.classList.remove('license');
                 if (forgotContainer) forgotContainer.style.display = '';
                 if (divider) divider.style.display = '';
                 if (googleBtn) googleBtn.style.display = '';
+                setTimeout(() => document.getElementById('username').focus(), 60);
             }
         }
 
@@ -1071,10 +1474,18 @@
             licenseLoginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 hideError();
-                const email = document.getElementById('licenseEmail').value.trim();
-                const licenseKey = document.getElementById('licenseKey').value.trim().toUpperCase();
+                clearFieldErrors(licenseLoginForm);
+                const licenseEmailField = document.getElementById('licenseEmail');
+                const licenseKeyField = document.getElementById('licenseKey');
+                const email = licenseEmailField.value.trim();
+                const licenseKey = licenseKeyField.value.trim().toUpperCase();
                 const btn = document.getElementById('licenseLoginBtn');
-                if (!email || !licenseKey) { showError('Please enter both email and license key.'); return; }
+
+                let valid = true;
+                if (!email) valid = setFieldError('licenseEmailGroup', 'Please enter your email address');
+                if (!licenseKey) valid = setFieldError('licenseKeyGroup', 'Please enter your license key');
+                if (!valid) { shakeContainer(); licenseEmailField.focus(); return; }
+
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner"></span> Verifying...';
                 try {
@@ -1090,9 +1501,11 @@
                         window.location.href = '/admin.html';
                     } else {
                         showError(data.message || data.error || 'License verification failed.');
+                        shakeContainer();
                     }
                 } catch (err) {
                     showError('An error occurred. Please try again.');
+                    shakeContainer();
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = '<span>Activate with License</span>';
