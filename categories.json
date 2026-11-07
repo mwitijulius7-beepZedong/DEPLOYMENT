@@ -46,5 +46,33 @@
     "description": "A test category",
     "createdAt": "2026-06-15T21:02:50.622Z",
     "id": "6a30687a94ff6db31f9cd3fe"
+  },
+  {
+    "name": "Work",
+    "slug": "work",
+    "description": "Career and workplace stories",
+    "createdAt": "2026-11-06T00:00:00.000Z",
+    "id": "topic-work"
+  },
+  {
+    "name": "Football",
+    "slug": "football",
+    "description": "Match reviews and football opinions",
+    "createdAt": "2026-11-06T00:00:00.000Z",
+    "id": "topic-football"
+  },
+  {
+    "name": "Tech",
+    "slug": "tech",
+    "description": "Technology, AI and tools",
+    "createdAt": "2026-11-06T00:00:00.000Z",
+    "id": "topic-tech"
+  },
+  {
+    "name": "Travel",
+    "slug": "travel",
+    "description": "Trips, places and experiences",
+    "createdAt": "2026-11-06T00:00:00.000Z",
+    "id": "topic-travel"
   }
 ]

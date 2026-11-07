@@ -967,11 +967,14 @@ let postsCache = null;
 let postsCacheTime = 0;
 
 // post.html template cached in memory so OG-meta generation doesn't
-// re-read the file synchronously on every page load.
+// re-read the file synchronously on every page load (mtime-checked so
+// edits during development are picked up without a restart).
 let postHtmlTemplate = null;
+let postHtmlTemplateMtimeMs = 0;
 
 // index.html template cached in memory for the SSR'd homepage inject.
 let indexHtmlTemplate = null;
+let indexHtmlTemplateMtimeMs = 0;
 
 async function loadComments() {
   if (isSupabaseEnabled()) {
@@ -5461,9 +5464,11 @@ app.get('/post.html', async (req, res) => {
   const postId = req.query.id;
   const baseUrl = `${req.protocol}://${req.get('host')}`;
 
-  // Cache the template in memory (it never changes at runtime)
-  if (!postHtmlTemplate) {
+  // Cache the template in memory; reload automatically if the file changes
+  const postHtmlPathBuf = fs.statSync(path.join(__dirname, 'post.html'));
+  if (!postHtmlTemplate || postHtmlPathBuf.mtimeMs !== postHtmlTemplateMtimeMs) {
     postHtmlTemplate = fs.readFileSync(path.join(__dirname, 'post.html'), 'utf8');
+    postHtmlTemplateMtimeMs = postHtmlPathBuf.mtimeMs;
   }
   let html = postHtmlTemplate;
 
@@ -5529,8 +5534,19 @@ function htmlEscape(value) {
 
 app.get('/', async (req, res) => {
   try {
-    if (!indexHtmlTemplate) {
-      indexHtmlTemplate = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+    const indexHtmlPath = path.join(__dirname, 'index.html');
+    // Reload the template when the file changes on disk so HTML edits go live
+    // without a server restart (mtime-based cache, same file always cached).
+    try {
+      const mtimeMs = fs.statSync(indexHtmlPath).mtimeMs;
+      if (!indexHtmlTemplate || mtimeMs !== indexHtmlTemplateMtimeMs) {
+        indexHtmlTemplate = fs.readFileSync(indexHtmlPath, 'utf8');
+        indexHtmlTemplateMtimeMs = mtimeMs;
+      }
+    } catch (e) {
+      if (!indexHtmlTemplate) {
+        indexHtmlTemplate = fs.readFileSync(indexHtmlPath, 'utf8');
+      }
     }
 
     const base = publicBaseUrl(req);
