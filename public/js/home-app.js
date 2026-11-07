@@ -28,6 +28,7 @@
                         selectedArchive: '',
                         selectedDate: '',
                         sortBy: 'newest',
+                        visibleCount: 9,
                         authorInfo: null,
                         lightboxImg: '',
                         isLightboxOpen: false,
@@ -35,6 +36,7 @@
                         theme: (() => { const t = localStorage.getItem('blog_theme'); return (t === 'glass' || t === 'minimal') ? 'light' : (t || 'light'); })(),
                         showSearchSuggestions: false,
                         searchSuggestionIndex: -1,
+                        showAdvanced: false,
                         showShortcuts: false,
                         filtersSticky: false,
                         readingModePost: null,
@@ -137,6 +139,19 @@
                         }
                         return [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
                     },
+                    visiblePosts() {
+                        return this.latestPosts.slice(0, this.visibleCount);
+                    },
+                    latestPosts() {
+                        // Exclude the featured post from Latest ONLY when an
+                        // admin explicitly pinned/featured it for the hero —
+                        // otherwise the newest post would disappear from the
+                        // feed and look like posts are missing.
+                        const featured = this.featuredPost;
+                        const explicitlyPinned = featured && (featured.featured || featured.pinned);
+                        const featuredId = (explicitlyPinned && this.posts.length > 1) ? featured.id : null;
+                        return this.sortedFilteredPosts.filter(p => !featuredId || String(p.id) !== String(featuredId));
+                    },
                     readingModeNav() {
                         if (!this.readingModePost) return null;
                         // Chronological neighbours, independent of the current sort order
@@ -214,18 +229,15 @@
                             return JSON.parse(localStorage.getItem('blog_recent_searches') || '[]');
                         } catch { return []; }
                     },
-                    continueReadingPosts() {
-                        const readIds = this.getReadingHistory();
-                        return this.posts.filter(p => readIds.includes(p.id)).slice(0, 6);
-                    },
                     trendingPosts() {
+                        // Hide Trending on small blogs to avoid repeating the
+                        // same few posts, and never include the featured post.
+                        if (this.posts.length < 6) return [];
+                        const featuredId = this.featuredPost ? this.featuredPost.id : null;
                         return [...this.posts]
+                            .filter(p => !featuredId || String(p.id) !== String(featuredId))
                             .sort((a, b) => ((b.likes || 0) + (b.dislikes || 0)) - ((a.likes || 0) + (a.dislikes || 0)))
                             .slice(0, 6);
-                    },
-                    recentlyViewedPosts() {
-                        const viewedIds = this.getRecentlyViewed();
-                        return viewedIds.map(id => this.posts.find(p => p.id === id)).filter(Boolean).slice(0, 6);
                     },
                     hasSocialLinks() {
                         if (!this.authorInfo || !this.authorInfo.social) return false;
@@ -240,7 +252,21 @@
                         return fd.name.trim() && fd.email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fd.email) && fd.cardNumber.replace(/\s/g, '').length >= 15 && fd.cardExpiry.length === 5 && fd.cardCvc.length >= 3;
                     }
                 },
+                watch: {
+                    // Keep the homepage compact: when filters change, restart
+                    // from the first page of results.
+                    searchQuery() { this.visibleCount = 9; },
+                    selectedCategory() { this.visibleCount = 9; },
+                    selectedTag() { this.visibleCount = 9; },
+                    selectedArchive() { this.visibleCount = 9; },
+                    selectedDate() { this.visibleCount = 9; },
+                    sortBy() { this.visibleCount = 9; },
+                    showBookmarks() { this.visibleCount = 9; },
+                },
                 methods: {
+                    loadMorePosts() {
+                        this.visibleCount += 9;
+                    },
                     getTags(post) {
                         return Array.isArray(post?.tags) ? post.tags : [];
                     },
@@ -281,6 +307,7 @@
                                 appElement.style.backgroundSize = 'cover';
                                 appElement.style.backgroundPosition = 'center';
                                 appElement.style.backgroundAttachment = 'fixed';
+                                appElement.classList.add('has-custom-bg');
                             }
                         }
 
@@ -342,6 +369,24 @@
                         if (!categoryId) return null;
                         const cat = this.categories.find(c => c.id === categoryId);
                         return cat ? cat.name : null;
+                    },
+                    // Deterministic color per category, used to color-code
+                    // chips and badges so topics are easy to scan.
+                    categoryColor(name) {
+                        if (!name || name === 'All') return 'var(--primary-color)';
+                        let hash = 0;
+                        for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+                        const hue = hash % 360;
+                        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                        return isDark ? `hsl(${hue}, 55%, 60%)` : `hsl(${hue}, 60%, 38%)`;
+                    },
+                    // Lighter variant for text on the dark hero scrim
+                    categoryShade(name) {
+                        if (!name || name === 'All') return 'rgba(255,255,255,0.85)';
+                        let hash = 0;
+                        for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+                        const hue = hash % 360;
+                        return `hsl(${hue}, 70%, 76%)`;
                     },
                     formatDate(dateString) {
                         const date = new Date(dateString);
@@ -483,26 +528,18 @@
                         if (bar) bar.style.width = progress + '%';
 
                         this.filtersSticky = scrollTop > 200;
+
+                        // Floating quick-action buttons appear once the user scrolls
+                        const quickActions = document.querySelector('.quick-actions');
+                        if (quickActions) quickActions.classList.toggle('visible', scrollTop > 320);
                     },
 
                     // ── READING HISTORY ──
-                    getReadingHistory() {
-                        try {
-                            return JSON.parse(localStorage.getItem('blog_reading_history') || '[]');
-                        } catch { return []; }
-                    },
                     getReadingProgress(postId) {
                         try {
                             const prog = JSON.parse(localStorage.getItem('blog_reading_progress') || '{}');
                             return prog[postId] || 0;
                         } catch { return 0; }
-                    },
-
-                    // ── RECENTLY VIEWED ──
-                    getRecentlyViewed() {
-                        try {
-                            return JSON.parse(localStorage.getItem('blog_recently_viewed') || '[]');
-                        } catch { return []; }
                     },
 
                     // ── BOOKMARKS ──
@@ -598,7 +635,7 @@
 
                     // ── RANDOM POST ──
                     openRandomPost() {
-                        const visible = this.sortedFilteredPosts;
+                        const visible = this.latestPosts.length > 0 ? this.latestPosts : this.sortedFilteredPosts;
                         if (visible.length === 0) return;
                         const random = visible[Math.floor(Math.random() * visible.length)];
                         window.location.href = '/post.html?id=' + random.id;

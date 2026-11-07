@@ -39,9 +39,9 @@
             --bg-gradient: none;
 
             --text-dark: #171715;
-            --text-medium: #4A4A45;
-            --text-light: #6B6B63;
-            --text-muted: #9C9A90;
+            --text-medium: #43423C;
+            --text-light: #5B5850;
+            --text-muted: #78756B;
 
             --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
             --shadow-md: 0 2px 6px -1px rgba(0, 0, 0, 0.06);
@@ -67,9 +67,9 @@
             --bg-tertiary: #262622;
             --bg-gradient: none;
             --text-dark: #F2F0E9;
-            --text-medium: #C9C6BB;
-            --text-light: #9C9A90;
-            --text-muted: #6B6B63;
+            --text-medium: #CFCDC2;
+            --text-light: #B3B0A5;
+            --text-muted: #96948A;
             --glass-bg: #1B1B18;
             --glass-border: #33332D;
             --primary-color: #E8483B;
@@ -101,6 +101,30 @@
             min-height: 100vh;
             background: var(--bg-gradient);
             transition: background 0.4s ease;
+            position: relative;
+            z-index: 0;
+        }
+
+        /* Subtle scrim + blur over a custom background photo so cards pop */
+        #app.has-custom-bg::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            background: linear-gradient(180deg, rgba(12,12,14,0.45) 0%, rgba(12,12,14,0.68) 100%);
+            backdrop-filter: blur(4px) saturate(0.85);
+            -webkit-backdrop-filter: blur(4px) saturate(0.85);
+        }
+
+        /* Keyboard focus rings (WCAG) */
+        :focus-visible {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+        .featured-hero :focus-visible,
+        .featured-hero-cta:focus-visible {
+            outline-color: #fff;
         }
 
         /* ── SCROLLBAR ── */
@@ -127,17 +151,17 @@
 
         /* ── HEADER ── */
         .header {
-            background: rgba(99, 102, 241, 0.92);
+            background: rgba(20, 20, 22, 0.94);
             backdrop-filter: blur(10px);
             color: white;
-            padding: 1.5rem 0;
-            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.2);
+            padding: 1.25rem 0;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
             position: sticky;
             top: 0;
             z-index: 100;
         }
         [data-theme="dark"] .header {
-            background: rgba(15, 23, 42, 0.95);
+            background: rgba(10, 10, 10, 0.95);
         }
 
         .header-content {
@@ -150,8 +174,9 @@
         }
 
         .logo {
-            font-size: 1.8rem;
-            font-weight: bold;
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
             display: flex;
             align-items: center;
             gap: 10px;
@@ -161,31 +186,60 @@
 
         .nav {
             display: flex;
-            gap: 2rem;
+            gap: 1.75rem;
             align-items: center;
         }
 
         .nav a {
-            color: white;
+            color: rgba(255,255,255,0.92);
             text-decoration: none;
-            font-size: 1rem;
-            padding: 0.5rem 1rem;
-            border-radius: 5px;
-            transition: background 0.3s;
+            font-size: 1.05rem;
+            font-weight: 500;
+            padding: 0.5rem 0.25rem;
+            border-radius: 0;
+            position: relative;
+            transition: color 0.2s;
         }
 
         .nav a:hover {
-            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .nav a::after {
+            content: '';
+            position: absolute;
+            left: 0.25rem;
+            right: 0.25rem;
+            bottom: 0;
+            height: 2px;
+            background: #fff;
+            border-radius: 2px;
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.25s ease;
+        }
+
+        .nav a:hover::after,
+        .nav a.active::after {
+            transform: scaleX(1);
         }
 
         .nav a.active {
-            background: rgba(255, 255, 255, 0.3);
+            background: transparent;
+            color: #fff;
+            font-weight: 600;
         }
 
         .nav a.active-tab {
-            background: rgba(255, 255, 255, 0.4);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            color: #fff;
             font-weight: 600;
+        }
+
+        .nav a.nav-icon-link {
+            font-size: 1.15rem;
+            padding: 0.5rem;
+            display: inline-flex;
+            align-items: center;
         }
 
         /* ── SKELETON LOADERS ── */
@@ -403,14 +457,7 @@
             box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
         }
 
-        /* ── FILTER SECTION ── */
-        .filter-section {
-            margin: 1rem 0 2rem 0;
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
+        /* ── ADVANCED FILTER CONTROLS ── */
 
         .filter-select {
             padding: 0.5rem 1rem;
@@ -471,83 +518,120 @@
             font-size: 2rem;
         }
 
-        /* ── SIDEBAR + MAIN FEED LAYOUT ── */
-        .content-layout {
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            gap: 2rem;
-            align-items: start;
-        }
-        .sidebar-filters {
-            position: sticky;
-            top: 90px;
+        /* ── SLIM FILTER BAR (search + category chips + advanced toggle) ── */
+        .filter-bar {
             background: var(--glass-bg);
             backdrop-filter: blur(16px);
             border: 1px solid var(--glass-border);
             border-radius: var(--border-radius-lg);
-            padding: 1.5rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
-            transition: background 0.3s, border-color 0.3s;
-            max-height: calc(100vh - 110px);
-            overflow-y: auto;
-        }
-        .sidebar-filters h2 {
-            color: var(--text-dark);
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin: 0 0 1rem 0;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid var(--bg-tertiary);
-        }
-        .sidebar-filters .filter-group {
-            margin-bottom: 1.25rem;
-        }
-        .sidebar-filters .filter-group:last-child {
-            margin-bottom: 0;
-        }
-        .sidebar-filters .filter-label {
-            display: block;
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-        }
-        .sidebar-filters .category-filter {
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin: 0;
-        }
-        .sidebar-filters .category-filter button {
-            padding: 0.4rem 0.875rem;
-            font-size: 0.8rem;
-            border-radius: 9999px;
-        }
-        .sidebar-filters .filter-section {
+            padding: 1rem 1.25rem;
+            box-shadow: var(--shadow-md);
             display: flex;
             flex-direction: column;
+            gap: 0.875rem;
+            margin-bottom: 2rem;
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .filter-bar-top {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
             gap: 0.75rem;
+        }
+        .filter-bar .search-container {
             margin: 0;
+            flex: 1 1 280px;
+            min-width: 220px;
         }
-        .sidebar-filters .filter-select {
-            width: 100%;
-            font-size: 0.875rem;
+        .filter-bar .search-wrapper {
+            position: relative;
+            display: block;
         }
-        .sidebar-filters .search-container {
-            margin: 0;
-        }
-        .sidebar-filters .search-input {
+        .filter-bar .search-input {
             max-width: 100%;
-            font-size: 0.875rem;
+            width: 100%;
+            font-size: 0.925rem;
+            padding: 0.65rem 1.1rem;
         }
-        .sidebar-filters .sidebar-active-bar {
+        .filter-bar .category-filter {
+            margin: 0;
+            gap: 0.5rem;
+        }
+        .filter-bar .category-filter button {
+            padding: 0.45rem 0.9rem;
+            font-size: 0.85rem;
+        }
+        .filter-bar-tools {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            margin-top: 1rem;
-            padding-top: 0.75rem;
+            margin-left: auto;
+        }
+        .filter-advanced-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.45rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: inherit;
+            color: var(--text-dark);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--glass-border);
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+        .filter-advanced-toggle:hover {
+            background: var(--bg-secondary);
+            border-color: var(--text-muted);
+        }
+        .filter-advanced-toggle.active {
+            background: var(--accent-dark);
+            color: #fff;
+            border-color: var(--accent-dark);
+        }
+        .filter-advanced {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.625rem;
+            padding-top: 0.875rem;
             border-top: 1px solid var(--bg-tertiary);
+            animation: advFadeIn 0.2s ease;
+        }
+        @keyframes advFadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .filter-advanced .filter-select {
+            font-size: 0.875rem;
+            padding: 0.45rem 0.875rem;
+        }
+        .filter-advanced .sidebar-active-bar { margin-top: 0; padding-top: 0; border-top: none; }
+        /* Styled native date input (color-scheme aware) */
+        .filter-advanced input[type="date"] {
+            color-scheme: light dark;
+            min-height: 38px;
+        }
+        /* Color-coded category chips */
+        .category-filter button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .category-filter button .chip-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--chip-color, var(--primary-color));
+            flex-shrink: 0;
+        }
+        .category-filter button.active {
+            background: var(--chip-color, var(--primary-color));
+            color: #fff;
+            border-color: var(--chip-color, var(--primary-color));
         }
         .main-feed {
             min-width: 0;
@@ -564,9 +648,6 @@
             font-weight: 700;
             margin: 0;
         }
-        .feed-layout-desktop {
-            display: none;
-        }
 
         /* ── CONTAINER ── */
         .container {
@@ -575,30 +656,32 @@
             padding: 0 2rem;
         }
 
-        /* ── FEATURED POST HERO ── */
+        /* ── FEATURED POST HERO (two-column: text left, image right) ── */
         .featured-hero {
             position: relative;
+            display: grid;
+            grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
             border-radius: 16px;
             overflow: hidden;
             margin-bottom: 2.5rem;
-            min-height: 320px;
-            background: var(--bg-tertiary);
+            min-height: 340px;
+            background: #101012;
             cursor: pointer;
             transition: var(--transition);
-            border: 1px solid var(--glass-border);
+            border: 1px solid rgba(0, 0, 0, 0.55);
         }
         .featured-hero:hover {
             transform: translateY(-2px);
-            box-shadow: 0 16px 48px rgba(99, 102, 241, 0.15);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
         }
-        .featured-hero-bg {
+        .featured-hero-media {
             position: absolute;
             inset: 0;
             background-size: cover;
-            background-position: center;
+            background-position: center right;
             transition: transform 0.6s ease;
         }
-        .featured-hero:hover .featured-hero-bg {
+        .featured-hero:hover .featured-hero-media {
             transform: scale(1.03);
         }
         .featured-hero-placeholder {
@@ -606,31 +689,38 @@
             inset: 0;
             background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
         }
+        /* Deep scrim: ~85% black on the text side fading to transparent on the right */
         .featured-hero-overlay {
             position: absolute;
             inset: 0;
-            background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 100%);
+            background: linear-gradient(90deg,
+                rgba(10, 10, 11, 0.88) 0%,
+                rgba(10, 10, 11, 0.85) 38%,
+                rgba(10, 10, 11, 0.45) 66%,
+                rgba(10, 10, 11, 0.05) 100%);
         }
         .featured-hero-content {
             position: relative;
             z-index: 2;
+            grid-column: 1;
             padding: 2.5rem;
             display: flex;
             flex-direction: column;
-            justify-content: flex-end;
-            min-height: 320px;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 340px;
         }
         .featured-hero-badge {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.14);
             backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.25);
             padding: 0.375rem 0.875rem;
             border-radius: 999px;
-            font-size: 0.75rem;
-            font-weight: 600;
+            font-size: 0.8rem;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: white;
@@ -638,49 +728,64 @@
             width: fit-content;
         }
         .featured-hero-category {
-            font-size: 0.75rem;
-            font-weight: 600;
+            font-size: 0.85rem;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            color: rgba(255,255,255,0.6);
+            color: rgba(255,255,255,0.85);
             margin-bottom: 0.5rem;
         }
         .featured-hero-title {
-            font-size: clamp(1.5rem, 3vw, 2.2rem);
+            font-size: clamp(1.6rem, 3vw, 2.4rem);
             font-weight: 700;
-            color: white;
-            line-height: 1.25;
+            color: #fff;
+            line-height: 1.22;
             margin-bottom: 0.75rem;
-            max-width: 700px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+            max-width: 560px;
         }
         .featured-hero-excerpt {
-            font-size: 0.95rem;
-            color: rgba(255,255,255,0.75);
+            font-size: 1rem;
+            color: rgba(255,255,255,0.88);
             line-height: 1.6;
-            margin-bottom: 1.25rem;
-            max-width: 600px;
+            margin-bottom: 1rem;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            max-width: 520px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
+        .featured-hero-meta {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: rgba(255,255,255,0.75);
+            margin-bottom: 1.5rem;
+        }
         .featured-hero-cta {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: white;
-            color: #0f172a;
-            padding: 0.625rem 1.5rem;
-            border-radius: 999px;
-            font-weight: 600;
-            font-size: 0.9rem;
+            background: var(--primary-color);
+            color: #fff;
             text-decoration: none;
-            transition: var(--transition);
-            width: fit-content;
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            font-weight: 700;
+            padding: 0.7rem 1.5rem;
+            border-radius: 999px;
+            box-shadow: 0 6px 20px rgba(208, 39, 28, 0.4);
+            transition: background 0.2s ease, transform 0.2s ease;
         }
         .featured-hero-cta:hover {
-            transform: translateX(4px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            background: var(--primary-hover);
+            transform: translateX(2px);
+        }
+        .featured-hero-cta i {
+            transition: transform 0.2s ease;
+        }
+        .featured-hero-cta:hover i {
+            transform: translateX(3px);
         }
 
         /* ── RESULTS BAR ── */
@@ -693,11 +798,25 @@
             margin-bottom: 1.25rem;
         }
         .result-count {
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             font-weight: 600;
-            color: var(--text-muted);
+            color: var(--text-light);
         }
         .result-count strong { color: var(--text-dark); }
+        .result-hint {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .result-hint kbd {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--glass-border);
+            padding: 0.1rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
 
         /* ── POSTS CONTENT WRAPPER ── */
         .posts-content {
@@ -710,6 +829,41 @@
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 1.5rem;
             margin-top: 2rem;
+        }
+
+        /* ── LOAD MORE ── */
+        .load-more-wrap {
+            display: flex;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+
+        .load-more-btn {
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+            padding: 0.75rem 1.75rem;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: inherit;
+        }
+
+        .load-more-btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(208, 39, 28, 0.35);
+        }
+
+        .load-more-remaining {
+            font-weight: 400;
+            opacity: 0.85;
+            font-size: 0.8rem;
         }
 
         .post-card {
@@ -729,8 +883,8 @@
 
         .post-card:hover {
             transform: var(--card-hover-transform);
-            box-shadow: 0 12px 24px rgba(99, 102, 241, 0.15);
-            border-color: rgba(99, 102, 241, 0.2);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+            border-color: rgba(208, 39, 28, 0.25);
             background: var(--bg-secondary);
         }
 
@@ -810,7 +964,8 @@
 
         .post-card-image-container {
             width: 100%;
-            height: 180px;
+            aspect-ratio: 16 / 9;
+            height: auto;
             overflow: hidden;
             border-radius: 6px;
             margin-bottom: 1.5rem;
@@ -838,8 +993,8 @@
         }
 
         .post-meta {
-            color: var(--text-muted);
-            font-size: 0.8rem;
+            color: var(--text-light);
+            font-size: 0.85rem;
             margin-bottom: 0.75rem;
         }
 
@@ -847,6 +1002,11 @@
             color: var(--text-medium);
             line-height: 1.6;
             font-size: 0.95rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: calc(0.95rem * 1.6 * 2);
         }
 
         .post-tags {
@@ -933,11 +1093,14 @@
 
         .post-card-category {
             display: inline-block;
-            font-size: 10px;
+            font-size: 0.7rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.13em;
-            color: var(--primary-color);
+            letter-spacing: 0.08em;
+            color: #fff;
+            background: var(--chip-color, var(--primary-color));
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
             margin-bottom: 6px;
         }
 
@@ -970,14 +1133,39 @@
             color: var(--text-muted);
         }
 
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            filter: grayscale(0.4);
+        }
+
         .empty-state h3 {
             font-size: 1.5rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             color: var(--text-dark);
         }
 
         .empty-state p {
             color: var(--text-light);
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .empty-state-btn {
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+            padding: 0.6rem 1.5rem;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .empty-state-btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
         }
 
         /* ── PERSONAL FEED SECTIONS ── */
@@ -999,14 +1187,19 @@
             gap: 8px;
         }
         .feed-section-more {
-            font-size: 0.8rem;
-            color: var(--primary-color);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-dark);
             cursor: pointer;
-            font-weight: 500;
-            text-decoration: none;
+            text-decoration: underline;
+            text-decoration-thickness: 1.5px;
+            text-underline-offset: 3px;
+            text-decoration-color: var(--text-muted);
+            transition: var(--transition);
         }
         .feed-section-more:hover {
-            text-decoration: underline;
+            color: var(--primary-color);
+            text-decoration-color: var(--primary-color);
         }
         .feed-horizontal-scroll {
             display: flex;
@@ -1039,7 +1232,7 @@
         }
         .feed-mini-card .fmc-title {
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             margin-bottom: 0.375rem;
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -1047,12 +1240,14 @@
             overflow: hidden;
         }
         .feed-mini-card .fmc-meta {
-            font-size: 0.75rem;
-            color: var(--text-muted);
+            font-size: 0.8rem;
+            color: var(--text-light);
+            font-weight: 500;
         }
         .feed-mini-card .fmc-img {
             width: 100%;
-            height: 100px;
+            aspect-ratio: 16 / 9;
+            height: auto;
             object-fit: cover;
             border-radius: 6px;
             margin-bottom: 0.625rem;
@@ -1072,20 +1267,27 @@
             transition: width 0.5s;
         }
         .trending-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
             font-size: 0.7rem;
-            font-weight: 700;
-            color: #dc2626;
-            background: rgba(220, 38, 38, 0.1);
-            padding: 0.125rem 0.5rem;
+            font-weight: 800;
+            color: #fff;
+            background: #dc2626;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 0.15rem 0.5rem;
             border-radius: 999px;
+            box-shadow: 0 2px 6px rgba(220, 38, 38, 0.35);
         }
 
         /* ── THEME TOGGLE ── */
         .theme-toggle {
             display: flex;
             gap: 0.375rem;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: #fff;
             border-radius: 999px;
             padding: 0.25rem;
             backdrop-filter: blur(var(--glass-blur));
@@ -1097,16 +1299,17 @@
             border: none;
             cursor: pointer;
             font-size: 0.85rem;
+            color: #fff;
             transition: var(--transition);
             background: transparent;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        .theme-toggle button:hover { background: var(--bg-tertiary); }
+        .theme-toggle button:hover { background: rgba(255,255,255,0.2); }
         .theme-toggle button.active {
-            background: var(--primary-light);
-            box-shadow: 0 2px 8px rgba(99,102,241,0.2);
+            background: rgba(255,255,255,0.25);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
         /* ── QUICK ACTIONS BAR ── */
@@ -1118,6 +1321,15 @@
             flex-direction: column;
             gap: 8px;
             z-index: 900;
+            opacity: 0;
+            transform: translateY(12px);
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .quick-actions.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
         }
         .quick-action-btn {
             width: 44px;
@@ -1136,8 +1348,8 @@
             box-shadow: var(--shadow-md);
         }
         .quick-action-btn:hover {
-            transform: scale(1.1);
-            box-shadow: var(--shadow-lg);
+            transform: scale(1.08);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
             background: var(--bg-secondary);
         }
         .quick-action-btn .tooltip {
@@ -1468,14 +1680,8 @@
 
         /* ── RESPONSIVE ── */
         @media (max-width: 1024px) {
-            .content-layout { grid-template-columns: 1fr; }
-            .sidebar-filters {
-                position: relative;
-                top: auto;
-                max-height: none;
-                padding: 1.25rem;
-            }
-            .sidebar-filters .filter-section { flex-direction: row; flex-wrap: wrap; }
+            .filter-bar { padding: 0.9rem 1rem; }
+            .filter-advanced .filter-select { flex: 1 1 180px; }
         }
 
         @media (max-width: 768px) {
@@ -1486,26 +1692,20 @@
             .nav { gap: 0.5rem; }
             .nav a { font-size: 0.85rem; padding: 0.375rem 0.625rem; }
 
-            .content-layout { grid-template-columns: 1fr; }
-            .sidebar-filters {
-                position: relative;
-                top: auto;
-                max-height: none;
-                padding: 1.25rem;
-            }
-
             .posts-grid { grid-template-columns: 1fr; gap: 1rem; }
             .post-card { padding: 1rem; }
 
-            .featured-hero-content { padding: 1.5rem; min-height: 240px; }
+            .featured-hero-content { padding: 1.5rem; }
             .featured-hero { min-height: 240px; }
             .featured-hero-title { font-size: 1.2rem; }
+
+            .filter-bar-top { gap: 0.5rem; }
+            .filter-bar-tools { margin-left: 0; width: 100%; }
 
             .category-filter { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.5rem; -webkit-overflow-scrolling: touch; }
             .category-filter button { flex-shrink: 0; font-size: 0.8rem; padding: 0.5rem 1rem; }
 
-            .sidebar-filters .filter-section { flex-direction: column; }
-            .sidebar-filters .filter-select { width: 100%; }
+            .filter-advanced .sidebar-active-bar { width: 100%; }
 
             .search-input { max-width: 100%; }
             .search-suggestions { max-width: 100%; }
@@ -1527,7 +1727,18 @@
             .main-feed-header h1 { font-size: 1.35rem; }
             .post-title { font-size: 1.15rem; }
             .post-excerpt { font-size: 0.9rem; }
-            .post-card-image-container { height: 160px; }
+            .post-card-image-container { aspect-ratio: 16 / 9; }
+
+            /* Mobile hero: image above, text on a vertical scrim */
+            .featured-hero { grid-template-columns: 1fr; min-height: 300px; }
+            .featured-hero-media { background-position: center top; }
+            .featured-hero-overlay {
+                background: linear-gradient(to bottom,
+                    rgba(10, 10, 11, 0.1) 0%,
+                    rgba(10, 10, 11, 0.6) 45%,
+                    rgba(10, 10, 11, 0.88) 100%);
+            }
+            .featured-hero-content { justify-content: flex-end; padding: 1.5rem; }
 
             .connect-links { gap: 0.5rem; }
             .connect-link { padding: 0.625rem 0.875rem; font-size: 0.8rem; min-height: 44px; display: inline-flex; align-items: center; }
@@ -1544,15 +1755,15 @@
 
             .posts-grid { gap: 0.75rem; }
             .post-card { padding: 0.875rem; border-radius: 6px; }
-            .post-card-image-container { height: 140px; }
+            .post-card-image-container { aspect-ratio: 16 / 9; }
             .post-title { font-size: 1.05rem; }
-            .post-meta { font-size: 0.75rem; }
+            .post-meta { font-size: 0.8rem; }
 
-            .featured-hero { min-height: 200px; border-radius: 12px; }
-            .featured-hero-content { padding: 1.25rem; min-height: 200px; }
-            .featured-hero-title { font-size: 1.1rem; }
-            .featured-hero-excerpt { font-size: 0.85rem; -webkit-line-clamp: 2; }
-            .featured-hero-cta { padding: 0.5rem 1.125rem; font-size: 0.8rem; }
+            .featured-hero { min-height: 260px; border-radius: 12px; }
+            .featured-hero-content { padding: 1.25rem; }
+            .featured-hero-title { font-size: 1.15rem; }
+            .featured-hero-excerpt { font-size: 0.88rem; -webkit-line-clamp: 2; }
+            .featured-hero-cta { font-size: 0.9rem; padding: 0.55rem 1.2rem; }
 
             .results-bar { gap: 0.5rem; }
 
@@ -1647,6 +1858,13 @@
         }
         .template-gate-btn[onclick] {
             cursor: pointer;
+        }
+        /* Compact variant used in the filter bar */
+        .filter-bar-tools .template-gate-btn {
+            width: auto;
+            padding: 0.45rem 1rem;
+            font-size: 0.85rem;
+            border-radius: 9999px;
         }
 
         /* Template Purchase Modal */
@@ -1961,7 +2179,7 @@
         <div class="header">
             <div class="header-content">
                 <a href="/" class="logo">
-                    <img v-if="authorInfo && authorInfo.profilePicture" :src="authorInfo.profilePicture" alt="Profile" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.3);" onerror="this.onerror=null;this.style.display='none'">
+                    <img v-if="authorInfo && authorInfo.profilePicture" :src="authorInfo.profilePicture" alt="Blog author profile" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.3);" onerror="this.onerror=null;this.style.display='none'">
                     <span>{{ blogTitle }}</span>
                 </a>
                 <nav class="nav">
@@ -1971,7 +2189,7 @@
                     </div>
                     <a href="/" class="active">Blog</a>
                     <a href="/about.html">About</a>
-                    <a href="/login.html" title="Admin Panel"><i class="ti ti-settings"></i></a>
+                    <a href="/login.html" class="nav-icon-link" title="Admin Panel" aria-label="Admin panel"><i class="ti ti-settings"></i></a>
                 </nav>
             </div>
         </div>
@@ -1988,37 +2206,22 @@
             <div v-else>
                 <!-- Featured Hero -->
                 <div v-if="featuredPost" class="featured-hero" @click="openFeaturedPost">
-                    <div class="featured-hero-bg" :style="{ backgroundImage: featuredImageStyle }"></div>
-                    <div class="featured-hero-overlay"></div>
+                    <div class="featured-hero-media" :style="{ backgroundImage: featuredImageStyle }" aria-hidden="true"></div>
+                    <div class="featured-hero-overlay" aria-hidden="true"></div>
                     <div class="featured-hero-content">
                         <div class="featured-hero-badge"><i class="ti ti-flame"></i> Featured Today</div>
-                        <div v-if="getCategoryName(featuredPost.categoryId)" class="featured-hero-category">{{ getCategoryName(featuredPost.categoryId) }}</div>
+                        <div v-if="getCategoryName(featuredPost.categoryId)" class="featured-hero-category"
+                            :style="{ color: categoryShade(getCategoryName(featuredPost.categoryId)) }">{{ getCategoryName(featuredPost.categoryId) }}</div>
                         <h2 class="featured-hero-title">{{ featuredPost.title }}</h2>
                         <p class="featured-hero-excerpt">{{ getExcerpt(featuredPost.content) }}</p>
-                        <a :href="'/post.html?id=' + featuredPost.id" class="featured-hero-cta">
-                            Continue Reading →
+                        <div class="featured-hero-meta">{{ formatDate(featuredPost.date) }} &middot; {{ getReadingTime(featuredPost.content) }}</div>
+                        <a class="featured-hero-cta" :href="'/post.html?id=' + featuredPost.id" @click.stop>
+                            Read more <i class="ti ti-arrow-right"></i>
                         </a>
                     </div>
                 </div>
 
                 <!-- Personal Feed Sections -->
-                <div v-if="continueReadingPosts.length > 0" class="feed-section">
-                    <div class="feed-section-header">
-                        <h3 class="feed-section-title">📖 Continue Reading</h3>
-                        <a class="feed-section-more" href="/">View all</a>
-                    </div>
-                    <div class="feed-horizontal-scroll">
-                        <a v-for="post in continueReadingPosts" :key="'cr-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card">
-                            <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
-                            <div class="fmc-title">{{ post.title }}</div>
-                            <div class="fmc-meta">{{ getReadingTime(post.content) }}</div>
-                            <div class="fmc-progress">
-                                <div class="fmc-progress-bar" :style="{ width: getReadingProgress(post.id) + '%' }"></div>
-                            </div>
-                        </a>
-                    </div>
-                </div>
-
                 <div v-if="trendingPosts.length > 0" class="feed-section">
                     <div class="feed-section-header">
                         <h3 class="feed-section-title"><i class="ti ti-flame"></i> Trending This Week</h3>
@@ -2028,151 +2231,135 @@
                         <a v-for="post in trendingPosts" :key="'tr-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card">
                             <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
                             <div class="fmc-title">{{ post.title }}</div>
-                            <div class="fmc-meta">{{ (post.likes || 0) + (post.dislikes || 0) }} reactions <span class="trending-badge">Hot</span></div>
+                            <div class="fmc-meta">{{ (post.likes || 0) + (post.dislikes || 0) }} reactions <span class="trending-badge">🔥 Hot</span></div>
                         </a>
                     </div>
                 </div>
 
-                <div v-if="recentlyViewedPosts.length > 0" class="feed-section">
-                    <div class="feed-section-header">
-                        <h3 class="feed-section-title">👁️ Recently Viewed</h3>
-                    </div>
-                    <div class="feed-horizontal-scroll">
-                        <a v-for="post in recentlyViewedPosts" :key="'rv-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card">
-                            <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
-                            <div class="fmc-title">{{ post.title }}</div>
-                            <div class="fmc-meta">{{ formatDate(post.date) }}</div>
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Content Layout: Sidebar Filters + Main Feed -->
-                <div class="content-layout">
-                    <!-- Sidebar Filters -->
-                    <aside class="sidebar-filters">
-                        <h2>Filters</h2>
-
+                <!-- Slim Filter Bar: search + category chips (advanced filters tucked away) -->
+                <div class="filter-bar">
+                    <div class="filter-bar-top">
                         <!-- Search -->
-                        <div class="filter-group">
-                            <span class="filter-label">Search</span>
-                            <div class="search-container" style="margin-top: 0;">
-                                <div class="search-wrapper">
-                                    <input v-model="searchQuery" type="text" id="search-input" class="search-input" :class="{ 'has-value': searchQuery }"
-                                        placeholder="Search posts…"
-                                        @focus="showSearchSuggestions = true"
-                                        @blur="hideSearchSuggestionsDelayed"
-                                        @keydown="onSearchKeydown">
-                                    <button v-if="searchQuery" class="search-clear-btn" @click="clearSearch" title="Clear search" aria-label="Clear search">&times;</button>
-                                    <!-- Search Suggestions -->
-                                    <div v-if="showSearchSuggestions && (searchSuggestions.length > 0 || recentSearches.length > 0)" class="search-suggestions" @mousedown.prevent>
-                                        <div v-if="!searchQuery && recentSearches.length > 0">
-                                            <div class="search-suggestion-item" style="font-size:0.75rem;font-weight:600;color:var(--text-muted);cursor:default;border-bottom:1px solid var(--bg-tertiary);">
-                                                Recent Searches
-                                            </div>
-                                            <div v-for="(sq, i) in recentSearches" :key="'rs-' + i" class="search-suggestion-item"
-                                                @click="selectSuggestion(sq)">
-                                                <span class="sug-icon">🕐</span>
-                                                <span class="sug-query">{{ sq }}</span>
-                                                <span class="sug-label" @click.stop="removeRecentSearch(i)">✕</span>
-                                            </div>
+                        <div class="search-container">
+                            <div class="search-wrapper">
+                                <input v-model="searchQuery" type="text" id="search-input" class="search-input" :class="{ 'has-value': searchQuery }"
+                                    placeholder="Search posts…  ( / )"
+                                    @focus="showSearchSuggestions = true"
+                                    @blur="hideSearchSuggestionsDelayed"
+                                    @keydown="onSearchKeydown">
+                                <button v-if="searchQuery" class="search-clear-btn" @click="clearSearch" title="Clear search" aria-label="Clear search">&times;</button>
+                                <!-- Search Suggestions -->
+                                <div v-if="showSearchSuggestions && (searchSuggestions.length > 0 || recentSearches.length > 0)" class="search-suggestions" @mousedown.prevent>
+                                    <div v-if="!searchQuery && recentSearches.length > 0">
+                                        <div class="search-suggestion-item" style="font-size:0.75rem;font-weight:600;color:var(--text-light);cursor:default;border-bottom:1px solid var(--bg-tertiary);">
+                                            Recent Searches
                                         </div>
-                                        <div v-if="searchQuery && searchSuggestions.length > 0">
-                                            <div v-for="(sug, i) in searchSuggestions" :key="'sug-' + i" class="search-suggestion-item"
-                                                :class="{ active: searchSuggestionIndex === i }"
-                                                @click="selectSuggestion(sug)">
-                                                <span class="sug-icon">🔍</span>
-                                                <span class="sug-query">{{ sug }}</span>
-                                            </div>
+                                        <div v-for="(sq, i) in recentSearches" :key="'rs-' + i" class="search-suggestion-item"
+                                            @click="selectSuggestion(sq)">
+                                            <span class="sug-icon">🕐</span>
+                                            <span class="sug-query">{{ sq }}</span>
+                                            <span class="sug-label" @click.stop="removeRecentSearch(i)">✕</span>
+                                        </div>
+                                    </div>
+                                    <div v-if="searchQuery && searchSuggestions.length > 0">
+                                        <div v-for="(sug, i) in searchSuggestions" :key="'sug-' + i" class="search-suggestion-item"
+                                            :class="{ active: searchSuggestionIndex === i }"
+                                            @click="selectSuggestion(sug)">
+                                            <span class="sug-icon">🔍</span>
+                                            <span class="sug-query">{{ sug }}</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Categories -->
-                        <div class="filter-group">
-                            <span class="filter-label">Categories</span>
-                            <div class="category-filter">
-                                <button v-for="category in allCategories" :key="category.id"
-                                    @click="toggleCategory(category.id)"
-                                    :class="{ active: selectedCategory === category.id || (selectedCategory === '' && category.id === 'all') }">
-                                    {{ category.name }}
-                                </button>
-                            </div>
+                        <!-- Category chips -->
+                        <div class="category-filter">
+                            <button v-for="category in allCategories" :key="category.id"
+                                @click="toggleCategory(category.id)"
+                                :class="{ active: selectedCategory === category.id || (selectedCategory === '' && category.id === 'all') }"
+                                :style="{ '--chip-color': categoryColor(category.name) }">
+                                <span v-if="category.id !== 'all'" class="chip-dot" aria-hidden="true"></span>
+                                {{ category.name }}
+                            </button>
                         </div>
 
-                        <!-- Filter selects -->
-                        <div class="filter-group">
-                            <span class="filter-label">Filter by</span>
-                            <div class="filter-section">
-                                <input v-model="selectedDate" type="date" class="filter-select" title="Filter by date">
-                                <select v-model="selectedTag" class="filter-select">
-                                    <option value="">All Tags</option>
-                                    <option v-for="tag in allTags" :key="tag" :value="tag">{{ tag }}</option>
-                                </select>
-                                <select v-model="selectedArchive" class="filter-select">
-                                    <option value="">All Time</option>
-                                    <option v-for="archive in archives" :key="archive.key" :value="archive.key">{{ archive.label }}</option>
-                                </select>
-                                <select v-model="sortBy" class="filter-select" title="Sort posts">
-                                    <option value="newest">Newest First</option>
-                                    <option value="oldest">Oldest First</option>
-                                    <option value="popular">Most Popular</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Active filters bar -->
-                        <div class="filter-group" v-if="hasFilters">
-                            <div class="sidebar-active-bar">
-                                <span v-if="activeFilterCount > 0" class="active-filter-count">{{ activeFilterCount }} active</span>
-                                <button v-if="hasFilters" @click="clearFilters" class="clear-filters">Clear All</button>
-                            </div>
-                        </div>
-
-                        <!-- View Template Button -->
-                        <div class="template-gate">
+                        <!-- Bar tools -->
+                        <div class="filter-bar-tools">
+                            <button v-if="posts.length >= 6" type="button"
+                                class="filter-advanced-toggle" :class="{ active: showAdvanced }"
+                                @click="showAdvanced = !showAdvanced"
+                                :aria-expanded="showAdvanced ? 'true' : 'false'">
+                                <i class="ti ti-adjustments"></i>
+                                <span>Filters</span>
+                            </button>
                             <button type="button" class="template-gate-btn" @click="openTemplateModal()">
                                 <i class="ti ti-layout-dashboard"></i>
                                 <span>View Template</span>
                             </button>
                         </div>
-                    </aside>
+                    </div>
 
-                    <!-- Main Feed -->
-                    <main class="main-feed">
+                    <!-- Advanced filters (revealed behind toggle once there is enough content) -->
+                    <div v-if="showAdvanced" class="filter-advanced">
+                        <select v-model="selectedTag" class="filter-select" aria-label="Filter by tag">
+                            <option value="">All Tags</option>
+                            <option v-for="tag in allTags" :key="tag" :value="tag">{{ tag }}</option>
+                        </select>
+                        <select v-model="selectedArchive" class="filter-select" aria-label="Filter by archive">
+                            <option value="">All Time</option>
+                            <option v-for="archive in archives" :key="archive.key" :value="archive.key">{{ archive.label }}</option>
+                        </select>
+                        <select v-model="sortBy" class="filter-select" aria-label="Sort posts">
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="popular">Most Popular</option>
+                        </select>
+                        <input v-model="selectedDate" type="date" class="filter-select" aria-label="Filter by date">
+                        <div class="sidebar-active-bar" v-if="hasFilters">
+                            <span v-if="activeFilterCount > 0" class="active-filter-count">{{ activeFilterCount }} active</span>
+                            <button v-if="hasFilters" @click="clearFilters" class="clear-filters">Clear All</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Feed -->
+                <main class="main-feed">
                         <div class="main-feed-header">
                             <h1>Latest Posts</h1>
                         </div>
 
                         <!-- Posts -->
                         <div class="posts-content">
-                        <div v-if="sortedFilteredPosts.length === 0" class="empty-state">
+                        <div v-if="latestPosts.length === 0" class="empty-state">
+                            <div class="empty-state-icon" aria-hidden="true">🔍</div>
                             <h3 v-if="posts.length === 0">No posts yet</h3>
-                            <h3 v-else>No posts match your search</h3>
+                            <h3 v-else>Nothing found here</h3>
                             <p v-if="posts.length === 0">Check back soon for new content!</p>
-                            <p v-else>Try adjusting your search or filters.</p>
+                            <p v-else>We couldn't find anything for that. Try a different search or clear the filters.</p>
+                            <button v-if="hasFilters" type="button" class="empty-state-btn" @click="clearFilters">Clear all filters</button>
                         </div>
                         <div v-else>
                             <div class="results-bar">
                                 <p class="result-count">
-                                    Showing <strong>{{ sortedFilteredPosts.length }}</strong> of <strong>{{ posts.length }}</strong> post{{ posts.length !== 1 ? 's' : '' }}
+                                    Showing <strong>{{ visiblePosts.length }}</strong> of <strong>{{ latestPosts.length }}</strong> post{{ latestPosts.length !== 1 ? 's' : '' }}
                                     <span v-if="searchQuery"> for &ldquo;{{ searchQuery }}&rdquo;</span>
                                 </p>
-                                <span v-if="sortedFilteredPosts.length > 0" style="font-size:0.75rem;color:var(--text-muted);">Press <kbd style="background:var(--bg-tertiary);padding:0.1rem 0.35rem;border-radius:3px;font-size:0.7rem;">/</kbd> to search</span>
+                                <span class="result-hint">Press <kbd>/</kbd> to search</span>
                             </div>
                             <div class="posts-grid">
-                                <a v-for="post in sortedFilteredPosts" :key="post.id" :href="'/post.html?id=' + post.id"
+                                <a v-for="post in visiblePosts" :key="post.id" :href="'/post.html?id=' + post.id"
                                     class="post-card">
                                     <!-- Bookmark -->
                                         <button class="bookmark-btn" :class="{ saved: isBookmarked(post.id) }"
                                         @click.prevent="toggleBookmark(post)"
-                                        :title="isBookmarked(post.id) ? 'Remove bookmark' : 'Add bookmark'">
+                                        :title="isBookmarked(post.id) ? 'Remove bookmark' : 'Add bookmark'"
+                                        :aria-label="isBookmarked(post.id) ? 'Remove bookmark' : 'Add bookmark'">
                                         <i :class="isBookmarked(post.id) ? 'ti ti-bookmark-filled' : 'ti ti-bookmark'"></i>
                                     </button>
 
                                     <div v-if="post.image || post.video" class="post-card-image-container" style="position: relative;">
-                                        <img v-if="post.image" :src="post.image" :alt="post.title" class="post-card-image" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'250\' fill=\'%23f0f0f0\'><rect width=\'400\' height=\'250\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'18\' fill=\'%23999\'>Image unavailable</text></svg>'">
+                                        <img v-if="post.image" :src="post.image" :alt="post.title" class="post-card-image" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'250\' fill=\'%23f0f0f0\'><rect width=\'400\' height=\'250\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'18\' fill=\'%23999\'>Image unavailable</text></svg>'">
                                         <div v-else-if="post.video" class="post-card-video-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--text-dark);color:var(--bg-secondary);">
                                             <span>🎥 Video Post</span>
                                         </div>
@@ -2184,7 +2371,7 @@
 
                                     <!-- Reading Progress Ring -->
                                     <div class="card-progress-ring" :title="'Reading progress: ' + getReadingProgress(post.id) + '%'">
-                                        <svg width="36" height="36" viewBox="0 0 36 36">
+                                        <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
                                             <circle class="bg-circle" cx="18" cy="18" r="15"></circle>
                                             <circle class="progress-circle" cx="18" cy="18" r="15"
                                                 :style="{ strokeDasharray: 2 * Math.PI * 15, strokeDashoffset: 2 * Math.PI * 15 * (1 - getReadingProgress(post.id) / 100) }">
@@ -2199,10 +2386,11 @@
                                              class="post-author-img" 
                                              @click.prevent="openLightbox(authorInfo.profilePicture)"
                                              title="View author profile"
-                                             alt="Author"
+                                             alt="Author avatar"
                                              @error="this.onerror=null;this.style.display='none'">
                                         <div>
-                                            <div v-if="getCategoryName(post.categoryId)" class="post-card-category">{{ getCategoryName(post.categoryId) }}</div>
+                                            <div v-if="getCategoryName(post.categoryId)" class="post-card-category"
+                                                :style="{ '--chip-color': categoryColor(getCategoryName(post.categoryId)) }">{{ getCategoryName(post.categoryId) }}</div>
                                             <h2 class="post-title">{{ post.title || 'Untitled' }}</h2>
                                         </div>
                                     </div>
@@ -2227,10 +2415,17 @@
                                     </div>
                                 </a>
                             </div>
+
+                            <!-- Load More -->
+                            <div class="load-more-wrap" v-if="visibleCount < latestPosts.length">
+                                <button type="button" class="load-more-btn" @click="loadMorePosts">
+                                    Load More Posts
+                                    <span class="load-more-remaining">({{ latestPosts.length - visibleCount }} more)</span>
+                                </button>
+                            </div>
                         </div>
                         </div>
                     </main>
-                </div>
             </div>
         </div>
 

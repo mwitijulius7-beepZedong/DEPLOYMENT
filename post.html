@@ -194,15 +194,15 @@
             inset: 0;
             background-size: cover;
             background-position: center top;
-            transform: scale(1.04);
+            transform: scale(1.06);
             transition: transform 8s ease-out;
-            filter: brightness(0.45) saturate(1.1);
+            filter: brightness(0.5) saturate(0.85) blur(3px);
         }
         .post-hero:hover .hero-bg {
             transform: scale(1.0);
         }
         .hero-carousel { position: absolute; inset: 0; overflow: hidden; }
-        .hero-carousel-slide { position: absolute; inset: 0; background-size: cover; background-position: center; filter: brightness(0.45) saturate(1.1); }
+        .hero-carousel-slide { position: absolute; inset: 0; background-size: cover; background-position: center; transform: scale(1.06); filter: brightness(0.5) saturate(0.85) blur(3px); }
         .hero-overlay {
             position: absolute;
             inset: 0;
@@ -218,7 +218,8 @@
         .hero-inner {
             position: relative;
             z-index: 10;
-            max-width: 820px;
+            max-width: 776px; /* aligns title/subtitle with the 680px reading column below */
+            margin: 0 auto;
             padding: 60px 48px 40px;
             animation: heroFadeUp 1s cubic-bezier(0.16,1,0.3,1) both;
         }
@@ -231,10 +232,10 @@
             align-items: center;
             gap: 8px;
             font-family: var(--sans);
-            font-size: 11px;
-            font-weight: 600;
+            font-size: 13px;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.18em;
+            letter-spacing: 0.16em;
             color: var(--gold);
             margin-bottom: 20px;
         }
@@ -288,35 +289,89 @@
         .hero-author-img:hover { transform: scale(1.1); border-color: var(--gold); }
         .hero-author-name {
             font-family: var(--sans);
-            font-size: 14px;
-            font-weight: 600;
+            font-size: 15px;
+            font-weight: 700;
             color: #fff;
         }
         .hero-meta-sep {
             width: 4px; height: 4px;
-            background: rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.35);
             border-radius: 50%;
         }
         .hero-meta-item {
             font-family: var(--sans);
-            font-size: 13px;
-            color: rgba(255,255,255,0.5);
+            font-size: 14px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.78);
         }
         .hero-read-badge {
             display: inline-flex;
             align-items: center;
             gap: 5px;
             font-family: var(--sans);
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--gold);
-            background: rgba(212,168,67,0.12);
-            border: 1px solid rgba(212,168,67,0.25);
-            padding: 4px 10px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #E9C76B;
+            background: rgba(212,168,67,0.14);
+            border: 1px solid rgba(212,168,67,0.3);
+            padding: 4px 12px;
             border-radius: 20px;
         }
 
-        .side-share { display: none; }
+        /* ── Sticky side share rail (left margin, >=1024px screens) ── */
+        .side-share {
+            position: fixed;
+            left: 22px;
+            top: 50%;
+            transform: translate(-16px, -50%);
+            z-index: 900;
+            display: none; /* flex on >=1024px via media query */
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 10px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 999px;
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+        .side-share.visible {
+            opacity: 1;
+            transform: translate(0, -50%);
+            pointer-events: auto;
+        }
+        .side-like-count {
+            font-family: var(--sans);
+            font-size: 12px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.85);
+            white-space: nowrap;
+        }
+        .side-share-divider {
+            width: 24px; height: 1px;
+            background: rgba(255,255,255,0.18);
+        }
+        .side-share-btn {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.08);
+            font-size: 16px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .side-share-btn:hover { transform: scale(1.12); background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.3); }
+        .side-share-btn.twitter:hover { background: #1da1f2; border-color: #1da1f2; }
+        .side-share-btn.linkedin:hover { background: #0077b5; border-color: #0077b5; }
+        .side-share-btn.copy:hover { background: var(--red); border-color: var(--red); }
+
+        @media (min-width: 1240px) {
+            .side-share { display: flex; }
+        }
 
         .article-wrap {
             background: var(--navy);
@@ -332,9 +387,9 @@
         .article-content {
             grid-column: 2;
             font-family: var(--serif-body);
-            font-size: 1.175rem;
-            line-height: 1.9;
-            color: rgba(250,248,243,0.88);
+            font-size: 1.125rem; /* 18px */
+            line-height: 1.8;
+            color: rgba(250,248,243,0.94);
         }
 
         .article-content .drop-cap::first-letter {
@@ -347,7 +402,8 @@
             color: var(--red-light);
         }
 
-        .article-content p { margin-bottom: 28px; }
+        .article-content p { margin-bottom: 30px; }
+        .article-content p + p { margin-top: 4px; }
 
         .article-content h2 {
             font-family: var(--serif-display);
@@ -475,11 +531,11 @@
         }
         .tags-label {
             font-family: var(--sans);
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.14em;
-            color: var(--text-muted);
+            color: var(--text-secondary);
             margin-bottom: 12px;
         }
         .tags-list {
@@ -517,9 +573,9 @@
         }
         .reactions-label {
             font-family: var(--sans);
-            font-size: 13px;
-            color: var(--text-muted);
-            font-weight: 500;
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 600;
         }
         .reaction-btn {
             font-family: var(--sans);
@@ -584,12 +640,12 @@
         }
         .meta-author-label {
             font-family: var(--sans);
-            font-size: 12px;
-            color: var(--text-muted);
+            font-size: 13px;
+            color: var(--text-secondary);
         }
         .meta-author-name {
             font-family: var(--sans);
-            font-size: 13px;
+            font-size: 15px;
             font-weight: 700;
             color: var(--navy);
         }
@@ -904,7 +960,7 @@
             .hero-title { font-size: 2.1rem; }
             .hero-subtitle { font-size: 1.05rem; }
             .article-container { padding: 24px 20px 32px; }
-            .article-content { font-size: 1.05rem; }
+            .article-content { font-size: 1.0625rem; } /* 17px */
             .pull-quote { padding: 28px 24px; margin: 40px 0; }
             .pull-quote p { font-size: 1.3rem; }
             .social-share-inner { flex-direction: column; align-items: flex-start; }
@@ -923,7 +979,7 @@
             .hero-title { font-size: 1.7rem; }
             .hero-subtitle { font-size: 0.95rem; }
             .article-container { padding: 20px 16px 24px; }
-            .article-content { font-size: 1rem; }
+            .article-content { font-size: 1.03125rem; } /* ~16.5px but not below 16 */
             .pull-quote { padding: 20px 16px; margin: 32px 0; }
             .pull-quote p { font-size: 1.15rem; }
             .post-meta-bar-inner { padding: 10px 12px; }
@@ -946,9 +1002,9 @@
             right: 16px;
             z-index: 2100;
             font-family: var(--sans);
-            font-size: 11px;
+            font-size: 13px;
             font-weight: 700;
-            color: rgba(255,255,255,0.92);
+            color: rgba(255,255,255,0.94);
             background: rgba(17,24,39,0.82);
             border: 1px solid rgba(255,255,255,0.1);
             padding: 3px 11px;
@@ -1195,6 +1251,7 @@
         const postId = urlParams.get('id');
         let globalAuthorInfo = null;
         let globalPostTitle = '';
+        let globalTotalMins = 1;
         // Prev/next/related navigation returned by /api/posts/:id
         let postNavData = null;
 
@@ -1235,15 +1292,6 @@
                     if (!hist.includes(id)) { hist.unshift(id); if (hist.length > 20) hist.pop(); }
                     localStorage.setItem('blog_reading_history', JSON.stringify(hist));
                 } catch {}
-
-                try {
-                    const rv = JSON.parse(localStorage.getItem('blog_recently_viewed') || '[]');
-                    const idx = rv.indexOf(id);
-                    if (idx > -1) rv.splice(idx, 1);
-                    rv.unshift(id);
-                    if (rv.length > 20) rv.pop();
-                    localStorage.setItem('blog_recently_viewed', JSON.stringify(rv));
-                } catch {}
             } catch (error) {
                 console.error('Failed to load post:', error);
                 showError('Failed to load post. It may have been deleted or the link is invalid.');
@@ -1259,6 +1307,9 @@
 
             const wordCount   = post.content ? post.content.split(/\s+/).length : 0;
             const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+            // Single source of truth so the hero badge and the countdown
+            // pill always agree.
+            globalTotalMins = readingTime;
 
             globalPostTitle = post.title;
             document.title  = `${post.title} — zedong254ke`;
@@ -1333,6 +1384,22 @@
             const galleryImagesHtml = '';
 
             let processedContent = post.content || '<p>No content available.</p>';
+
+            // ── Normalize pasted/typed content ──
+            // Strip inline font-size leftovers (e.g. pasted from Slack/Word) so
+            // the stylesheet controls reading size.
+            processedContent = processedContent.replace(/([^=]"|>\s*)style="([^"]*)"/gi, (m, pre, styles) =>
+                pre + 'style="' + styles.replace(/font-size\s*:\s*[^;"}]+;?/gi, '') + '"');
+
+            // If the content is plain text (no block tags), rebuild proper
+            // paragraphs: double newline = <p>, single newline = <br>.
+            if (!/<(p|h[1-6]|ul|ol|table|div|blockquote|img)\b/i.test(processedContent.trim())) {
+                processedContent = processedContent.trim()
+                    .split(/\n\s*\n+/)
+                    .map(b => `<p>${b.trim().replace(/\n+/g, '<br>')}</p>`)
+                    .join('');
+            }
+
             processedContent = processedContent.replace(/(<p[^>]*>)/i, (match, tag, offset) => {
                 if (offset === processedContent.indexOf(match)) {
                     return tag.includes('class=')
@@ -1342,8 +1409,31 @@
                 return match;
             });
 
-            let pullQuoteHtml = post.pullQuote
-                ? `<blockquote class="pull-quote"><p>${post.pullQuote}</p></blockquote>` : '';
+            let pullQuoteHtml = '';
+            if (post.pullQuote) {
+                // Guard against a pull quote that just repeats the opening
+                // sentence — pick a different line from the article instead.
+                const firstParaText = (processedContent.match(/<p[^>]*>([\s\S]*?)<\/p>/i) || [])[1]
+                    ? processedContent.match(/<p[^>]*>([\s\S]*?)<\/p>/i)[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+                    : '';
+                const pqNorm = String(post.pullQuote).replace(/[^a-z0-9 ]/gi, '').replace(/\s+/g, ' ').toLowerCase().trim();
+                const paraNorm = firstParaText.replace(/[^a-z0-9 ]/gi, '').replace(/\s+/g, ' ').toLowerCase().trim();
+                const isDuplicate = pqNorm && paraNorm && (paraNorm.startsWith(pqNorm) || pqNorm.startsWith(paraNorm.slice(0, 60)));
+
+                if (!isDuplicate) {
+                    pullQuoteHtml = `<blockquote class="pull-quote"><p>${post.pullQuote}</p></blockquote>`;
+                } else {
+                    // Pull a different sentence from the article body (>=40 chars)
+                    const sentences = rawText
+                        .split(/(?<=[.!?])\s+/)
+                        .map(s => s.trim())
+                        .filter(s => s.length >= 40 && s.replace(/[^a-z0-9 ]/gi, '').replace(/\s+/g, ' ').toLowerCase() !== pqNorm);
+                    if (sentences.length > 0) {
+                        pullQuoteHtml = `<blockquote class="pull-quote"><p>${escapeHtml(sentences[sentences.length - 1])}</p></blockquote>`;
+                    }
+                    // else: no pull quote rather than a repeat of the opening
+                }
+            }
             let sceneCardHtml = post.sceneCard
                 ? `<div class="scene-card"><p>${post.sceneCard}</p></div>` : '';
 
@@ -1707,12 +1797,10 @@
                 } catch {}
             }
 
-            // Reading time countdown pill
+            // Reading time countdown pill (uses the same total as the hero badge)
             const pill = document.getElementById('read-time-pill');
-            if (pill) {
-                const contentEl = document.querySelector('.article-content');
-                const wc = contentEl ? contentEl.innerText.trim().split(/\s+/).length : 0;
-                const totalMins = Math.max(1, Math.ceil(wc / 200));
+            if (pill && globalTotalMins) {
+                const totalMins = globalTotalMins;
                 const remaining = Math.max(0, Math.round(totalMins * (1 - percent / 100)));
                 if (percent >= 98) {
                     pill.textContent = '\u2713 Done!';
