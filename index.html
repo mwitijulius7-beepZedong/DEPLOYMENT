@@ -37,6 +37,7 @@
             --bg-secondary: #FFFFFF;
             --bg-tertiary: #F0EDE5;
             --bg-gradient: none;
+            --surface-hover: #FFFFFF;
 
             --text-dark: #171715;
             --text-medium: #43423C;
@@ -60,6 +61,13 @@
 
             --reading-progress-color: var(--primary-color);
 
+            /* Hero stays a dark stage in both themes so the cover photo reads */
+            --hero-surface: #11141b;
+
+            /* Scrim over the custom background photo */
+            --photo-scrim-top: rgba(250, 248, 244, 0.8);
+            --photo-scrim-bottom: rgba(250, 248, 244, 0.92);
+
             /* Text panels that sit on the busy background photo */
             --panel-bg: rgba(255, 255, 255, 0.88);
             --panel-text: #1a1a1a;
@@ -67,22 +75,30 @@
         }
 
         [data-theme="dark"] {
-            --bg-color: #121210;
-            --bg-secondary: #1B1B18;
-            --bg-tertiary: #262622;
+            --bg-color: #0f1115;
+            --bg-secondary: #171a21;
+            --bg-tertiary: #1e222b;
             --bg-gradient: none;
-            --text-dark: #F2F0E9;
-            --text-medium: #CFCDC2;
-            --text-light: #B3B0A5;
-            --text-muted: #96948A;
-            --glass-bg: #1B1B18;
-            --glass-border: #33332D;
-            --primary-color: #E8483B;
-            --primary-hover: #D0271C;
+            --surface-hover: #1e222b;
 
-            --panel-bg: rgba(27, 27, 24, 0.86);
-            --panel-text: #f5f5f5;
-            --panel-muted: #c4c4c4;
+            --text-dark: #e8eaed;
+            --text-medium: #c9cdd4;
+            --text-light: #a8adb7;
+            --text-muted: rgba(232, 234, 237, 0.65);
+
+            --glass-bg: #171a21;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --primary-color: #ef4b3f;
+            --primary-hover: #d93a2e;
+            --primary-light: rgba(239, 75, 63, 0.14);
+            --primary-dark: #ffb4ad;
+
+            --photo-scrim-top: rgba(15, 17, 21, 0.8);
+            --photo-scrim-bottom: rgba(15, 17, 21, 0.9);
+
+            --panel-bg: rgba(23, 26, 33, 0.92);
+            --panel-text: #e8eaed;
+            --panel-muted: rgba(232, 234, 237, 0.65);
         }
 
         * {
@@ -114,16 +130,17 @@
             z-index: 0;
         }
 
-        /* Subtle scrim + blur over a custom background photo so cards pop */
+        /* Heavy scrim over a custom background photo: keeps the photo as texture
+           without letting it compete with the feed */
         #app.has-custom-bg::before {
             content: '';
             position: fixed;
             inset: 0;
             z-index: -1;
             pointer-events: none;
-            background: linear-gradient(180deg, rgba(12,12,14,0.45) 0%, rgba(12,12,14,0.68) 100%);
-            backdrop-filter: blur(4px) saturate(0.85);
-            -webkit-backdrop-filter: blur(4px) saturate(0.85);
+            background: linear-gradient(180deg, var(--photo-scrim-top) 0%, var(--photo-scrim-bottom) 100%);
+            backdrop-filter: blur(3px) saturate(0.8);
+            -webkit-backdrop-filter: blur(3px) saturate(0.8);
         }
 
         /* Keyboard focus rings (WCAG) */
@@ -170,7 +187,7 @@
             z-index: 100;
         }
         [data-theme="dark"] .header {
-            background: rgba(10, 10, 10, 0.95);
+            background: rgba(15, 17, 21, 0.94);
         }
 
         .header-content {
@@ -337,25 +354,24 @@
         /* ── SEARCH ── */
         .search-container {
             position: relative;
-            margin: 2rem 0;
+            margin: 0;
         }
 
         .search-wrapper {
             position: relative;
-            display: inline-block;
+            display: block;
         }
 
         .search-input {
             width: 100%;
             max-width: 400px;
-            padding: 0.875rem 1.25rem;
-            border: 2px solid var(--glass-border);
-            border-radius: var(--border-radius);
-            font-size: 1rem;
+            padding: 0.65rem 1.1rem;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            font-size: 0.925rem;
             transition: var(--transition);
-            background: var(--glass-bg);
+            background: var(--bg-tertiary);
             color: var(--text-dark);
-            backdrop-filter: blur(var(--glass-blur));
         }
 
         .search-input::placeholder {
@@ -365,8 +381,8 @@
         .search-input:focus {
             outline: none;
             border-color: var(--primary-color);
-            background: var(--bg-secondary);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+            background: var(--bg-tertiary);
+            box-shadow: 0 0 0 3px rgba(239, 75, 63, 0.18);
         }
 
         .search-input.has-value { padding-right: 2.5rem; }
@@ -396,12 +412,11 @@
             max-width: 400px;
             background: var(--bg-secondary);
             border: 1px solid var(--glass-border);
-            border-radius: var(--border-radius);
+            border-radius: 12px;
             box-shadow: var(--shadow-lg);
             z-index: 50;
             margin-top: 4px;
             overflow: hidden;
-            backdrop-filter: blur(var(--glass-blur));
         }
         .search-suggestion-item {
             padding: 0.625rem 1rem;
@@ -437,46 +452,51 @@
         .category-filter {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.75rem;
-            margin: 1.5rem 0;
+            gap: 0.5rem;
+            margin: 0;
         }
 
         .category-filter button {
-            padding: 0.625rem 1.25rem;
-            border: 2px solid var(--glass-border);
-            background: var(--glass-bg);
-            color: var(--text-dark);
+            padding: 0.45rem 0.85rem;
+            border: 1px solid var(--glass-border);
+            background: transparent;
+            color: var(--text-light);
             border-radius: 9999px;
-            font-size: 0.875rem;
+            font-size: 0.85rem;
             font-weight: 500;
             cursor: pointer;
             transition: var(--transition);
-            backdrop-filter: blur(var(--glass-blur));
         }
 
         .category-filter button:hover {
-            background: var(--bg-secondary);
-            border-color: var(--text-muted);
+            background: var(--bg-tertiary);
+            border-color: var(--glass-border);
+            color: var(--text-dark);
         }
 
         .category-filter button.active {
             background: var(--primary-color);
-            color: white;
+            color: #fff;
             border-color: var(--primary-color);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+
+        /* "All" is the default state, not a second primary action */
+        .category-filter button.active.chip-all {
+            background: var(--bg-tertiary);
+            color: var(--text-dark);
+            border-color: var(--glass-border);
         }
 
         /* ── ADVANCED FILTER CONTROLS ── */
 
         .filter-select {
             padding: 0.5rem 1rem;
-            border: 2px solid var(--glass-border);
-            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
             font-size: 1rem;
-            background: var(--glass-bg);
+            background: var(--bg-tertiary);
             color: var(--text-dark);
             cursor: pointer;
-            backdrop-filter: blur(var(--glass-blur));
             transition: var(--transition);
         }
 
@@ -492,21 +512,21 @@
         }
 
         .clear-filters {
-            background: var(--glass-bg);
-            color: var(--text-dark);
-            border: 2px solid var(--glass-border);
+            background: transparent;
+            color: var(--text-light);
+            border: 1px solid var(--glass-border);
             padding: 0.5rem 1rem;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
             font-size: 0.9rem;
-            backdrop-filter: blur(var(--glass-blur));
             transition: var(--transition);
             font-weight: 500;
         }
 
         .clear-filters:hover {
-            background: var(--bg-secondary);
-            border-color: var(--text-muted);
+            background: var(--bg-tertiary);
+            color: var(--text-dark);
+            border-color: var(--glass-border);
         }
 
         .active-filter-count {
@@ -518,63 +538,38 @@
             font-weight: 600;
         }
 
-        /* ── STICKY FILTER BAR (unused — filters now in sidebar) ── */
-
-        .filters-wrapper h1 {
-            color: var(--text-dark);
-            margin-top: 0;
-            margin-bottom: 1.5rem;
-            font-size: 2rem;
-        }
-
-        /* ── SLIM FILTER BAR (search + category chips + advanced toggle) ── */
-        .filter-bar {
-            background: var(--glass-bg);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--border-radius-lg);
-            padding: 1rem 1.25rem;
-            box-shadow: var(--shadow-md);
+        /* ── FEED TOOLBAR (heading + search + chips, no container) ── */
+        .feed-toolbar {
             display: flex;
-            flex-direction: column;
-            gap: 0.875rem;
-            margin-bottom: 2rem;
-            transition: background 0.3s, border-color 0.3s;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            gap: 16px 24px;
+            margin-bottom: 24px;
         }
-        .filter-bar-top {
+        .feed-heading {
+            flex: 0 0 auto;
+        }
+        .feed-controls {
             display: flex;
             align-items: center;
             flex-wrap: wrap;
-            gap: 0.75rem;
+            justify-content: flex-end;
+            gap: 8px;
+            flex: 1 1 560px;
+            margin-left: auto;
         }
-        .filter-bar .search-container {
-            margin: 0;
-            flex: 1 1 280px;
-            min-width: 220px;
+        .feed-controls .search-container {
+            flex: 1 1 220px;
+            min-width: 200px;
+            max-width: 300px;
         }
-        .filter-bar .search-wrapper {
-            position: relative;
-            display: block;
-        }
-        .filter-bar .search-input {
+        .feed-controls .search-input {
             max-width: 100%;
-            width: 100%;
-            font-size: 0.925rem;
-            padding: 0.65rem 1.1rem;
-        }
-        .filter-bar .category-filter {
-            margin: 0;
-            gap: 0.5rem;
-        }
-        .filter-bar .category-filter button {
-            padding: 0.45rem 0.9rem;
-            font-size: 0.85rem;
         }
         .filter-bar-tools {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            margin-left: auto;
+            gap: 8px;
         }
         .filter-advanced-toggle {
             display: inline-flex;
@@ -584,8 +579,8 @@
             font-size: 0.85rem;
             font-weight: 600;
             font-family: inherit;
-            color: var(--text-dark);
-            background: var(--bg-tertiary);
+            color: var(--text-light);
+            background: transparent;
             border: 1px solid var(--glass-border);
             border-radius: 9999px;
             cursor: pointer;
@@ -593,21 +588,21 @@
             white-space: nowrap;
         }
         .filter-advanced-toggle:hover {
-            background: var(--bg-secondary);
-            border-color: var(--text-muted);
+            background: var(--bg-tertiary);
+            color: var(--text-dark);
+            border-color: var(--glass-border);
         }
         .filter-advanced-toggle.active {
-            background: var(--accent-dark);
-            color: #fff;
-            border-color: var(--accent-dark);
+            background: var(--text-dark);
+            color: var(--bg-color);
+            border-color: var(--text-dark);
         }
         .filter-advanced {
             display: flex;
             align-items: center;
             flex-wrap: wrap;
-            gap: 0.625rem;
-            padding-top: 0.875rem;
-            border-top: 1px solid var(--bg-tertiary);
+            gap: 8px;
+            margin: -8px 0 24px;
             animation: advFadeIn 0.2s ease;
         }
         @keyframes advFadeIn {
@@ -624,22 +619,13 @@
             color-scheme: light dark;
             min-height: 38px;
         }
-        /* Color-coded category chips */
         .category-filter button {
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
         }
-        .category-filter button .chip-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
+        /* Active topic chips keep their category color; All stays neutral */
+        .category-filter button.active:not(.chip-all) {
             background: var(--chip-color, var(--primary-color));
-            flex-shrink: 0;
-        }
-        .category-filter button.active {
-            background: var(--chip-color, var(--primary-color));
-            color: #fff;
             border-color: var(--chip-color, var(--primary-color));
         }
         .main-feed {
@@ -660,52 +646,71 @@
             grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
             border-radius: 16px;
             overflow: hidden;
-            margin-bottom: 2.5rem;
+            margin-bottom: 32px;
             min-height: 340px;
-            background: #101012;
+            background: var(--hero-surface);
             cursor: pointer;
             transition: var(--transition);
-            border: 1px solid rgba(0, 0, 0, 0.55);
+            border: 1px solid var(--glass-border);
         }
         .featured-hero:hover {
             transform: translateY(-2px);
-            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+        }
+        /* No cover image: narrow the card and center the text */
+        .featured-hero.is-text-only {
+            grid-template-columns: 1fr;
+            max-width: 840px;
+            margin-left: auto;
+            margin-right: auto;
         }
         .featured-hero-media {
-            position: absolute;
-            inset: 0;
+            position: relative;
+            grid-column: 2;
+            grid-row: 1;
+            min-height: 340px;
             background-size: cover;
-            background-position: center right;
+            background-position: center;
             transition: transform 0.6s ease;
         }
         .featured-hero:hover .featured-hero-media {
             transform: scale(1.03);
         }
-        .featured-hero-placeholder {
+        /* Feather the photo into the text panel */
+        .featured-hero-media::after {
+            content: '';
             position: absolute;
             inset: 0;
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-        }
-        /* Deep scrim: ~85% black on the text side fading to transparent on the right */
-        .featured-hero-overlay {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(90deg,
-                rgba(10, 10, 11, 0.88) 0%,
-                rgba(10, 10, 11, 0.85) 38%,
-                rgba(10, 10, 11, 0.45) 66%,
-                rgba(10, 10, 11, 0.05) 100%);
+            pointer-events: none;
+            background:
+                linear-gradient(90deg,
+                    var(--hero-surface) 0%,
+                    rgba(17, 20, 27, 0.55) 14%,
+                    rgba(17, 20, 27, 0) 45%),
+                linear-gradient(180deg, rgba(10, 12, 16, 0.08) 0%, rgba(10, 12, 16, 0.28) 100%);
         }
         .featured-hero-content {
             position: relative;
             z-index: 2;
             grid-column: 1;
+            grid-row: 1;
             padding: 2.5rem;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: flex-start;
             min-height: 340px;
+        }
+        .featured-hero.is-text-only .featured-hero-content {
+            align-items: center;
+            text-align: center;
+            max-width: 680px;
+            margin: 0 auto;
+        }
+        .featured-hero.is-text-only .featured-hero-title,
+        .featured-hero.is-text-only .featured-hero-excerpt {
+            margin-left: auto;
+            margin-right: auto;
         }
         .featured-hero-badge {
             display: inline-flex;
@@ -785,50 +790,20 @@
             transform: translateX(3px);
         }
 
-        /* ── SECTION HEADER PANEL (title + count + search hint on the photo) ── */
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            flex-wrap: wrap;
-            gap: 16px;
-            padding: 18px 24px;
-            margin-bottom: 1.25rem;
-            background: var(--panel-bg);
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            box-shadow: var(--shadow-lg);
-        }
+        /* ── FEED HEADING ── */
         .latest-title {
-            color: var(--panel-text);
+            color: var(--text-dark);
             font-family: var(--font-headline);
             font-size: 1.5rem;
             font-weight: 700;
             margin: 0;
         }
-        /* Solid muted color — never opacity, so contrast holds on the panel */
-        .posts-count,
-        .search-hint {
-            color: var(--panel-muted);
+        .posts-count {
+            color: var(--text-light);
             margin: 4px 0 0;
             font-size: 0.9rem;
         }
-        .posts-count strong { color: var(--panel-text); font-weight: 700; }
-        .search-hint {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            margin: 0;
-        }
-        .search-hint kbd {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--glass-border);
-            padding: 0.1rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-        }
+        .posts-count strong { color: var(--text-dark); font-weight: 700; }
 
         /* ── POSTS CONTENT WRAPPER ── */
         .posts-content {
@@ -839,8 +814,8 @@
         .posts-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1.5rem;
-            margin-top: 2rem;
+            gap: 24px;
+            margin-top: 0;
         }
 
         /* ── LOAD MORE ── */
@@ -880,11 +855,10 @@
 
         .post-card {
             background: var(--glass-bg);
-            backdrop-filter: blur(var(--glass-blur));
-            border-radius: 8px;
+            border-radius: 16px;
             padding: 1.5rem;
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
+            box-shadow: none;
+            transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
             cursor: pointer;
             border: 1px solid var(--glass-border);
             display: block;
@@ -894,10 +868,10 @@
         }
 
         .post-card:hover {
-            transform: var(--card-hover-transform);
-            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
-            border-color: rgba(208, 39, 28, 0.25);
-            background: var(--bg-secondary);
+            transform: translateY(-2px);
+            background: var(--surface-hover);
+            border-color: var(--glass-border);
+            box-shadow: none;
         }
 
         /* ── BOOKMARK ── */
@@ -979,10 +953,22 @@
             aspect-ratio: 16 / 9;
             height: auto;
             overflow: hidden;
-            border-radius: 6px;
-            margin-bottom: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 16px;
             background: var(--bg-tertiary);
             position: relative;
+        }
+
+        /* Keep bright screenshots from glaring in dark mode */
+        .post-card-image-container::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(180deg, rgba(10, 12, 16, 0.06) 0%, rgba(10, 12, 16, 0.2) 100%);
+        }
+        [data-theme="dark"] .post-card-image-container::after {
+            background: linear-gradient(180deg, rgba(15, 17, 21, 0.18) 0%, rgba(15, 17, 21, 0.45) 100%);
         }
 
         .post-card-image {
@@ -996,9 +982,36 @@
             transform: scale(1.06);
         }
 
+        /* Text-only posts still get a 16:9 stage so the grid stays even */
+        .post-card-image-fallback {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-light);
+            font-family: var(--font-headline);
+            font-size: 1.05rem;
+            padding: 16px;
+            text-align: center;
+        }
+        .post-card-image-fallback i {
+            font-size: 1.75rem;
+            opacity: 0.55;
+        }
+        .post-card-image-fallback span {
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
         .post-title {
             font-size: 1.25rem;
-            margin-bottom: 0.375rem;
+            margin-bottom: 8px;
             color: var(--text-dark);
             font-weight: 600;
             line-height: 1.4;
@@ -1007,7 +1020,7 @@
         .post-meta {
             color: var(--text-light);
             font-size: 0.85rem;
-            margin-bottom: 0.75rem;
+            margin-bottom: 12px;
         }
 
         .post-excerpt {
@@ -1022,10 +1035,10 @@
         }
 
         .post-tags {
-            margin-top: 1rem;
+            margin-top: 16px;
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem;
+            gap: 8px;
         }
 
         .tag {
@@ -1048,8 +1061,8 @@
 
         .post-reactions-feed {
             display: flex;
-            gap: 0.75rem;
-            margin-top: 1rem;
+            gap: 8px;
+            margin-top: 16px;
             align-items: center;
         }
 
@@ -1091,6 +1104,7 @@
             position: absolute;
             bottom: 10px;
             left: 10px;
+            z-index: 2;
             font-size: 11px;
             font-weight: 700;
             color: #fff;
@@ -1101,6 +1115,10 @@
             backdrop-filter: blur(4px);
             letter-spacing: 0.03em;
             pointer-events: none;
+        }
+
+        .post-card-image-container .video-badge {
+            z-index: 2;
         }
 
         .post-card-category {
@@ -1759,7 +1777,7 @@
 
         /* ── RESPONSIVE ── */
         @media (max-width: 1024px) {
-            .filter-bar { padding: 0.9rem 1rem; }
+            .feed-controls { flex: 1 1 100%; justify-content: flex-start; margin-left: 0; }
             .filter-advanced .filter-select { flex: 1 1 180px; }
         }
 
@@ -1778,11 +1796,13 @@
             .featured-hero { min-height: 240px; }
             .featured-hero-title { font-size: 1.2rem; }
 
-            .filter-bar-top { gap: 0.5rem; }
-            .filter-bar-tools { margin-left: 0; width: 100%; }
+            .feed-toolbar { flex-direction: column; align-items: stretch; gap: 16px; }
+            .feed-controls { justify-content: flex-start; }
+            .feed-controls .search-container { flex: 1 1 100%; max-width: 100%; }
+            .filter-bar-tools { width: 100%; }
 
             .category-filter { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.5rem; -webkit-overflow-scrolling: touch; }
-            .category-filter button { flex-shrink: 0; font-size: 0.8rem; padding: 0.5rem 1rem; }
+            .category-filter button { flex-shrink: 0; font-size: 0.8rem; padding: 0.45rem 0.9rem; }
 
             .filter-advanced .sidebar-active-bar { width: 100%; }
 
@@ -1796,10 +1816,6 @@
             .quick-action-btn.qa-random,
             .quick-action-btn.qa-saved,
             .quick-action-btn.qa-theme { display: none; }
-
-            /* Hint drops below the title so the back-to-top button can't clip it */
-            .section-header { align-items: flex-start; }
-            .search-hint { flex-basis: 100%; }
 
             .bottom-nav { display: flex; }
 
@@ -1817,16 +1833,24 @@
             .post-excerpt { font-size: 0.9rem; }
             .post-card-image-container { aspect-ratio: 16 / 9; }
 
-            /* Mobile hero: image above, text on a vertical scrim */
-            .featured-hero { grid-template-columns: 1fr; min-height: 300px; }
-            .featured-hero-media { background-position: center top; }
-            .featured-hero-overlay {
-                background: linear-gradient(to bottom,
-                    rgba(10, 10, 11, 0.1) 0%,
-                    rgba(10, 10, 11, 0.6) 45%,
-                    rgba(10, 10, 11, 0.88) 100%);
+            /* Mobile hero: image behind, text on a vertical scrim */
+            .featured-hero { display: block; min-height: 300px; }
+            .featured-hero.is-text-only { max-width: 100%; }
+            .featured-hero-media { position: absolute; inset: 0; min-height: 0; background-position: center; }
+            .featured-hero-media::after {
+                background: linear-gradient(180deg,
+                    rgba(17, 20, 27, 0.62) 0%,
+                    rgba(17, 20, 27, 0.86) 55%,
+                    rgba(17, 20, 27, 0.97) 100%);
             }
-            .featured-hero-content { justify-content: flex-end; padding: 1.5rem; }
+            .featured-hero-content { min-height: 300px; justify-content: flex-end; padding: 1.5rem; }
+            .featured-hero.is-text-only .featured-hero-content {
+                min-height: 0;
+                align-items: flex-start;
+                text-align: left;
+                margin: 0;
+                padding: 2rem 1.5rem;
+            }
 
             .connect-section { width: calc(100% - 2rem); margin: 2rem auto 1.5rem; }
             .connect-links { gap: 0.5rem; }
@@ -1842,19 +1866,17 @@
             .logo { font-size: 1.2rem; gap: 6px; }
             .nav a { font-size: 0.8rem; padding: 0.25rem 0.5rem; }
 
-            .posts-grid { gap: 0.75rem; }
-            .post-card { padding: 0.875rem; border-radius: 6px; }
+            .posts-grid { gap: 16px; }
+            .post-card { padding: 1rem; border-radius: 16px; }
             .post-card-image-container { aspect-ratio: 16 / 9; }
             .post-title { font-size: 1.05rem; }
             .post-meta { font-size: 0.8rem; }
 
-            .featured-hero { min-height: 260px; border-radius: 12px; }
+            .featured-hero { min-height: 260px; border-radius: 16px; }
             .featured-hero-content { padding: 1.25rem; }
             .featured-hero-title { font-size: 1.15rem; }
             .featured-hero-excerpt { font-size: 0.88rem; -webkit-line-clamp: 2; }
             .featured-hero-cta { font-size: 0.9rem; padding: 0.55rem 1.2rem; }
-
-            .section-header { padding: 14px 16px; gap: 12px; }
 
             .empty-state { padding: 3rem 1rem; }
             .empty-state h3 { font-size: 1.2rem; }
@@ -1883,18 +1905,18 @@
             padding: 0.75rem 1rem;
             font-size: 0.875rem;
             font-weight: 600;
-            color: var(--primary-color, #D0271C);
-            background: var(--primary-light, rgba(208, 39, 28, 0.08));
-            border: 1.5px solid var(--primary-color, #D0271C);
-            border-radius: 10px;
+            font-family: inherit;
+            color: var(--text-light);
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            border-radius: 9999px;
             text-decoration: none;
-            transition: all 0.2s ease;
+            transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
         }
         .template-gate-btn:hover {
-            background: var(--primary-color, #D0271C);
-            color: #fff;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(208, 39, 28, 0.25);
+            background: var(--bg-tertiary);
+            color: var(--text-dark);
+            border-color: var(--glass-border);
         }
         .template-gate-btn i {
             font-size: 1.1rem;
@@ -1902,12 +1924,11 @@
         .template-gate-btn[onclick] {
             cursor: pointer;
         }
-        /* Compact variant used in the filter bar */
+        /* Compact variant used in the feed toolbar */
         .filter-bar-tools .template-gate-btn {
             width: auto;
             padding: 0.45rem 1rem;
             font-size: 0.85rem;
-            border-radius: 9999px;
         }
 
         /* Template Purchase Modal */
@@ -2248,9 +2269,8 @@
 
             <div v-else>
                 <!-- Featured Hero -->
-                <div v-if="featuredPost" class="featured-hero" @click="openFeaturedPost">
-                    <div class="featured-hero-media" :style="{ backgroundImage: featuredImageStyle }" aria-hidden="true"></div>
-                    <div class="featured-hero-overlay" aria-hidden="true"></div>
+                <div v-if="featuredPost" class="featured-hero" :class="{ 'is-text-only': !featuredHasImage }" @click="openFeaturedPost">
+                    <div v-if="featuredHasImage" class="featured-hero-media" :style="{ backgroundImage: featuredImageStyle }" aria-hidden="true"></div>
                     <div class="featured-hero-content">
                         <div class="featured-hero-badge"><i class="ti ti-flame"></i> Featured Today</div>
                         <div v-if="getCategoryName(featuredPost.categoryId)" class="featured-hero-category"
@@ -2279,14 +2299,21 @@
                     </div>
                 </div>
 
-                <!-- Slim Filter Bar: search + category chips (advanced filters tucked away) -->
-                <div class="filter-bar">
-                    <div class="filter-bar-top">
+                <!-- Feed toolbar: heading + search + categories (no container) -->
+                <div class="feed-toolbar">
+                    <div class="feed-heading">
+                        <h1 class="latest-title">Latest Posts</h1>
+                        <p v-if="latestPosts.length > 0" class="posts-count">
+                            Showing <strong>{{ visiblePosts.length }}</strong> of <strong>{{ latestPosts.length }}</strong> post{{ latestPosts.length !== 1 ? 's' : '' }}
+                            <span v-if="searchQuery"> for &ldquo;{{ searchQuery }}&rdquo;</span>
+                        </p>
+                    </div>
+                    <div class="feed-controls">
                         <!-- Search -->
                         <div class="search-container">
                             <div class="search-wrapper">
                                 <input v-model="searchQuery" type="text" id="search-input" class="search-input" :class="{ 'has-value': searchQuery }"
-                                    placeholder="Search posts…  ( / )"
+                                    placeholder="Search posts…"
                                     @focus="showSearchSuggestions = true"
                                     @blur="hideSearchSuggestionsDelayed"
                                     @keydown="onSearchKeydown">
@@ -2320,9 +2347,8 @@
                         <div class="category-filter">
                             <button v-for="category in allCategories" :key="category.id"
                                 @click="toggleCategory(category.id)"
-                                :class="{ active: selectedCategory === category.id || (selectedCategory === '' && category.id === 'all') }"
+                                :class="{ active: selectedCategory === category.id || (selectedCategory === '' && category.id === 'all'), 'chip-all': category.id === 'all' }"
                                 :style="{ '--chip-color': categoryColor(category.name) }">
-                                <span v-if="category.id !== 'all'" class="chip-dot" aria-hidden="true"></span>
                                 {{ category.name }}
                             </button>
                         </div>
@@ -2342,43 +2368,32 @@
                             </button>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Advanced filters (revealed behind toggle once there is enough content) -->
-                    <div v-if="showAdvanced" class="filter-advanced">
-                        <select v-model="selectedTag" class="filter-select" aria-label="Filter by tag">
-                            <option value="">All Tags</option>
-                            <option v-for="tag in allTags" :key="tag" :value="tag">{{ tag }}</option>
-                        </select>
-                        <select v-model="selectedArchive" class="filter-select" aria-label="Filter by archive">
-                            <option value="">All Time</option>
-                            <option v-for="archive in archives" :key="archive.key" :value="archive.key">{{ archive.label }}</option>
-                        </select>
-                        <select v-model="sortBy" class="filter-select" aria-label="Sort posts">
-                            <option value="newest">Newest First</option>
-                            <option value="oldest">Oldest First</option>
-                            <option value="popular">Most Popular</option>
-                        </select>
-                        <input v-model="selectedDate" type="date" class="filter-select" aria-label="Filter by date">
-                        <div class="sidebar-active-bar" v-if="hasFilters">
-                            <span v-if="activeFilterCount > 0" class="active-filter-count">{{ activeFilterCount }} active</span>
-                            <button v-if="hasFilters" @click="clearFilters" class="clear-filters">Clear All</button>
-                        </div>
+                <!-- Advanced filters (revealed behind toggle once there is enough content) -->
+                <div v-if="showAdvanced" class="filter-advanced">
+                    <select v-model="selectedTag" class="filter-select" aria-label="Filter by tag">
+                        <option value="">All Tags</option>
+                        <option v-for="tag in allTags" :key="tag" :value="tag">{{ tag }}</option>
+                    </select>
+                    <select v-model="selectedArchive" class="filter-select" aria-label="Filter by archive">
+                        <option value="">All Time</option>
+                        <option v-for="archive in archives" :key="archive.key" :value="archive.key">{{ archive.label }}</option>
+                    </select>
+                    <select v-model="sortBy" class="filter-select" aria-label="Sort posts">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="popular">Most Popular</option>
+                    </select>
+                    <input v-model="selectedDate" type="date" class="filter-select" aria-label="Filter by date">
+                    <div class="sidebar-active-bar" v-if="hasFilters">
+                        <span v-if="activeFilterCount > 0" class="active-filter-count">{{ activeFilterCount }} active</span>
+                        <button v-if="hasFilters" @click="clearFilters" class="clear-filters">Clear All</button>
                     </div>
                 </div>
 
                 <!-- Main Feed -->
                 <main class="main-feed">
-                        <div class="section-header">
-                            <div>
-                                <h1 class="latest-title">Latest Posts</h1>
-                                <p v-if="latestPosts.length > 0" class="posts-count">
-                                    Showing <strong>{{ visiblePosts.length }}</strong> of <strong>{{ latestPosts.length }}</strong> post{{ latestPosts.length !== 1 ? 's' : '' }}
-                                    <span v-if="searchQuery"> for &ldquo;{{ searchQuery }}&rdquo;</span>
-                                </p>
-                            </div>
-                            <p class="search-hint">Press <kbd>/</kbd> to search</p>
-                        </div>
-
                         <!-- Posts -->
                         <div class="posts-content">
                         <div v-if="latestPosts.length === 0" class="empty-state">
@@ -2401,10 +2416,14 @@
                                         <i :class="isBookmarked(post.id) ? 'ti ti-bookmark-filled' : 'ti ti-bookmark'"></i>
                                     </button>
 
-                                    <div v-if="post.image || post.video" class="post-card-image-container" style="position: relative;">
+                                    <div class="post-card-image-container">
                                         <img v-if="post.image" :src="post.image" :alt="post.title" class="post-card-image" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'250\' fill=\'%23f0f0f0\'><rect width=\'400\' height=\'250\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'18\' fill=\'%23999\'>Image unavailable</text></svg>'">
-                                        <div v-else-if="post.video" class="post-card-video-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--text-dark);color:var(--bg-secondary);">
+                                        <div v-else-if="post.video" class="post-card-video-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg-tertiary);color:var(--text-light);">
                                             <span>🎥 Video Post</span>
+                                        </div>
+                                        <div v-else class="post-card-image-fallback">
+                                            <i class="ti ti-article" aria-hidden="true"></i>
+                                            <span>{{ getCategoryName(post.categoryId) || 'Latest post' }}</span>
                                         </div>
                                         <div v-if="post.video" class="video-badge" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">
                                             VIDEO

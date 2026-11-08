@@ -177,6 +177,10 @@
                         const safeUrl = img.replace(/'/g, '%27');
                         return `url('${safeUrl}')`;
                     },
+                    featuredHasImage() {
+                        if (!this.featuredPost) return false;
+                        return !!(this.featuredPost.image || (this.featuredPost.images && this.featuredPost.images[0]));
+                    },
                     allTags() {
                         const tags = new Set();
                         this.posts.forEach(post => {
