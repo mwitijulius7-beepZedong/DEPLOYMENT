@@ -78,7 +78,6 @@
                         window.updateSelectedCategoriesCount = updateSelectedCategoriesCount;
                         window.deleteSelectedCategories = deleteSelectedCategories;
                         window.deleteSelectedPhotos = deleteSelectedPhotos;
-                        window.saveAuthorInfo = saveAuthorInfo;
                         window.saveNotificationSettings = saveNotificationSettings;
                         window.setUserAdminKey = setUserAdminKey;
                         window.verifyUserAdminKey = verifyUserAdminKey;
@@ -309,10 +308,12 @@
                                         whatsapp: document.getElementById('author-whatsapp')?.value || '',
                                         profilePicture: url,
                                         social: {
+                                            email: document.getElementById('author-social-email')?.value || '',
                                             twitter: document.getElementById('author-twitter')?.value || '',
                                             facebook: document.getElementById('author-facebook')?.value || '',
                                             linkedin: document.getElementById('author-linkedin')?.value || '',
                                             instagram: document.getElementById('author-instagram')?.value || '',
+                                            github: document.getElementById('author-github')?.value || '',
                                             website: document.getElementById('author-website')?.value || ''
                                         }
                                     })
@@ -559,13 +560,15 @@ window.loadPostsList = loadPostsList;
                         // Load settings to populate sidebar and form fields
                         (async () => {
                             try {
-                                const [blogInfoData, authorData] = await Promise.all([
+                                const [blogInfoData, authorData, aboutData] = await Promise.all([
                                     fetch('/api/settings/blog-info').then(res => res.json()),
-                                    fetch('/api/settings/author').then(res => res.json())
+                                    fetch('/api/settings/author').then(res => res.json()),
+                                    fetch('/api/about').then(res => res.json()).catch(() => ({}))
                                 ]);
 
                                 const blogInfo = blogInfoData.blogInfo || {};
                                 const author = authorData.author || {};
+                                const legacyContact = aboutData.contact || {};
 
                                 // Sidebar title and document title
                                 const sidebarTitle = document.querySelector('.sidebar-logo .sidebar-logo-title');
@@ -586,6 +589,7 @@ window.loadPostsList = loadPostsList;
                                 const authorFacebook = document.getElementById('author-facebook');
                                 const authorLinkedin = document.getElementById('author-linkedin');
                                 const authorInstagram = document.getElementById('author-instagram');
+                                const authorGithub = document.getElementById('author-github');
                                 const authorWebsite = document.getElementById('author-website');
                                 const authorSocialEmail = document.getElementById('author-social-email');
 
@@ -603,6 +607,7 @@ window.loadPostsList = loadPostsList;
                                 if (authorFacebook) authorFacebook.value = author.social?.facebook || '';
                                 if (authorLinkedin) authorLinkedin.value = author.social?.linkedin || '';
                                 if (authorInstagram) authorInstagram.value = author.social?.instagram || '';
+                                if (authorGithub) authorGithub.value = author.social?.github || legacyContact.github || '';
                                 if (authorWebsite) authorWebsite.value = author.social?.website || '';
                                 if (authorSocialEmail) authorSocialEmail.value = author.social?.email || author.email || '';
 

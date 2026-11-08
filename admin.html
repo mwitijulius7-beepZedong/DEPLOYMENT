@@ -3263,10 +3263,10 @@
                             <div class="settings-sidebar">
                                 <ul class="settings-nav">
                                     <li class="settings-nav-item">
-                                        <button type="button" class="settings-nav-btn active" data-panel="general"
-                                            onclick="switchSettingsPanel('general')">
+                                        <button type="button" class="settings-nav-btn active" data-panel="about"
+                                            onclick="switchSettingsPanel('about')">
                                             <i>👤</i>
-                                            General
+                                            About Me
                                         </button>
                                     </li>
                                     <li class="settings-nav-item">
@@ -3312,13 +3312,6 @@
                                         </button>
                                     </li>
                                     <li class="settings-nav-item">
-                                        <button type="button" class="settings-nav-btn" data-panel="about"
-                                            onclick="switchSettingsPanel('about')">
-                                            <i>👤</i>
-                                            About Me
-                                        </button>
-                                    </li>
-                                    <li class="settings-nav-item">
                                         <button type="button" class="settings-nav-btn" data-panel="social-autopost"
                                             onclick="switchSettingsPanel('social-autopost')">
                                             <i>🔗</i>
@@ -3330,14 +3323,14 @@
 
                             <!-- Content Area -->
                             <div class="settings-content">
-                                <!-- General Settings Panel -->
-                                <div id="general-panel" class="settings-panel active">
+                                <!-- About Me Settings Panel (profile, social, and page content) -->
+                                <div id="about-panel" class="settings-panel active">
                                     <div class="section-header-row" style="margin-bottom: 20px;">
                                         <div class="section-header">
-                                            <h2 class="panel-title">General Settings</h2>
-                                            <p class="panel-description">Update your blog information and author details.</p>
+                                            <h2 class="panel-title">About Me Management</h2>
+                                            <p class="panel-description">Manage your blog information, profile, social links, and About page content in one place.</p>
                                         </div>
-                                        <button class="btn-modern" onclick="saveAuthorInfo()">
+                                        <button class="btn-modern" onclick="saveAboutSettings()">
                                             <i>💾</i>
                                             Save Changes
                                         </button>
@@ -3368,7 +3361,7 @@
                                                     <input type="text" class="form-input" id="author-name" style="font-size: 13px;" placeholder="Author name">
                                                 </div>
                                                 <div class="form-group">
-                                                    <label for="author-email" class="form-label" style="font-size: 11px; text-transform: uppercase;">Email Address</label>
+                                                    <label for="author-email" class="form-label" style="font-size: 11px; text-transform: uppercase;">Account Email</label>
                                                     <input type="email" class="form-input" id="author-email" style="font-size: 13px;" placeholder="email@example.com">
                                                 </div>
                                                 <div class="form-group">
@@ -3407,9 +3400,10 @@
                                         <!-- Social Connections -->
                                         <div class="action-card" style="grid-column: span 2;">
                                             <h3><i>🌐</i> Social Connections</h3>
+                                            <p style="font-size: 12px; color: var(--text-medium); margin: 4px 0 12px;">These links power the homepage "Connect With Me" section and the contact details on your About page.</p>
                                             <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px;">
                                                 <div class="form-group">
-                                                    <label for="author-social-email" class="form-label" style="font-size: 11px; text-transform: uppercase;">Email</label>
+                                                    <label for="author-social-email" class="form-label" style="font-size: 11px; text-transform: uppercase;">Public Contact Email</label>
                                                     <input type="email" class="form-input" id="author-social-email" style="font-size: 13px;" placeholder="email@example.com">
                                                 </div>
                                                 <div class="form-group">
@@ -3432,6 +3426,56 @@
                                                     <label for="author-instagram" class="form-label" style="font-size: 11px; text-transform: uppercase;">Instagram</label>
                                                     <input type="url" class="form-input" id="author-instagram" style="font-size: 13px;" placeholder="Instagram profile link">
                                                 </div>
+                                                <div class="form-group">
+                                                    <label for="author-github" class="form-label" style="font-size: 11px; text-transform: uppercase;">GitHub</label>
+                                                    <input type="url" class="form-input" id="author-github" style="font-size: 13px;" placeholder="GitHub profile link">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Visual Branding (Hero) Card -->
+                                        <div class="action-card">
+                                            <h3><i class="ti ti-sparkles"></i> Visual Branding</h3>
+                                            <div class="form-grid" style="grid-template-columns: 1fr; gap: 12px; margin-top: 12px;">
+                                                <div class="form-group">
+                                                    <label for="about-hero-title" class="form-label" style="font-size: 11px; text-transform: uppercase;">Hero Title</label>
+                                                    <input type="text" class="form-input" id="about-hero-title" style="font-size: 13px;" placeholder="e.g. About Me">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="about-hero-subtitle" class="form-label" style="font-size: 11px; text-transform: uppercase;">Hero Subtitle</label>
+                                                    <input type="text" class="form-input" id="about-hero-subtitle" style="font-size: 13px;" placeholder="e.g. Subtitle">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Personal Narrative Card -->
+                                        <div class="action-card">
+                                            <h3><i>👤</i> Personal Narrative</h3>
+                                            <div class="form-grid" style="grid-template-columns: 1fr; gap: 12px; margin-top: 12px;">
+                                                <div class="form-group">
+                                                    <label for="about-who-content" class="form-label" style="font-size: 11px; text-transform: uppercase;">Who I Am</label>
+                                                    <textarea class="form-input form-textarea" id="about-who-content" style="font-size: 13px; min-height: 80px;" placeholder="Your background..."></textarea>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="about-mission-content" class="form-label" style="font-size: 11px; text-transform: uppercase;">My Mission</label>
+                                                    <textarea class="form-input form-textarea" id="about-mission-content" style="font-size: 13px; min-height: 60px;" placeholder="Your purpose..."></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Snapshots Card -->
+                                        <div class="action-card" style="grid-column: span 2;">
+                                            <h3><i>🖼️</i> Snapshots</h3>
+                                            <p style="font-size: 12px; color: var(--text-medium); margin: 4px 0 12px;">Photos uploaded here are shown to visitors as "Snapshots" on your About Me page.</p>
+                                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;">
+                                                <label for="about-photos-file" class="file-input-label" style="font-size: 12px; padding: 8px 14px; background: var(--bg-light); border: 1px solid #ddd; border-radius: 6px; cursor: pointer;">
+                                                    <i>⬆️</i> Upload Snapshot
+                                                </label>
+                                                <input type="file" class="file-input" id="about-photos-file" accept="image/*" multiple onchange="handleAboutPhotoUpload(this)" style="display:none;">
+                                                <span id="about-photos-status" style="font-size: 12px; color: var(--text-muted);"></span>
+                                            </div>
+                                            <div id="about-photos-grid" style="display: flex; flex-wrap: wrap; gap: 10px; min-height: 80px; background: var(--bg-light); border: 1px dashed #ddd; border-radius: 8px; padding: 10px;">
+                                                <p style="color: var(--text-muted); font-size: 12px; width: 100%; text-align: center; padding: 20px 0;">No snapshots yet. Upload photos to display on your About Me page.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -3444,14 +3488,9 @@
                                             <h2 class="panel-title">Appearance Settings</h2>
                                             <p class="panel-description">Customize your blog's visual appearance and theme.</p>
                                         </div>
-                                        <div style="display: flex; gap: 8px;">
-                                            <button class="btn-modern secondary sm" onclick="saveThemeSettings()">
-                                                <i class="ti ti-palette"></i> Sync Theme
-                                            </button>
-                                            <button class="btn-modern sm" onclick="saveBackgroundSettings()">
-                                                <i>🖼️</i> Update Assets
-                                            </button>
-                                        </div>
+                                        <button class="btn-modern" onclick="saveAppearanceSettings()">
+                                            <i class="ti ti-device-floppy"></i> Save Changes
+                                        </button>
                                     </div>
 
                                     <div class="grid-2-col">
@@ -3645,90 +3684,6 @@
                                                 <div class="sec-empty" style="font-size: 12px; opacity: 0.6; padding: 20px; text-align: center;">
                                                     No categories found.
                                                 </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- About Me Settings Panel -->
-                                <div id="about-panel" class="settings-panel">
-                                    <div class="section-header-row" style="margin-bottom: 20px;">
-                                        <div class="section-header">
-                                            <h2 class="panel-title">About Me Management</h2>
-                                            <p class="panel-description">Manage the content and branding of your profile page.</p>
-                                        </div>
-                                        <button class="btn-modern" onclick="saveAboutSettings()">
-                                            <i>💾</i> Update Profile
-                                        </button>
-                                    </div>
-
-                                    <div class="grid-2-col">
-                                        <!-- Visual Branding (Hero) Card -->
-                                        <div class="action-card">
-                                            <h3><i class="ti ti-sparkles"></i> Visual Branding</h3>
-                                            <div class="form-grid" style="grid-template-columns: 1fr; gap: 12px; margin-top: 12px;">
-                                                <div class="form-group">
-                                                    <label for="about-hero-title" class="form-label" style="font-size: 11px; text-transform: uppercase;">Hero Title</label>
-                                                    <input type="text" class="form-input" id="about-hero-title" style="font-size: 13px;" placeholder="e.g. About Me">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="about-hero-subtitle" class="form-label" style="font-size: 11px; text-transform: uppercase;">Hero Subtitle</label>
-                                                    <input type="text" class="form-input" id="about-hero-subtitle" style="font-size: 13px;" placeholder="e.g. Subtitle">
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Personal Narrative Card -->
-                                        <div class="action-card">
-                                            <h3><i>👤</i> Personal Narrative</h3>
-                                            <div class="form-grid" style="grid-template-columns: 1fr; gap: 12px; margin-top: 12px;">
-                                                <div class="form-group">
-                                                    <label for="about-who-content" class="form-label" style="font-size: 11px; text-transform: uppercase;">Who I Am</label>
-                                                    <textarea class="form-input form-textarea" id="about-who-content" style="font-size: 13px; min-height: 80px;" placeholder="Your background..."></textarea>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="about-mission-content" class="form-label" style="font-size: 11px; text-transform: uppercase;">My Mission</label>
-                                                    <textarea class="form-input form-textarea" id="about-mission-content" style="font-size: 13px; min-height: 60px;" placeholder="Your purpose..."></textarea>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Contact & Social Card -->
-                                        <div class="action-card" style="grid-column: span 2;">
-                                            <h3><i>🌐</i> Contact & Social Presence</h3>
-                                            <div class="form-grid" style="grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px;">
-                                                <div class="form-group">
-                                                    <label for="about-contact-email" class="form-label" style="font-size: 11px; text-transform: uppercase;">Primary Email</label>
-                                                    <input type="email" class="form-input" id="about-contact-email" style="font-size: 13px;" placeholder="email@example.com">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="about-contact-twitter" class="form-label" style="font-size: 11px; text-transform: uppercase;">Twitter/X URL</label>
-                                                    <input type="url" class="form-input" id="about-contact-twitter" style="font-size: 13px;" placeholder="https://twitter.com/...">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="about-contact-linkedin" class="form-label" style="font-size: 11px; text-transform: uppercase;">LinkedIn URL</label>
-                                                    <input type="url" class="form-input" id="about-contact-linkedin" style="font-size: 13px;" placeholder="https://linkedin.com/in/...">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="about-contact-github" class="form-label" style="font-size: 11px; text-transform: uppercase;">GitHub URL</label>
-                                                    <input type="url" class="form-input" id="about-contact-github" style="font-size: 13px;" placeholder="https://github.com/...">
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Snapshots Card -->
-                                        <div class="action-card" style="grid-column: span 2;">
-                                            <h3><i>🖼️</i> Snapshots</h3>
-                                            <p style="font-size: 12px; color: var(--text-medium); margin: 4px 0 12px;">Photos uploaded here are shown to visitors as "Snapshots" on your About Me page.</p>
-                                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;">
-                                                <label for="about-photos-file" class="file-input-label" style="font-size: 12px; padding: 8px 14px; background: var(--bg-light); border: 1px solid #ddd; border-radius: 6px; cursor: pointer;">
-                                                    <i>⬆️</i> Upload Snapshot
-                                                </label>
-                                                <input type="file" class="file-input" id="about-photos-file" accept="image/*" multiple onchange="handleAboutPhotoUpload(this)" style="display:none;">
-                                                <span id="about-photos-status" style="font-size: 12px; color: var(--text-muted);"></span>
-                                            </div>
-                                            <div id="about-photos-grid" style="display: flex; flex-wrap: wrap; gap: 10px; min-height: 80px; background: var(--bg-light); border: 1px dashed #ddd; border-radius: 8px; padding: 10px;">
-                                                <p style="color: var(--text-muted); font-size: 12px; width: 100%; text-align: center; padding: 20px 0;">No snapshots yet. Upload photos to display on your About Me page.</p>
                                             </div>
                                         </div>
                                     </div>

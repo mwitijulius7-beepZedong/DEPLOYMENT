@@ -869,8 +869,14 @@
         // Load About content
         async function loadAboutContent() {
             try {
-                const response = await fetch('/api/about');
-                const about = await response.json();
+                const [aboutResponse, authorResponse] = await Promise.all([
+                    fetch('/api/about'),
+                    fetch(`/api/settings/author?t=${Date.now()}`).catch(() => null)
+                ]);
+                const about = await aboutResponse.json();
+                const author = authorResponse && authorResponse.ok
+                    ? (await authorResponse.json()).author || {}
+                    : {};
 
                 if (about) {
                     // Update Hero
@@ -929,27 +935,26 @@
                         }
                     }
 
-                    // Update Contact
-                    if (about.contact) {
-                        const contactMap = {
-                            email: { id: 'contact-email', template: (v) => `mailto:${v}` },
-                            twitter: { id: 'contact-twitter' },
-                            linkedin: { id: 'contact-linkedin' },
-                            github: { id: 'contact-github' }
-                        };
+                    // Update Contact from author social links (single source of truth)
+                    const social = author.social || {};
+                    const contactMap = {
+                        email: { id: 'contact-email', value: social.email || author.email || '', template: (v) => `mailto:${v}` },
+                        twitter: { id: 'contact-twitter', value: social.twitter || '' },
+                        linkedin: { id: 'contact-linkedin', value: social.linkedin || '' },
+                        github: { id: 'contact-github', value: social.github || '' }
+                    };
 
-                        Object.entries(contactMap).forEach(([key, cfg]) => {
-                            const val = about.contact[key];
-                            const link = document.getElementById(cfg.id);
-                            if (val && link) {
-                                link.href = cfg.template ? cfg.template(val) : val;
-                                link.textContent = key === 'email' ? val : key.charAt(0).toUpperCase() + key.slice(1);
-                                document.getElementById(`${cfg.id}-wrapper`).style.display = 'flex';
-                            } else if (link) {
-                                document.getElementById(`${cfg.id}-wrapper`).style.display = 'none';
-                            }
-                        });
-                    }
+                    Object.entries(contactMap).forEach(([key, cfg]) => {
+                        const val = cfg.value;
+                        const link = document.getElementById(cfg.id);
+                        if (val && link) {
+                            link.href = cfg.template ? cfg.template(val) : val;
+                            link.textContent = key === 'email' ? val : key.charAt(0).toUpperCase() + key.slice(1);
+                            document.getElementById(`${cfg.id}-wrapper`).style.display = 'flex';
+                        } else if (link) {
+                            document.getElementById(`${cfg.id}-wrapper`).style.display = 'none';
+                        }
+                    });
                 }
             } catch (error) {
                 console.error('Error loading about content:', error);

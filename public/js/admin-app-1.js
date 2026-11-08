@@ -1177,87 +1177,6 @@
         }
 
 
-        async function saveAuthorInfo() {
-            const getVal = id => document.getElementById(id)?.value || '';
-            const blogTitle = getVal('blog-title');
-            const blogDescription = getVal('blog-description');
-            const authorName = getVal('author-name');
-            const authorEmail = getVal('author-email');
-            const authorBio = getVal('author-bio');
-            const authorPhone = getVal('author-phone');
-            const authorWhatsapp = getVal('author-whatsapp');
-            const authorTwitter = getVal('author-twitter');
-            const authorFacebook = getVal('author-facebook');
-            const authorLinkedin = getVal('author-linkedin');
-            const authorInstagram = getVal('author-instagram');
-            const authorSocialEmail = getVal('author-social-email');
-            const authorWebsite = getVal('author-website');
-            const saveButton = event?.target || document.querySelector('#general-panel .btn-modern');
-
-            await withLoading(saveButton, async () => {
-                try {
-                    // Save blog info (title and description) to /api/settings/blog-info
-                    const blogResponse = await apiFetch('/api/settings/blog-info', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            title: blogTitle,
-                            description: blogDescription
-                        })
-                    });
-
-                    if (!blogResponse.ok) {
-                        throw new Error(`Blog settings error: ${blogResponse.status}`);
-                    }
-                    const blogData = await blogResponse.json();
-
-                    // Save author info to /api/settings/author
-                    const authorResponse = await apiFetch('/api/settings/author', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            name: authorName,
-                            email: authorEmail,
-                            bio: authorBio,
-                            phone: authorPhone,
-                            whatsapp: authorWhatsapp,
-                            profilePicture: window.uploadedProfilePictureUrl,
-                            social: {
-                                email: authorSocialEmail,
-                                twitter: authorTwitter,
-                                facebook: authorFacebook,
-                                linkedin: authorLinkedin,
-                                instagram: authorInstagram,
-                                website: authorWebsite
-                            }
-                        })
-                    });
-
-                    if (!authorResponse.ok) {
-                        throw new Error(`Author settings error: ${authorResponse.status}`);
-                    }
-                    const authorData = await authorResponse.json();
-
-                    if (blogResponse.ok && authorResponse.ok) {
-                        alert('General settings saved successfully!');
-                        const sidebarTitle = document.querySelector('.sidebar-logo .sidebar-logo-title');
-                        if (sidebarTitle) sidebarTitle.textContent = blogTitle;
-                        document.title = `Admin Panel - ${blogTitle}`;
-                        if (window.uploadedProfilePictureUrl) {
-                            updateTopbarAvatar(window.uploadedProfilePictureUrl);
-                        }
-window.uploadedProfilePictureUrl = '';
-                    } else {
-                        let errorMsg = 'Failed to save some general settings.\n\n';
-                        if (!blogResponse.ok) errorMsg += `Blog Info: ${blogData.error || 'Unknown error'}\n`;
-                        if (!authorResponse.ok) errorMsg += `Author Info: ${authorData.error || 'Unknown error'}`;
-                        alert(errorMsg);
-                    }
-                } catch (error) {
-                    console.error('Error saving general settings:', error);
-                    alert('Error saving general settings.');
-                }
-            });
-        }
-
         async function loadAboutSettings() {
             console.log('loadAboutSettings called');
             try {
@@ -1270,11 +1189,6 @@ window.uploadedProfilePictureUrl = '';
                     if (document.getElementById('about-who-content')) document.getElementById('about-who-content').value = about.sections?.find(s => s.id === 'who-i-am')?.content || '';
                     if (document.getElementById('about-mission-content')) document.getElementById('about-mission-content').value = about.sections?.find(s => s.id === 'mission')?.content || '';
 
-                    if (document.getElementById('about-contact-email')) document.getElementById('about-contact-email').value = about.contact?.email || '';
-                    if (document.getElementById('about-contact-twitter')) document.getElementById('about-contact-twitter').value = about.contact?.twitter || '';
-                    if (document.getElementById('about-contact-linkedin')) document.getElementById('about-contact-linkedin').value = about.contact?.linkedin || '';
-                    if (document.getElementById('about-contact-github')) document.getElementById('about-contact-github').value = about.contact?.github || '';
-
                     // Load snapshots
                     window._aboutPhotos = Array.isArray(about.photos) ? about.photos.slice() : [];
                     renderAboutPhotos();
@@ -1285,46 +1199,86 @@ window.uploadedProfilePictureUrl = '';
         }
 
         async function saveAboutSettings() {
+            const getVal = id => document.getElementById(id)?.value || '';
             const aboutData = {
                 hero: {
-                    title: document.getElementById('about-hero-title').value,
-                    subtitle: document.getElementById('about-hero-subtitle').value
+                    title: getVal('about-hero-title'),
+                    subtitle: getVal('about-hero-subtitle')
                 },
                 sections: [
                     {
                         id: 'who-i-am',
                         title: 'Who I Am',
-                        content: document.getElementById('about-who-content').value
+                        content: getVal('about-who-content')
                     },
                     {
                         id: 'mission',
                         title: 'My Mission',
-                        content: document.getElementById('about-mission-content').value
+                        content: getVal('about-mission-content')
                     }
                 ],
-                photos: Array.isArray(window._aboutPhotos) ? window._aboutPhotos : [],
-                contact: {
-                    email: document.getElementById('about-contact-email').value,
-                    twitter: document.getElementById('about-contact-twitter').value,
-                    linkedin: document.getElementById('about-contact-linkedin').value,
-                    github: document.getElementById('about-contact-github').value
-                }
+                photos: Array.isArray(window._aboutPhotos) ? window._aboutPhotos : []
             };
             const saveButton = event?.target || document.querySelector('#about-panel .btn-modern');
 
             await withLoading(saveButton, async () => {
                 try {
-                    const response = await apiFetch('/api/about', {
+                    // Blog info and author settings share the same settings store,
+                    // so save them sequentially to avoid overwriting each other.
+                    const blogResponse = await apiFetch('/api/settings/blog-info', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            title: getVal('blog-title'),
+                            description: getVal('blog-description')
+                        })
+                    });
+
+                    const authorResponse = await apiFetch('/api/settings/author', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: getVal('author-name'),
+                            email: getVal('author-email'),
+                            bio: getVal('author-bio'),
+                            phone: getVal('author-phone'),
+                            whatsapp: getVal('author-whatsapp'),
+                            profilePicture: window.uploadedProfilePictureUrl || '',
+                            social: {
+                                email: getVal('author-social-email'),
+                                twitter: getVal('author-twitter'),
+                                facebook: getVal('author-facebook'),
+                                linkedin: getVal('author-linkedin'),
+                                instagram: getVal('author-instagram'),
+                                github: getVal('author-github'),
+                                website: getVal('author-website')
+                            }
+                        })
+                    });
+
+                    const aboutResponse = await apiFetch('/api/about', {
                         method: 'POST',
                         body: JSON.stringify(aboutData)
                     });
 
-                    if (response.ok) {
-                        alert('About Me settings saved successfully!');
-                    } else {
-                        const data = await response.json();
-                        alert('Failed to save settings: ' + (data.error || 'Unknown error'));
+                    const failed = [];
+                    if (!blogResponse.ok) failed.push('blog information');
+                    if (!authorResponse.ok) failed.push('author profile');
+                    if (!aboutResponse.ok) failed.push('About page');
+                    if (failed.length > 0) {
+                        alert('Failed to save: ' + failed.join(', ') + '.');
+                        return;
                     }
+
+                    const authorData = await authorResponse.json();
+                    const blogTitle = getVal('blog-title');
+                    const sidebarTitle = document.querySelector('.sidebar-logo .sidebar-logo-title');
+                    if (sidebarTitle) sidebarTitle.textContent = blogTitle;
+                    document.title = `Admin Panel - ${blogTitle}`;
+                    const savedProfilePicture = authorData.author?.profilePicture || '';
+                    if (savedProfilePicture) {
+                        window.uploadedProfilePictureUrl = savedProfilePicture;
+                        updateTopbarAvatar(savedProfilePicture);
+                    }
+                    alert('About Me settings saved successfully!');
                 } catch (error) {
                     console.error('Error saving about settings:', error);
                     alert('Connection error. Failed to save settings.');
@@ -1334,6 +1288,13 @@ window.uploadedProfilePictureUrl = '';
 
         window.loadAboutSettings = loadAboutSettings;
         window.saveAboutSettings = saveAboutSettings;
+
+        // About Me is the default settings panel, so populate it on load.
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadAboutSettings);
+        } else {
+            loadAboutSettings();
+        }
 
         // --- About Snapshots Logic ---
         window._aboutPhotos = [];
@@ -1658,73 +1619,61 @@ window.uploadedProfilePictureUrl = '';
         // Wrapper functions for settings functions to handle async loading
 
 
-        async function saveThemeSettings() {
+        async function saveAppearanceSettings() {
             const primaryColor = document.getElementById('primary-color').value;
             const accentColor = document.getElementById('accent-color').value;
-            const saveButton = event?.target || document.querySelector('#appearance-panel .btn-modern');
+            const backgroundColor = document.getElementById('background-color').value;
+            const backgroundUrl = document.getElementById('background-url').value;
+            const saveButton = event?.target || document.querySelector('#appearance-panel button[onclick="saveAppearanceSettings()"]');
 
             await withLoading(saveButton, async () => {
                 try {
-                    const response = await apiFetch('/api/settings/theme', {
+                    const failed = [];
+
+                    // Theme and background share the same settings store,
+                    // so save them sequentially to avoid overwriting each other.
+                    const themeResponse = await apiFetch('/api/settings/theme', {
                         method: 'POST',
                         body: JSON.stringify({
                             primaryColor,
                             accentColor
                         })
                     });
+                    if (!themeResponse.ok) failed.push('theme');
 
-                    const data = await response.json();
-
-                    if (response.ok) {
-                        alert('Theme settings saved successfully!');
-                        document.documentElement.style.setProperty('--primary-color', primaryColor);
-                        document.documentElement.style.setProperty('--accent-color', accentColor);
-                    } else {
-                        alert('Failed to save theme settings: ' + (data.error || 'Unknown error'));
-                    }
-                } catch (error) {
-                    console.error('Error saving theme settings:', error);
-                    alert('Error saving theme settings.');
-                }
-            });
-        }
-
-        async function saveBackgroundSettings() {
-            const backgroundColor = document.getElementById('background-color').value;
-            const backgroundUrl = document.getElementById('background-url').value;
-            const saveButton = event?.target || document.querySelector('#appearance-panel button[onclick="saveBackgroundSettings()"]');
-
-            await withLoading(saveButton, async () => {
-                try {
                     if (backgroundUrl) {
-                        const response = await apiFetch('/api/settings/background', {
+                        const backgroundResponse = await apiFetch('/api/settings/background', {
                             method: 'POST',
                             body: JSON.stringify({
                                 backgroundUrl: backgroundUrl
                             })
                         });
-
-                        const data = await response.json();
-
-                        if (!response.ok) {
-                            alert('Failed to save background settings: ' + (data.error || 'Unknown error'));
-                            return;
-                        }
+                        if (!backgroundResponse.ok) failed.push('background');
                     }
 
-                    alert('Background settings saved successfully!');
+                    if (failed.length > 0) {
+                        alert('Failed to save: ' + failed.join(', ') + '.');
+                        return;
+                    }
+
+                    document.documentElement.style.setProperty('--primary-color', primaryColor);
+                    document.documentElement.style.setProperty('--accent-color', accentColor);
                     document.body.style.backgroundColor = backgroundColor;
                     if (backgroundUrl) {
                         document.body.style.backgroundImage = `url('${backgroundUrl}')`;
                         document.body.style.backgroundSize = 'cover';
                         document.body.style.backgroundAttachment = 'fixed';
                     }
+
+                    alert('Appearance settings saved successfully!');
                 } catch (error) {
-                    console.error('Error saving background settings:', error);
-                    alert('Error saving background settings.');
+                    console.error('Error saving appearance settings:', error);
+                    alert('Error saving appearance settings.');
                 }
             });
         }
+
+        window.saveAppearanceSettings = saveAppearanceSettings;
 
         // --- Cropper.js logic for Background Upload ---
         let cropper = null;
