@@ -1142,7 +1142,13 @@
         .empty-state {
             text-align: center;
             padding: 4rem 2rem;
-            color: var(--text-muted);
+            color: var(--panel-muted);
+            background: var(--panel-bg);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
         }
 
         .empty-state-icon {
@@ -1154,11 +1160,11 @@
         .empty-state h3 {
             font-size: 1.5rem;
             margin-bottom: 0.75rem;
-            color: var(--text-dark);
+            color: var(--panel-text);
         }
 
         .empty-state p {
-            color: var(--text-light);
+            color: var(--panel-muted);
             font-size: 0.95rem;
             margin-bottom: 1.5rem;
         }
@@ -1188,12 +1194,20 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 12px;
             margin-bottom: 1rem;
+            padding: 12px 18px;
+            background: var(--panel-bg);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            box-shadow: var(--shadow-md);
         }
         .feed-section-title {
             font-size: 1.1rem;
             font-weight: 600;
-            color: var(--text-dark);
+            color: var(--panel-text);
             display: flex;
             align-items: center;
             gap: 8px;
@@ -1201,7 +1215,7 @@
         .feed-section-more {
             font-size: 0.85rem;
             font-weight: 600;
-            color: var(--text-dark);
+            color: var(--panel-text);
             cursor: pointer;
             text-decoration: underline;
             text-decoration-thickness: 1.5px;
@@ -1690,6 +1704,59 @@
             transform: translateX(-50%) translateY(0);
         }
 
+        /* Connect Section */
+        .connect-section {
+            width: min(calc(100% - 4rem), 1136px);
+            margin: 3rem auto 2rem;
+            padding: 2rem 1rem;
+            background: var(--panel-bg);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+        }
+        .connect-inner {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .connect-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--panel-text);
+            margin-bottom: 1.25rem;
+        }
+        .connect-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+        }
+        .connect-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            color: var(--text-medium);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: var(--transition);
+        }
+        .connect-link:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-color);
+            color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+        .connect-icon {
+            font-size: 1.1rem;
+        }
+
         /* ── RESPONSIVE ── */
         @media (max-width: 1024px) {
             .filter-bar { padding: 0.9rem 1rem; }
@@ -1724,6 +1791,15 @@
 
             .quick-actions { bottom: 70px; right: 16px; }
             .quick-action-btn { width: 38px; height: 38px; font-size: 0.95rem; }
+            /* Bottom nav already has Random / Saved / Theme; keeping them
+               floating too makes the column cover feed text on narrow screens */
+            .quick-action-btn.qa-random,
+            .quick-action-btn.qa-saved,
+            .quick-action-btn.qa-theme { display: none; }
+
+            /* Hint drops below the title so the back-to-top button can't clip it */
+            .section-header { align-items: flex-start; }
+            .search-hint { flex-basis: 100%; }
 
             .bottom-nav { display: flex; }
 
@@ -1752,6 +1828,7 @@
             }
             .featured-hero-content { justify-content: flex-end; padding: 1.5rem; }
 
+            .connect-section { width: calc(100% - 2rem); margin: 2rem auto 1.5rem; }
             .connect-links { gap: 0.5rem; }
             .connect-link { padding: 0.625rem 0.875rem; font-size: 0.8rem; min-height: 44px; display: inline-flex; align-items: center; }
 
@@ -1782,6 +1859,7 @@
             .empty-state { padding: 3rem 1rem; }
             .empty-state h3 { font-size: 1.2rem; }
 
+            .connect-section { width: calc(100% - 1.5rem); }
             .connect-link { min-height: 40px; }
             .connect-title { font-size: 1rem; }
 
@@ -1791,53 +1869,6 @@
             .quick-action-btn { width: 36px; height: 36px; font-size: 0.85rem; }
 
             .feed-mini-card { min-width: 160px; max-width: 180px; padding: 0.75rem; }
-        }
-
-        /* Connect Section */
-        .connect-section {
-            padding: 2rem 1rem;
-            margin-top: 2rem;
-            border-top: 1px solid var(--bg-tertiary);
-        }
-        .connect-inner {
-            max-width: 800px;
-            margin: 0 auto;
-            text-align: center;
-        }
-        .connect-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-dark);
-            margin-bottom: 1.25rem;
-        }
-        .connect-links {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            justify-content: center;
-        }
-        .connect-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--bg-tertiary);
-            color: var(--text-medium);
-            text-decoration: none;
-            font-size: 0.875rem;
-            transition: var(--transition);
-        }
-        .connect-link:hover {
-            background: var(--primary-light);
-            border-color: var(--primary-color);
-            color: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-sm);
-        }
-.connect-icon {
-            font-size: 1.1rem;
         }
 
         .template-gate {
@@ -2527,15 +2558,15 @@
                 ↑
                 <span class="tooltip">Back to Top</span>
             </button>
-            <button class="quick-action-btn" @click="openRandomPost" title="Random post">
+            <button class="quick-action-btn qa-random" @click="openRandomPost" title="Random post">
                 <i class="ti ti-dice"></i>
                 <span class="tooltip">Random Post</span>
             </button>
-            <button class="quick-action-btn" @click="showBookmarks = !showBookmarks" title="Saved posts">
+            <button class="quick-action-btn qa-saved" @click="showBookmarks = !showBookmarks" title="Saved posts">
                 <i :class="showBookmarks ? 'ti ti-bookmark-filled' : 'ti ti-bookmark'"></i>
                 <span class="tooltip">{{ showBookmarks ? 'All Posts' : 'Saved' }}</span>
             </button>
-            <button class="quick-action-btn" @click="cycleTheme" title="Cycle theme">
+            <button class="quick-action-btn qa-theme" @click="cycleTheme" title="Cycle theme">
                 <i class="ti ti-palette"></i>
                 <span class="tooltip">Theme: {{ theme }}</span>
             </button>
