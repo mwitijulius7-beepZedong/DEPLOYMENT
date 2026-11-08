@@ -59,6 +59,11 @@
             --font-body: 'Inter', -apple-system, sans-serif;
 
             --reading-progress-color: var(--primary-color);
+
+            /* Text panels that sit on the busy background photo */
+            --panel-bg: rgba(255, 255, 255, 0.88);
+            --panel-text: #1a1a1a;
+            --panel-muted: #4a4a4a;
         }
 
         [data-theme="dark"] {
@@ -74,6 +79,10 @@
             --glass-border: #33332D;
             --primary-color: #E8483B;
             --primary-hover: #D0271C;
+
+            --panel-bg: rgba(27, 27, 24, 0.86);
+            --panel-text: #f5f5f5;
+            --panel-muted: #c4c4c4;
         }
 
         * {
@@ -636,18 +645,6 @@
         .main-feed {
             min-width: 0;
         }
-        .main-feed-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1.25rem;
-        }
-        .main-feed-header h1 {
-            color: var(--text-dark);
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin: 0;
-        }
 
         /* ── CONTAINER ── */
         .container {
@@ -788,29 +785,44 @@
             transform: translateX(3px);
         }
 
-        /* ── RESULTS BAR ── */
-        .results-bar {
+        /* ── SECTION HEADER PANEL (title + count + search hint on the photo) ── */
+        .section-header {
             display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: flex-end;
             flex-wrap: wrap;
-            gap: 0.75rem;
+            gap: 16px;
+            padding: 18px 24px;
             margin-bottom: 1.25rem;
+            background: var(--panel-bg);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
         }
-        .result-count {
+        .latest-title {
+            color: var(--panel-text);
+            font-family: var(--font-headline);
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        /* Solid muted color — never opacity, so contrast holds on the panel */
+        .posts-count,
+        .search-hint {
+            color: var(--panel-muted);
+            margin: 4px 0 0;
             font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-light);
         }
-        .result-count strong { color: var(--text-dark); }
-        .result-hint {
-            font-size: 0.85rem;
-            color: var(--text-light);
+        .posts-count strong { color: var(--panel-text); font-weight: 700; }
+        .search-hint {
             display: inline-flex;
             align-items: center;
             gap: 0.35rem;
+            margin: 0;
         }
-        .result-hint kbd {
+        .search-hint kbd {
             background: var(--bg-tertiary);
             border: 1px solid var(--glass-border);
             padding: 0.1rem 0.5rem;
@@ -1724,7 +1736,7 @@
 
             #cursor-glow { display: none; }
 
-            .main-feed-header h1 { font-size: 1.35rem; }
+            .latest-title { font-size: 1.35rem; }
             .post-title { font-size: 1.15rem; }
             .post-excerpt { font-size: 0.9rem; }
             .post-card-image-container { aspect-ratio: 16 / 9; }
@@ -1765,7 +1777,7 @@
             .featured-hero-excerpt { font-size: 0.88rem; -webkit-line-clamp: 2; }
             .featured-hero-cta { font-size: 0.9rem; padding: 0.55rem 1.2rem; }
 
-            .results-bar { gap: 0.5rem; }
+            .section-header { padding: 14px 16px; gap: 12px; }
 
             .empty-state { padding: 3rem 1rem; }
             .empty-state h3 { font-size: 1.2rem; }
@@ -2325,8 +2337,15 @@
 
                 <!-- Main Feed -->
                 <main class="main-feed">
-                        <div class="main-feed-header">
-                            <h1>Latest Posts</h1>
+                        <div class="section-header">
+                            <div>
+                                <h1 class="latest-title">Latest Posts</h1>
+                                <p v-if="latestPosts.length > 0" class="posts-count">
+                                    Showing <strong>{{ visiblePosts.length }}</strong> of <strong>{{ latestPosts.length }}</strong> post{{ latestPosts.length !== 1 ? 's' : '' }}
+                                    <span v-if="searchQuery"> for &ldquo;{{ searchQuery }}&rdquo;</span>
+                                </p>
+                            </div>
+                            <p class="search-hint">Press <kbd>/</kbd> to search</p>
                         </div>
 
                         <!-- Posts -->
@@ -2340,13 +2359,6 @@
                             <button v-if="hasFilters" type="button" class="empty-state-btn" @click="clearFilters">Clear all filters</button>
                         </div>
                         <div v-else>
-                            <div class="results-bar">
-                                <p class="result-count">
-                                    Showing <strong>{{ visiblePosts.length }}</strong> of <strong>{{ latestPosts.length }}</strong> post{{ latestPosts.length !== 1 ? 's' : '' }}
-                                    <span v-if="searchQuery"> for &ldquo;{{ searchQuery }}&rdquo;</span>
-                                </p>
-                                <span class="result-hint">Press <kbd>/</kbd> to search</span>
-                            </div>
                             <div class="posts-grid">
                                 <a v-for="post in visiblePosts" :key="post.id" :href="'/post.html?id=' + post.id"
                                     class="post-card">
