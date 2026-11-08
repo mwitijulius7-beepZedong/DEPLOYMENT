@@ -354,8 +354,18 @@ app.use(express.json({ limit: '50kb' }));
 // NOTE: '/' and '/post.html' are rendered dynamically (SSR'd list + OG/JSON-LD
 // meta tags), so they must fall through to their dedicated routes below.
 const rootStatic = express.static(__dirname, { maxAge: '1h', etag: true, lastModified: true });
+// Login pages are session-sensitive AND change with design iterations.
+// Aggressive static caching pinned a stale login.html for up to an hour
+// after each deploy (browser + Vercel CDN). Serve those two pages with
+// no-store so every load is fresh.
+const loginNoCache = (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.sendFile(path.join(__dirname, req.path.endsWith('/admin.html') ? 'admin.html' : 'login.html'));
+};
 app.use((req, res, next) => {
   if ((req.method === 'GET' || req.method === 'HEAD') && (req.path === '/' || req.path === '/post.html')) return next();
+  if ((req.method === 'GET' || req.method === 'HEAD') && (req.path === '/login.html' || req.path === '/admin.html')) return loginNoCache(req, res);
   return rootStatic(req, res, next);
 });
 app.use('/public/js', express.static(path.join(__dirname, 'public', 'js'), {
