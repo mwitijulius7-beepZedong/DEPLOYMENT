@@ -3829,7 +3829,7 @@ const DEFAULT_SETTINGS = {
     phone: '',
     whatsapp: '',
     profilePicture: '',
-    social: { twitter: '', facebook: '', linkedin: '', instagram: '', website: '' }
+    social: { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', github: '', website: '' }
   },
   security: {
     adminEntryKeyHash: '',
@@ -4275,25 +4275,29 @@ app.post('/api/settings/theme', requireAdmin, async (req, res) => {
 });
 
 // Author settings API
+const defaultAuthorSocial = { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', github: '', website: '' };
+const defaultAuthor = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: defaultAuthorSocial };
+
+function withAuthorDefaults(author) {
+  const merged = Object.assign({}, defaultAuthor, author || {});
+  merged.social = Object.assign({}, defaultAuthorSocial, merged.social || {});
+  if (typeof merged.profilePicture === 'string') merged.profilePicture = normalizeAssetUrl(merged.profilePicture);
+  return merged;
+}
+
 app.get('/api/settings/author', async (req, res) => {
   try {
     // Read from the configured backend (Supabase, Mongo, or local file)
     const settings = await readSettings();
-    const defaultAuthor = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
-    const author = Object.assign({}, defaultAuthor, settings.author || {});
-    if (typeof author.profilePicture === 'string') author.profilePicture = normalizeAssetUrl(author.profilePicture);
-    return res.json({ author });
+    return res.json({ author: withAuthorDefaults(settings.author) });
   } catch (e) {
     console.error('Error reading author settings:', e);
     // Fall back to local file on error
     try {
       const settings = await readSettings();
-      const author = settings.author || { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
-      if (typeof author.profilePicture === 'string') author.profilePicture = normalizeAssetUrl(author.profilePicture);
-      return res.json({ author });
+      return res.json({ author: withAuthorDefaults(settings.author) });
     } catch (innerErr) {
-      const author = { name: '', email: '', bio: '', phone: '', whatsapp: '', profilePicture: '', social: { email: '', twitter: '', facebook: '', linkedin: '', instagram: '', website: '' } };
-      return res.json({ author });
+      return res.json({ author: withAuthorDefaults({}) });
     }
   }
 });
@@ -4474,6 +4478,7 @@ app.post('/api/settings/author', requireAdmin, async (req, res) => {
         facebook: String(payload.social?.facebook || ''),
         linkedin: String(payload.social?.linkedin || ''),
         instagram: String(payload.social?.instagram || ''),
+        github: String(payload.social?.github || ''),
         website: String(payload.social?.website || '')
       }
     };
