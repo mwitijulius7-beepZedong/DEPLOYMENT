@@ -1233,25 +1233,32 @@
                         })
                     });
 
+                    // Omit profilePicture unless a photo was chosen in this session so
+                    // saving other About fields can never clear the saved portrait.
+                    const authorPayload = {
+                        name: getVal('author-name'),
+                        email: getVal('author-email'),
+                        bio: getVal('author-bio'),
+                        phone: getVal('author-phone'),
+                        whatsapp: getVal('author-whatsapp'),
+                        social: {
+                            email: getVal('author-social-email'),
+                            twitter: getVal('author-twitter'),
+                            facebook: getVal('author-facebook'),
+                            linkedin: getVal('author-linkedin'),
+                            instagram: getVal('author-instagram'),
+                            github: getVal('author-github'),
+                            website: getVal('author-website')
+                        }
+                    };
+
+                    if (window.uploadedProfilePictureUrl) {
+                        authorPayload.profilePicture = window.uploadedProfilePictureUrl;
+                    }
+
                     const authorResponse = await apiFetch('/api/settings/author', {
                         method: 'POST',
-                        body: JSON.stringify({
-                            name: getVal('author-name'),
-                            email: getVal('author-email'),
-                            bio: getVal('author-bio'),
-                            phone: getVal('author-phone'),
-                            whatsapp: getVal('author-whatsapp'),
-                            profilePicture: window.uploadedProfilePictureUrl || '',
-                            social: {
-                                email: getVal('author-social-email'),
-                                twitter: getVal('author-twitter'),
-                                facebook: getVal('author-facebook'),
-                                linkedin: getVal('author-linkedin'),
-                                instagram: getVal('author-instagram'),
-                                github: getVal('author-github'),
-                                website: getVal('author-website')
-                            }
-                        })
+                        body: JSON.stringify(authorPayload)
                     });
 
                     const aboutResponse = await apiFetch('/api/about', {
