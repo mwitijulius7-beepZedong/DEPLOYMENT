@@ -354,8 +354,18 @@ app.use(express.json({ limit: '50kb' }));
 // NOTE: '/' and '/post.html' are rendered dynamically (SSR'd list + OG/JSON-LD
 // meta tags), so they must fall through to their dedicated routes below.
 const rootStatic = express.static(__dirname, { maxAge: '1h', etag: true, lastModified: true });
+// Login pages are session-sensitive AND change with design iterations.
+// Aggressive static caching pinned a stale login.html for up to an hour
+// after each deploy (browser + Vercel CDN). Serve those two pages with
+// no-store so every load is fresh.
+const loginNoCache = (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.sendFile(path.join(__dirname, req.path.endsWith('/admin.html') ? 'admin.html' : 'login.html'));
+};
 app.use((req, res, next) => {
   if ((req.method === 'GET' || req.method === 'HEAD') && (req.path === '/' || req.path === '/post.html')) return next();
+  if ((req.method === 'GET' || req.method === 'HEAD') && (req.path === '/login.html' || req.path === '/admin.html')) return loginNoCache(req, res);
   return rootStatic(req, res, next);
 });
 app.use('/public/js', express.static(path.join(__dirname, 'public', 'js'), {
@@ -2679,7 +2689,8 @@ app.get('/api/auth/me', async (req, res) => {
           username: decoded.username,
           email: decoded.email,
           name: decoded.name,
-          role: decoded.role
+          role: decoded.role,
+          via: decoded.via
         };
       } catch (e) {
         // invalid/expired token — treat as guest
@@ -2696,6 +2707,23 @@ app.get('/api/auth/me', async (req, res) => {
     const users = await loadUsers();
     const userKey = findUserKey(users, username);
     if (!users || !userKey || !users[userKey]) {
+      // Signed Google JWT for a Google-only account (no user record):
+      // the server already verified the Google credential and signed these
+      // claims, so trust them instead of reporting a guest (which bounced
+      // the admin panel straight back to the login page).
+      if (currentUser.via === 'google') {
+        return res.json({
+          success: true,
+          user: {
+            username,
+            name: currentUser.name || '',
+            email: currentUser.email || '',
+            role: currentUser.role || 'USER',
+            active: true,
+            rights: []
+          }
+        });
+      }
       return res.json({ success: false, user: null });
     }
 
@@ -2752,10 +2780,25 @@ app.post('/auth/google', async (req, res) => {
       }
     }
 
-    req.session.user = {
+    // Look up the matching user record so the session and JWT carry proper
+    // username/role (Google-only users may not have a record).
+    // NOTE: /api/auth/me requires session.user.username — a session without
+    // it is treated as a guest, which used to bounce Google logins straight
+    // back to the login page.
+    const matchedUser = Object.entries(users).find(([, u]) => u && u.email === email);
+    const sessionUser = {
+      username: (matchedUser && matchedUser[0]) || email,
       email: payload.email,
-      name: payload.name || 'Google User'
+      name: payload.name || 'Google User',
+      role: matchedUser
+        ? (String(matchedUser[1].role || 'USER').toUpperCase() || 'USER')
+        : (ALLOWED_EMAIL && email === ALLOWED_EMAIL ? 'ADMIN' : 'USER'),
+      // Marker so /api/auth/me can trust the signed claims for Google-only
+      // accounts that have no user record.
+      via: 'google'
     };
+
+    req.session.user = sessionUser;
 
     // If the client provided a pre-login key token, validate and mark session verified
     try {
@@ -2772,11 +2815,16 @@ app.post('/auth/google', async (req, res) => {
       console.warn('Google login: provided admin key token invalid or expired');
     }
 
-    // For Vercel, also return a simple token
+    // 2026: Always return a signed JWT (8h, same as password login) so auth
+    // survives hosts where the server-side session store cannot persist
+    // (e.g. serverless without KV). /api/auth/me falls back to this Bearer
+    // token via the client's sessionStorage authToken. The previous base64
+    // "email|timestamp" token failed jwt.verify and caused an instant logout.
     let authToken = '';
-    if (process.env.VERCEL) {
-      const tokenData = `${payload.email}|${Date.now()}`;
-      authToken = Buffer.from(tokenData).toString('base64');
+    try {
+      authToken = jwt.sign(sessionUser, JWT_SECRET, { expiresIn: '8h' });
+    } catch (e) {
+      console.error('JWT sign error (google login):', e.message);
     }
 
     // Ensure session is saved before returning response
