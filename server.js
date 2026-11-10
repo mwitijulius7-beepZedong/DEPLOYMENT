@@ -4465,13 +4465,18 @@ app.post('/api/settings/author', requireAdmin, async (req, res) => {
     const payload = req.body && req.body.author ? req.body.author : req.body;
     if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'invalid_payload' });
     const settings = await readSettings();
+    const existingAuthor = settings.author && typeof settings.author === 'object' ? settings.author : {};
     settings.author = {
       name: String(payload.name || ''),
       email: String(payload.email || ''),
       bio: String(payload.bio || ''),
       phone: String(payload.phone || ''),
       whatsapp: String(payload.whatsapp || ''),
-      profilePicture: String(payload.profilePicture || ''),
+      // Preserve the saved portrait when the client omits the field entirely;
+      // an explicit empty string still clears it.
+      profilePicture: Object.prototype.hasOwnProperty.call(payload, 'profilePicture')
+        ? String(payload.profilePicture || '').trim()
+        : String(existingAuthor.profilePicture || ''),
       social: {
         email: String(payload.social?.email || ''),
         twitter: String(payload.social?.twitter || ''),

@@ -1212,7 +1212,7 @@
     <header class="site-header">
         <div class="header-inner">
             <a href="/" class="logo">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile">
+                <img id="header-profile-photo" src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Profile">
                 <span class="logo-title">zedong254ke</span>
             </a>
             <nav class="site-nav">
@@ -1255,6 +1255,22 @@
         // Prev/next/related navigation returned by /api/posts/:id
         let postNavData = null;
 
+        const FALLBACK_AVATAR = 'https://api.dicebear.com/7.x/avataaars/svg?seed=zedong';
+        const headerProfilePhoto = document.getElementById('header-profile-photo');
+        if (headerProfilePhoto) {
+            headerProfilePhoto.addEventListener('error', () => {
+                headerProfilePhoto.src = FALLBACK_AVATAR;
+            }, { once: true });
+        }
+
+        function applyHeaderProfilePhoto(author) {
+            if (!headerProfilePhoto || !author) return;
+            const raw = typeof author.profilePicture === 'string' ? author.profilePicture.trim() : '';
+            if (!/^https?:\/\//i.test(raw)) return;
+            headerProfilePhoto.src = raw;
+            headerProfilePhoto.alt = author.name ? 'Profile picture of ' + author.name : 'Profile picture';
+        }
+
         function escapeHtml(value) {
             return String(value == null ? '' : value)
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -1277,6 +1293,7 @@
                     const authorResp = await fetch(`/api/settings/author?t=${Date.now()}`);
                     const authorData = await authorResp.json();
                     if (authorData.author) globalAuthorInfo = authorData.author;
+                    applyHeaderProfilePhoto(globalAuthorInfo);
                 } catch (e) {
                     console.error('Failed to load author info:', e);
                 }
