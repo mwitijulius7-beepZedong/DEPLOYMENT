@@ -1266,7 +1266,7 @@
         function applyHeaderProfilePhoto(author) {
             if (!headerProfilePhoto || !author) return;
             const raw = typeof author.profilePicture === 'string' ? author.profilePicture.trim() : '';
-            if (!/^https?:\/\//i.test(raw)) return;
+            if (!/^(?:https?:\/\/|\/(?!\/))/i.test(raw)) return;
             headerProfilePhoto.src = raw;
             headerProfilePhoto.alt = author.name ? 'Profile picture of ' + author.name : 'Profile picture';
         }

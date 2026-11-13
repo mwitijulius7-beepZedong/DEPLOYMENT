@@ -90,6 +90,9 @@
                             if (avatar) {
                                 avatar.src = url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=zedong';
                             }
+                            if (typeof window.updateAboutProfilePreview === 'function') {
+                                window.updateAboutProfilePreview(url);
+                            }
                         }
 
                         window.handleProfilePictureUpload = handleProfilePictureUpload;
@@ -191,6 +194,9 @@
                             });
                             if (el) el.style.borderColor = 'var(--primary-color)';
                             window.uploadedProfilePictureUrl = url;
+                            if (typeof window.updateAboutProfilePreview === 'function') {
+                                window.updateAboutProfilePreview(url);
+                            }
                             updateSaveButtonVisibility();
                         }
 
@@ -275,6 +281,11 @@
                                     }
                                     updateSaveButtonVisibility();
                                     closeUploadPreview();
+                                    // Persist right away so the saved avatar never depends
+                                    // on a second click after the upload.
+                                    if (window.authorSettingsLoaded) {
+                                        await saveProfilePicture();
+                                    }
                                 } else {
                                     alert('Failed to upload: ' + (data.error || 'Unknown error'));
                                 }
@@ -616,6 +627,7 @@ window.loadPostsList = loadPostsList;
                                     window.uploadedProfilePictureUrl = author.profilePicture;
                                     updateTopbarAvatar(author.profilePicture);
                                 }
+                                window.authorSettingsLoaded = true;
 
                                 console.log('Settings loaded and form populated successfully');
                             } catch (err) {

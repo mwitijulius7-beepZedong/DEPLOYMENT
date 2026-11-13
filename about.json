@@ -3,6 +3,14 @@
         "title": "About Me",
         "subtitle": "Passionate developer sharing knowledge through code and creativity"
     },
+    "titles": {
+        "timeline": "The Path Here",
+        "skills": "What I Do",
+        "featured": "Featured Posts",
+        "photos": "Snapshots",
+        "currently": "Currently",
+        "contact": "Get In Touch"
+    },
     "sections": [
         {
             "id": "who-i-am",
@@ -37,6 +45,28 @@
         {
             "title": "Open Source",
             "description": "Contributing to the developer community through open-source projects and technical writing."
+        }
+    ],
+    "timeline": [
+        {
+            "period": "Before December 2024",
+            "title": "Customer Service · Solutech",
+            "description": "Front-line support: managing expectations, urgency, and the human side of delivery. Every call and ticket taught me what clients actually need."
+        },
+        {
+            "period": "December 2024 — Present",
+            "title": "Project Manager · Solutech",
+            "description": "Leading delivery with the empathy and communication built at the service desk — and still learning something new on every project."
+        }
+    ],
+    "currently": [
+        {
+            "label": "Working on",
+            "text": "A calmer, more editorial version of this blog — better typography, fewer distractions, and more room to read."
+        },
+        {
+            "label": "Exploring",
+            "text": "The overlap between customer support, project delivery, and writing — and what each one teaches the others."
         }
     ],
     "contact": {
