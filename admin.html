@@ -905,6 +905,59 @@
             display: block;
         }
 
+        .about-list-editor {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .about-list-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 10px;
+            background: var(--bg-light, #f7f7f7);
+            border: 1px solid var(--border-color, #e5e5e5);
+            border-radius: 8px;
+        }
+
+        .about-list-fields {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .about-list-fields .form-input {
+            font-size: 13px;
+        }
+
+        .about-list-remove {
+            flex: 0 0 auto;
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(220, 38, 38, 0.1);
+            color: #dc2626;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .about-list-remove:hover {
+            background: #dc2626;
+            color: #fff;
+        }
+
+        .about-empty-note {
+            font-size: 12px;
+            color: var(--text-muted);
+            padding: 6px 0;
+        }
+
         .lightbox-modal {
             display: none;
             position: fixed;
@@ -3378,7 +3431,8 @@
                                                 </div>
                                                 <div class="form-group" style="grid-column: span 2;">
                                                     <label class="form-label" style="font-size: 11px; text-transform: uppercase;">Profile Picture</label>
-                                                    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+                                                    <div style="display:flex;gap:10px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
+                                                        <img id="about-profile-preview" src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Current profile picture" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border-color,#e5e5e5);background:var(--bg-light,#f7f7f7);flex:0 0 auto;">
                                                         <button type="button" onclick="refreshProfileGallery()" style="padding:8px 14px;font-size:12px;background:var(--primary-color);color:white;border:none;border-radius:6px;cursor:pointer;">
                                                             📁 View Profile Photos
                                                         </button>
@@ -3459,6 +3513,86 @@
                                                 <div class="form-group">
                                                     <label for="about-mission-content" class="form-label" style="font-size: 11px; text-transform: uppercase;">My Mission</label>
                                                     <textarea class="form-input form-textarea" id="about-mission-content" style="font-size: 13px; min-height: 60px;" placeholder="Your purpose..."></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Mission Points Card -->
+                                        <div class="action-card">
+                                            <h3><i>🎯</i> Mission Points</h3>
+                                            <p style="font-size: 12px; color: var(--text-medium); margin: 4px 0 0;">Bullet points listed under your mission statement.</p>
+                                            <div class="about-list-editor" id="about-mission-points-editor"></div>
+                                            <button type="button" class="btn-modern sm secondary" style="margin-top: 10px;" onclick="addAboutListItem('point')">
+                                                <i>➕</i> Add Point
+                                            </button>
+                                        </div>
+
+                                        <!-- Skills Card -->
+                                        <div class="action-card">
+                                            <h3><i>🛠️</i> What I Do (Skills)</h3>
+                                            <p style="font-size: 12px; color: var(--text-medium); margin: 4px 0 0;">Cards shown in the "What I Do" section.</p>
+                                            <div class="about-list-editor" id="about-skills-editor"></div>
+                                            <button type="button" class="btn-modern sm secondary" style="margin-top: 10px;" onclick="addAboutListItem('skill')">
+                                                <i>➕</i> Add Skill
+                                            </button>
+                                        </div>
+
+                                        <!-- Timeline Card -->
+                                        <div class="action-card" style="grid-column: span 2;">
+                                            <h3><i>🧭</i> The Path Here (Timeline)</h3>
+                                            <p style="font-size: 12px; color: var(--text-medium); margin: 4px 0 0;">Career timeline entries shown on your About page.</p>
+                                            <div class="about-list-editor" id="about-timeline-editor"></div>
+                                            <button type="button" class="btn-modern sm secondary" style="margin-top: 10px;" onclick="addAboutListItem('timeline')">
+                                                <i>➕</i> Add Timeline Entry
+                                            </button>
+                                        </div>
+
+                                        <!-- Currently Card -->
+                                        <div class="action-card" style="grid-column: span 2;">
+                                            <h3><i>📍</i> Currently</h3>
+                                            <p style="font-size: 12px; color: var(--text-medium); margin: 4px 0 0;">Short "currently" notes shown near the bottom of your About page.</p>
+                                            <div class="about-list-editor" id="about-currently-editor"></div>
+                                            <button type="button" class="btn-modern sm secondary" style="margin-top: 10px;" onclick="addAboutListItem('currently')">
+                                                <i>➕</i> Add Item
+                                            </button>
+                                        </div>
+
+                                        <!-- Section Headings Card -->
+                                        <div class="action-card" style="grid-column: span 2;">
+                                            <h3><i class="ti ti-heading"></i> Section Headings</h3>
+                                            <p style="font-size: 12px; color: var(--text-medium); margin: 4px 0 0;">Titles for each card on the About page.</p>
+                                            <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px;">
+                                                <div class="form-group">
+                                                    <label for="about-title-who" class="form-label" style="font-size: 11px; text-transform: uppercase;">Who I Am</label>
+                                                    <input type="text" class="form-input" id="about-title-who" style="font-size: 13px;" placeholder="Who I Am">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="about-title-mission" class="form-label" style="font-size: 11px; text-transform: uppercase;">My Mission</label>
+                                                    <input type="text" class="form-input" id="about-title-mission" style="font-size: 13px;" placeholder="My Mission">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="about-title-timeline" class="form-label" style="font-size: 11px; text-transform: uppercase;">Timeline</label>
+                                                    <input type="text" class="form-input" id="about-title-timeline" style="font-size: 13px;" placeholder="The Path Here">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="about-title-skills" class="form-label" style="font-size: 11px; text-transform: uppercase;">Skills</label>
+                                                    <input type="text" class="form-input" id="about-title-skills" style="font-size: 13px;" placeholder="What I Do">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="about-title-featured" class="form-label" style="font-size: 11px; text-transform: uppercase;">Featured Posts</label>
+                                                    <input type="text" class="form-input" id="about-title-featured" style="font-size: 13px;" placeholder="Featured Posts">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="about-title-photos" class="form-label" style="font-size: 11px; text-transform: uppercase;">Snapshots</label>
+                                                    <input type="text" class="form-input" id="about-title-photos" style="font-size: 13px;" placeholder="Snapshots">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="about-title-currently" class="form-label" style="font-size: 11px; text-transform: uppercase;">Currently</label>
+                                                    <input type="text" class="form-input" id="about-title-currently" style="font-size: 13px;" placeholder="Currently">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="about-title-contact" class="form-label" style="font-size: 11px; text-transform: uppercase;">Contact</label>
+                                                    <input type="text" class="form-input" id="about-title-contact" style="font-size: 13px;" placeholder="Get In Touch">
                                                 </div>
                                             </div>
                                         </div>

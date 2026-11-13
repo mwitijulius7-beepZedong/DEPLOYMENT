@@ -1177,21 +1177,163 @@
         }
 
 
+        const ABOUT_EDITOR_CONFIG = {
+            point: {
+                container: 'about-mission-points-editor',
+                fields: [{ key: 'text', placeholder: 'Mission point' }]
+            },
+            skill: {
+                container: 'about-skills-editor',
+                fields: [
+                    { key: 'title', placeholder: 'Skill title' },
+                    { key: 'description', placeholder: 'Skill description', multiline: true }
+                ]
+            },
+            timeline: {
+                container: 'about-timeline-editor',
+                fields: [
+                    { key: 'period', placeholder: 'Period, e.g. December 2024 — Present' },
+                    { key: 'title', placeholder: 'Role or milestone' },
+                    { key: 'description', placeholder: 'What you did', multiline: true }
+                ]
+            },
+            currently: {
+                container: 'about-currently-editor',
+                fields: [
+                    { key: 'label', placeholder: 'Label, e.g. Working on' },
+                    { key: 'text', placeholder: 'Details', multiline: true }
+                ]
+            }
+        };
+
+        function aboutSetValue(id, value) {
+            const field = document.getElementById(id);
+            if (field) field.value = value || '';
+        }
+
+        function aboutCreateField(field, value) {
+            const input = document.createElement(field.multiline ? 'textarea' : 'input');
+            if (!field.multiline) input.type = 'text';
+            input.className = 'form-input' + (field.multiline ? ' form-textarea' : '');
+            input.dataset.field = field.key;
+            input.placeholder = field.placeholder;
+            input.value = value === undefined || value === null ? '' : String(value);
+            if (field.multiline) input.style.minHeight = '52px';
+            return input;
+        }
+
+        function addAboutListItem(kind, values) {
+            const config = ABOUT_EDITOR_CONFIG[kind];
+            const container = config && document.getElementById(config.container);
+            if (!container) return;
+
+            const row = document.createElement('div');
+            row.className = 'about-list-row';
+
+            const fields = document.createElement('div');
+            fields.className = 'about-list-fields';
+            config.fields.forEach(field => {
+                fields.appendChild(aboutCreateField(field, values ? values[field.key] : ''));
+            });
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'about-list-remove';
+            remove.title = 'Remove';
+            remove.setAttribute('aria-label', 'Remove item');
+            remove.textContent = '\u00d7';
+            remove.addEventListener('click', function () { row.remove(); });
+
+            row.appendChild(fields);
+            row.appendChild(remove);
+            container.appendChild(row);
+        }
+
+        function renderAboutEditorRows(kind, items) {
+            const config = ABOUT_EDITOR_CONFIG[kind];
+            const container = config && document.getElementById(config.container);
+            if (!container) return;
+
+            container.replaceChildren();
+            (Array.isArray(items) ? items : []).forEach(item => {
+                if (kind === 'point') {
+                    addAboutListItem(kind, { text: item });
+                } else if (item && typeof item === 'object') {
+                    addAboutListItem(kind, item);
+                }
+            });
+        }
+
+        function collectAboutEditorRows(kind) {
+            const config = ABOUT_EDITOR_CONFIG[kind];
+            const container = config && document.getElementById(config.container);
+            if (!container) return [];
+
+            return Array.from(container.querySelectorAll('.about-list-row')).map(row => {
+                const values = {};
+                config.fields.forEach(field => {
+                    const input = row.querySelector('[data-field="' + field.key + '"]');
+                    values[field.key] = input ? input.value.trim() : '';
+                });
+                return values;
+            });
+        }
+
+        function updateAboutProfilePreview(url) {
+            const preview = document.getElementById('about-profile-preview');
+            if (preview && url) preview.src = url;
+        }
+
+        window.addAboutListItem = addAboutListItem;
+        window.updateAboutProfilePreview = updateAboutProfilePreview;
+
         async function loadAboutSettings() {
             console.log('loadAboutSettings called');
             try {
-                const response = await fetch('/api/about');
-                const about = await response.json();
+                const [aboutResponse, authorResponse] = await Promise.all([
+                    fetch('/api/about'),
+                    fetch('/api/settings/author').catch(() => null)
+                ]);
+                const about = await aboutResponse.json();
 
                 if (about) {
-                    if (document.getElementById('about-hero-title')) document.getElementById('about-hero-title').value = about.hero?.title || '';
-                    if (document.getElementById('about-hero-subtitle')) document.getElementById('about-hero-subtitle').value = about.hero?.subtitle || '';
-                    if (document.getElementById('about-who-content')) document.getElementById('about-who-content').value = about.sections?.find(s => s.id === 'who-i-am')?.content || '';
-                    if (document.getElementById('about-mission-content')) document.getElementById('about-mission-content').value = about.sections?.find(s => s.id === 'mission')?.content || '';
+                    const sections = Array.isArray(about.sections) ? about.sections : [];
+                    const whoSection = sections.find(s => s.id === 'who-i-am') || {};
+                    const missionSection = sections.find(s => s.id === 'mission') || {};
+                    const titles = about.titles || {};
+
+                    aboutSetValue('about-hero-title', about.hero?.title);
+                    aboutSetValue('about-hero-subtitle', about.hero?.subtitle);
+                    aboutSetValue('about-who-content', whoSection.content);
+                    aboutSetValue('about-mission-content', missionSection.content);
+                    aboutSetValue('about-title-who', whoSection.title);
+                    aboutSetValue('about-title-mission', missionSection.title);
+                    aboutSetValue('about-title-timeline', titles.timeline);
+                    aboutSetValue('about-title-skills', titles.skills);
+                    aboutSetValue('about-title-featured', titles.featured);
+                    aboutSetValue('about-title-photos', titles.photos);
+                    aboutSetValue('about-title-currently', titles.currently);
+                    aboutSetValue('about-title-contact', titles.contact);
+
+                    renderAboutEditorRows('point', missionSection.points);
+                    renderAboutEditorRows('skill', about.skills);
+                    renderAboutEditorRows('timeline', about.timeline);
+                    renderAboutEditorRows('currently', about.currently);
 
                     // Load snapshots
                     window._aboutPhotos = Array.isArray(about.photos) ? about.photos.slice() : [];
                     renderAboutPhotos();
+                }
+
+                if (authorResponse && authorResponse.ok) {
+                    try {
+                        const authorData = await authorResponse.json();
+                        const picture = authorData.author?.profilePicture || '';
+                        if (picture) window.uploadedProfilePictureUrl = picture;
+                        updateAboutProfilePreview(picture);
+                    } catch (error) {
+                        console.warn('Could not read profile picture:', error);
+                    }
                 }
             } catch (error) {
                 console.error('Error loading about settings:', error);
@@ -1205,18 +1347,30 @@
                     title: getVal('about-hero-title'),
                     subtitle: getVal('about-hero-subtitle')
                 },
+                titles: {
+                    timeline: getVal('about-title-timeline'),
+                    skills: getVal('about-title-skills'),
+                    featured: getVal('about-title-featured'),
+                    photos: getVal('about-title-photos'),
+                    currently: getVal('about-title-currently'),
+                    contact: getVal('about-title-contact')
+                },
                 sections: [
                     {
                         id: 'who-i-am',
-                        title: 'Who I Am',
+                        title: getVal('about-title-who') || 'Who I Am',
                         content: getVal('about-who-content')
                     },
                     {
                         id: 'mission',
-                        title: 'My Mission',
-                        content: getVal('about-mission-content')
+                        title: getVal('about-title-mission') || 'My Mission',
+                        content: getVal('about-mission-content'),
+                        points: collectAboutEditorRows('point').map(row => row.text).filter(Boolean)
                     }
                 ],
+                skills: collectAboutEditorRows('skill').filter(skill => skill.title || skill.description),
+                timeline: collectAboutEditorRows('timeline').filter(entry => entry.period || entry.title || entry.description),
+                currently: collectAboutEditorRows('currently').filter(item => item.label || item.text),
                 photos: Array.isArray(window._aboutPhotos) ? window._aboutPhotos : []
             };
             const saveButton = event?.target || document.querySelector('#about-panel .btn-modern');

@@ -4044,20 +4044,88 @@ async function writeSettings(settings) {
 // Helper function to read about info
 const EXPECTED_SECTIONS = ['who-i-am', 'mission'];
 const DEFAULT_SECTION_TITLES = { 'who-i-am': 'Who I Am', 'mission': 'My Mission' };
+const DEFAULT_ABOUT_TITLES = {
+  timeline: 'The Path Here',
+  skills: 'What I Do',
+  featured: 'Featured Posts',
+  photos: 'Snapshots',
+  currently: 'Currently',
+  contact: 'Get In Touch'
+};
+const ABOUT_LIST_LIMITS = { skills: 20, timeline: 30, currently: 20, points: 20 };
+
+let aboutSeedCache = null;
+function readAboutSeed() {
+  if (aboutSeedCache) return aboutSeedCache;
+  try {
+    aboutSeedCache = fs.existsSync(aboutPath)
+      ? (JSON.parse(fs.readFileSync(aboutPath, 'utf8')) || {})
+      : {};
+  } catch (e) {
+    aboutSeedCache = {};
+  }
+  return aboutSeedCache;
+}
+
+function cleanAboutText(value, maxLength = 2000) {
+  return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
+}
+
+function cleanAboutList(items, maxItems, mapper) {
+  if (!Array.isArray(items)) return null;
+  return items.slice(0, maxItems).map(mapper).filter(Boolean);
+}
 
 function normalizeAbout(aboutData) {
   const data = { ...(aboutData || {}) };
+  const seed = readAboutSeed();
+
   if (Array.isArray(data.photos)) {
     data.photos = data.photos.map(p => typeof p === 'string' ? normalizeAssetUrl(p) : p);
   } else {
     data.photos = [];
   }
+
   if (!Array.isArray(data.sections)) data.sections = [];
+  data.sections = data.sections.filter(s => s && typeof s === 'object').map(s => ({
+    ...s,
+    id: String(s.id || ''),
+    title: String(s.title || ''),
+    content: String(s.content || ''),
+    ...(Array.isArray(s.points) ? { points: s.points.map(p => String(p ?? '')).filter(Boolean) } : {})
+  }));
   EXPECTED_SECTIONS.forEach(secId => {
     if (!data.sections.find(s => s.id === secId)) {
       data.sections.push({ id: secId, title: DEFAULT_SECTION_TITLES[secId], content: '' });
     }
   });
+
+  if (!Array.isArray(data.skills)) data.skills = Array.isArray(seed.skills) ? seed.skills : [];
+  data.skills = data.skills.filter(item => item && typeof item === 'object').map(item => ({
+    title: String(item.title || ''),
+    description: String(item.description || '')
+  }));
+
+  if (!Array.isArray(data.timeline)) data.timeline = Array.isArray(seed.timeline) ? seed.timeline : [];
+  data.timeline = data.timeline.filter(item => item && typeof item === 'object').map(item => ({
+    period: String(item.period || ''),
+    title: String(item.title || ''),
+    description: String(item.description || '')
+  }));
+
+  if (!Array.isArray(data.currently)) data.currently = Array.isArray(seed.currently) ? seed.currently : [];
+  data.currently = data.currently.filter(item => item && typeof item === 'object').map(item => ({
+    label: String(item.label || ''),
+    text: String(item.text || '')
+  }));
+
+  const incomingTitles = data.titles && typeof data.titles === 'object' ? data.titles : {};
+  data.titles = { ...DEFAULT_ABOUT_TITLES };
+  Object.keys(DEFAULT_ABOUT_TITLES).forEach(key => {
+    const value = String(incomingTitles[key] || '').trim();
+    if (value) data.titles[key] = value;
+  });
+
   return data;
 }
 
@@ -4179,18 +4247,58 @@ app.post('/api/about', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'invalid_payload' });
     }
 
-    // Load existing data to preserve non-editable fields (skills, points)
+    // Load existing data so omitted fields keep their current values.
     const existing = await loadAbout();
 
     // Map contact safely
     const inContact = incoming.contact || {};
     const exContact = existing.contact || {};
 
+    const incomingHero = incoming.hero && typeof incoming.hero === 'object' ? incoming.hero : {};
+    const hero = {
+      title: cleanAboutText(incomingHero.title, 200) || existing.hero?.title || '',
+      subtitle: cleanAboutText(incomingHero.subtitle, 300) || existing.hero?.subtitle || ''
+    };
+
+    const titles = { ...(existing.titles || DEFAULT_ABOUT_TITLES) };
+    if (incoming.titles && typeof incoming.titles === 'object') {
+      Object.keys(DEFAULT_ABOUT_TITLES).forEach(key => {
+        if (Object.prototype.hasOwnProperty.call(incoming.titles, key)) {
+          titles[key] = cleanAboutText(incoming.titles[key], 120) || DEFAULT_ABOUT_TITLES[key];
+        }
+      });
+    }
+
     // Build the updated about object
     const updated = {
-      hero: incoming.hero || existing.hero,
-      sections: existing.sections, // start from existing to preserve points
-      skills: existing.skills || [],
+      hero,
+      titles,
+      sections: existing.sections,
+      skills: Array.isArray(incoming.skills)
+        ? (cleanAboutList(incoming.skills, ABOUT_LIST_LIMITS.skills, skill => {
+            if (!skill || typeof skill !== 'object') return null;
+            const title = cleanAboutText(skill.title, 120);
+            const description = cleanAboutText(skill.description, 600);
+            return title || description ? { title, description } : null;
+          }) || [])
+        : (existing.skills || []),
+      timeline: Array.isArray(incoming.timeline)
+        ? (cleanAboutList(incoming.timeline, ABOUT_LIST_LIMITS.timeline, entry => {
+            if (!entry || typeof entry !== 'object') return null;
+            const period = cleanAboutText(entry.period, 120);
+            const title = cleanAboutText(entry.title, 160);
+            const description = cleanAboutText(entry.description, 600);
+            return period || title || description ? { period, title, description } : null;
+          }) || [])
+        : (existing.timeline || []),
+      currently: Array.isArray(incoming.currently)
+        ? (cleanAboutList(incoming.currently, ABOUT_LIST_LIMITS.currently, item => {
+            if (!item || typeof item !== 'object') return null;
+            const label = cleanAboutText(item.label, 80);
+            const text = cleanAboutText(item.text, 600);
+            return label || text ? { label, text } : null;
+          }) || [])
+        : (existing.currently || []),
       // Photos: use incoming if provided (array), otherwise preserve existing
       photos: Array.isArray(incoming.photos) ? incoming.photos
         : (Array.isArray(existing.photos) ? existing.photos : []),
@@ -4202,18 +4310,21 @@ app.post('/api/about', requireAdmin, async (req, res) => {
       }
     };
 
-    // Update sections: apply incoming content but preserve 'points' from existing
+    // Apply editable content to known sections; mission points are now editable too.
     if (incoming.sections && Array.isArray(incoming.sections)) {
-      updated.sections = incoming.sections.map(newSec => {
-        const oldSec = existing.sections.find(s => s.id === newSec.id);
+      updated.sections = incoming.sections.slice(0, 10).filter(sec => sec && typeof sec === 'object').map(newSec => {
+        const oldSec = (existing.sections || []).find(s => s && s.id === newSec.id);
+        const id = String(newSec.id || oldSec?.id || '');
+        const points = Array.isArray(newSec.points)
+          ? (cleanAboutList(newSec.points, ABOUT_LIST_LIMITS.points, point => cleanAboutText(point, 500)) || [])
+          : (Array.isArray(oldSec?.points) ? oldSec.points : []);
         return {
-          id: newSec.id,
-          title: newSec.title,
-          content: newSec.content,
-          // Preserve points array from existing data (not editable in UI)
-          ...(oldSec && oldSec.points ? { points: oldSec.points } : {})
+          id,
+          title: cleanAboutText(newSec.title, 120) || oldSec?.title || DEFAULT_SECTION_TITLES[id] || '',
+          content: cleanAboutText(newSec.content, 8000),
+          ...(points.length ? { points } : {})
         };
-      });
+      }).filter(sec => sec.id);
     }
 
     await saveAbout(updated);
@@ -4334,6 +4445,7 @@ function withAuthorDefaults(author) {
 }
 
 app.get('/api/settings/author', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   try {
     // Read from the configured backend (Supabase, Mongo, or local file)
     const settings = await readSettings();

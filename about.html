@@ -1314,20 +1314,9 @@
                         </ul>
                     </section>
 
-                    <section class="about-section" id="section-timeline" aria-labelledby="timeline-title">
+                    <section class="about-section" id="section-timeline" aria-labelledby="timeline-title" hidden>
                         <h2 id="timeline-title">The Path Here</h2>
-                        <ol class="timeline">
-                            <li class="timeline-item">
-                                <span class="timeline-period">Before December 2024</span>
-                                <h3 class="timeline-title">Customer Service · Solutech</h3>
-                                <p class="timeline-desc">Front-line support: managing expectations, urgency, and the human side of delivery. Every call and ticket taught me what clients actually need.</p>
-                            </li>
-                            <li class="timeline-item">
-                                <span class="timeline-period">December 2024 — Present</span>
-                                <h3 class="timeline-title">Project Manager · Solutech</h3>
-                                <p class="timeline-desc">Leading delivery with the empathy and communication built at the service desk — and still learning something new on every project.</p>
-                            </li>
-                        </ol>
+                        <ol class="timeline" id="about-timeline" aria-busy="true"></ol>
                     </section>
                 </div>
 
@@ -1349,22 +1338,13 @@
                     <div id="about-photos-grid" class="about-photos-grid"></div>
                 </section>
 
-                <section class="about-section" id="section-currently" aria-labelledby="currently-title">
+                <section class="about-section" id="section-currently" aria-labelledby="currently-title" hidden>
                     <h2 id="currently-title">Currently</h2>
-                    <div class="currently-grid">
-                        <div class="currently-item">
-                            <span class="currently-label">Working on</span>
-                            <p>A calmer, more editorial version of this blog — better typography, fewer distractions, and more room to read.</p>
-                        </div>
-                        <div class="currently-item">
-                            <span class="currently-label">Exploring</span>
-                            <p>The overlap between customer support, project delivery, and writing — and what each one teaches the others.</p>
-                        </div>
-                    </div>
+                    <div class="currently-grid" id="about-currently-grid"></div>
                 </section>
 
                 <div class="contact-info" id="contact-section" hidden>
-                    <h3>Get In Touch</h3>
+                    <h3 id="contact-title">Get In Touch</h3>
                     <div class="contact-grid">
                         <div class="contact-item" id="contact-email-wrapper" hidden>
                             <i class="ti ti-mail" aria-hidden="true"></i>
@@ -1475,7 +1455,9 @@
                 }
 
                 try {
-                    var url = new URL(value);
+                    // Resolve relative paths (e.g. /uploads/avatar.jpg) against
+                    // this origin so locally uploaded assets are not discarded.
+                    var url = new URL(value, window.location.href);
                     if (url.protocol === 'https:' || url.protocol === 'http:') return url.href;
                 } catch (error) {
                     return '';
@@ -1497,6 +1479,21 @@
             function renderUnavailable(container) {
                 container.replaceChildren(el('p', 'load-error', 'This section is unavailable right now.'));
                 container.setAttribute('aria-busy', 'false');
+            }
+
+            function setText(id, value) {
+                var node = document.getElementById(id);
+                if (node && value) node.textContent = value;
+            }
+
+            function applyTitles(titles) {
+                if (!titles || typeof titles !== 'object') return;
+                setText('timeline-title', titles.timeline);
+                setText('skills-title', titles.skills);
+                setText('featured-title', titles.featured);
+                setText('photos-title', titles.photos);
+                setText('currently-title', titles.currently);
+                setText('contact-title', titles.contact);
             }
 
             function applyProfilePhoto(author) {
@@ -1531,6 +1528,56 @@
                 list.replaceChildren.apply(list, items.map(function (item) {
                     return el('li', null, item);
                 }));
+            }
+
+            function applyTimeline(entries) {
+                var section = document.getElementById('section-timeline');
+                var list = document.getElementById('about-timeline');
+                if (!section || !list) return;
+
+                var items = Array.isArray(entries) ? entries.filter(function (entry) {
+                    return entry && (entry.period || entry.title || entry.description);
+                }) : [];
+
+                if (!items.length) {
+                    list.replaceChildren();
+                    section.hidden = true;
+                    return;
+                }
+
+                list.replaceChildren.apply(list, items.map(function (entry) {
+                    var item = el('li', 'timeline-item');
+                    if (entry.period) item.appendChild(el('span', 'timeline-period', entry.period));
+                    if (entry.title) item.appendChild(el('h3', 'timeline-title', entry.title));
+                    if (entry.description) item.appendChild(el('p', 'timeline-desc', entry.description));
+                    return item;
+                }));
+                list.setAttribute('aria-busy', 'false');
+                section.hidden = false;
+            }
+
+            function applyCurrently(items) {
+                var section = document.getElementById('section-currently');
+                var grid = document.getElementById('about-currently-grid');
+                if (!section || !grid) return;
+
+                var entries = Array.isArray(items) ? items.filter(function (item) {
+                    return item && (item.label || item.text);
+                }) : [];
+
+                if (!entries.length) {
+                    grid.replaceChildren();
+                    section.hidden = true;
+                    return;
+                }
+
+                grid.replaceChildren.apply(grid, entries.map(function (entry) {
+                    var item = el('div', 'currently-item');
+                    if (entry.label) item.appendChild(el('span', 'currently-label', entry.label));
+                    if (entry.text) item.appendChild(el('p', null, entry.text));
+                    return item;
+                }));
+                section.hidden = false;
             }
 
             function applySkills(skills) {
@@ -1663,6 +1710,8 @@
             function applyAbout(about, author) {
                 if (!about || typeof about !== 'object') return;
 
+                applyTitles(about.titles);
+
                 if (about.hero) {
                     var title = document.getElementById('about-hero-title');
                     var subtitle = document.getElementById('about-hero-subtitle');
@@ -1680,6 +1729,9 @@
                         var sectionEl = document.getElementById('section-' + section.id);
                         if (!sectionEl) return;
 
+                        var heading = sectionEl.querySelector('h2');
+                        if (heading && section.title) heading.textContent = section.title;
+
                         var contentEl = sectionEl.querySelector('.section-content');
                         if (contentEl) renderParagraphs(contentEl, section.content);
 
@@ -1688,6 +1740,8 @@
                 }
 
                 applySkills(about.skills);
+                applyTimeline(about.timeline);
+                applyCurrently(about.currently);
                 applyPhotos(about.photos);
                 applyProfilePhoto(author);
                 applyContact(author);
@@ -1735,6 +1789,10 @@
                     document.querySelectorAll('.section-content').forEach(renderUnavailable);
                     var points = document.getElementById('mission-points');
                     if (points) points.remove();
+                    var timelineSection = document.getElementById('section-timeline');
+                    if (timelineSection) timelineSection.hidden = true;
+                    var currentlySection = document.getElementById('section-currently');
+                    if (currentlySection) currentlySection.hidden = true;
                 }
             }
 
