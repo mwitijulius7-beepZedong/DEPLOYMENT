@@ -243,6 +243,10 @@
                             .sort((a, b) => ((b.likes || 0) + (b.dislikes || 0)) - ((a.likes || 0) + (a.dislikes || 0)))
                             .slice(0, 6);
                     },
+                    trendingMarqueeDuration() {
+                        // Keep a steady pace regardless of how many posts qualify.
+                        return `${Math.max(28, Math.round(this.trendingPosts.length * 7))}s`;
+                    },
                     hasSocialLinks() {
                         if (!this.authorInfo || !this.authorInfo.social) return false;
                         const s = this.authorInfo.social;
