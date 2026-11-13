@@ -1270,16 +1270,43 @@
             color: var(--primary-color);
             text-decoration-color: var(--primary-color);
         }
-        .feed-horizontal-scroll {
-            display: flex;
-            gap: 1rem;
-            overflow-x: auto;
-            padding-bottom: 0.5rem;
-            scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch;
+        .trending-marquee {
+            position: relative;
+            overflow: hidden;
+            padding: 0.5rem 0;
+            -webkit-mask-image: linear-gradient(to right, transparent, #000 3%, #000 97%, transparent);
+            mask-image: linear-gradient(to right, transparent, #000 3%, #000 97%, transparent);
         }
-        .feed-horizontal-scroll::-webkit-scrollbar { height: 3px; }
-        .feed-horizontal-scroll::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+        .trending-track {
+            display: flex;
+            width: max-content;
+            animation: trending-marquee 42s linear infinite;
+        }
+        .trending-group {
+            display: flex;
+            flex-shrink: 0;
+        }
+        .trending-group .feed-mini-card {
+            margin-right: 1rem;
+        }
+        .trending-marquee:hover .trending-track,
+        .trending-marquee:focus-within .trending-track {
+            animation-play-state: paused;
+        }
+        @keyframes trending-marquee {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .trending-marquee {
+                overflow-x: auto;
+                -webkit-mask-image: none;
+                mask-image: none;
+            }
+            .trending-marquee .trending-track {
+                animation: none;
+            }
+        }
         .feed-mini-card {
             min-width: 240px;
             max-width: 260px;
@@ -2329,12 +2356,23 @@
                         <h3 class="feed-section-title"><i class="ti ti-flame"></i> Trending This Week</h3>
                         <a class="feed-section-more" href="/">View all</a>
                     </div>
-                    <div class="feed-horizontal-scroll">
-                        <a v-for="post in trendingPosts" :key="'tr-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card">
-                            <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
-                            <div class="fmc-title">{{ post.title }}</div>
-                            <div class="fmc-meta">{{ (post.likes || 0) + (post.dislikes || 0) }} reactions <span class="trending-badge">🔥 Hot</span></div>
-                        </a>
+                    <div class="trending-marquee">
+                        <div class="trending-track" :style="{ animationDuration: trendingMarqueeDuration }">
+                            <div class="trending-group">
+                                <a v-for="post in trendingPosts" :key="'tr-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card">
+                                    <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
+                                    <div class="fmc-title">{{ post.title }}</div>
+                                    <div class="fmc-meta">{{ (post.likes || 0) + (post.dislikes || 0) }} reactions <span class="trending-badge">🔥 Hot</span></div>
+                                </a>
+                            </div>
+                            <div class="trending-group" aria-hidden="true">
+                                <a v-for="post in trendingPosts" :key="'tr-clone-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card" tabindex="-1">
+                                    <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
+                                    <div class="fmc-title">{{ post.title }}</div>
+                                    <div class="fmc-meta">{{ (post.likes || 0) + (post.dislikes || 0) }} reactions <span class="trending-badge">🔥 Hot</span></div>
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
