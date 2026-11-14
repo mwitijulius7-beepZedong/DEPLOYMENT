@@ -437,6 +437,14 @@
         .bio-photo {
             margin: 0;
             position: relative;
+            cursor: zoom-in;
+            border-radius: var(--border-radius-lg);
+            outline: none;
+        }
+
+        .bio-photo:focus-visible {
+            outline: 3px solid var(--primary-color);
+            outline-offset: 4px;
         }
 
         .bio-photo img {
@@ -448,6 +456,12 @@
             border: 1px solid var(--border-color);
             box-shadow: var(--shadow-lg);
             background: var(--bg-tertiary);
+            transition: transform 0.25s ease;
+        }
+
+        .bio-photo:hover img,
+        .bio-photo:focus-visible img {
+            transform: scale(1.015);
         }
 
         .bio-copy h2 {
@@ -1287,7 +1301,7 @@
 
             <div class="about-content">
                 <section class="about-section bio-section" id="section-who-i-am" aria-labelledby="who-i-am-title">
-                    <figure class="bio-photo">
+                    <figure class="bio-photo" role="button" tabindex="0" aria-label="View profile photo">
                         <img id="about-profile-photo" src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Portrait of zedong254ke" decoding="async">
                     </figure>
                     <div class="bio-copy">
@@ -1434,6 +1448,22 @@
                     image.src = FALLBACK_AVATAR;
                 }, { once: true });
             });
+
+            if (profilePhoto) {
+                var profilePhotoTrigger = profilePhoto.closest('.bio-photo') || profilePhoto;
+
+                var openProfilePhoto = function () {
+                    openAboutPhoto(profilePhoto.src, 'Profile photo preview');
+                };
+
+                profilePhotoTrigger.addEventListener('click', openProfilePhoto);
+                profilePhotoTrigger.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openProfilePhoto();
+                    }
+                });
+            }
 
             var footerYear = document.getElementById('footer-year');
             if (footerYear) footerYear.textContent = String(new Date().getFullYear());
@@ -1603,15 +1633,16 @@
                 section.hidden = false;
             }
 
-            function openAboutPhoto(src) {
+            function openAboutPhoto(src, label) {
+                var previewLabel = label || 'Snapshot preview';
                 var overlay = el('div', 'photo-lightbox');
                 overlay.setAttribute('role', 'dialog');
                 overlay.setAttribute('aria-modal', 'true');
-                overlay.setAttribute('aria-label', 'Snapshot preview');
+                overlay.setAttribute('aria-label', previewLabel);
 
                 var image = document.createElement('img');
                 image.src = src;
-                image.alt = 'Snapshot preview';
+                image.alt = previewLabel;
                 overlay.appendChild(image);
 
                 function close() {
