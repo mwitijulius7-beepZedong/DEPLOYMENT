@@ -23,6 +23,9 @@
                         posts: [],
                         categories: [],
                         searchQuery: '',
+                        searchResults: [],
+                        searchTotal: 0,
+                        searchLoading: false,
                         selectedCategory: '',
                         selectedTag: '',
                         selectedArchive: '',
@@ -30,6 +33,11 @@
                         sortBy: 'newest',
                         visibleCount: 9,
                         authorInfo: null,
+                        blogInfo: null,
+                        historyRelated: [],
+                        newsletterEmail: '',
+                        newsletterStatus: '',
+                        newsletterBusy: false,
                         lightboxImg: '',
                         isLightboxOpen: false,
                         loaded: false,
@@ -63,6 +71,7 @@
                 },
                 mounted() {
                     this.applyTheme(this.theme);
+                    this.readLocationFilters();
                     Promise.all([this.loadPosts(), this.loadCategories(), this.loadSettings()])
                         .catch(() => {})
                         .finally(() => { this.loaded = true; });
@@ -84,20 +93,13 @@
                 },
                 computed: {
                     filteredPosts() {
-                        let filtered = this.posts;
+                        // Server-side search returns its own ranked results; every
+                        // other filter still applies on top of the archive list.
+                        let filtered = this.searchQuery ? this.searchResults : this.posts;
 
                         if (this.showBookmarks) {
                             const saved = this.getBookmarkedIds();
                             filtered = filtered.filter(post => saved.includes(post.id));
-                        }
-
-                        if (this.searchQuery) {
-                            const query = this.searchQuery.toLowerCase();
-                            filtered = filtered.filter(post =>
-                                (post.title || '').toLowerCase().includes(query) ||
-                                (post.content || '').toLowerCase().includes(query) ||
-                                (this.getTags(post)).some(tag => tag.toLowerCase().includes(query))
-                            );
                         }
 
                         if (this.selectedCategory) {
@@ -263,7 +265,19 @@
                 watch: {
                     // Keep the homepage compact: when filters change, restart
                     // from the first page of results.
-                    searchQuery() { this.visibleCount = 9; },
+                    searchQuery() {
+                        this.visibleCount = 9;
+                        clearTimeout(this._searchDebounce);
+                        const query = (this.searchQuery || '').trim();
+                        if (!query) {
+                            this.searchResults = [];
+                            this.searchTotal = 0;
+                            this.searchLoading = false;
+                            return;
+                        }
+                        this.searchLoading = true;
+                        this._searchDebounce = setTimeout(() => this.runSearch(query), 280);
+                    },
                     selectedCategory() { this.visibleCount = 9; },
                     selectedTag() { this.visibleCount = 9; },
                     selectedArchive() { this.visibleCount = 9; },
@@ -275,6 +289,101 @@
                     loadMorePosts() {
                         this.visibleCount += 9;
                     },
+                    readLocationFilters() {
+                        const tagMatch = window.location.pathname.match(/^\/tag\/(.+)$/);
+                        if (tagMatch) this.selectedTag = decodeURIComponent(tagMatch[1]);
+                        const params = new URLSearchParams(window.location.search);
+                        if (params.get('search')) this.searchQuery = params.get('search');
+                        if (params.get('category')) this.selectedCategory = params.get('category');
+                        if (params.get('template')) this.openTemplateModal();
+                    },
+                    async runSearch(query) {
+                        const token = (this._searchToken || 0) + 1;
+                        this._searchToken = token;
+                        try {
+                            const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=50`);
+                            const data = await resp.json();
+                            if (token !== this._searchToken) return;
+                            this.searchResults = Array.isArray(data.results) ? data.results : [];
+                            this.searchTotal = data.total || this.searchResults.length;
+                        } catch (e) {
+                            if (token === this._searchToken) {
+                                this.searchResults = [];
+                                this.searchTotal = 0;
+                            }
+                        } finally {
+                            if (token === this._searchToken) this.searchLoading = false;
+                        }
+                    },
+                    buildHistoryRelated() {
+                        let history = [];
+                        try {
+                            const raw = JSON.parse(localStorage.getItem('blog_reading_history') || '[]');
+                            history = raw.map(item => (typeof item === 'string' ? { id: item } : item));
+                        } catch (e) { return; }
+                        if (!history.length) return;
+
+                        const seen = new Set(history.map(item => String(item.id)));
+                        const tagCounts = new Map();
+                        history.slice(0, 10).forEach(item => {
+                            (item.tags || []).forEach(tag => {
+                                tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+                            });
+                        });
+                        if (!tagCounts.size) return;
+
+                        this.historyRelated = this.posts
+                            .filter(post => !seen.has(String(post.id)))
+                            .map(post => {
+                                let score = 0;
+                                (post.tags || []).forEach(tag => {
+                                    if (tagCounts.has(tag)) score += tagCounts.get(tag);
+                                });
+                                return { post, score };
+                            })
+                            .filter(entry => entry.score > 0)
+                            .sort((a, b) => b.score - a.score || new Date(b.post.date) - new Date(a.post.date))
+                            .slice(0, 3)
+                            .map(entry => entry.post);
+                    },
+                    async subscribeNewsletter(event) {
+                        if (event) event.preventDefault();
+                        const email = (this.newsletterEmail || '').trim();
+                        if (!email) return;
+                        this.newsletterBusy = true;
+                        this.newsletterStatus = 'Subscribing…';
+                        try {
+                            const resp = await fetch('/api/subscribe', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email })
+                            });
+                            const data = await resp.json();
+                            if (resp.ok) {
+                                this.newsletterStatus = data.message || 'Subscribed — thank you!';
+                                this.newsletterEmail = '';
+                                this.showToast('You are on the list.');
+                            } else {
+                                this.newsletterStatus = data.error || 'Could not subscribe right now.';
+                            }
+                        } catch (e) {
+                            this.newsletterStatus = 'Network error. Please try again.';
+                        } finally {
+                            this.newsletterBusy = false;
+                        }
+                    },
+                    optimizedImage(url, width) {
+                        if (!url) return '';
+                        if (!/res\.cloudinary\.com\/[^/]+\/image\/upload\//.test(url)) return url;
+                        if (/\/image\/upload\/[^/]*(f_auto|q_auto|w_\d+)/.test(url)) {
+                            return url.replace(/w_\d+/, `w_${width}`);
+                        }
+                        return url.replace('/image/upload/', `/image/upload/f_auto,q_auto,w_${width}/`);
+                    },
+                    cardSrcset(url) {
+                        if (!url || !/res\.cloudinary\.com\/[^/]+\/image\/upload\//.test(url)) return '';
+                        return [480, 768, 1080].map(w => `${this.optimizedImage(url, w)} ${w}w`).join(', ');
+                    },
                     getTags(post) {
                         return Array.isArray(post?.tags) ? post.tags : [];
                     },
@@ -283,6 +392,7 @@
                             const resp = await fetch(`/api/posts?t=${new Date().getTime()}`);
                             const data = await resp.json();
                             this.posts = data.posts || [];
+                            this.buildHistoryRelated();
                         } catch (e) {
                             console.error('Failed to load posts:', e);
                             this.posts = [];
@@ -320,8 +430,9 @@
                         }
 
                         const blogData = blog.value;
-                        if (blogData && blogData.blogInfo && blogData.blogInfo.title) {
-                            this.blogTitle = blogData.blogInfo.title;
+                        if (blogData && blogData.blogInfo) {
+                            this.blogInfo = blogData.blogInfo;
+                            if (blogData.blogInfo.title) this.blogTitle = blogData.blogInfo.title;
                         }
 
                         const authorData = author.value;
@@ -371,6 +482,7 @@
                         return `${minutes} min read`;
                     },
                     getReadingMinutes(content) {
+                        if (typeof content === 'number' && content > 0) return content;
                         return Math.max(1, Math.ceil(((content || '').trim().split(/\s+/).length) / 200));
                     },
                     getCategoryName(categoryId) {

@@ -647,6 +647,21 @@
                 document.getElementById('post-closingbox').value = post.closingBox || '';
                 document.getElementById('post-font-family').value = post.fontFamily || '';
 
+                const toLocalInput = (iso) => {
+                    if (!iso) return '';
+                    const d = new Date(iso);
+                    if (!Number.isFinite(d.getTime())) return '';
+                    const pad = n => String(n).padStart(2, '0');
+                    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                };
+                document.getElementById('post-date').value = toLocalInput(post.date);
+                document.getElementById('post-expiry').value = toLocalInput(post.expiryDate);
+                document.getElementById('post-premium').checked = !!post.isPremium;
+                document.getElementById('post-seo-description').value = post.seoDescription || '';
+                document.getElementById('post-seo-image').value = post.seoImage || '';
+                const previewStatus = document.getElementById('preview-link-status');
+                if (previewStatus) previewStatus.textContent = post.previewToken ? 'Preview link available via “Draft link”.' : '';
+
                 if (post.categoryId) {
                     document.getElementById('post-category').value = post.categoryId;
                 }
@@ -884,9 +899,108 @@
             const checkedCount = Array.from(postCheckboxes).filter(cb => cb.checked).length;
             const deleteButton = document.getElementById('delete-selected-posts');
             const countSpan = document.getElementById('selected-posts-count');
+            const bulkCategory = document.getElementById('bulk-category-select');
+            const bulkTags = document.getElementById('bulk-tags-input');
+            const bulkApply = document.getElementById('apply-bulk-btn');
 
             if (deleteButton) deleteButton.style.display = checkedCount > 0 ? 'inline-block' : 'none';
             if (countSpan) countSpan.textContent = checkedCount;
+
+            const visible = checkedCount > 0 ? 'inline-block' : 'none';
+            if (bulkCategory) bulkCategory.style.display = visible;
+            if (bulkTags) bulkTags.style.display = visible;
+            if (bulkApply) bulkApply.style.display = visible;
+
+            if (checkedCount > 0) populateBulkCategorySelect();
+        }
+
+        let bulkCategoriesLoaded = false;
+        async function populateBulkCategorySelect() {
+            if (bulkCategoriesLoaded) return;
+            const select = document.getElementById('bulk-category-select');
+            if (!select) return;
+            try {
+                const response = await apiFetch('/api/categories');
+                const data = await response.json();
+                const categories = (data.categories || []).map(cat =>
+                    `<option value="${cat.id}">${cat.name}</option>`
+                ).join('');
+                select.innerHTML = '<option value="">Category: unchanged</option>' + categories;
+                bulkCategoriesLoaded = true;
+            } catch (err) {
+                console.error('Failed to load bulk categories:', err);
+            }
+        }
+
+        async function applyBulkEdits() {
+            const selectedIds = Array.from(document.querySelectorAll('.post-checkbox:checked'))
+                .map(cb => cb.getAttribute('data-post-id'));
+            if (selectedIds.length === 0) return;
+
+            const categoryId = document.getElementById('bulk-category-select').value;
+            const tagsRaw = document.getElementById('bulk-tags-input').value.trim();
+            const addTags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+            if (!categoryId && addTags.length === 0) {
+                alert('Choose a category or enter tags to apply.');
+                return;
+            }
+
+            const updateBtn = document.getElementById('apply-bulk-btn');
+            if (updateBtn.disabled) return;
+            updateBtn.disabled = true;
+            const originalLabel = updateBtn.textContent;
+            updateBtn.textContent = 'Applying…';
+
+            let successCount = 0;
+            for (const postId of selectedIds) {
+                try {
+                    const getResp = await apiFetch(`/api/posts/${postId}`);
+                    const getData = await getResp.json();
+                    if (!getResp.ok || !getData.post) continue;
+
+                    const post = getData.post;
+                    const mergedTags = Array.from(new Set([
+                        ...(Array.isArray(post.tags) ? post.tags : []),
+                        ...addTags
+                    ]));
+
+                    const payload = {
+                        title: post.title,
+                        subtitle: post.subtitle || '',
+                        content: post.content,
+                        tags: mergedTags,
+                        image: post.image || '',
+                        video: post.video || '',
+                        images: Array.isArray(post.images) ? post.images : [],
+                        isDraft: !!post.isDraft,
+                        categoryId: categoryId || post.categoryId || '',
+                        fontFamily: post.fontFamily || '',
+                        pullQuote: post.pullQuote || '',
+                        sceneCard: post.sceneCard || '',
+                        closingBox: post.closingBox || '',
+                        seoDescription: post.seoDescription || '',
+                        seoImage: post.seoImage || '',
+                        expiryDate: post.expiryDate || '',
+                        isPremium: !!post.isPremium
+                    };
+
+                    const putResp = await apiFetch(`/api/posts/${postId}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(payload)
+                    });
+                    if (putResp.ok) successCount++;
+                } catch (err) {
+                    console.error('Bulk update failed for', postId, err);
+                }
+            }
+
+            updateBtn.disabled = false;
+            updateBtn.textContent = originalLabel;
+            document.getElementById('bulk-tags-input').value = '';
+            document.getElementById('bulk-category-select').value = '';
+            alert(`Updated ${successCount} of ${selectedIds.length} post(s).`);
+            loadPostsList();
         }
 
         async function deleteSelectedPosts() {
@@ -1047,6 +1161,11 @@
 
                     // Upload gallery images
                     const fontFamily = document.getElementById('post-font-family').value;
+                    const dateInput = document.getElementById('post-date').value;
+                    const expiryInput = document.getElementById('post-expiry').value;
+                    const isPremium = document.getElementById('post-premium').checked;
+                    const seoDescription = document.getElementById('post-seo-description').value.trim();
+                    const seoImage = document.getElementById('post-seo-image').value.trim();
 
                     const postData = {
                         title, subtitle, content,
@@ -1057,8 +1176,15 @@
                         fontFamily: fontFamily || '',
                         pullQuote: pullQuote || '',
                         sceneCard: sceneCard || '',
-                        closingBox: closingBox || ''
+                        closingBox: closingBox || '',
+                        isPremium: isPremium,
+                        seoDescription: seoDescription,
+                        seoImage: seoImage,
+                        expiryDate: expiryInput ? new Date(expiryInput).toISOString() : ''
                     };
+                    if (dateInput) {
+                        postData.date = new Date(dateInput).toISOString();
+                    }
 
                     const url = postId ? `/api/posts/${postId}` : '/api/posts';
                     const method = postId ? 'PUT' : 'POST';
@@ -1131,6 +1257,34 @@
             previewWindow.document.close();
         }
 
+        async function generatePreviewLink() {
+            const postId = document.getElementById('edit-post-id').value;
+            const status = document.getElementById('preview-link-status');
+            if (!postId) {
+                alert('Save the draft first, then generate a preview link.');
+                return;
+            }
+            status.textContent = 'Generating…';
+            try {
+                const response = await apiFetch(`/api/posts/${postId}/preview-token`, { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok || !data.url) {
+                    status.textContent = '';
+                    alert('Failed to generate preview link: ' + ((data && data.error) || 'Unknown error'));
+                    return;
+                }
+                status.innerHTML = `Preview: <a href="${data.url}" target="_blank" rel="noopener" style="color:#534AB7;">${data.url}</a>`;
+                try {
+                    await navigator.clipboard.writeText(data.url);
+                    status.insertAdjacentText('beforeend', ' (copied)');
+                } catch (e) { /* clipboard may be unavailable */ }
+            } catch (err) {
+                console.error('Preview link error:', err);
+                status.textContent = '';
+                alert('Network error generating preview link.');
+            }
+        }
+
         function resetPostForm() {
             // Silently resets form after a successful save/cancel — no confirm dialog
             document.getElementById('edit-post-id').value = '';
@@ -1144,6 +1298,13 @@
             document.getElementById('post-pullquote').value = '';
             document.getElementById('post-scenecard').value = '';
             document.getElementById('post-closingbox').value = '';
+            document.getElementById('post-date').value = '';
+            document.getElementById('post-expiry').value = '';
+            document.getElementById('post-premium').checked = false;
+            document.getElementById('post-seo-description').value = '';
+            document.getElementById('post-seo-image').value = '';
+            const previewStatus = document.getElementById('preview-link-status');
+            if (previewStatus) previewStatus.textContent = '';
 
             const fileInput = document.getElementById('post-image-file');
             if (fileInput) fileInput.value = '';
@@ -1383,7 +1544,8 @@
                         method: 'POST',
                         body: JSON.stringify({
                             title: getVal('blog-title'),
-                            description: getVal('blog-description')
+                            description: getVal('blog-description'),
+                            donationUrl: getVal('blog-donation-url')
                         })
                     });
 

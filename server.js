@@ -3070,9 +3070,44 @@ function toSummary(post) {
   return { ...rest, excerpt: excerptOf(content), readingMinutes: readingMinutesOf(content) };
 }
 
+function isExpiredPost(post) {
+  if (!post || !post.expiryDate) return false;
+  const expiry = new Date(post.expiryDate).getTime();
+  return Number.isFinite(expiry) && expiry <= Date.now();
+}
+
 function publishedPosts(posts) {
   const now = new Date();
-  return posts.filter(p => !p.isDeleted && !p.isDraft && new Date(p.date) <= now);
+  return posts.filter(p => !p.isDeleted && !p.isDraft && new Date(p.date) <= now && !isExpiredPost(p));
+}
+
+function isPremiumReader(req) {
+  const role = String((req.session?.user || req.user)?.role || 'USER').toUpperCase();
+  return isUserAdmin(req) || role === 'TEMPLATE_BUYER';
+}
+
+function teaserContent(content, max = 600) {
+  const source = String(content || '');
+  // Show only the opening paragraph so paywalled bodies don't leak.
+  const firstBlock = source.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+  const text = stripHtml(firstBlock ? firstBlock[1] : source);
+  const cut = text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
+  if (!cut) return '';
+  const escaped = cut.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<p>${escaped}</p>`;
+}
+
+function redactPremiumPost(post, req) {
+  if (!post) return post;
+  let view = post;
+  if (post.isPremium && !isPremiumReader(req)) {
+    view = { ...post, content: teaserContent(post.content) };
+  }
+  if (!isUserAdmin(req)) {
+    const { previewToken, ...safe } = view;
+    return safe;
+  }
+  return view;
 }
 
 app.get('/api/posts', async (req, res) => {
@@ -3095,6 +3130,9 @@ app.get('/api/posts', async (req, res) => {
 
       // Only include drafts if admin AND explicitly requested
       if (p.isDraft) return isAdmin && includeDrafts;
+
+      // Expired posts disappear from public listings; admins keep access
+      if (!isAdmin && isExpiredPost(p)) return false;
 
       // For regular readers: must be published (date <= now)
       // Admins always see all non-draft posts
@@ -3120,6 +3158,7 @@ app.get('/api/posts', async (req, res) => {
       items = [...visiblePosts].sort((a, b) => new Date(b.date) - new Date(a.date));
       items = items.slice((page - 1) * limit, page * limit);
     }
+    items = items.map(p => redactPremiumPost(p, req));
     if (wantsSummary) items = items.map(toSummary);
 
     if (paginated || wantsSummary || tag) {
@@ -3133,10 +3172,73 @@ app.get('/api/posts', async (req, res) => {
         hasMore: paginated && page * limit < visiblePosts.length
       });
     }
-    return res.json({ posts: filteredPosts });
+    return res.json({ posts: filteredPosts.map(p => redactPremiumPost(p, req)) });
   } catch (error) {
     console.error('Error in GET /api/posts:', error);
     return res.status(500).json({ error: 'Failed to load posts' });
+  }
+});
+
+// ── Full-text search ────────────────────────────────────────────────
+// Simple weighted search over published posts: title > tags > subtitle >
+// author > body. Good enough for a personal archive without a search index.
+app.get('/api/search', async (req, res) => {
+  try {
+    const query = String(req.query.q || '').trim();
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    if (!query) {
+      return res.json({ success: true, query: '', results: [], total: 0, page, limit, hasMore: false });
+    }
+
+    const terms = query.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 8);
+    const posts = publishedPosts(await loadPosts());
+    const scored = [];
+
+    for (const post of posts) {
+      const title = String(post.title || '').toLowerCase();
+      const subtitle = String(post.subtitle || '').toLowerCase();
+      const author = String(post.author || '').toLowerCase();
+      const tags = (post.tags || []).map(t => String(t).toLowerCase());
+      const body = stripHtml(redactPremiumPost(post, req).content).toLowerCase();
+
+      let score = 0;
+      let matchedTerms = 0;
+      for (const term of terms) {
+        let termScore = 0;
+        if (title.includes(term)) termScore += 10;
+        if (tags.some(tag => tag.includes(term))) termScore += 6;
+        if (subtitle.includes(term)) termScore += 4;
+        if (author.includes(term)) termScore += 3;
+        if (body.includes(term)) termScore += 2;
+        if (termScore > 0) {
+          score += termScore;
+          matchedTerms++;
+        }
+      }
+      if (!matchedTerms) continue;
+      if (matchedTerms === terms.length) score += 5;
+
+      scored.push({ post, score });
+    }
+
+    scored.sort((a, b) => b.score - a.score || new Date(b.post.date) - new Date(a.post.date));
+    const total = scored.length;
+    const results = scored.slice((page - 1) * limit, page * limit)
+      .map(entry => ({ ...toSummary(redactPremiumPost(entry.post, req)), score: entry.score }));
+
+    return res.json({
+      success: true,
+      query,
+      results,
+      total,
+      page,
+      limit,
+      hasMore: page * limit < total
+    });
+  } catch (error) {
+    console.error('Search error:', error);
+    return res.status(500).json({ error: 'search_failed' });
   }
 });
 
@@ -3152,21 +3254,23 @@ app.get('/api/posts/:id', async (req, res) => {
 
     const isAdmin = isUserAdmin(req);
     const now = new Date();
+    const previewToken = String(req.query.preview || '').trim();
+    const hasValidPreview = previewToken && post.previewToken && previewToken === post.previewToken;
 
-    // Restricted access for non-admins: hide drafts and future posts
-    if (!isAdmin && (post.isDraft || new Date(post.date) > now)) {
+    // Restricted access for non-admins: hide drafts, future and expired posts
+    if (!isAdmin && !hasValidPreview && (post.isDraft || new Date(post.date) > now || isExpiredPost(post))) {
       return res.status(404).json({ error: 'Post not found' });
     }
 
     // Record view for analytics
-    if (!isAdmin) await recordPageView(`/post/${encodeURIComponent(id)}`, req);
+    if (!isAdmin && !hasValidPreview) await recordPageView(`/post/${encodeURIComponent(id)}`, req);
 
     // Prev/next (chronological) + related posts (shared tags / same category),
     // returned as summaries so clients don't need a full-list fetch.
     const chronology = publishedPosts(posts).sort((a, b) => new Date(a.date) - new Date(b.date));
     const pos = chronology.findIndex(p => String(p.id) === String(post.id));
-    const prev = pos > 0 ? toSummary(chronology[pos - 1]) : null;
-    const next = pos > -1 && pos < chronology.length - 1 ? toSummary(chronology[pos + 1]) : null;
+    const prev = pos > 0 ? toSummary(redactPremiumPost(chronology[pos - 1], req)) : null;
+    const next = pos > -1 && pos < chronology.length - 1 ? toSummary(redactPremiumPost(chronology[pos + 1], req)) : null;
 
     const postTags = new Set((post.tags || []).map(t => String(t).toLowerCase()));
     const related = chronology
@@ -3179,9 +3283,21 @@ app.get('/api/posts/:id', async (req, res) => {
       .filter(entry => entry.score > 0)
       .sort((a, b) => b.score - a.score || new Date(b.post.date) - new Date(a.post.date))
       .slice(0, 3)
-      .map(entry => toSummary(entry.post));
+      .map(entry => toSummary(redactPremiumPost(entry.post, req)));
 
-    return res.json({ post, prev, next, related });
+    // Member-only posts send a teaser instead of the full body.
+    let payload = post;
+    let locked = false;
+    if (post.isPremium && !hasValidPreview && !isPremiumReader(req)) {
+      locked = true;
+      payload = { ...post, content: teaserContent(post.content) };
+    }
+    if (!isAdmin) {
+      const { previewToken, ...safe } = payload;
+      payload = safe;
+    }
+
+    return res.json({ post: payload, prev, next, related, locked, preview: !!hasValidPreview });
   } catch (error) {
     console.error('Error in GET /api/posts/:id:', error);
     return res.status(500).json({ error: 'Failed to load post' });
@@ -3198,12 +3314,20 @@ app.post('/api/posts', requireAdminOrBuyerAuth, async (req, res) => {
   const currentUser = req.session?.user || req.user;
   const isBuyer = String(currentUser?.role || 'USER').toUpperCase() === 'TEMPLATE_BUYER';
 
+  const requestedDate = body.date ? new Date(body.date) : null;
+  const publishDate = requestedDate && Number.isFinite(requestedDate.getTime())
+    ? requestedDate.toISOString()
+    : new Date().toISOString();
+  const expiryDate = body.expiryDate && Number.isFinite(new Date(body.expiryDate).getTime())
+    ? new Date(body.expiryDate).toISOString()
+    : '';
+
   const post = {
     title: body.title,
     subtitle: body.subtitle || '',
     author: body.author || currentUser?.name || 'Admin',
     content: body.content,
-    date: new Date().toISOString(),
+    date: publishDate,
     tags: Array.isArray(body.tags) ? body.tags : [],
     image: body.image || '',
     images: Array.isArray(body.images) ? body.images : [],
@@ -3214,6 +3338,10 @@ app.post('/api/posts', requireAdminOrBuyerAuth, async (req, res) => {
     pullQuote: body.pullQuote || '',
     sceneCard: body.sceneCard || '',
     closingBox: body.closingBox || '',
+    seoDescription: String(body.seoDescription || '').slice(0, 300),
+    seoImage: body.seoImage || '',
+    expiryDate,
+    isPremium: isBuyer ? false : !!body.isPremium,
     likes: 0,
     dislikes: 0,
     authorUsername: currentUser?.username || null
@@ -3305,6 +3433,17 @@ app.put('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
       if (body.pullQuote !== undefined) updatedFields.pullQuote = body.pullQuote;
       if (body.sceneCard !== undefined) updatedFields.sceneCard = body.sceneCard;
       if (body.closingBox !== undefined) updatedFields.closingBox = body.closingBox;
+      if (body.seoDescription !== undefined) updatedFields.seoDescription = String(body.seoDescription || '').slice(0, 300);
+      if (body.seoImage !== undefined) updatedFields.seoImage = body.seoImage || '';
+      if (body.expiryDate !== undefined) {
+        const expiry = body.expiryDate ? new Date(body.expiryDate) : null;
+        updatedFields.expiryDate = expiry && Number.isFinite(expiry.getTime()) ? expiry.toISOString() : '';
+      }
+      if (body.isPremium !== undefined) updatedFields.isPremium = isBuyer ? false : !!body.isPremium;
+      if (body.date !== undefined) {
+        const publish = body.date ? new Date(body.date) : null;
+        if (publish && Number.isFinite(publish.getTime())) updatedFields.date = publish.toISOString();
+      }
       
       updatedFields.updatedAt = new Date().toISOString();
 
@@ -3338,6 +3477,15 @@ app.put('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
         pullQuote: body.pullQuote !== undefined ? body.pullQuote : posts[idx].pullQuote,
         sceneCard: body.sceneCard !== undefined ? body.sceneCard : posts[idx].sceneCard,
         closingBox: body.closingBox !== undefined ? body.closingBox : posts[idx].closingBox,
+        seoDescription: body.seoDescription !== undefined ? String(body.seoDescription || '').slice(0, 300) : (posts[idx].seoDescription || ''),
+        seoImage: body.seoImage !== undefined ? (body.seoImage || '') : (posts[idx].seoImage || ''),
+        expiryDate: body.expiryDate !== undefined
+          ? (body.expiryDate && Number.isFinite(new Date(body.expiryDate).getTime()) ? new Date(body.expiryDate).toISOString() : '')
+          : (posts[idx].expiryDate || ''),
+        isPremium: body.isPremium !== undefined ? (isBuyer ? false : !!body.isPremium) : !!posts[idx].isPremium,
+        date: body.date && Number.isFinite(new Date(body.date).getTime())
+          ? new Date(body.date).toISOString()
+          : posts[idx].date,
         updatedAt: new Date().toISOString()
       };
 
@@ -3356,6 +3504,38 @@ app.put('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
   } catch (error) {
     console.error('Error updating post:', error);
     return res.status(500).json({ error: 'internal_error' });
+  }
+});
+
+// POST /api/posts/:id/preview-token - issue a shareable draft preview link
+app.post('/api/posts/:id/preview-token', requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const token = crypto.randomBytes(18).toString('hex');
+
+    if (db) {
+      const result = await db.collection('posts').updateOne(
+        postIdFilter(id),
+        { $set: { previewToken: token, updatedAt: new Date().toISOString() } }
+      );
+      if (!result.matchedCount) return res.status(404).json({ error: 'not found' });
+    } else {
+      const posts = await loadPosts();
+      const idx = posts.findIndex(p => String(p.id) === String(id));
+      if (idx === -1) return res.status(404).json({ error: 'not found' });
+      posts[idx].previewToken = token;
+      await savePosts(posts);
+    }
+
+    const base = publicBaseUrl(req);
+    return res.json({
+      success: true,
+      token,
+      url: `${base}/post.html?id=${encodeURIComponent(id)}&preview=${token}`
+    });
+  } catch (error) {
+    console.error('Preview token error:', error);
+    return res.status(500).json({ error: 'preview_token_failed' });
   }
 });
 
@@ -3550,7 +3730,7 @@ app.get('/api/posts/:id/comments', async (req, res) => {
 app.post('/api/posts/:id/comments', async (req, res) => {
   try {
     const postId = req.params.id;
-    const { name, email, content } = req.body || {};
+    const { name, email, content, parentId, subscribe } = req.body || {};
     if (!name || !content) {
       return res.status(400).json({ error: 'name_and_content_required' });
     }
@@ -3576,6 +3756,8 @@ app.post('/api/posts/:id/comments', async (req, res) => {
       email: email ? email.trim() : '',
       content: content.trim(),
       image: imageUrl,
+      parentId: parentId ? String(parentId) : null,
+      pinned: false,
       date: new Date().toISOString(),
       approved: true,
       likes: 0,
@@ -3592,6 +3774,26 @@ app.post('/api/posts/:id/comments', async (req, res) => {
     }
 
     await recordInteraction('comment', postId, null, req);
+
+    if (subscribe && email) {
+      try {
+        const subscriptions = await loadSubscriptions();
+        const normalizedEmail = email.trim();
+        const exists = subscriptions.some(s => s.email === normalizedEmail && String(s.postId) === String(postId));
+        if (!exists) {
+          subscriptions.push({
+            id: Date.now() + 1,
+            postId: String(postId),
+            email: normalizedEmail,
+            name: name.trim(),
+            subscribedAt: new Date().toISOString()
+          });
+          await saveSubscriptions(subscriptions);
+        }
+      } catch (subError) {
+        console.error('Comment subscribe error:', subError.message);
+      }
+    }
 
     return res.json({ success: true, comment: { ...newComment, email: undefined } });
   } catch (e) {
@@ -3654,11 +3856,13 @@ app.post('/api/posts/:id/comments/:commentId/restore', requireAdmin, async (req,
 });
 
 // Like/dislike comment
-app.post('/api/posts/:id/comments/:commentId/:type', async (req, res) => {
+app.post('/api/posts/:id/comments/:commentId/:type', async (req, res, next) => {
   try {
     const postId = req.params.id;
     const commentId = req.params.commentId;
     const type = req.params.type; // 'like' or 'dislike'
+    // Let more specific comment actions (e.g. /pin) fall through.
+    if (type !== 'like' && type !== 'dislike') return next();
     const { action } = req.body || {}; // 'add' or 'remove'
     
     const allComments = await loadComments();
@@ -3695,6 +3899,29 @@ app.post('/api/posts/:id/comments/:commentId/:type', async (req, res) => {
   } catch (e) {
     console.error('Error toggling comment like:', e);
     return res.status(500).json({ error: 'failed_to_toggle_like' });
+  }
+});
+
+// Pin / unpin a comment (admin only)
+app.post('/api/posts/:id/comments/:commentId/pin', requireAdmin, async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const commentId = req.params.commentId;
+    const allComments = await loadComments();
+    const idx = allComments.findIndex(c => c.id.toString() === commentId && c.postId.toString() === postId);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'comment_not_found' });
+    }
+
+    const requested = req.body && Object.prototype.hasOwnProperty.call(req.body, 'pinned')
+      ? !!req.body.pinned
+      : !allComments[idx].pinned;
+    allComments[idx].pinned = requested;
+    await saveComments(allComments);
+    return res.json({ success: true, pinned: requested });
+  } catch (e) {
+    console.error('Error pinning comment:', e);
+    return res.status(500).json({ error: 'failed_to_pin_comment' });
   }
 });
 
@@ -4612,6 +4839,17 @@ app.post('/api/settings/blog-info', requireAdmin, async (req, res) => {
       title: String(payload.title || 'zedong254ke'),
       description: String(payload.description || 'Discover insights, tutorials, and thoughts on web development, programming, and technology.')
     };
+    if (payload.donationUrl !== undefined) {
+      const raw = String(payload.donationUrl || '').trim();
+      try {
+        const parsed = raw ? new URL(raw) : null;
+        settings.blogInfo.donationUrl = parsed && /^https?:$/.test(parsed.protocol)
+          ? parsed.href
+          : (raw.startsWith('/') ? raw : '');
+      } catch (e) {
+        settings.blogInfo.donationUrl = raw.startsWith('/') ? raw : '';
+      }
+    }
     await writeSettings(settings);
     return res.json({ success: true, blogInfo: settings.blogInfo });
   } catch (e) {
@@ -5767,6 +6005,12 @@ app.get('/about.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'about.html'));
 });
 
+// Clean tag archive URLs: /tag/name renders the home app, which applies the
+// tag filter from the pathname.
+app.get('/tag/:tag', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // Test social media connections
 app.get('/api/social/test', requireAdmin, async (req, res) => {
   try {
@@ -5887,10 +6131,22 @@ app.get('/sitemap.xml', async (req, res) => {
       { loc: `${base}/about.html`, lastmod: new Date().toISOString() }
     ];
 
+    const tagSet = new Set();
+    posts.forEach(p => (p.tags || []).forEach(tag => {
+      const value = String(tag || '').trim();
+      if (value) tagSet.add(value);
+    }));
+    const tagPages = [...tagSet].map(tag => ({
+      loc: `${base}/tag/${encodeURIComponent(tag)}`,
+      lastmod: posts[0] ? posts[0].date : new Date().toISOString()
+    }));
+
     const xml = [
       '<?xml version="1.0" encoding="UTF-8"?>',
       '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">',
       ...staticPages.map(p =>
+        `  <url><loc>${xmlEscape(p.loc)}</loc><lastmod>${new Date(p.lastmod).toISOString()}</lastmod></url>`),
+      ...tagPages.map(p =>
         `  <url><loc>${xmlEscape(p.loc)}</loc><lastmod>${new Date(p.lastmod).toISOString()}</lastmod></url>`),
       ...posts.map(p => {
         const image = p.image
@@ -5918,7 +6174,9 @@ async function buildRssFeed(baseUrl) {
 
   const items = posts.map(p => {
     const link = `${baseUrl}/post.html?id=${encodeURIComponent(p.id)}`;
-    const excerpt = excerptOf(p.content, 400);
+    const excerpt = p.isPremium
+      ? excerptOf(teaserContent(p.content, 400), 400)
+      : excerptOf(p.content, 400);
     return [
       '    <item>',
       `      <title>${xmlEscape(p.title)}</title>`,

@@ -18,12 +18,18 @@
     <meta name="twitter:description" content="Project manager, writer, and builder. Notes on technology, delivery, customer service, and the craft of shipping.">
     <meta name="twitter:image" content="https://kkzeuqbwcersyuwriwxw.supabase.co/storage/v1/object/public/uploads/uploads/1786601223860_victoria_falls.jpg">
     <link rel="canonical" href="/about.html">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="alternate" type="application/rss+xml" title="zedong254ke — RSS" href="/feed.xml">
     <script>
         (function () {
             try {
                 var t = localStorage.getItem('blog_theme');
                 if (t === 'glass' || t === 'minimal') t = 'light';
                 document.documentElement.setAttribute('data-theme', t || 'light');
+                if (localStorage.getItem('blog_motion') === 'reduced') {
+                    document.documentElement.setAttribute('data-motion', 'reduced');
+                }
             } catch (e) {
                 document.documentElement.setAttribute('data-theme', 'light');
             }
@@ -437,6 +443,14 @@
         .bio-photo {
             margin: 0;
             position: relative;
+            cursor: zoom-in;
+            border-radius: var(--border-radius-lg);
+            outline: none;
+        }
+
+        .bio-photo:focus-visible {
+            outline: 3px solid var(--primary-color);
+            outline-offset: 4px;
         }
 
         .bio-photo img {
@@ -448,6 +462,12 @@
             border: 1px solid var(--border-color);
             box-shadow: var(--shadow-lg);
             background: var(--bg-tertiary);
+            transition: transform 0.25s ease;
+        }
+
+        .bio-photo:hover img,
+        .bio-photo:focus-visible img {
+            transform: scale(1.015);
         }
 
         .bio-copy h2 {
@@ -1243,10 +1263,98 @@
                 }
             }
         }
+        .skip-link {
+            position: fixed;
+            top: -64px;
+            left: 16px;
+            z-index: 9999;
+            background: #fff;
+            color: #111;
+            padding: 10px 18px;
+            border-radius: 0 0 10px 10px;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            text-decoration: none;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+            transition: top 0.2s ease;
+        }
+        .skip-link:focus { top: 0; }
+
+        /* High-contrast theme */
+        [data-theme="contrast"] {
+            --bg-color: #000;
+            --bg-secondary: #0d0d0d;
+            --bg-tertiary: #161616;
+            --card-bg: #0d0d0d;
+            --card-bg-hover: #161616;
+            --surface-bg: #101010;
+            --surface-border: #ffffff;
+            --hero-surface: #000;
+            --text-dark: #ffffff;
+            --text-medium: #ededed;
+            --text-light: #d6d6d6;
+            --text-muted: #c9c9c9;
+            --border-color: #ffffff;
+            --border-light: #b8b8b8;
+            --border-medium: #ffffff;
+            --border-dark: #ffffff;
+            --primary-color: #ffd400;
+            --primary-hover: #ffe23d;
+            --primary-light: #2a2400;
+        }
+        [data-theme="contrast"] body { background: #000; color: #fff; }
+        [data-theme="contrast"] .about-header,
+        [data-theme="contrast"] .about-section,
+        [data-theme="contrast"] .skill-card,
+        [data-theme="contrast"] .featured-card,
+        [data-theme="contrast"] .contact-info,
+        [data-theme="contrast"] .contact-item,
+        [data-theme="contrast"] .about-photo-item,
+        [data-theme="contrast"] .site-footer {
+            background: #0d0d0d;
+            border-color: #fff;
+            color: #fff;
+        }
+        [data-theme="contrast"] a { color: #ffd400; }
+
+        .footer-support-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            color: inherit;
+            text-decoration: none;
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            padding: 6px 12px;
+        }
+        .footer-support-link:hover { border-color: var(--primary-color); color: var(--primary-color); }
+        .footer-motion-toggle {
+            font: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            color: inherit;
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+        }
+        .footer-motion-toggle:hover { color: var(--primary-color); text-decoration: underline; }
+
+        html[data-motion="reduced"] *,
+        html[data-motion="reduced"] *::before,
+        html[data-motion="reduced"] *::after {
+            animation-duration: 0.001ms !important;
+            transition-duration: 0.001ms !important;
+            scroll-behavior: auto !important;
+        }
     </style>
 </head>
 
 <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <header>
         <div class="header-container">
             <a href="/" class="logo" aria-label="Home">
@@ -1260,6 +1368,9 @@
                     </button>
                     <button type="button" data-theme-set="dark" title="Dark mode" aria-label="Dark mode" aria-pressed="false">
                         <i class="ti ti-moon" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" data-theme-set="contrast" title="High contrast" aria-label="High-contrast mode" aria-pressed="false">
+                        <i class="ti ti-contrast" aria-hidden="true"></i>
                     </button>
                 </div>
                 <a href="/" aria-label="Home">
@@ -1278,7 +1389,7 @@
         </div>
     </header>
 
-    <main>
+    <main id="main-content" tabindex="-1">
         <div class="about-container">
             <div class="about-header">
                 <h1 id="about-hero-title">About Me</h1>
@@ -1287,7 +1398,7 @@
 
             <div class="about-content">
                 <section class="about-section bio-section" id="section-who-i-am" aria-labelledby="who-i-am-title">
-                    <figure class="bio-photo">
+                    <figure class="bio-photo" role="button" tabindex="0" aria-label="View profile photo">
                         <img id="about-profile-photo" src="https://api.dicebear.com/7.x/avataaars/svg?seed=zedong" alt="Portrait of zedong254ke" decoding="async">
                     </figure>
                     <div class="bio-copy">
@@ -1378,10 +1489,16 @@
                 <a href="/">Home</a>
                 <a href="/#main-content">Blog</a>
                 <a href="/about.html" aria-current="page">About</a>
+                <a href="/feed.xml">RSS</a>
+                <a class="footer-support-link" id="footer-donation" href="#" target="_blank" rel="noopener noreferrer" hidden>
+                    <i class="ti ti-coffee" aria-hidden="true"></i>
+                    Support
+                </a>
                 <a class="footer-admin" href="/login.html" aria-label="Admin sign in">
                     <i class="ti ti-lock" aria-hidden="true"></i>
                     Admin
                 </a>
+                <button type="button" class="footer-motion-toggle" onclick="toggleManualMotion()" aria-pressed="false">Reduce motion</button>
             </nav>
         </div>
     </footer>
@@ -1394,7 +1511,8 @@
             var themeButtons = document.querySelectorAll('[data-theme-set]');
 
             function normalizeTheme(value) {
-                return value === 'dark' ? 'dark' : 'light';
+                if (value === 'dark' || value === 'contrast') return value;
+                return 'light';
             }
 
             function syncThemeButtons() {
@@ -1434,6 +1552,22 @@
                     image.src = FALLBACK_AVATAR;
                 }, { once: true });
             });
+
+            if (profilePhoto) {
+                var profilePhotoTrigger = profilePhoto.closest('.bio-photo') || profilePhoto;
+
+                var openProfilePhoto = function () {
+                    openAboutPhoto(profilePhoto.src, 'Profile photo preview');
+                };
+
+                profilePhotoTrigger.addEventListener('click', openProfilePhoto);
+                profilePhotoTrigger.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openProfilePhoto();
+                    }
+                });
+            }
 
             var footerYear = document.getElementById('footer-year');
             if (footerYear) footerYear.textContent = String(new Date().getFullYear());
@@ -1603,16 +1737,29 @@
                 section.hidden = false;
             }
 
-            function openAboutPhoto(src) {
+            function openAboutPhoto(src, label, options) {
+                options = options || {};
+                var urls = Array.isArray(options.urls) ? options.urls : [];
+                var index = Math.max(0, Math.min(Number(options.index) || 0, urls.length ? urls.length - 1 : 0));
+                var previewLabel = label || 'Snapshot preview';
+
                 var overlay = el('div', 'photo-lightbox');
                 overlay.setAttribute('role', 'dialog');
                 overlay.setAttribute('aria-modal', 'true');
-                overlay.setAttribute('aria-label', 'Snapshot preview');
 
                 var image = document.createElement('img');
                 image.src = src;
-                image.alt = 'Snapshot preview';
+                image.alt = previewLabel;
                 overlay.appendChild(image);
+
+                function setImage(nextIndex) {
+                    if (!urls.length) return;
+                    var next = ((nextIndex % urls.length) + urls.length) % urls.length;
+                    index = next;
+                    image.src = urls[index];
+                    image.alt = previewLabel + ' ' + (index + 1);
+                    overlay.setAttribute('aria-label', (index + 1) + ' of ' + urls.length + ' - ' + previewLabel);
+                }
 
                 function close() {
                     document.removeEventListener('keydown', onKey);
@@ -1620,9 +1767,18 @@
                 }
 
                 function onKey(event) {
-                    if (event.key === 'Escape') close();
+                    if (event.key === 'Escape') {
+                        close();
+                    } else if (event.key === 'ArrowLeft') {
+                        event.preventDefault();
+                        setImage(index - 1);
+                    } else if (event.key === 'ArrowRight') {
+                        event.preventDefault();
+                        setImage(index + 1);
+                    }
                 }
 
+                overlay.setAttribute('aria-label', (urls.length ? (index + 1) + ' of ' + urls.length + ' - ' : '') + previewLabel);
                 document.addEventListener('keydown', onKey);
                 overlay.addEventListener('click', close);
                 document.body.appendChild(overlay);
@@ -1659,7 +1815,7 @@
                     }, { once: true });
                     item.appendChild(image);
 
-                    function open() { openAboutPhoto(url); }
+                    function open() { openAboutPhoto(url, 'Snapshot ' + (index + 1), { urls: urls, index: index }); }
                     item.addEventListener('click', open);
                     item.addEventListener('keydown', function (event) {
                         if (event.key === 'Enter' || event.key === ' ') {
@@ -1887,6 +2043,13 @@
                     if (footerTitle) footerTitle.textContent = blogTitle;
                     document.title = 'About - ' + blogTitle;
                     if (ogTitle) ogTitle.setAttribute('content', 'About — ' + blogTitle);
+
+                    var donation = document.getElementById('footer-donation');
+                    var donationUrl = data.blogInfo && data.blogInfo.donationUrl;
+                    if (donation && donationUrl) {
+                        donation.href = donationUrl;
+                        donation.hidden = false;
+                    }
                 } catch (error) {
                     console.error('Error loading blog info:', error);
                 }
@@ -1895,6 +2058,27 @@
             loadBlogInfo();
             loadAboutContent();
             loadFeaturedPosts();
+
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch(function () {});
+            }
+
+            window.toggleManualMotion = function () {
+                var reduce = document.documentElement.getAttribute('data-motion') !== 'reduced';
+                if (reduce) document.documentElement.setAttribute('data-motion', 'reduced');
+                else document.documentElement.removeAttribute('data-motion');
+                try { localStorage.setItem('blog_motion', reduce ? 'reduced' : 'full'); } catch (e) {}
+                syncMotionToggle();
+            };
+
+            function syncMotionToggle() {
+                var btn = document.querySelector('.footer-motion-toggle');
+                if (!btn) return;
+                var reduced = document.documentElement.getAttribute('data-motion') === 'reduced';
+                btn.setAttribute('aria-pressed', reduced ? 'true' : 'false');
+                btn.textContent = reduced ? 'Motion reduced' : 'Reduce motion';
+            }
+            syncMotionToggle();
         })();
     </script>
 </body>
