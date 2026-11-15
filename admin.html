@@ -2816,6 +2816,13 @@
                                     <button class="compact-btn" id="delete-selected-posts" style="display: none; background: #dc2626; color: white; border: none;" onclick="deleteSelectedPosts()">
                                         Delete Selected (<span id="selected-posts-count">0</span>)
                                     </button>
+                                    <select id="bulk-category-select" class="compact-btn" style="display:none;">
+                                        <option value="">Set category…</option>
+                                    </select>
+                                    <input type="text" id="bulk-tags-input" class="compact-btn" placeholder="Add tags (comma separated)" style="display:none;min-width:200px;">
+                                    <button class="compact-btn" id="apply-bulk-btn" style="display:none;" onclick="applyBulkEdits()">
+                                        Apply to selected
+                                    </button>
                                 </div>
                                 <div id="posts-list" class="posts-list-grid">
                                     <!-- Posts load here -->
@@ -3225,6 +3232,29 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
+                                    <label for="post-date" class="form-label">Publish Date <span style="font-weight:400;color:var(--text-medium);font-size:12px;">(future date schedules the post)</span></label>
+                                    <input type="datetime-local" class="form-input" id="post-date">
+                                </div>
+                                <div class="form-group">
+                                    <label for="post-expiry" class="form-label">Expiry Date <span style="font-weight:400;color:var(--text-medium);font-size:12px;">(optional — post hides after this)</span></label>
+                                    <input type="datetime-local" class="form-input" id="post-expiry">
+                                </div>
+                                <div class="form-group" style="display:flex;align-items:flex-start;gap:10px;padding-top:26px;">
+                                    <input type="checkbox" id="post-premium" style="width:18px;height:18px;margin-top:3px;accent-color:#D0271C;">
+                                    <label for="post-premium" class="form-label" style="margin:0;line-height:1.45;">
+                                        Members-only post
+                                        <span style="display:block;font-weight:400;color:var(--text-medium);font-size:12px;">Public readers see a teaser and an unlock prompt.</span>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label for="post-seo-description" class="form-label">SEO Description <span style="font-weight:400;color:var(--text-medium);font-size:12px;">(optional — overrides the auto-generated meta description, max 300 chars)</span></label>
+                                    <textarea class="form-input form-textarea" id="post-seo-description" maxlength="300" placeholder="A concise summary for search engines and social previews." style="min-height:60px;"></textarea>
+                                </div>
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label for="post-seo-image" class="form-label">Social / SEO Image URL <span style="font-weight:400;color:var(--text-medium);font-size:12px;">(optional — defaults to the featured image)</span></label>
+                                    <input type="url" class="form-input" id="post-seo-image" placeholder="https://…">
+                                </div>
+                                <div class="form-group">
                                     <label for="post-font-family" class="form-label">Font Style <span style="font-weight:400;color:var(--text-medium);font-size:12px;">(typeface for this post's body)</span></label>
                                     <select class="form-input" id="post-font-family">
                                         <option value="">Default (Lora Serif)</option>
@@ -3249,10 +3279,15 @@
                                 <i>👁️</i>
                                 Preview
                             </button>
+                            <button class="btn-modern sm secondary" onclick="generatePreviewLink()">
+                                <i>🔗</i>
+                                Draft link
+                            </button>
                             <button class="btn-modern sm secondary" onclick="clearPostForm()">
                                 <i>🗑️</i>
                                 Clear
                             </button>
+                            <span id="preview-link-status" style="align-self:center;font-size:12px;color:var(--text-medium);word-break:break-all;"></span>
                         </div>
                     </div>
                 </div>
@@ -3401,6 +3436,11 @@
                                                 <div class="form-group">
                                                     <label for="blog-description" class="form-label" style="font-size: 11px; text-transform: uppercase;">Blog Description</label>
                                                     <textarea class="form-input form-textarea" id="blog-description" style="font-size: 13px; min-height: 80px;" placeholder="Enter blog description"></textarea>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="blog-donation-url" class="form-label" style="font-size: 11px; text-transform: uppercase;">Donation / Support Link</label>
+                                                    <input type="text" class="form-input" id="blog-donation-url" style="font-size: 13px;" placeholder="https://… or /support">
+                                                    <p style="margin:6px 0 0;font-size:11px;color:var(--text-medium);">Shown as a “Support my writing” link on posts and the homepage footer. Leave blank to hide.</p>
                                                 </div>
                                             </div>
                                         </div>

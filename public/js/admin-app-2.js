@@ -591,6 +591,7 @@ window.loadPostsList = loadPostsList;
                                 // Populate form fields with saved values
                                 const blogTitle = document.getElementById('blog-title');
                                 const blogDescription = document.getElementById('blog-description');
+                                const blogDonationUrl = document.getElementById('blog-donation-url');
                                 const authorName = document.getElementById('author-name');
                                 const authorEmail = document.getElementById('author-email');
                                 const authorBio = document.getElementById('author-bio');
@@ -607,6 +608,7 @@ window.loadPostsList = loadPostsList;
                                 // Blog info fields
                                 if (blogTitle) blogTitle.value = blogInfo.title || 'zedong254ke';
                                 if (blogDescription) blogDescription.value = blogInfo.description || 'Discover insights, tutorials, and thoughts on web development, programming, and technology.';
+                                if (blogDonationUrl) blogDonationUrl.value = blogInfo.donationUrl || '';
 
                                 // Author fields
                                 if (authorName) authorName.value = author.name || 'zedong254ke';

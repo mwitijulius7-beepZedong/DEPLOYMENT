@@ -13,6 +13,18 @@
     <meta name="twitter:title" content="zedong254ke — Personal Blog">
     <meta name="twitter:description" content="A personal blog covering football, Arsenal, everyday stories, and more.">
     <link rel="canonical" href="/">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="alternate" type="application/rss+xml" title="zedong254ke — RSS" href="/feed.xml">
+    <script>
+        (function () {
+            try {
+                if (localStorage.getItem('blog_motion') === 'reduced') {
+                    document.documentElement.setAttribute('data-motion', 'reduced');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <title>Personal Blog — zedong254ke</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2272,6 +2284,225 @@
         .tm-retry-btn:hover { background: var(--primary-color); color: #fff; }
         [data-theme="dark"] .tm-retry-btn { border-color: #E8483B; color: #E8483B; }
         [data-theme="dark"] .tm-retry-btn:hover { background: #E8483B; color: #fff; }
+
+        /* Reading-history recommendations */
+        .history-related {
+            max-width: 1100px;
+            margin: 8px auto 0;
+            padding: 0 4px;
+        }
+        .history-related-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .history-related-head h2 {
+            font-family: var(--font-serif, Georgia, serif);
+            font-size: 1.15rem;
+            color: var(--text-dark);
+            margin: 0;
+        }
+        .history-related-head span {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+        .history-related-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .history-card {
+            display: flex;
+            gap: 12px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            background: var(--bg-primary);
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .history-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md, 0 10px 24px rgba(0,0,0,0.08)); }
+        .history-card img,
+        .history-card-ph {
+            width: 76px;
+            height: 76px;
+            border-radius: 10px;
+            object-fit: cover;
+            flex-shrink: 0;
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-light);
+        }
+        .history-card-body { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+        .history-card-meta { font-size: 11px; color: var(--text-light); margin-bottom: 4px; }
+        .history-card-body h3 {
+            font-size: 14px;
+            line-height: 1.35;
+            color: var(--text-dark);
+            margin: 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .search-loading-label { color: var(--text-light); }
+        @media (max-width: 820px) {
+            .history-related-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Footer with newsletter + support */
+        .index-footer {
+            margin-top: 64px;
+            background: var(--bg-secondary, #f3f4f6);
+            border-top: 1px solid var(--border-color);
+            padding: 44px 24px 24px;
+            font-family: var(--font-sans, system-ui, sans-serif);
+        }
+        .index-footer-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1.4fr 1fr;
+            gap: 32px;
+        }
+        .footer-title {
+            font-family: var(--font-serif, Georgia, serif);
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 8px;
+        }
+        .footer-desc {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-medium, #4b5563);
+            max-width: 46ch;
+            margin-bottom: 16px;
+        }
+        .footer-links { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+        .footer-links a {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-medium, #4b5563);
+            text-decoration: none;
+        }
+        .footer-links a:hover { color: var(--primary-color); text-decoration: underline; }
+        .footer-motion-toggle {
+            font: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-medium, #4b5563);
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+        }
+        .footer-motion-toggle:hover { color: var(--primary-color); text-decoration: underline; }
+        .footer-newsletter h3 {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 4px;
+        }
+        .footer-newsletter p {
+            font-size: 12px;
+            line-height: 1.55;
+            color: var(--text-light);
+            margin-bottom: 12px;
+        }
+        .footer-newsletter-form { display: flex; gap: 8px; flex-wrap: wrap; }
+        .footer-newsletter-form input {
+            flex: 1 1 150px;
+            min-width: 0;
+            padding: 10px 14px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 999px;
+            font-size: 13px;
+            background: var(--bg-primary);
+            color: var(--text-dark);
+        }
+        .footer-newsletter-form button {
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: none;
+            background: var(--primary-color);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .footer-newsletter-form button[disabled] { opacity: 0.6; cursor: default; }
+        .footer-newsletter-status {
+            min-height: 16px;
+            margin: 8px 0 10px !important;
+            font-size: 12px !important;
+            color: var(--text-medium, #4b5563) !important;
+        }
+        .footer-support-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-dark);
+            text-decoration: none;
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            padding: 7px 14px;
+        }
+        .footer-support-link:hover { border-color: var(--primary-color); color: var(--primary-color); }
+        .footer-bottom {
+            max-width: 1100px;
+            margin: 32px auto 0;
+            padding-top: 18px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-light);
+        }
+        @media (max-width: 720px) {
+            .index-footer-inner { grid-template-columns: 1fr; gap: 24px; }
+        }
+
+        /* Manual reduced-motion preference */
+        html[data-motion="reduced"] .trending-marquee .trending-track { animation: none !important; }
+        html[data-motion="reduced"] *,
+        html[data-motion="reduced"] *::before,
+        html[data-motion="reduced"] *::after {
+            animation-duration: 0.001ms !important;
+            transition-duration: 0.001ms !important;
+            scroll-behavior: auto !important;
+        }
+
+        /* High-contrast theme */
+        [data-theme="contrast"] {
+            --bg-primary: #000;
+            --bg-secondary: #0d0d0d;
+            --bg-tertiary: #161616;
+            --text-dark: #ffffff;
+            --text-medium: #ededed;
+            --text-light: #d2d2d2;
+            --border-color: #ffffff;
+            --primary-color: #ffd400;
+            --shadow-md: none;
+        }
+        [data-theme="contrast"] body,
+        [data-theme="contrast"] #app { background-color: #000; color: #fff; }
+        [data-theme="contrast"] .post-card,
+        [data-theme="contrast"] .index-footer,
+        [data-theme="contrast"] .history-card,
+        [data-theme="contrast"] .filter-advanced,
+        [data-theme="contrast"] .feed-toolbar {
+            background: #0d0d0d;
+            border-color: #fff;
+        }
+        [data-theme="contrast"] .footer-newsletter-form button,
+        [data-theme="contrast"] .theme-toggle button.active { color: #111; }
     </style>
 </head>
 <body>
@@ -2294,7 +2525,7 @@
     <div class="confetti-container" id="confetti-container"></div>
 
     <!-- Toast Notification -->
-    <div class="toast" id="toast"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <div id="app" v-cloak>
         <noscript>
@@ -2310,8 +2541,9 @@
                 </a>
                 <nav class="nav">
                     <div class="theme-toggle" @click.stop>
-                        <button @click="setTheme('light')" :class="{ active: theme === 'light' }" title="Light mode"><i class="ti ti-sun"></i></button>
-                        <button @click="setTheme('dark')" :class="{ active: theme === 'dark' }" title="Dark mode"><i class="ti ti-moon"></i></button>
+                        <button @click="setTheme('light')" :class="{ active: theme === 'light' }" title="Light mode" aria-label="Light mode"><i class="ti ti-sun"></i></button>
+                        <button @click="setTheme('dark')" :class="{ active: theme === 'dark' }" title="Dark mode" aria-label="Dark mode"><i class="ti ti-moon"></i></button>
+                        <button @click="setTheme('contrast')" :class="{ active: theme === 'contrast' }" title="High contrast" aria-label="High-contrast mode"><i class="ti ti-contrast"></i></button>
                     </div>
                     <a href="/" class="active">Blog</a>
                     <a href="/about.html">About</a>
@@ -2320,7 +2552,7 @@
             </div>
         </div>
 
-        <div class="container" id="main-content">
+        <div class="container" id="main-content" tabindex="-1">
             <!-- Skeleton Loaders (shown while loading) -->
             <div v-if="!loaded">
                 <div class="skeleton skeleton-hero"></div>
@@ -2376,13 +2608,32 @@
                     </div>
                 </div>
 
+                <!-- Recommendations from reading history -->
+                <section v-if="historyRelated.length && !hasFilters" class="history-related" aria-labelledby="history-related-title">
+                    <div class="history-related-head">
+                        <h2 id="history-related-title">Because you read…</h2>
+                        <span>More like the stories you opened</span>
+                    </div>
+                    <div class="history-related-grid">
+                        <a v-for="post in historyRelated" :key="'hist-' + post.id" :href="'/post.html?id=' + post.id" class="history-card">
+                            <img v-if="post.image" :src="optimizedImage(post.image, 480)" :srcset="cardSrcset(post.image)" sizes="(max-width: 700px) 100vw, 260px" :alt="post.title" loading="lazy">
+                            <div v-else class="history-card-ph"><i class="ti ti-article" aria-hidden="true"></i></div>
+                            <div class="history-card-body">
+                                <span class="history-card-meta">{{ post.readingMinutes || getReadingMinutes(post.excerpt) }} min read · {{ formatDate(post.date) }}</span>
+                                <h3>{{ post.title }}</h3>
+                            </div>
+                        </a>
+                    </div>
+                </section>
+
                 <!-- Feed toolbar: heading + search + categories (no container) -->
                 <div class="feed-toolbar">
                     <div class="feed-heading">
-                        <h1 class="latest-title">Latest Posts</h1>
-                        <p v-if="latestPosts.length > 0" class="posts-count">
-                            Showing <strong>{{ visiblePosts.length }}</strong> of <strong>{{ latestPosts.length }}</strong> post{{ latestPosts.length !== 1 ? 's' : '' }}
+                        <h1 class="latest-title">{{ selectedTag ? 'Tagged: ' + selectedTag : 'Latest Posts' }}</h1>
+                        <p v-if="latestPosts.length > 0" class="posts-count" aria-live="polite">
+                            Showing <strong>{{ visiblePosts.length }}</strong> of <strong>{{ searchQuery ? (searchLoading ? '…' : searchTotal) : latestPosts.length }}</strong> post{{ (searchQuery ? searchTotal : latestPosts.length) !== 1 ? 's' : '' }}
                             <span v-if="searchQuery"> for &ldquo;{{ searchQuery }}&rdquo;</span>
+                            <span v-if="searchLoading" class="search-loading-label"> · searching…</span>
                         </p>
                     </div>
                     <div class="feed-controls">
@@ -2473,7 +2724,7 @@
                 <main class="main-feed">
                         <!-- Posts -->
                         <div class="posts-content">
-                        <div v-if="latestPosts.length === 0" class="empty-state">
+                        <div v-if="latestPosts.length === 0 && !searchLoading" class="empty-state">
                             <div class="empty-state-icon" aria-hidden="true">🔍</div>
                             <h3 v-if="posts.length === 0">No posts yet</h3>
                             <h3 v-else>Nothing found here</h3>
@@ -2494,7 +2745,7 @@
                                     </button>
 
                                     <div class="post-card-image-container">
-                                        <img v-if="post.image" :src="post.image" :alt="post.title" class="post-card-image" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'250\' fill=\'%23f0f0f0\'><rect width=\'400\' height=\'250\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'18\' fill=\'%23999\'>Image unavailable</text></svg>'">
+                                        <img v-if="post.image" :src="optimizedImage(post.image, 768)" :srcset="cardSrcset(post.image)" sizes="(max-width: 700px) 100vw, 360px" :alt="post.title" class="post-card-image" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'250\' fill=\'%23f0f0f0\'><rect width=\'400\' height=\'250\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'18\' fill=\'%23999\'>Image unavailable</text></svg>'">
                                         <div v-else-if="post.video" class="post-card-video-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg-tertiary);color:var(--text-light);">
                                             <span>🎥 Video Post</span>
                                         </div>
@@ -2505,7 +2756,7 @@
                                         <div v-if="post.video" class="video-badge" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">
                                             VIDEO
                                         </div>
-                                        <span class="card-rt-badge">⏱ {{ getReadingMinutes(post.content) }} min</span>
+                                        <span class="card-rt-badge">⏱ {{ post.readingMinutes || getReadingMinutes(post.excerpt) }} min</span>
                                     </div>
 
                                     <!-- Reading Progress Ring -->
@@ -2647,6 +2898,35 @@
             <div class="shortcut-row"><span>Theme toggle</span> <kbd>T</kbd></div>
             <div class="shortcut-row"><span>Show shortcuts</span> <kbd>?</kbd></div>
         </div>
+
+        <!-- Site footer: newsletter + support -->
+        <footer class="index-footer">
+            <div class="index-footer-inner">
+                <div class="footer-brand">
+                    <div class="footer-title">{{ blogTitle }}</div>
+                    <p class="footer-desc">{{ (blogInfo && blogInfo.description) || 'Stories, tutorials and notes on web development, football and technology.' }}</p>
+                    <div class="footer-links">
+                        <a href="/feed.xml">RSS feed</a>
+                        <a href="/about.html">About</a>
+                        <a href="/login.html">Admin</a>
+                        <button type="button" class="footer-motion-toggle" onclick="toggleManualMotion(this)" aria-pressed="false">Reduce motion</button>
+                    </div>
+                </div>
+                <div class="footer-newsletter">
+                    <h3>Get the next story</h3>
+                    <p>One thoughtful email when a new post lands. No spam, ever.</p>
+                    <form class="footer-newsletter-form" @submit.prevent="subscribeNewsletter">
+                        <input v-model="newsletterEmail" type="email" placeholder="you@example.com" aria-label="Email address" autocomplete="email" required>
+                        <button type="submit" :disabled="newsletterBusy">{{ newsletterBusy ? 'Subscribing…' : 'Subscribe' }}</button>
+                    </form>
+                    <p class="footer-newsletter-status" aria-live="polite">{{ newsletterStatus }}</p>
+                    <a v-if="blogInfo && blogInfo.donationUrl" :href="blogInfo.donationUrl" target="_blank" rel="noopener noreferrer" class="footer-support-link">
+                        <i class="ti ti-coffee" aria-hidden="true"></i> Support the writing
+                    </a>
+                </div>
+            </div>
+            <div class="footer-bottom">© 2026 <strong>{{ blogTitle }}</strong> · All rights reserved</div>
+        </footer>
 
         <!-- Quick Actions -->
         <div class="quick-actions">
@@ -2837,5 +3117,28 @@
     </div>
     <script src="/public/js/vue.global.js"></script>
     <script src="/public/js/home-app.js" defer></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
+        }
+
+        function syncMotionToggle() {
+            const btn = document.querySelector('.footer-motion-toggle');
+            if (!btn) return;
+            const reduced = document.documentElement.getAttribute('data-motion') === 'reduced';
+            btn.setAttribute('aria-pressed', reduced ? 'true' : 'false');
+            btn.textContent = reduced ? 'Motion reduced' : 'Reduce motion';
+        }
+        function toggleManualMotion() {
+            const reduce = document.documentElement.getAttribute('data-motion') !== 'reduced';
+            if (reduce) document.documentElement.setAttribute('data-motion', 'reduced');
+            else document.documentElement.removeAttribute('data-motion');
+            try { localStorage.setItem('blog_motion', reduce ? 'reduced' : 'full'); } catch (e) {}
+            syncMotionToggle();
+        }
+        document.addEventListener('DOMContentLoaded', syncMotionToggle);
+    </script>
 </body>
 </html>
