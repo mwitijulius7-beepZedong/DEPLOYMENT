@@ -38,6 +38,7 @@
                         newsletterEmail: '',
                         newsletterStatus: '',
                         newsletterBusy: false,
+                        newsletterSuccess: false,
                         lightboxImg: '',
                         isLightboxOpen: false,
                         loaded: false,
@@ -79,6 +80,7 @@
                     this.checkUserRights();
 
                     window.addEventListener('scroll', this.onScroll);
+                    this.observeFooter();
 
                     document.addEventListener('keydown', this.onKeydown);
 
@@ -346,11 +348,17 @@
                             .slice(0, 3)
                             .map(entry => entry.post);
                     },
+                    resetNewsletterState() {
+                        if (this.newsletterBusy) return;
+                        this.newsletterSuccess = false;
+                        this.newsletterStatus = '';
+                    },
                     async subscribeNewsletter(event) {
                         if (event) event.preventDefault();
                         const email = (this.newsletterEmail || '').trim();
                         if (!email) return;
                         this.newsletterBusy = true;
+                        this.newsletterSuccess = false;
                         this.newsletterStatus = 'Subscribing…';
                         try {
                             const resp = await fetch('/api/subscribe', {
@@ -360,7 +368,8 @@
                             });
                             const data = await resp.json();
                             if (resp.ok) {
-                                this.newsletterStatus = data.message || 'Subscribed — thank you!';
+                                this.newsletterSuccess = true;
+                                this.newsletterStatus = 'Thanks — check your inbox.';
                                 this.newsletterEmail = '';
                                 this.showToast('You are on the list.');
                             } else {
@@ -637,6 +646,15 @@
                         } else if (e.key === 'Enter' && this.searchQuery) {
                             this.saveRecentSearch(this.searchQuery);
                         }
+                    },
+
+                    observeFooter() {
+                        const footer = document.querySelector('.index-footer');
+                        const quickActions = document.querySelector('.quick-actions');
+                        if (!footer || !quickActions || !('IntersectionObserver' in window)) return;
+                        new IntersectionObserver((entries) => {
+                            quickActions.classList.toggle('footer-in-view', entries[0].isIntersecting);
+                        }, { threshold: 0.05 }).observe(footer);
                     },
 
                     // ── READING PROGRESS ──
