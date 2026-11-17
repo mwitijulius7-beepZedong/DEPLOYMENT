@@ -50,6 +50,10 @@ request `Host` header — there are no per-customer deployments.
    tenant; buyers' posts, settings, categories, themes, analytics and media are
    scoped to their tenant.
 
+If the migration has not been applied yet, the app keeps serving the platform
+blog unscoped and logs a one-time warning instead of failing requests; tenant
+features stay unavailable until the SQL is run.
+
 ### Local testing
 
 Subdomains and custom domains are resolved from real DNS, so test them locally

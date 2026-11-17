@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -6,16 +6,22 @@ const require = createRequire(import.meta.url);
 // Minimal in-memory stand-in for the supabase-js query builder, covering the
 // chains used by utils/supabaseStore.js. Rows live in per-table arrays so the
 // tests can assert which rows a query touched.
-function createFakeSupabase(seed = {}) {
+function createFakeSupabase(seed = {}, options = {}) {
   const tables = new Map(
     Object.entries(seed).map(([name, rows]) => [name, rows.map(row => ({ ...row }))])
   );
   const calls = [];
+  const missingTenantColumns = Boolean(options.missingTenantColumns);
 
   const rowsFor = name => {
     if (!tables.has(name)) tables.set(name, []);
     return tables.get(name);
   };
+
+  const missingColumnError = name => ({
+    data: null,
+    error: { code: '42703', message: `column ${name}.tenant_id does not exist` }
+  });
 
   const matches = (row, filters) => filters.every(([column, op, value]) => {
     if (op === 'eq') return String(row[column]) === String(value);
@@ -38,6 +44,12 @@ function createFakeSupabase(seed = {}) {
     function execute() {
       calls.push({ table: name, action: state.action, filters: state.filters.map(filter => [...filter]) });
       const rows = rowsFor(name);
+
+      if (missingTenantColumns) {
+        const touchesTenant = state.filters.some(([column]) => column === 'tenant_id')
+          || (state.payload || []).some(row => row && Object.prototype.hasOwnProperty.call(row, 'tenant_id'));
+        if (touchesTenant) return missingColumnError(name);
+      }
 
       if (state.action === 'upsert') {
         for (const row of state.payload) {
@@ -186,6 +198,71 @@ describe('Supabase tenant-scoped store', () => {
       expect(fake.__tables.get('comments')[0].tenant_id).toBe('tenant-a');
       expect(fake.__tables.get('subscriptions')[0].tenant_id).toBe('tenant-a');
     } finally {
+      restore();
+    }
+  });
+});
+
+describe('Supabase before the tenancy migration is applied', () => {
+  it('serves platform content unscoped instead of failing', async () => {
+    const fake = createFakeSupabase({
+      posts: [
+        { id: 'p1', data: { id: 'p1', title: 'One' } },
+        { id: 'p2', data: { id: 'p2', title: 'Two' } }
+      ]
+    }, { missingTenantColumns: true });
+    const { store, restore } = loadStoreWith(fake);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const posts = await store.loadPostsForTenant('platform');
+      expect(posts.map(post => post.id).sort()).toEqual(['p1', 'p2']);
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      restore();
+    }
+  });
+
+  it('still refuses cross-tenant reads without tenant columns', async () => {
+    const fake = createFakeSupabase({ posts: [] }, { missingTenantColumns: true });
+    const { store, restore } = loadStoreWith(fake);
+    try {
+      await expect(store.loadPostsForTenant('tenant-a')).rejects.toThrow(/tenant_id/);
+    } finally {
+      restore();
+    }
+  });
+
+  it('saves platform rows without a tenant_id column', async () => {
+    const fake = createFakeSupabase({ posts: [] }, { missingTenantColumns: true });
+    const { store, restore } = loadStoreWith(fake);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await store.savePostsForTenant('platform', [{ id: 'p1', title: 'Legacy write' }]);
+      const rows = fake.__tables.get('posts');
+      expect(rows).toHaveLength(1);
+      expect(rows[0].id).toBe('p1');
+      expect(rows[0]).not.toHaveProperty('tenant_id');
+    } finally {
+      warn.mockRestore();
+      restore();
+    }
+  });
+
+  it('inserts platform comments without a tenant_id column', async () => {
+    const fake = createFakeSupabase({}, { missingTenantColumns: true });
+    const { store, restore } = loadStoreWith(fake);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { runWithTenant } = require('../lib/tenancy/context');
+    try {
+      await runWithTenant({ tenant: { id: 'platform' }, platform: true }, async () => {
+        await store.insertComment({ id: 'c1', postId: 'p1', content: 'hello' });
+      });
+      const rows = fake.__tables.get('comments');
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).not.toHaveProperty('tenant_id');
+    } finally {
+      warn.mockRestore();
       restore();
     }
   });
