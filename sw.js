@@ -1,5 +1,5 @@
 /* Service worker: offline shell + cache fallback for the blog. */
-const VERSION = 'zedong-shell-v1';
+const VERSION = 'zedong-shell-v4';
 const PRECACHE = [
   '/',
   '/about.html',

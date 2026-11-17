@@ -1467,6 +1467,39 @@ async function sendNewPostNotification(post) {
   }
 }
 
+async function sendSubscriptionConfirmation(email, name) {
+  try {
+    const fromAddress = (process.env.SMTP_FROM && String(process.env.SMTP_FROM).trim())
+      ? String(process.env.SMTP_FROM).trim()
+      : (process.env.ALLOWED_EMAIL || 'noreply@example.com');
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const unsubscribeUrl = `${baseUrl}/#unsubscribe-${encodeURIComponent(email)}`;
+
+    const displayName = name && name.trim() ? name.trim() : 'there';
+
+    const mailOptions = {
+      from: fromAddress,
+      to: email,
+      subject: 'Welcome to the zedong254ke newsletter',
+      html: `
+        <div style="font-family: 'Inter', sans-serif; padding: 24px; border: 1px solid #eee; border-radius: 10px; background: #ffffff;">
+          <h2 style="color: #171715; margin: 0 0 16px;">Welcome, ${displayName}!</h2>
+          <p style="color: #43423C; margin: 0 0 16px;">You have successfully subscribed to the zedong254ke blog newsletter.</p>
+          <p style="color: #43423C; margin: 0 0 20px;">You will receive updates whenever a new post is published, along with occasional notes on technology, delivery, and the human side of work.</p>
+          <p style="font-size: 12px; color: #78756B; margin: 0;">
+            Not you? You can <a href="${unsubscribeUrl}" style="color: #D0271C;">unsubscribe here</a>.
+          </p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Subscription confirmation sent to ${email}`);
+  } catch (err) {
+    console.error('Error sending subscription confirmation email:', err);
+  }
+}
+
 async function sendLicenseEmail(buyer) {
   try {
     const fromAddress = (process.env.SMTP_FROM && String(process.env.SMTP_FROM).trim())
@@ -5566,6 +5599,9 @@ app.post('/api/subscribe', async (req, res) => {
     subscriptions.push(subscription);
     await saveSubscriptions(subscriptions);
 
+    // Send confirmation email (best effort — never fail the subscription because of email)
+    await sendSubscriptionConfirmation(subscription.email, subscription.name);
+
     console.log('New newsletter subscription:', email);
     return res.json({ success: true, message: 'Subscribed successfully' });
   } catch (e) {
@@ -5653,6 +5689,9 @@ app.post('/api/comments', async (req, res) => {
           subscriptions.push(subscription);
           await saveSubscriptions(subscriptions);
         }
+
+        // Send confirmation email (best effort — never fail the comment because of email)
+        await sendSubscriptionConfirmation(subscription.email, subscription.name);
       }
     }
 
