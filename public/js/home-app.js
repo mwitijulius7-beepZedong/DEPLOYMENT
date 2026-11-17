@@ -60,10 +60,15 @@
                         checkoutError: '',
                         checkoutLicenseKey: '',
                         checkoutKeyCopied: false,
+                        checkoutBlogUrl: '',
+                        platformDomain: '',
+                        subdomainStatus: 'idle', // idle | checking | available | unavailable | invalid
+                        subdomainMessage: '',
                         checkoutFormData: {
                             name: '',
                             email: '',
                             phone: '',
+                            subdomain: '',
                             cardNumber: '',
                             cardExpiry: '',
                             cardCvc: ''
@@ -78,6 +83,7 @@
                         .finally(() => { this.loaded = true; });
 
                     this.checkUserRights();
+                    this.loadPaymentConfig();
 
                     window.addEventListener('scroll', this.onScroll);
                     this.observeFooter();
@@ -258,6 +264,9 @@
                     },
                     checkoutFormValid() {
                         const fd = this.checkoutFormData;
+                        const slug = (fd.subdomain || '').trim();
+                        const slugOk = /^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])?$/.test(slug) && this.subdomainStatus === 'available';
+                        if (!slugOk) return false;
                         if (this.selectedPaymentMethod === 'mpesa') {
                             return fd.name.trim() && fd.email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fd.email) && fd.phone.trim();
                         }
@@ -832,8 +841,67 @@
                     },
                     proceedToCheckout() {
                         this.checkoutStep = 'payment';
-                        this.checkoutFormData = { name: '', email: '', phone: '', cardNumber: '', cardExpiry: '', cardCvc: '' };
+                        this.checkoutFormData = { name: '', email: '', phone: '', subdomain: '', cardNumber: '', cardExpiry: '', cardCvc: '' };
                         this.selectedPaymentMethod = 'mpesa';
+                        this.subdomainStatus = 'idle';
+                        this.subdomainMessage = '';
+                        this.checkoutBlogUrl = '';
+                        this.loadPaymentConfig();
+                    },
+                    async loadPaymentConfig() {
+                        if (this.platformDomain) return;
+                        try {
+                            const response = await fetch('/api/payments/config');
+                            const data = await response.json();
+                            if (data && data.platformDomain) this.platformDomain = data.platformDomain;
+                        } catch (e) {
+                            // Non-fatal: the suffix falls back to a generic label.
+                        }
+                    },
+                    onSubdomainInput(e) {
+                        const slug = String(e.target.value || '')
+                            .toLowerCase()
+                            .replace(/[^a-z0-9-]/g, '')
+                            .slice(0, 30);
+                        this.checkoutFormData.subdomain = slug;
+                        this.subdomainMessage = '';
+                        clearTimeout(this._subdomainTimer);
+
+                        if (!slug) {
+                            this.subdomainStatus = 'idle';
+                            return;
+                        }
+                        if (slug.length < 3) {
+                            this.subdomainStatus = 'invalid';
+                            this.subdomainMessage = 'Use at least 3 characters.';
+                            return;
+                        }
+                        if (/^-|-$/.test(slug)) {
+                            this.subdomainStatus = 'invalid';
+                            this.subdomainMessage = 'Cannot start or end with a hyphen.';
+                            return;
+                        }
+                        this.subdomainStatus = 'checking';
+                        this._subdomainTimer = setTimeout(() => this.checkSubdomainAvailability(slug), 350);
+                    },
+                    async checkSubdomainAvailability(slug) {
+                        try {
+                            const response = await fetch(`/api/tenants/availability?subdomain=${encodeURIComponent(slug)}`);
+                            const data = await response.json();
+                            if (this.checkoutFormData.subdomain !== slug) return;
+                            if (data.available) {
+                                this.subdomainStatus = 'available';
+                                this.subdomainMessage = '';
+                            } else {
+                                this.subdomainStatus = 'unavailable';
+                                this.subdomainMessage = data.error || 'That address is taken. Try another.';
+                            }
+                        } catch (e) {
+                            if (this.checkoutFormData.subdomain === slug) {
+                                this.subdomainStatus = 'idle';
+                                this.subdomainMessage = '';
+                            }
+                        }
                     },
                     formatCheckoutCardNumber(e) {
                         let v = e.target.value.replace(/\D/g, '');
@@ -859,7 +927,8 @@
                                     body: JSON.stringify({
                                         phoneNumber: fd.phone.trim().replace(/\D/g, ''),
                                         name: fd.name.trim(),
-                                        email: fd.email.trim()
+                                        email: fd.email.trim(),
+                                        subdomain: fd.subdomain.trim()
                                     })
                                 });
                                 const initData = await initResp.json();
@@ -881,6 +950,7 @@
                                         if (statusData.status === 'completed') {
                                             this.checkoutStep = 'success';
                                             this.checkoutLicenseKey = statusData.license_key || ('BLG-' + Date.now().toString(36).toUpperCase());
+                                            this.checkoutBlogUrl = statusData.blog_url || '';
                                             this.fireConfetti();
                                             confirmed = true;
                                             break;
@@ -903,6 +973,7 @@
                                 const payload = {
                                     name: fd.name.trim(),
                                     email: fd.email.trim(),
+                                    subdomain: fd.subdomain.trim(),
                                     payment_method: 'card',
                                     card_token: 'tok_' + Date.now()
                                 };
@@ -916,6 +987,7 @@
                                 if (resp.ok && data.success) {
                                     this.checkoutStep = 'success';
                                     this.checkoutLicenseKey = data.license_key || 'LIC-' + Date.now().toString(36).toUpperCase();
+                                    this.checkoutBlogUrl = data.blog_url || '';
                                     this.fireConfetti();
                                 } else {
                                     this.checkoutStep = 'failed';

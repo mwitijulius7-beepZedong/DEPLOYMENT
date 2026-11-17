@@ -2138,6 +2138,25 @@
         .tm-hint { display: block; font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 0.375rem; }
         [data-theme="dark"] .tm-hint { color: #64748b; }
 
+        /* Blog address (subdomain) picker */
+        .tm-subdomain-row { display: flex; align-items: stretch; }
+        .tm-subdomain-row input { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+        .tm-subdomain-suffix {
+            display: inline-flex; align-items: center; padding: 0 0.75rem;
+            font-size: 13px; color: var(--text-medium, #64748b);
+            background: var(--bg-tertiary, #f1f5f9); border: 1px solid var(--border-color, #e2e8f0);
+            border-left: 0; border-radius: 0 6px 6px 0; white-space: nowrap;
+        }
+        [data-theme="dark"] .tm-subdomain-suffix { color: #94a3b8; background: #23231F; border-color: #33332D; }
+        .tm-subdomain-status { display: block; font-size: 12px; margin-top: 0.375rem; color: var(--text-muted, #94a3b8); }
+        .tm-subdomain-status.available { color: #15803d; }
+        .tm-subdomain-status.unavailable,
+        .tm-subdomain-status.invalid { color: #dc2626; }
+        [data-theme="dark"] .tm-subdomain-status.available { color: #4ade80; }
+        [data-theme="dark"] .tm-subdomain-status.unavailable,
+        [data-theme="dark"] .tm-subdomain-status.invalid { color: #f87171; }
+        .tm-blog-link { display: inline-block; margin-top: 0.5rem; font-size: 14px; font-weight: 600; color: var(--primary-color); word-break: break-all; }
+
         .tm-card-row { display: flex; gap: 0.5rem; }
         .tm-card-row input { flex: 1; min-width: 0; }
         .tm-card-row input:first-child { flex: 2; }
@@ -3011,6 +3030,19 @@
                         </div>
                     </fieldset>
 
+                    <!-- Blog address: chosen once and reserved during payment -->
+                    <div class="tm-field">
+                        <label for="co-subdomain">Your blog address</label>
+                        <div class="tm-subdomain-row">
+                            <input type="text" id="co-subdomain" v-model="checkoutFormData.subdomain" @input="onSubdomainInput" placeholder="yourname" maxlength="30" autocomplete="off" spellcheck="false">
+                            <span class="tm-subdomain-suffix">.{{ platformDomain || 'yourdomain.com' }}</span>
+                        </div>
+                        <span v-if="subdomainStatus === 'checking'" class="tm-subdomain-status">Checking availability…</span>
+                        <span v-else-if="subdomainStatus === 'available'" class="tm-subdomain-status available"><i class="ti ti-check"></i> Available</span>
+                        <span v-else-if="subdomainStatus === 'unavailable' || subdomainStatus === 'invalid'" class="tm-subdomain-status unavailable">{{ subdomainMessage }}</span>
+                        <span v-else class="tm-hint">Lowercase letters, numbers and hyphens only. 3–30 characters.</span>
+                    </div>
+
                     <!-- M-Pesa form -->
                     <div v-if="selectedPaymentMethod === 'mpesa'" class="tm-form">
                         <div class="tm-field">
@@ -3070,6 +3102,7 @@
                     <div class="tm-success-icon"><i class="ti ti-check"></i></div>
                     <h3>Payment successful!</h3>
                     <p class="tm-success-msg">Thank you, {{ checkoutFormData.name }}! Your template license has been generated and sent to {{ checkoutFormData.email }}.</p>
+                    <a v-if="checkoutBlogUrl" :href="checkoutBlogUrl" target="_blank" rel="noopener" class="tm-blog-link">Your blog: {{ checkoutBlogUrl }}</a>
                     <div class="tm-license-box">
                         <code>{{ checkoutLicenseKey }}</code>
                         <button class="tm-copy-btn" @click="copyLicenseKey" :disabled="checkoutKeyCopied" type="button">
