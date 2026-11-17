@@ -73,21 +73,53 @@ function currentTenantIdSafe() {
   }
 }
 
+const MISSING_TENANT_COLUMN_RE = /tenant_id"?\s+does not exist|column .*tenant_id.*does not exist/i;
+let warnedMissingTenantSchema = false;
+
+function isMissingTenantColumn(error) {
+  return MISSING_TENANT_COLUMN_RE.test(String((error && error.message) || error || ''));
+}
+
+// Deployments can briefly run before supabase/migrations/001_tenancy.sql is
+// applied. The platform blog owns every legacy row, so serving it unscoped
+// keeps the site online while warning that tenant scoping is inactive.
+function warnMissingTenantSchema(error) {
+  if (warnedMissingTenantSchema) return;
+  warnedMissingTenantSchema = true;
+  console.warn(
+    '[tenancy] Supabase has no tenant_id columns; serving platform content unscoped. Run supabase/migrations/001_tenancy.sql:',
+    (error && error.message) || error
+  );
+}
+
+function stripTenantColumn(row) {
+  const { tenant_id: _ignored, ...rest } = row;
+  return rest;
+}
+
 async function selectAllForTenant(table, tenantId, order) {
   const scopeId = tenantIdOf(tenantId);
-  const rows = [];
-  let from = 0;
-  for (;;) {
-    let query = db().from(table).select('id,data').eq('tenant_id', scopeId).range(from, from + PAGE_SIZE - 1);
-    if (order) query = query.order(order.column, { ascending: Boolean(order.ascending), nullsFirst: false });
-    const { data, error } = await query;
-    if (error) throw new Error(`Supabase ${table} select failed: ${error.message}`);
-    const page = data || [];
-    rows.push(...page);
-    if (page.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
+  try {
+    const rows = [];
+    let from = 0;
+    for (;;) {
+      let query = db().from(table).select('id,data').eq('tenant_id', scopeId).range(from, from + PAGE_SIZE - 1);
+      if (order) query = query.order(order.column, { ascending: Boolean(order.ascending), nullsFirst: false });
+      const { data, error } = await query;
+      if (error) throw new Error(`Supabase ${table} select failed: ${error.message}`);
+      const page = data || [];
+      rows.push(...page);
+      if (page.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+    return rows.map(row => ({ ...(row.data || {}), id: row.id }));
+  } catch (e) {
+    if (scopeId === 'platform' && isMissingTenantColumn(e)) {
+      warnMissingTenantSchema(e);
+      return selectAll(table, order);
+    }
+    throw e;
   }
-  return rows.map(row => ({ ...(row.data || {}), id: row.id }));
 }
 
 /**
@@ -104,35 +136,43 @@ async function replaceRowsForTenant(table, tenantId, rows) {
   }
   const unique = [...deduped.values()];
 
-  for (let i = 0; i < unique.length; i += CHUNK_SIZE) {
-    const { error } = await db().from(table).upsert(unique.slice(i, i + CHUNK_SIZE), { onConflict: 'id' });
-    if (error) throw new Error(`Supabase ${table} upsert failed: ${error.message}`);
-  }
+  try {
+    for (let i = 0; i < unique.length; i += CHUNK_SIZE) {
+      const { error } = await db().from(table).upsert(unique.slice(i, i + CHUNK_SIZE), { onConflict: 'id' });
+      if (error) throw new Error(`Supabase ${table} upsert failed: ${error.message}`);
+    }
 
-  const existingIds = [];
-  let from = 0;
-  for (;;) {
-    const { data, error } = await db()
-      .from(table)
-      .select('id')
-      .eq('tenant_id', scopeId)
-      .range(from, from + PAGE_SIZE - 1);
-    if (error) throw new Error(`Supabase ${table} id scan failed: ${error.message}`);
-    const page = data || [];
-    existingIds.push(...page.map(row => row.id));
-    if (page.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
+    const existingIds = [];
+    let from = 0;
+    for (;;) {
+      const { data, error } = await db()
+        .from(table)
+        .select('id')
+        .eq('tenant_id', scopeId)
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) throw new Error(`Supabase ${table} id scan failed: ${error.message}`);
+      const page = data || [];
+      existingIds.push(...page.map(row => row.id));
+      if (page.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
 
-  const keep = new Set(unique.map(row => String(row.id)));
-  const stale = existingIds.filter(id => !keep.has(String(id)));
-  for (let i = 0; i < stale.length; i += CHUNK_SIZE) {
-    const { error } = await db()
-      .from(table)
-      .delete()
-      .eq('tenant_id', scopeId)
-      .in('id', stale.slice(i, i + CHUNK_SIZE));
-    if (error) throw new Error(`Supabase ${table} stale delete failed: ${error.message}`);
+    const keep = new Set(unique.map(row => String(row.id)));
+    const stale = existingIds.filter(id => !keep.has(String(id)));
+    for (let i = 0; i < stale.length; i += CHUNK_SIZE) {
+      const { error } = await db()
+        .from(table)
+        .delete()
+        .eq('tenant_id', scopeId)
+        .in('id', stale.slice(i, i + CHUNK_SIZE));
+      if (error) throw new Error(`Supabase ${table} stale delete failed: ${error.message}`);
+    }
+  } catch (e) {
+    if (scopeId === 'platform' && isMissingTenantColumn(e)) {
+      warnMissingTenantSchema(e);
+      return replaceRows(table, unique.map(stripTenantColumn));
+    }
+    throw e;
   }
 }
 
@@ -276,11 +316,19 @@ async function saveComments(comments) {
   await replaceRows('comments', (comments || []).map(commentRow));
 }
 
+async function insertRowWithTenantFallback(table, row) {
+  let result = await db().from(table).insert(row);
+  if (result.error && tenantIdOf(row.tenant_id) === 'platform' && isMissingTenantColumn(result.error.message)) {
+    warnMissingTenantSchema(result.error);
+    result = await db().from(table).insert(stripTenantColumn(row));
+  }
+  if (result.error) throw new Error(`Supabase ${table} insert failed: ${result.error.message}`);
+  return row.data;
+}
+
 async function insertComment(comment) {
   const row = commentRow(comment);
-  const { error } = await db().from('comments').insert(row);
-  if (error) throw new Error(`Supabase comment insert failed: ${error.message}`);
-  return row.data;
+  return insertRowWithTenantFallback('comments', row);
 }
 
 // ── Categories ──────────────────────────────────────────────────────────────
@@ -345,9 +393,7 @@ async function saveSubscriptions(subscriptions) {
 
 async function insertSubscription(subscription) {
   const row = subscriptionRow(subscription);
-  const { error } = await db().from('subscriptions').insert(row);
-  if (error) throw new Error(`Supabase subscription insert failed: ${error.message}`);
-  return row.data;
+  return insertRowWithTenantFallback('subscriptions', row);
 }
 
 // ── Themes ──────────────────────────────────────────────────────────────────
@@ -575,7 +621,7 @@ async function loadAnalytics() {
 }
 
 async function recordInteraction(type, target, value = '', req = null) {
-  const { error } = await db().from('analytics_events').insert({
+  await insertRowWithTenantFallback('analytics_events', {
     tenant_id: currentTenantIdSafe(),
     kind: 'interaction',
     interaction_type: String(type || ''),
@@ -584,18 +630,16 @@ async function recordInteraction(type, target, value = '', req = null) {
     ip: req ? (req.ip || req.socket?.remoteAddress || 'system') : 'system',
     user_agent: req ? (req.get('User-Agent') || '') : 'system'
   });
-  if (error) throw new Error(`Supabase interaction insert failed: ${error.message}`);
 }
 
 async function recordPageView(page, req) {
-  const { error } = await db().from('analytics_events').insert({
+  await insertRowWithTenantFallback('analytics_events', {
     tenant_id: currentTenantIdSafe(),
     kind: 'page_view',
     page: String(page || '/'),
     ip: req ? (req.ip || req.socket?.remoteAddress || 'unknown') : 'unknown',
     user_agent: req ? (req.get('User-Agent') || '') : 'unknown'
   });
-  if (error) throw new Error(`Supabase page view insert failed: ${error.message}`);
 }
 
 async function saveAnalytics(analytics) {
