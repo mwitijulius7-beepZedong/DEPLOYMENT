@@ -60,11 +60,25 @@ async function selectAll(table, order) {
   return rows.map(row => ({ ...(row.data || {}), id: row.id }));
 }
 
-async function selectRaw(table, order) {
+function tenantIdOf(value) {
+  const tenantId = asString(value);
+  return tenantId || 'platform';
+}
+
+function currentTenantIdSafe() {
+  try {
+    return require('../lib/tenancy/context').currentTenantId();
+  } catch {
+    return 'platform';
+  }
+}
+
+async function selectAllForTenant(table, tenantId, order) {
+  const scopeId = tenantIdOf(tenantId);
   const rows = [];
   let from = 0;
   for (;;) {
-    let query = db().from(table).select('*').range(from, from + PAGE_SIZE - 1);
+    let query = db().from(table).select('id,data').eq('tenant_id', scopeId).range(from, from + PAGE_SIZE - 1);
     if (order) query = query.order(order.column, { ascending: Boolean(order.ascending), nullsFirst: false });
     const { data, error } = await query;
     if (error) throw new Error(`Supabase ${table} select failed: ${error.message}`);
@@ -73,7 +87,53 @@ async function selectRaw(table, order) {
     if (page.length < PAGE_SIZE) break;
     from += PAGE_SIZE;
   }
-  return rows;
+  return rows.map(row => ({ ...(row.data || {}), id: row.id }));
+}
+
+/**
+ * Upserts only rows owned by `tenantId` and prunes only that tenant's stale
+ * rows, so a write never reads or deletes another tenant's records.
+ */
+async function replaceRowsForTenant(table, tenantId, rows) {
+  const scopeId = tenantIdOf(tenantId);
+  const deduped = new Map();
+  for (const row of rows || []) {
+    if (row && row.id !== undefined && row.id !== null) {
+      deduped.set(String(row.id), { ...row, tenant_id: scopeId });
+    }
+  }
+  const unique = [...deduped.values()];
+
+  for (let i = 0; i < unique.length; i += CHUNK_SIZE) {
+    const { error } = await db().from(table).upsert(unique.slice(i, i + CHUNK_SIZE), { onConflict: 'id' });
+    if (error) throw new Error(`Supabase ${table} upsert failed: ${error.message}`);
+  }
+
+  const existingIds = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await db()
+      .from(table)
+      .select('id')
+      .eq('tenant_id', scopeId)
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(`Supabase ${table} id scan failed: ${error.message}`);
+    const page = data || [];
+    existingIds.push(...page.map(row => row.id));
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  const keep = new Set(unique.map(row => String(row.id)));
+  const stale = existingIds.filter(id => !keep.has(String(id)));
+  for (let i = 0; i < stale.length; i += CHUNK_SIZE) {
+    const { error } = await db()
+      .from(table)
+      .delete()
+      .eq('tenant_id', scopeId)
+      .in('id', stale.slice(i, i + CHUNK_SIZE));
+    if (error) throw new Error(`Supabase ${table} stale delete failed: ${error.message}`);
+  }
 }
 
 async function replaceRows(table, rows) {
@@ -139,11 +199,12 @@ async function saveUsers(users) {
 
 // ── Posts ───────────────────────────────────────────────────────────────────
 
-function postRow(post) {
+function postRow(post, tenantId) {
   const id = makeId(post);
   const data = cloneData(post, id);
   return {
     id,
+    tenant_id: tenantIdOf(tenantId || data.tenantId || currentTenantIdSafe()),
     date: toIso(data.date),
     is_draft: asBool(data.isDraft),
     is_deleted: asBool(data.isDeleted),
@@ -159,6 +220,14 @@ async function loadPosts() {
     if (!post.id) post.id = String(post._id || '');
     return post;
   });
+}
+
+async function loadPostsForTenant(tenantId) {
+  return selectAllForTenant('posts', tenantId, { column: 'date', ascending: false });
+}
+
+async function savePostsForTenant(tenantId, posts) {
+  await replaceRowsForTenant('posts', tenantId, (posts || []).map(post => postRow(post, tenantId)));
 }
 
 async function savePosts(posts) {
@@ -177,11 +246,12 @@ async function adjustPostCounter(id, field, delta) {
 
 // ── Comments ────────────────────────────────────────────────────────────────
 
-function commentRow(comment) {
+function commentRow(comment, tenantId) {
   const id = makeId(comment);
   const data = cloneData(comment, id);
   return {
     id,
+    tenant_id: tenantIdOf(tenantId || data.tenantId || currentTenantIdSafe()),
     post_id: asString(data.postId),
     date: toIso(data.date || data.timestamp),
     approved: data.approved !== false,
@@ -192,6 +262,14 @@ function commentRow(comment) {
 
 async function loadComments() {
   return selectAll('comments', { column: 'date', ascending: false });
+}
+
+async function loadCommentsForTenant(tenantId) {
+  return selectAllForTenant('comments', tenantId, { column: 'date', ascending: false });
+}
+
+async function saveCommentsForTenant(tenantId, comments) {
+  await replaceRowsForTenant('comments', tenantId, (comments || []).map(comment => commentRow(comment, tenantId)));
 }
 
 async function saveComments(comments) {
@@ -207,15 +285,31 @@ async function insertComment(comment) {
 
 // ── Categories ──────────────────────────────────────────────────────────────
 
+function categoryRow(category, tenantId) {
+  const id = makeId(category);
+  const data = cloneData(category, id);
+  return {
+    id,
+    tenant_id: tenantIdOf(tenantId || data.tenantId || currentTenantIdSafe()),
+    data,
+    updated_at: new Date().toISOString()
+  };
+}
+
 async function loadCategories() {
   return selectAll('categories', { column: 'id', ascending: true });
 }
 
+async function loadCategoriesForTenant(tenantId) {
+  return selectAllForTenant('categories', tenantId, { column: 'id', ascending: true });
+}
+
+async function saveCategoriesForTenant(tenantId, categories) {
+  await replaceRowsForTenant('categories', tenantId, (categories || []).map(category => categoryRow(category, tenantId)));
+}
+
 async function saveCategories(categories) {
-  await replaceRows('categories', (categories || []).map(category => {
-    const id = makeId(category);
-    return { id, data: cloneData(category, id), updated_at: new Date().toISOString() };
-  }));
+  await replaceRows('categories', (categories || []).map(category => categoryRow(category)));
 }
 
 // ── Subscriptions ───────────────────────────────────────────────────────────
@@ -224,11 +318,16 @@ async function loadSubscriptions() {
   return selectAll('subscriptions', { column: 'id', ascending: true });
 }
 
-function subscriptionRow(subscription) {
+async function loadSubscriptionsForTenant(tenantId) {
+  return selectAllForTenant('subscriptions', tenantId, { column: 'id', ascending: true });
+}
+
+function subscriptionRow(subscription, tenantId) {
   const id = makeId(subscription);
   const data = cloneData(subscription, id);
   return {
     id,
+    tenant_id: tenantIdOf(tenantId || data.tenantId || currentTenantIdSafe()),
     email: asString(data.email),
     post_id: asString(data.postId),
     data,
@@ -236,8 +335,12 @@ function subscriptionRow(subscription) {
   };
 }
 
+async function saveSubscriptionsForTenant(tenantId, subscriptions) {
+  await replaceRowsForTenant('subscriptions', tenantId, (subscriptions || []).map(subscription => subscriptionRow(subscription, tenantId)));
+}
+
 async function saveSubscriptions(subscriptions) {
-  await replaceRows('subscriptions', (subscriptions || []).map(subscriptionRow));
+  await replaceRows('subscriptions', (subscriptions || []).map(subscription => subscriptionRow(subscription)));
 }
 
 async function insertSubscription(subscription) {
@@ -249,23 +352,34 @@ async function insertSubscription(subscription) {
 
 // ── Themes ──────────────────────────────────────────────────────────────────
 
+function themeRow(theme, tenantId) {
+  const id = makeId(theme);
+  const data = cloneData(theme, id);
+  const year = Number(data.year);
+  return {
+    id,
+    tenant_id: tenantIdOf(tenantId || data.tenantId || currentTenantIdSafe()),
+    month: asString(data.month),
+    year: Number.isFinite(year) ? year : null,
+    data,
+    updated_at: new Date().toISOString()
+  };
+}
+
 async function loadThemes() {
   return selectAll('themes', { column: 'year', ascending: false });
 }
 
+async function loadThemesForTenant(tenantId) {
+  return selectAllForTenant('themes', tenantId, { column: 'year', ascending: false });
+}
+
+async function saveThemesForTenant(tenantId, themes) {
+  await replaceRowsForTenant('themes', tenantId, (themes || []).map(theme => themeRow(theme, tenantId)));
+}
+
 async function saveThemes(themes) {
-  await replaceRows('themes', (themes || []).map(theme => {
-    const id = makeId(theme);
-    const data = cloneData(theme, id);
-    const year = Number(data.year);
-    return {
-      id,
-      month: asString(data.month),
-      year: Number.isFinite(year) ? year : null,
-      data,
-      updated_at: new Date().toISOString()
-    };
-  }));
+  await replaceRows('themes', (themes || []).map(theme => themeRow(theme)));
 }
 
 // ── Template buyers / applications ─────────────────────────────────────────
@@ -412,7 +526,23 @@ async function saveResetTokens(tokens) {
 // ── Analytics events ────────────────────────────────────────────────────────
 
 async function loadAnalytics() {
-  const events = await selectRaw('analytics_events', { column: 'created_at', ascending: true });
+  const tenantId = currentTenantIdSafe();
+  const rows = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await db()
+      .from('analytics_events')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: true, nullsFirst: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(`Supabase analytics_events select failed: ${error.message}`);
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  const events = rows;
   const analytics = { pageViews: [], postViews: [], interactions: [] };
   for (const event of events) {
     if (event.kind === 'page_view') {
@@ -446,6 +576,7 @@ async function loadAnalytics() {
 
 async function recordInteraction(type, target, value = '', req = null) {
   const { error } = await db().from('analytics_events').insert({
+    tenant_id: currentTenantIdSafe(),
     kind: 'interaction',
     interaction_type: String(type || ''),
     target: String(target || ''),
@@ -458,6 +589,7 @@ async function recordInteraction(type, target, value = '', req = null) {
 
 async function recordPageView(page, req) {
   const { error } = await db().from('analytics_events').insert({
+    tenant_id: currentTenantIdSafe(),
     kind: 'page_view',
     page: String(page || '/'),
     ip: req ? (req.ip || req.socket?.remoteAddress || 'unknown') : 'unknown',
@@ -467,13 +599,15 @@ async function recordPageView(page, req) {
 }
 
 async function saveAnalytics(analytics) {
-  const { error: clearError } = await db().from('analytics_events').delete().neq('id', -1);
+  const tenantId = currentTenantIdSafe();
+  const { error: clearError } = await db().from('analytics_events').delete().eq('tenant_id', tenantId);
   if (clearError) throw new Error(`Supabase analytics clear failed: ${clearError.message}`);
 
   const records = [];
   for (const view of analytics.pageViews || []) {
     const created_at = toIso(view.timestamp);
     records.push({
+      tenant_id: tenantId,
       kind: 'page_view',
       page: asString(view.page),
       ip: asString(view.ip),
@@ -484,6 +618,7 @@ async function saveAnalytics(analytics) {
   for (const view of analytics.postViews || []) {
     const created_at = toIso(view.timestamp);
     records.push({
+      tenant_id: tenantId,
       kind: 'post_view',
       post_id: asString(view.postId),
       ip: asString(view.ip),
@@ -494,6 +629,7 @@ async function saveAnalytics(analytics) {
   for (const interaction of analytics.interactions || []) {
     const created_at = toIso(interaction.timestamp);
     records.push({
+      tenant_id: tenantId,
       kind: 'interaction',
       interaction_type: asString(interaction.type),
       target: asString(interaction.target),
@@ -516,17 +652,27 @@ module.exports = {
   saveUsers,
   loadPosts,
   savePosts,
+  loadPostsForTenant,
+  savePostsForTenant,
   adjustPostCounter,
   loadComments,
   saveComments,
+  loadCommentsForTenant,
+  saveCommentsForTenant,
   insertComment,
   loadCategories,
   saveCategories,
+  loadCategoriesForTenant,
+  saveCategoriesForTenant,
   loadSubscriptions,
   saveSubscriptions,
+  loadSubscriptionsForTenant,
+  saveSubscriptionsForTenant,
   insertSubscription,
   loadThemes,
   saveThemes,
+  loadThemesForTenant,
+  saveThemesForTenant,
   loadTemplateBuyers,
   saveTemplateBuyers,
   loadTemplateApplications,

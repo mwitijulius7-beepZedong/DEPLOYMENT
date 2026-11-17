@@ -55,7 +55,7 @@
         }
 
         function hideAllSections() {
-            const sections = ['dashboard', 'posts-section', 'users-section', 'analytics-section', 'create-post-section', 'settings-section', 'buyers-section'];
+            const sections = ['dashboard', 'posts-section', 'users-section', 'analytics-section', 'create-post-section', 'settings-section', 'buyers-section', 'domains-section'];
             sections.forEach(sectionId => {
                 const section = document.getElementById(sectionId);
                 if (section) section.style.display = 'none';
@@ -181,6 +181,214 @@
             } catch (err) {
                 alert('Network error removing buyer');
             }
+        }
+
+        // ── MY DOMAINS (template buyers) ──────────────────────────────
+        function escapeDomainHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function showDomainsSection() {
+            showSection('domains-section', 'My Domains', 'showDomainsSection');
+            if (typeof loadDomains === 'function') loadDomains();
+        }
+
+        async function loadDomains() {
+            const listEl = document.getElementById('domains-list');
+            if (!listEl) return;
+            try {
+                const response = await apiFetch('/api/tenant/domains');
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    listEl.innerHTML = `<div style="padding:12px;color:#dc2626;font-size:13px;">${escapeDomainHtml(data.message || data.error || 'Could not load domains.')}</div>`;
+                    return;
+                }
+                if (!data.domains || data.domains.length === 0) {
+                    listEl.innerHTML = '<div style="padding:12px;color:var(--text-medium);font-size:13px;">No domains yet.</div>';
+                    return;
+                }
+                listEl.innerHTML = data.domains.map(domain => {
+                    const status = String(domain.status || 'pending');
+                    const badgeColor = status === 'active' ? '#15803d' : status === 'failed' ? '#dc2626' : '#b45309';
+                    const badgeBg = status === 'active' ? '#dcfce7' : status === 'failed' ? '#fee2e2' : '#fef3c7';
+                    const isPlatform = domain.type === 'platform';
+                    let sslBadge = '';
+                    if (!isPlatform && (domain.sslStatus || domain.sslError || (domain.sslValidationErrors || []).length)) {
+                        const sslTrouble = Boolean(domain.sslError) || (domain.sslValidationErrors || []).length > 0;
+                        const sslActive = String(domain.sslStatus || '').toLowerCase() === 'active';
+                        const sslColor = sslTrouble ? '#b45309' : sslActive ? '#15803d' : '#b45309';
+                        const sslBg = sslTrouble ? '#fef3c7' : sslActive ? '#dcfce7' : '#fef3c7';
+                        const sslLabel = sslTrouble ? 'SSL attention' : sslActive ? 'SSL active' : 'SSL pending';
+                        sslBadge = `<span title="${escapeDomainHtml(domain.sslError || (domain.sslValidationErrors || [])[0] || domain.sslStatus || '')}" style="background:${sslBg};color:${sslColor};padding:1px 6px;border-radius:4px;margin-left:4px;">${sslLabel}</span>`;
+                    }
+                    const actions = [
+                        !isPlatform && status !== 'active'
+                            ? `<button onclick="verifyDomain('${domain.id}')" style="background:#e0e7ff;color:#4338ca;border:1px solid #c7d2fe;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;margin-right:6px;"><i class="ti ti-refresh"></i> Verify DNS</button>`
+                            : '',
+                        status === 'active' && !domain.isPrimary
+                            ? `<button onclick="makeDomainPrimary('${domain.id}')" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;margin-right:6px;"><i class="ti ti-star"></i> Make primary</button>`
+                            : '',
+                        !isPlatform
+                            ? `<button onclick="removeDomain('${domain.id}')" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;"><i class="ti ti-trash"></i> Remove</button>`
+                            : '',
+                        !isPlatform && domain.instructions
+                            ? `<button onclick="showDomainInstructions('${domain.id}')" style="background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;margin-left:6px;"><i class="ti ti-dns"></i> DNS</button>`
+                            : ''
+                    ].join('');
+                    return `
+                        <div style="padding:12px;border:1px solid var(--border-color);border-radius:8px;margin-bottom:8px;background:#fff;">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+                                <div>
+                                    <strong style="color:var(--text-dark);word-break:break-all;">${escapeDomainHtml(domain.hostname)}</strong>
+                                    ${domain.isPrimary ? '<span style="font-size:10px;background:#e0e7ff;color:#4338ca;padding:2px 6px;border-radius:4px;margin-left:6px;">PRIMARY</span>' : ''}
+                                    <div style="font-size:11px;color:var(--text-light);margin-top:4px;">
+                                        ${isPlatform ? 'Platform address' : 'Custom domain'}
+                                        · <span style="background:${badgeBg};color:${badgeColor};padding:1px 6px;border-radius:4px;text-transform:capitalize;">${escapeDomainHtml(status)}</span>
+                                        ${sslBadge}
+                                        ${domain.verifiedAt ? ` · verified ${new Date(domain.verifiedAt).toLocaleDateString()}` : ''}
+                                        ${domain.sslStatus && !sslBadge ? ` · SSL: ${escapeDomainHtml(domain.sslStatus)}` : ''}
+                                    </div>
+                                </div>
+                                <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">${actions}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                window.__tenantDomains = data.domains;
+            } catch (err) {
+                listEl.innerHTML = '<div style="padding:12px;color:#dc2626;font-size:13px;">Error loading domains.</div>';
+            }
+        }
+
+        async function addCustomDomain() {
+            const input = document.getElementById('new-domain-hostname');
+            const message = document.getElementById('domain-form-message');
+            const hostname = (input?.value || '').trim();
+            if (!hostname) return;
+            if (message) message.textContent = 'Connecting...';
+            try {
+                const response = await apiFetch('/api/tenant/domains', {
+                    method: 'POST',
+                    body: JSON.stringify({ hostname })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    if (message) message.textContent = data.message || 'Could not connect that domain.';
+                    return;
+                }
+                if (input) input.value = '';
+                if (message) message.textContent = 'Domain added. Add the DNS records below, then click Verify DNS.';
+                await loadDomains();
+                if (data.domain) renderDomainInstructions(data.domain, data.instructions);
+            } catch (err) {
+                if (message) message.textContent = 'Network error. Please try again.';
+            }
+        }
+
+        async function verifyDomain(id) {
+            try {
+                const response = await apiFetch(`/api/tenant/domains/${encodeURIComponent(id)}/verify`, { method: 'POST' });
+                const data = await response.json();
+                if (response.ok && (data.verified || data.domain?.status === 'active')) {
+                    alert('Domain verified. HTTPS will be issued automatically once DNS propagates.');
+                } else if (response.status === 429) {
+                    alert('Too many verification attempts. Please wait a few minutes.');
+                } else {
+                    const check = data.check || {};
+                    const diagnostics = Array.isArray(check.diagnostics) && check.diagnostics.length
+                        ? check.diagnostics
+                        : [
+                            check.txtOk === false ? 'TXT record not found yet.' : '',
+                            (check.cnameOk === false && check.aOk === false) ? 'CNAME/A record not pointing here yet.' : ''
+                        ].filter(Boolean);
+                    const heading = check.status === 'mismatch'
+                        ? 'DNS points somewhere else. Update the records below.'
+                        : 'DNS is still propagating.';
+                    alert((data.message || heading) + (diagnostics.length ? '\n\n- ' + diagnostics.join('\n- ') : ''));
+                }
+                await loadDomains();
+            } catch (err) {
+                alert('Network error while verifying the domain.');
+            }
+        }
+
+        async function makeDomainPrimary(id) {
+            try {
+                const response = await apiFetch(`/api/tenant/domains/${encodeURIComponent(id)}/primary`, { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    alert(data.message || 'Could not change the primary domain.');
+                    return;
+                }
+                await loadDomains();
+            } catch (err) {
+                alert('Network error.');
+            }
+        }
+
+        async function removeDomain(id) {
+            if (!confirm('Disconnect this domain? Your blog will stay available on its platform address.')) return;
+            try {
+                const response = await apiFetch(`/api/tenant/domains/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data.success) {
+                    alert(data.message || 'Could not remove the domain.');
+                    return;
+                }
+                await loadDomains();
+            } catch (err) {
+                alert('Network error.');
+            }
+        }
+
+        function showDomainInstructions(id) {
+            const domains = window.__tenantDomains || [];
+            const domain = domains.find(d => String(d.id) === String(id));
+            if (domain) renderDomainInstructions(domain, domain.instructions);
+        }
+
+        function renderDomainInstructions(domain, instructions) {
+            const card = document.getElementById('domain-instructions-card');
+            const container = document.getElementById('domain-instructions');
+            if (!card || !container || !domain) return;
+            const records = (instructions && instructions.records) || [];
+            const rows = records.filter(record => record.required).map(record => `
+                <tr>
+                    <td style="padding:8px;border-bottom:1px solid var(--border-color);font-family:monospace;">${escapeDomainHtml(record.type)}</td>
+                    <td style="padding:8px;border-bottom:1px solid var(--border-color);font-family:monospace;word-break:break-all;">${escapeDomainHtml(record.name)}</td>
+                    <td style="padding:8px;border-bottom:1px solid var(--border-color);font-family:monospace;word-break:break-all;">${escapeDomainHtml(record.value)}</td>
+                </tr>
+            `).join('');
+            const optional = records.filter(record => !record.required).map(record => `
+                <tr style="opacity:0.7;">
+                    <td style="padding:8px;font-family:monospace;">${escapeDomainHtml(record.type)}</td>
+                    <td style="padding:8px;font-family:monospace;word-break:break-all;">${escapeDomainHtml(record.name)}</td>
+                    <td style="padding:8px;font-family:monospace;word-break:break-all;">${escapeDomainHtml(record.value)}</td>
+                </tr>
+            `).join('');
+            container.innerHTML = `
+                <p style="font-size:13px;color:var(--text-medium);margin:0 0 10px;">
+                    Add these records at your DNS provider for <strong>${escapeDomainHtml(domain.hostname)}</strong>, then click Verify DNS. Propagation can take a few minutes.
+                </p>
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <thead>
+                        <tr style="text-align:left;color:var(--text-medium);">
+                            <th style="padding:8px;border-bottom:1px solid var(--border-color);">Type</th>
+                            <th style="padding:8px;border-bottom:1px solid var(--border-color);">Name</th>
+                            <th style="padding:8px;border-bottom:1px solid var(--border-color);">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}${optional}</tbody>
+                </table>
+                <ul style="font-size:12px;color:var(--text-light);margin:10px 0 0;padding-left:18px;">
+                    <li>Remove any existing <strong>AAAA</strong> records for this hostname. IPv6 clients would bypass the platform and fail unless IPv6 is configured.</li>
+                    <li>If you publish <strong>CAA</strong> records, allow your certificate authority (for example <code>letsencrypt.org</code>) so HTTPS can be issued.</li>
+                </ul>
+            `;
+            card.style.display = 'block';
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         function switchSettingsPanel(panelName) {

@@ -14,8 +14,23 @@ process.env.MONGODB_URI = '';
 process.env.PERSONALBLOG_MONGODB_URI = '';
 process.env.KV_REST_API_URL = '';
 process.env.KV_REST_API_TOKEN = '';
+process.env.UPSTASH_REDIS_REST_URL = '';
+process.env.UPSTASH_REDIS_REST_TOKEN = '';
+process.env.SUPABASE_URL = '';
+process.env.SUPABASE_SERVICE_ROLE_KEY = '';
+process.env.SUPABASE_ANON_KEY = '';
+process.env.DATA_BACKEND = 'file';
+process.env.PLATFORM_DOMAIN = '';
+process.env.CUSTOM_DOMAIN_TARGET = '';
+process.env.SERVER_IP = '';
 process.env.DEV_ADMIN_PASSWORD = '';
 process.env.DEV_ADMIN_SEED = '';
+// Keep email and scheduled-job secrets hermetic too.
+process.env.SMTP_HOST = '';
+process.env.SMTP_USER = '';
+process.env.SMTP_PASS = '';
+process.env.SENDGRID_API_KEY = '';
+process.env.CRON_SECRET = 'test-cron-secret';
 
 const seedPosts = [
   {
@@ -58,6 +73,29 @@ const seedPosts = [
 
 fs.writeFileSync(path.join(dataDir, 'posts.json'), JSON.stringify(seedPosts, null, 2));
 fs.writeFileSync(path.join(dataDir, 'users.json'), JSON.stringify({}));
+
+// A paid transaction whose provisioning never completed (simulates a crash
+// between the M-Pesa callback and tenant creation).
+const pendingProvisionTxn = {
+  id: 'txn-recovery-1',
+  checkoutRequestId: 'ws_CO_RECOVERY_1',
+  customerName: 'Recovery Buyer',
+  customerEmail: 'recovery@example.com',
+  customerPhone: '254700000000',
+  amount: 1000,
+  subdomain: 'recovery-blog',
+  hostname: 'recovery-blog',
+  status: 'completed',
+  mpesaReceiptNumber: 'RCPT-RECOVERY-1',
+  paymentKey: 'mpesa:RCPT-RECOVERY-1',
+  welcomeEmailSent: false,
+  createdAt: '2026-02-02T00:00:00.000Z'
+};
+fs.writeFileSync(
+  path.join(dataDir, 'mpesa_transactions.json'),
+  JSON.stringify([pendingProvisionTxn], null, 2)
+);
+fs.writeFileSync(path.join(dataDir, 'template_buyers.json'), JSON.stringify([]));
 
 const app = require('../server');
 
@@ -196,6 +234,53 @@ describe('auth', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'nobody', password: 'wrong-password' })
     });
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('payment provisioning recovery', () => {
+  it('provisions an interrupted purchase exactly once and seeds its blog in isolation', async () => {
+    const first = await fetch(`${base}/api/admin/payments/provision-recovery`, {
+      headers: { 'x-cron-secret': process.env.CRON_SECRET }
+    });
+    expect(first.status).toBe(200);
+    const firstBody = await first.json();
+    expect(firstBody.success).toBe(true);
+    expect(firstBody.checked).toBe(1);
+    expect(firstBody.provisioned).toBe(1);
+    expect(firstBody.failed).toBe(0);
+
+    const tenants = JSON.parse(fs.readFileSync(path.join(dataDir, 'tenants.json'), 'utf8'));
+    expect(tenants).toHaveLength(1);
+    expect(tenants[0].paymentKey).toBe('mpesa:RCPT-RECOVERY-1');
+
+    const domains = JSON.parse(fs.readFileSync(path.join(dataDir, 'domains.json'), 'utf8'));
+    expect(domains).toHaveLength(1);
+    expect(domains[0].hostname).toBe('recovery-blog');
+    expect(domains[0].status).toBe('active');
+
+    const txns = JSON.parse(fs.readFileSync(path.join(dataDir, 'mpesa_transactions.json'), 'utf8'));
+    expect(txns[0].provisioned).toBe(true);
+    expect(txns[0].provisionError).toBeUndefined();
+
+    // The platform's own posts must survive the tenant's write.
+    const posts = JSON.parse(fs.readFileSync(path.join(dataDir, 'posts.json'), 'utf8'));
+    expect(posts.filter(post => !post.tenantId || post.tenantId === 'platform')).toHaveLength(3);
+    expect(posts.some(post => post.tenantId === tenants[0].id
+      && Array.isArray(post.tags) && post.tags.includes('welcome'))).toBe(true);
+
+    // A second sweep is a no-op: no duplicate tenant, domain or welcome post.
+    const second = await fetch(`${base}/api/admin/payments/provision-recovery`, {
+      headers: { 'x-cron-secret': process.env.CRON_SECRET }
+    });
+    const secondBody = await second.json();
+    expect(secondBody.checked).toBe(0);
+    expect(JSON.parse(fs.readFileSync(path.join(dataDir, 'tenants.json'), 'utf8'))).toHaveLength(1);
+    expect(JSON.parse(fs.readFileSync(path.join(dataDir, 'domains.json'), 'utf8'))).toHaveLength(1);
+  });
+
+  it('rejects callers without the cron secret or a seller session', async () => {
+    const res = await fetch(`${base}/api/admin/payments/provision-recovery`);
     expect(res.status).toBe(401);
   });
 });

@@ -1295,6 +1295,7 @@ window.loadPostsList = loadPostsList;
                                     'posts': () => showPostsSection(),
                                     'analytics': () => showAnalyticsSection(),
                                     'users': () => showUsersSection(),
+                                    'domains': () => showDomainsSection(),
                                     'settings': () => showSettingsSection()
                                 };
 
@@ -1320,6 +1321,9 @@ window.loadPostsList = loadPostsList;
                                         break;
                                     case 'users':
                                         showUsersSection();
+                                        break;
+                                    case 'domains':
+                                        showDomainsSection();
                                         break;
                                     case 'settings':
                                         showSettingsSection();
@@ -1752,6 +1756,11 @@ window.loadPostsList = loadPostsList;
                                     // Hide seller-only sidebar items
                                     const buyersNav = document.getElementById('nav-buyers');
                                     if (buyersNav) buyersNav.closest('.nav-item').style.display = 'none';
+
+                                    // Buyers are the only role with a tenant blog, so
+                                    // the domain manager is shown for them.
+                                    const domainsNavItem = document.getElementById('nav-domains-item');
+                                    if (domainsNavItem) domainsNavItem.style.display = '';
 
                                     // Hide analytics (seller-only)
                                     const analyticsNav = document.getElementById('nav-analytics');

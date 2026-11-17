@@ -3,6 +3,7 @@ const express = require('express');
 const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { createRateLimitStore } = require('./utils/rateLimitStore');
 const fetch = require('node-fetch');
 const session = require('express-session');
 const path = require('path');
@@ -20,6 +21,7 @@ const { isSupabaseEnabled, uploadToSupabaseStorage, listSupabaseStorage, deleteF
 const supabaseStore = require('./utils/supabaseStore');
 const errorHandler = require('./middleware/errorHandler');
 const healthAndErrors = require('./middleware/health_and_errors');
+const tenancy = require('./lib/tenancy');
 
 let kv = null;
 try {
@@ -212,7 +214,8 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'too_many_requests', retryAfter: '15 minutes' },
-  keyGenerator: (req) => req.ip
+  keyGenerator: (req) => req.ip,
+  store: createRateLimitStore('auth')
 });
 // Moderate limiter for all API routes
 const apiLimiter = rateLimit({
@@ -220,11 +223,33 @@ const apiLimiter = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'too_many_requests', retryAfter: '15 minutes' }
+  message: { error: 'too_many_requests', retryAfter: '15 minutes' },
+  store: createRateLimitStore('api')
 });
 app.use('/api', apiLimiter);
 // Apply strict limiter to all auth and key-gate endpoints
 app.use(['/auth/login', '/auth/google', '/api/settings/verify-entry-key'], authLimiter);
+
+// Tenancy endpoints: cheap lookups are rate-limited to stop slug enumeration,
+// domain verification is limited because it triggers DNS lookups.
+const subdomainLookupLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'too_many_requests', retryAfter: '1 minute' },
+  keyGenerator: (req) => req.ip,
+  store: createRateLimitStore('subdomain')
+});
+const domainVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'too_many_requests', retryAfter: '15 minutes' },
+  keyGenerator: (req) => req.ip,
+  store: createRateLimitStore('verify')
+});
 // Dev seed bootstrap: create a default admin in non-prod when requested
 async function seedAdminIfNeeded() {
   try {
@@ -350,6 +375,9 @@ app.use((req, res, next) => {
 
 // 2026: cap raw body size to prevent DoS via oversized payloads
 app.use(express.json({ limit: '50kb' }));
+// Resolve every request to a tenant before static files are served, so an
+// unconfigured hostname gets a clean 404 instead of another tenant's page.
+app.use(tenancy.hostGate);
 // Cache public static assets aggressively.
 // NOTE: '/' and '/post.html' are rendered dynamically (SSR'd list + OG/JSON-LD
 // meta tags), so they must fall through to their dedicated routes below.
@@ -408,6 +436,10 @@ app.use(session({
   name: '__s',
   store: createSessionStore()
 }));
+
+// Attach the effective tenant (hostname tenant, or the logged-in buyer's
+// tenant when using the customer dashboard on the platform domain).
+app.use(tenancy.createContextMiddleware({ jwtSecret: JWT_SECRET }));
 
 app.use(fileUpload({
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB for videos
@@ -587,7 +619,7 @@ function normalizeComment(c) {
   };
 }
 
-async function loadPosts() {
+async function loadAllPosts() {
   if (isSupabaseEnabled()) return (await supabaseStore.loadPosts()).map(normalizePost);
   const now = Date.now();
   if (postsCache && now - postsCacheTime < CACHE_TTL) {
@@ -626,7 +658,7 @@ async function loadPosts() {
           if (db && result.length > 0) {
             try {
               console.log('Seeding MongoDB with posts from Vercel KV...');
-              await savePosts(result);
+              await saveAllPosts(result);
             } catch (seedErr) {
               console.warn('Failed to seed MongoDB from Vercel KV:', seedErr.message);
             }
@@ -648,7 +680,7 @@ async function loadPosts() {
       if (db && result.length > 0) {
         try {
           console.log('Seeding MongoDB with posts from local file...');
-          await savePosts(result);
+          await saveAllPosts(result);
         } catch (seedErr) {
           console.warn('Failed to seed MongoDB from local file:', seedErr.message);
         }
@@ -665,7 +697,7 @@ async function loadPosts() {
   return [];
 }
 
-async function savePosts(posts) {
+async function saveAllPosts(posts) {
   if (isSupabaseEnabled()) {
     postsCache = null;
     postsCacheTime = 0;
@@ -730,7 +762,28 @@ async function savePosts(posts) {
   }
 }
 
-async function loadCategories() {
+// Tenant-scoped wrappers: the storage layer stays global, while every read and
+// write is filtered/tagged for the tenant attached to the current request.
+// Platform-owned content is the `platform` tenant.
+async function loadPosts() {
+  if (isSupabaseEnabled()) {
+    return (await supabaseStore.loadPostsForTenant(tenancy.scope.currentTenantId())).map(normalizePost);
+  }
+  return tenancy.scope.filterForTenant(await loadAllPosts());
+}
+
+async function savePosts(posts) {
+  const tenantId = tenancy.scope.currentTenantId();
+  if (isSupabaseEnabled()) {
+    postsCache = null;
+    postsCacheTime = 0;
+    return supabaseStore.savePostsForTenant(tenantId, posts);
+  }
+  const all = await loadAllPosts();
+  return saveAllPosts(tenancy.scope.mergeForTenant(all, posts, tenantId));
+}
+
+async function loadAllCategories() {
   if (isSupabaseEnabled()) return supabaseStore.loadCategories();
   try {
     return await loadWithFallback({
@@ -746,7 +799,7 @@ async function loadCategories() {
   }
 }
 
-async function saveCategories(categories) {
+async function saveAllCategories(categories) {
   if (isSupabaseEnabled()) {
     if (!Array.isArray(categories)) throw new Error('categories must be an array');
     return supabaseStore.saveCategories(categories);
@@ -761,6 +814,27 @@ async function saveCategories(categories) {
     console.error('Save categories error:', e);
     throw e;
   }
+}
+
+async function loadCategories() {
+  if (isSupabaseEnabled()) {
+    try {
+      return await supabaseStore.loadCategoriesForTenant(tenancy.scope.currentTenantId());
+    } catch (e) {
+      console.error('Supabase categories load failed:', e.message);
+      return [];
+    }
+  }
+  return tenancy.scope.filterForTenant(await loadAllCategories());
+}
+
+async function saveCategories(categories) {
+  const tenantId = tenancy.scope.currentTenantId();
+  if (isSupabaseEnabled()) {
+    return supabaseStore.saveCategoriesForTenant(tenantId, categories);
+  }
+  const all = await loadAllCategories();
+  return saveAllCategories(tenancy.scope.mergeForTenant(all, categories, tenantId));
 }
 
 async function loadAnalytics() {
@@ -805,6 +879,20 @@ async function saveAnalytics(analytics) {
 }
 
 /**
+ * Filters analytics arrays down to the tenant of the current request.
+ * Records created before tenancy are treated as platform data.
+ */
+function scopeAnalytics(analytics) {
+  const tenantId = tenancy.scope.currentTenantId();
+  const match = item => String(item.tenantId || tenancy.PLATFORM_TENANT_ID) === tenantId;
+  return {
+    pageViews: (analytics.pageViews || []).filter(match),
+    postViews: (analytics.postViews || []).filter(match),
+    interactions: (analytics.interactions || []).filter(match)
+  };
+}
+
+/**
  * Centrally records a user interaction for the analytics dashboard
  */
 async function recordInteraction(type, target, value = '', req = null) {
@@ -822,6 +910,7 @@ async function recordInteraction(type, target, value = '', req = null) {
       type: type,
       target: String(target || ''),
       value: String(value || ''),
+      tenantId: tenancy.scope.currentTenantId(),
       ip: req ? (req.ip || req.socket?.remoteAddress) : 'system',
       userAgent: req ? (req.get('User-Agent') || '') : 'system',
       timestamp: new Date().toISOString()
@@ -863,6 +952,7 @@ async function recordPageView(page, req) {
   try {
     const view = {
       page: String(page || '/'),
+      tenantId: tenancy.scope.currentTenantId(),
       ip: req ? (req.ip || req.socket?.remoteAddress) : 'unknown',
       userAgent: req ? (req.get('User-Agent') || '') : 'unknown',
       timestamp: new Date().toISOString()
@@ -891,7 +981,9 @@ async function recordPageView(page, req) {
 /**
  * Helper to upload a file to the configured storage (Cloudinary, Vercel Blob, or Local)
  */
-async function uploadFileToStorage(file, folder = 'blog') {
+async function uploadFileToStorage(file, folder = 'blog', scopeId = 'platform') {
+  const safeScope = String(scopeId || 'platform').replace(/[^a-z0-9-]/gi, '');
+  const tenantPrefix = safeScope && safeScope !== 'platform' ? `tenant-${safeScope}__` : '';
   if (isSupabaseEnabled()) {
     const safe = path.basename(file.name).replace(/[^a-z0-9.\-\_]/gi, '_');
     const filename = Date.now() + '_' + safe;
@@ -922,7 +1014,7 @@ async function uploadFileToStorage(file, folder = 'blog') {
   // Fallback to Vercel Blob
   if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
     const safe = path.basename(file.name).replace(/[^a-z0-9.\-\_]/gi, '_');
-    const filename = Date.now() + '_' + safe;
+    const filename = tenantPrefix + Date.now() + '_' + safe;
     const blob = await put(filename, file.data, {
       access: 'public',
       contentType: file.mimetype
@@ -932,7 +1024,7 @@ async function uploadFileToStorage(file, folder = 'blog') {
 
   // Local development fallback
   const safe = path.basename(file.name).replace(/[^a-z0-9.\-\_]/gi, '_');
-  const filename = Date.now() + '_' + safe;
+  const filename = tenantPrefix + Date.now() + '_' + safe;
   const dest = path.join(UPLOADS_DIR, filename);
   
   if (file.data && Buffer.isBuffer(file.data)) {
@@ -986,7 +1078,7 @@ let postHtmlTemplateMtimeMs = 0;
 let indexHtmlTemplate = null;
 let indexHtmlTemplateMtimeMs = 0;
 
-async function loadComments() {
+async function loadAllComments() {
   if (isSupabaseEnabled()) {
     try {
       const comments = await supabaseStore.loadComments();
@@ -1023,7 +1115,7 @@ function invalidateCommentsCache() {
   commentsCacheTime = 0;
 }
 
-async function saveComments(comments) {
+async function saveAllComments(comments) {
   invalidateCommentsCache();
   if (isSupabaseEnabled()) return supabaseStore.saveComments(comments);
   try {
@@ -1064,7 +1156,29 @@ async function saveComments(comments) {
   }
 }
 
-async function loadSubscriptions() {
+async function loadComments() {
+  if (isSupabaseEnabled()) {
+    try {
+      return (await supabaseStore.loadCommentsForTenant(tenancy.scope.currentTenantId())).map(normalizeComment);
+    } catch (e) {
+      console.error('Supabase comments load failed:', e.message);
+      return [];
+    }
+  }
+  return tenancy.scope.filterForTenant(await loadAllComments());
+}
+
+async function saveComments(comments) {
+  const tenantId = tenancy.scope.currentTenantId();
+  if (isSupabaseEnabled()) {
+    invalidateCommentsCache();
+    return supabaseStore.saveCommentsForTenant(tenantId, comments);
+  }
+  const all = await loadAllComments();
+  return saveAllComments(tenancy.scope.mergeForTenant(all, comments, tenantId));
+}
+
+async function loadAllSubscriptions() {
   if (isSupabaseEnabled()) return supabaseStore.loadSubscriptions();
   try {
     const db = await getMongoDB();
@@ -1078,7 +1192,7 @@ async function loadSubscriptions() {
   }
 }
 
-async function saveSubscriptions(subscriptions) {
+async function saveAllSubscriptions(subscriptions) {
   if (isSupabaseEnabled()) return supabaseStore.saveSubscriptions(subscriptions);
   try {
     const mongoDb = await getMongoDB();
@@ -1115,6 +1229,22 @@ async function saveSubscriptions(subscriptions) {
   } catch (e) {
     console.error('Save subscriptions error:', e);
   }
+}
+
+async function loadSubscriptions() {
+  if (isSupabaseEnabled()) {
+    return supabaseStore.loadSubscriptionsForTenant(tenancy.scope.currentTenantId());
+  }
+  return tenancy.scope.filterForTenant(await loadAllSubscriptions());
+}
+
+async function saveSubscriptions(subscriptions) {
+  const tenantId = tenancy.scope.currentTenantId();
+  if (isSupabaseEnabled()) {
+    return supabaseStore.saveSubscriptionsForTenant(tenantId, subscriptions);
+  }
+  const all = await loadAllSubscriptions();
+  return saveAllSubscriptions(tenancy.scope.mergeForTenant(all, subscriptions, tenantId));
 }
 
 async function loadTemplateBuyers() {
@@ -1369,7 +1499,7 @@ async function checkMpesaTransactionStatus(checkoutRequestId) {
   return await resp.json();
 }
 
-async function loadThemes() {
+async function loadAllThemes() {
   if (isSupabaseEnabled()) return supabaseStore.loadThemes();
   try {
     const db = await getMongoDB();
@@ -1388,7 +1518,7 @@ async function loadThemes() {
   }
 }
 
-async function saveThemes(themes) {
+async function saveAllThemes(themes) {
   if (isSupabaseEnabled()) return supabaseStore.saveThemes(themes);
   try {
     const mongoDb = await getMongoDB();
@@ -1425,6 +1555,22 @@ async function saveThemes(themes) {
   } catch (e) {
     console.error('Save themes error:', e);
   }
+}
+
+async function loadThemes() {
+  if (isSupabaseEnabled()) {
+    return supabaseStore.loadThemesForTenant(tenancy.scope.currentTenantId());
+  }
+  return tenancy.scope.filterForTenant(await loadAllThemes());
+}
+
+async function saveThemes(themes) {
+  const tenantId = tenancy.scope.currentTenantId();
+  if (isSupabaseEnabled()) {
+    return supabaseStore.saveThemesForTenant(tenantId, themes);
+  }
+  const all = await loadAllThemes();
+  return saveAllThemes(tenancy.scope.mergeForTenant(all, themes, tenantId));
 }
 
 async function sendNewPostNotification(post) {
@@ -1532,6 +1678,304 @@ async function sendLicenseEmail(buyer) {
   }
 }
 
+// ── Tenant provisioning hooks ────────────────────────────────────────────────
+// These wrap the existing buyer/license creation. The payment flow itself is
+// unchanged; it just calls finalizeTenantPurchase once a payment succeeds.
+
+function sanitizeRichHtml(html) {
+  return String(html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+    .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/(href|src)\s*=\s*(['"]?)\s*javascript:/gi, '$1=$2#');
+}
+
+function tenantMongoFilter(tenantId) {
+  return tenantId === tenancy.PLATFORM_TENANT_ID
+    ? { $or: [{ tenantId: tenancy.PLATFORM_TENANT_ID }, { tenantId: { $exists: false } }] }
+    : { tenantId };
+}
+
+async function tenantBlogUrl(tenant) {
+  if (!tenant) return null;
+  const domains = await tenancy.store.listDomainsForTenant(tenant.id);
+  const primary = domains.find(d => d.status === 'active' && d.isPrimary)
+    || domains.find(d => d.status === 'active' && d.type === 'platform')
+    || domains.find(d => d.status === 'active')
+    || domains[0];
+  return primary ? tenancy.blogUrlFor(primary.hostname) : null;
+}
+
+async function linkUserToTenant(tenant, email) {
+  if (!tenant || !email) return null;
+  try {
+    const users = await loadUsers();
+    const key = findUserKeyByEmail(users, email);
+    if (!key || !users[key]) return null;
+    let changed = false;
+    if (String(users[key].tenantId || '') !== String(tenant.id)) {
+      users[key].tenantId = tenant.id;
+      changed = true;
+    }
+    if (String(users[key].role || 'USER').toUpperCase() !== 'ADMIN') {
+      users[key].role = users[key].role || 'TEMPLATE_BUYER';
+    }
+    if (changed) await saveUsers(users);
+    return key;
+  } catch (e) {
+    console.error('linkUserToTenant failed:', e.message);
+    return null;
+  }
+}
+
+async function createTenantBlog(tenant, buyer) {
+  if (!tenant) return;
+  await tenancy.runWithTenant({ tenant, domain: null, platform: false }, async () => {
+    // Idempotent: recovery runs may call this after the blog was already
+    // seeded, and must not overwrite settings the owner has since edited.
+    const posts = await loadPosts();
+    if (posts.some(post => post.tags && post.tags.includes('welcome'))) return;
+
+    const settings = await readSettings();
+    const nextSettings = {
+      ...settings,
+      blogInfo: {
+        ...(settings.blogInfo || {}),
+        title: tenant.name,
+        description: `Welcome to ${tenant.name}.`
+      },
+      author: {
+        ...(settings.author || {}),
+        name: (buyer && buyer.name) || tenant.name
+      }
+    };
+    await writeSettings(nextSettings);
+
+    posts.push({
+      id: tenancy.store.newId(),
+      title: `Welcome to ${tenant.name}`,
+      subtitle: 'Your first post is ready. Edit or delete it from the dashboard.',
+      content: sanitizeRichHtml(`<p>This is the first post on your new blog. Head to the <a href="/login.html">login page</a> to start writing, change your theme, and connect your own domain.</p>`),
+      author: (buyer && buyer.name) || tenant.name,
+      authorUsername: null,
+      date: new Date().toISOString(),
+      tags: ['welcome'],
+      image: '',
+      images: [],
+      isDraft: false,
+      isDeleted: false,
+      likes: 0,
+      dislikes: 0
+    });
+    await savePosts(posts);
+  });
+}
+
+async function sendTenantWelcomeEmail({ tenant, buyer, blogUrl, licenseKey, loginUrl }) {
+  if (!buyer || !buyer.email) return false;
+  try {
+    const fromAddress = (process.env.SMTP_FROM && String(process.env.SMTP_FROM).trim())
+      ? String(process.env.SMTP_FROM).trim()
+      : (process.env.ALLOWED_EMAIL || 'noreply@example.com');
+    const dashboard = loginUrl || (tenancy.PLATFORM_DOMAIN
+      ? `https://${tenancy.PLATFORM_DOMAIN}/login.html`
+      : `${process.env.BASE_URL || 'http://localhost:3000'}/login.html`);
+    await transporter.sendMail({
+      from: fromAddress,
+      to: buyer.email,
+      subject: `Your blog is live: ${blogUrl}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #eee; border-radius: 10px;">
+          <h2 style="color: #333; margin: 0 0 12px;">Your blog is ready</h2>
+          <p style="color: #555; font-size: 16px;">Hello ${buyer.name || buyer.email},</p>
+          <p style="color: #555; font-size: 16px;">Your payment was received and <strong>${tenant.name}</strong> is now live.</p>
+          <p style="font-size: 18px; margin: 24px 0;"><a href="${blogUrl}" style="color: #D0271C; font-weight: 700;">${blogUrl}</a></p>
+          ${licenseKey ? `<div style="background:#f5f5f5;padding:16px;border-radius:8px;margin:20px 0;">
+            <p style="margin:0 0 6px;color:#888;font-size:13px;">Login email</p>
+            <strong>${buyer.email}</strong>
+            <p style="margin:12px 0 6px;color:#888;font-size:13px;">License key (first password)</p>
+            <code style="font-size:18px;font-weight:700;color:#D0271C;">${licenseKey}</code>
+          </div>` : ''}
+          <p style="color:#555;font-size:14px;">Sign in at <a href="${dashboard}" style="color:#D0271C;">${dashboard}</a> to write posts, change your theme and connect a custom domain.</p>
+          <p style="color:#888;font-size:12px;margin-top:28px;">Keep this email. Your license key is also your initial password.</p>
+        </div>
+      `
+    });
+    console.log('Tenant welcome email sent to:', buyer.email);
+    return true;
+  } catch (e) {
+    console.error('Failed to send tenant welcome email:', e.message);
+    return false;
+  }
+}
+
+/**
+ * Called from the existing successful-payment paths. Idempotent via the
+ * M-Pesa receipt number (or checkout request id) as the payment key.
+ */
+async function finalizeTenantPurchase(txn, buyerRecord) {
+  if (!txn || !txn.subdomain) return null;
+  const paymentKey = txn.paymentKey
+    || (txn.mpesaReceiptNumber ? `mpesa:${txn.mpesaReceiptNumber}` : `mpesa:${txn.checkoutRequestId || txn.id}`);
+  try {
+    const buyer = buyerRecord || {
+      id: txn.id,
+      name: txn.customerName,
+      email: txn.customerEmail
+    };
+    const result = await tenancy.provisionTenantFromPayment({
+      paymentKey,
+      buyer,
+      subdomain: txn.subdomain,
+      name: txn.customerName || buyer.name,
+      templateRef: txn.templateRef || 'default'
+    });
+    txn.tenantId = result.tenant.id;
+    txn.blogUrl = result.blogUrl;
+    txn.provisioned = true;
+    txn.provisionedAt = txn.provisionedAt || new Date().toISOString();
+
+    // Both helpers are idempotent so a recovery run can finish a purchase
+    // that was interrupted after the tenant/domain rows were created.
+    await linkUserToTenant(result.tenant, buyer.email || txn.customerEmail);
+    await createTenantBlog(result.tenant, buyer);
+
+    // New transactions start with welcomeEmailSent=false so a failed send is
+    // retried; older records leave it undefined and are not re-emailed once
+    // their tenant exists.
+    const needsWelcomeEmail = txn.welcomeEmailSent === false
+      || (result.created && txn.welcomeEmailSent === undefined);
+    if (needsWelcomeEmail) {
+      const sent = await sendTenantWelcomeEmail({
+        tenant: result.tenant,
+        buyer,
+        blogUrl: result.blogUrl,
+        licenseKey: buyer.licenseKey || null
+      });
+      txn.welcomeEmailSent = sent;
+    }
+    delete txn.provisionError;
+    return result;
+  } catch (e) {
+    console.error('Tenant provisioning failed for', paymentKey, ':', e.message);
+    txn.provisionError = e.message;
+    return null;
+  }
+}
+
+const PROVISION_RETRY_COOLDOWN_MS = 10 * 60 * 1000;
+
+/**
+ * Finishes purchases whose payment succeeded but whose provisioning or
+ * welcome email was interrupted (process crash, SMTP outage). Idempotent:
+ * provisionTenantFromPayment and the seeding helpers are safe to re-run.
+ */
+async function recoverPendingProvisioning({ force = false, limit = 25 } = {}) {
+  const txns = await loadMpesaTransactions();
+  const now = Date.now();
+  const candidates = txns.filter(txn => {
+    if (txn.status !== 'completed' || !txn.subdomain) return false;
+    if (txn.provisioned && txn.welcomeEmailSent !== false) return false;
+    if (!force) {
+      const last = new Date(txn.lastProvisionAttemptAt || 0).getTime();
+      if (last && now - last < PROVISION_RETRY_COOLDOWN_MS) return false;
+    }
+    return true;
+  });
+  if (!candidates.length) return { checked: 0, provisioned: 0, failed: 0 };
+
+  const buyers = await loadTemplateBuyers().catch(() => []);
+  const touched = [];
+  let provisioned = 0;
+  let failed = 0;
+  for (const txn of candidates.slice(0, limit)) {
+    const buyer = buyers.find(b =>
+      String(b.email || '').toLowerCase() === String(txn.customerEmail || '').toLowerCase()
+    ) || null;
+    txn.provisionAttempts = Number(txn.provisionAttempts || 0) + 1;
+    txn.lastProvisionAttemptAt = new Date().toISOString();
+    const result = await finalizeTenantPurchase(txn, buyer);
+    if (result) provisioned++;
+    else failed++;
+    touched.push(txn);
+  }
+
+  // Re-read before persisting so transactions created while the sweep ran are
+  // preserved; only the provisioning fields are merged back.
+  const latest = await loadMpesaTransactions();
+  const updates = new Map(touched.map(txn => [String(txn.id), txn]));
+  const merged = latest.map(txn => {
+    const update = updates.get(String(txn.id));
+    if (!update) return txn;
+    const next = {
+      ...txn,
+      tenantId: update.tenantId || txn.tenantId,
+      blogUrl: update.blogUrl || txn.blogUrl,
+      provisioned: Boolean(update.provisioned),
+      provisionAttempts: update.provisionAttempts,
+      lastProvisionAttemptAt: update.lastProvisionAttemptAt,
+      welcomeEmailSent: update.welcomeEmailSent
+    };
+    if (update.provisionedAt) next.provisionedAt = update.provisionedAt;
+    if (update.provisionError) next.provisionError = update.provisionError;
+    else delete next.provisionError;
+    return next;
+  });
+  await saveMpesaTransactions(merged);
+  if (failed) {
+    console.warn(`[tenancy] provisioning recovery: ${failed} transaction(s) still failing`);
+  }
+  return { checked: candidates.length, provisioned, failed };
+}
+
+async function getManagedTenant(req) {
+  const user = req.session?.user || req.user;
+  if (!user) return null;
+  const role = String(user.role || 'USER').toUpperCase();
+  if (role === 'ADMIN') {
+    const requested = req.query?.tenantId || req.body?.tenantId;
+    if (requested) return tenancy.store.findTenantById(requested);
+    if (req.tenant && String(req.tenant.id) !== tenancy.PLATFORM_TENANT_ID) return req.tenant;
+    return null;
+  }
+  if (user.tenantId) return tenancy.store.findTenantById(user.tenantId);
+  return null;
+}
+
+/**
+ * Suspending a buyer stops their blog from resolving: the tenant is marked
+ * suspended and every active domain is parked. Unsuspending restores it.
+ */
+async function setTenantServing(tenantId, enabled, reason) {
+  if (!tenantId) return;
+  const tenant = await tenancy.store.findTenantById(tenantId);
+  if (!tenant) return;
+  const nextTenant = { ...tenant, status: enabled ? 'active' : 'suspended' };
+  if (enabled) {
+    delete nextTenant.suspensionReason;
+    delete nextTenant.suspendedAt;
+  } else {
+    nextTenant.suspensionReason = reason || 'Suspended by administrator.';
+    nextTenant.suspendedAt = new Date().toISOString();
+  }
+  await tenancy.store.upsertTenant(nextTenant);
+
+  const domains = await tenancy.store.listDomainsForTenant(tenantId);
+  for (const domain of domains) {
+    let next;
+    if (enabled) {
+      if (domain.status !== 'suspended') continue;
+      next = { ...domain, status: domain.previousStatus || (domain.type === 'platform' ? 'active' : 'pending') };
+      delete next.previousStatus;
+    } else {
+      if (domain.status === 'suspended') continue;
+      next = { ...domain, previousStatus: domain.status, status: 'suspended' };
+    }
+    await tenancy.store.upsertDomain(next);
+    tenancy.invalidateHostCache(domain.hostname);
+  }
+}
+
 function requireAuth(req, res, next) {
   if (IS_DEV) console.log('Auth check - Session:', !!req.session, 'User:', !!req.session?.user);
 
@@ -1548,7 +1992,8 @@ function requireAuth(req, res, next) {
         username: decoded.username,
         email: decoded.email,
         name: decoded.name,
-        role: decoded.role
+        role: decoded.role,
+        tenantId: decoded.tenantId || null
       };
       return next();
     } catch (e) {
@@ -1582,12 +2027,21 @@ function isUserAdmin(req) {
   return false;
 }
 
+function tenantBoundaryOk(user, req) {
+  const role = String(user?.role || 'USER').toUpperCase();
+  if (role === 'ADMIN') return true;
+  if (role !== 'TEMPLATE_BUYER') return true;
+  if (!user?.tenantId) return false;
+  return String(req.tenant?.id || '') === String(user.tenantId);
+}
+
 function requireAdminRole(req, res, next) {
   const user = req.session?.user || req.user;
   if (!user) return res.status(401).json({ error: 'not authenticated' });
   if (String(user.role || 'USER').toUpperCase() !== 'ADMIN') {
     return res.status(403).json({ error: 'admin_only' });
   }
+  if (!tenantBoundaryOk(user, req)) return res.status(403).json({ error: 'tenant_forbidden' });
   return next();
 }
 
@@ -1599,6 +2053,7 @@ function requireAdminOrBuyer(req, res, next) {
   if (role !== 'ADMIN' && role !== 'TEMPLATE_BUYER') {
     return res.status(403).json({ error: 'admin_only' });
   }
+  if (!tenantBoundaryOk(user, req)) return res.status(403).json({ error: 'tenant_forbidden' });
   return next();
 }
 
@@ -2468,7 +2923,8 @@ app.post('/auth/login', async (req, res) => {
     username: username,
     email: user.email,
     name: user.name,
-    role: user.role || 'USER'
+    role: user.role || 'USER',
+    tenantId: user.tenantId || null
   }, JWT_SECRET, { expiresIn: '8h' });
 
   if (IS_DEV) console.log('Login successful, JWT token generated for:', username, 'Role:', user.role || 'USER');
@@ -2478,7 +2934,8 @@ app.post('/auth/login', async (req, res) => {
     username: username,
     email: user.email,
     name: user.name,
-    role: user.role || 'USER'
+    role: user.role || 'USER',
+    tenantId: user.tenantId || null
   };
 
   // Auto-verify admin key for localhost
@@ -2826,6 +3283,7 @@ app.post('/auth/google', async (req, res) => {
       role: matchedUser
         ? (String(matchedUser[1].role || 'USER').toUpperCase() || 'USER')
         : (ALLOWED_EMAIL && email === ALLOWED_EMAIL ? 'ADMIN' : 'USER'),
+      tenantId: matchedUser ? (matchedUser[1].tenantId || null) : null,
       // Marker so /api/auth/me can trust the signed claims for Google-only
       // accounts that have no user record.
       via: 'google'
@@ -3343,9 +3801,11 @@ app.post('/api/posts', requireAdminOrBuyerAuth, async (req, res) => {
 
   // Store image URLs as host-relative paths so they work from any domain
   normalizeImageFields(body);
+  body.content = sanitizeRichHtml(body.content);
 
   const currentUser = req.session?.user || req.user;
   const isBuyer = String(currentUser?.role || 'USER').toUpperCase() === 'TEMPLATE_BUYER';
+  const scopeTenantId = tenancy.scope.currentTenantId();
 
   const requestedDate = body.date ? new Date(body.date) : null;
   const publishDate = requestedDate && Number.isFinite(requestedDate.getTime())
@@ -3356,6 +3816,7 @@ app.post('/api/posts', requireAdminOrBuyerAuth, async (req, res) => {
     : '';
 
   const post = {
+    tenantId: scopeTenantId,
     title: body.title,
     subtitle: body.subtitle || '',
     author: body.author || currentUser?.name || 'Admin',
@@ -3384,14 +3845,16 @@ app.post('/api/posts', requireAdminOrBuyerAuth, async (req, res) => {
     if (db) {
       // If featured, reset others
       if (post.featured) {
-        await db.collection('posts').updateMany({}, { $set: { featured: false } });
+        await db.collection('posts').updateMany(tenantMongoFilter(scopeTenantId), { $set: { featured: false } });
       }
       const result = await db.collection('posts').insertOne(post);
       post.id = result.insertedId.toString();
     } else {
       // Fallback for local/KV
       const posts = await loadPosts();
-      post.id = Date.now().toString();
+      // UUIDs keep ids unique across tenants; Date.now() can collide when two
+      // tenants publish in the same millisecond.
+      post.id = tenancy.store.newId();
       if (post.featured) posts.forEach(p => p.featured = false);
       posts.unshift(post);
       await savePosts(posts);
@@ -3434,10 +3897,12 @@ app.put('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
 
   // Store image URLs as host-relative paths so they work from any domain
   normalizeImageFields(body);
+  if (body.content !== undefined) body.content = sanitizeRichHtml(body.content);
 
   try {
     if (db) {
-      const filter = postIdFilter(id);
+      const scopeTenantId = tenancy.scope.currentTenantId();
+      const filter = { $and: [postIdFilter(id), tenantMongoFilter(scopeTenantId)] };
       const existing = await db.collection('posts').findOne(filter);
       if (!existing) return res.status(404).json({ error: 'not found' });
 
@@ -3457,7 +3922,10 @@ app.put('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
       if (body.featured !== undefined) {
         updatedFields.featured = !!body.featured;
         if (updatedFields.featured) {
-          await db.collection('posts').updateMany({ _id: { $ne: existing._id } }, { $set: { featured: false } });
+          await db.collection('posts').updateMany(
+            { $and: [{ _id: { $ne: existing._id } }, tenantMongoFilter(tenancy.scope.currentTenantId())] },
+            { $set: { featured: false } }
+          );
         }
       }
       if (body.isDraft !== undefined) updatedFields.isDraft = !!body.isDraft;
@@ -3547,8 +4015,9 @@ app.post('/api/posts/:id/preview-token', requireAdmin, async (req, res) => {
     const token = crypto.randomBytes(18).toString('hex');
 
     if (db) {
+      const scopeTenantId = tenancy.scope.currentTenantId();
       const result = await db.collection('posts').updateOne(
-        postIdFilter(id),
+        { $and: [postIdFilter(id), tenantMongoFilter(scopeTenantId)] },
         { $set: { previewToken: token, updatedAt: new Date().toISOString() } }
       );
       if (!result.matchedCount) return res.status(404).json({ error: 'not found' });
@@ -3579,7 +4048,8 @@ app.delete('/api/posts/:id', requireAdminOrBuyerAuth, async (req, res) => {
     const isBuyer = String(currentUser?.role || 'USER').toUpperCase() === 'TEMPLATE_BUYER';
 
     if (db) {
-      const filter = postIdFilter(id);
+      const scopeTenantId = tenancy.scope.currentTenantId();
+      const filter = { $and: [postIdFilter(id), tenantMongoFilter(scopeTenantId)] };
       const existing = await db.collection('posts').findOne(filter);
       if (!existing) return res.status(404).json({ error: 'not found' });
       if (isBuyer && existing.authorUsername !== currentUser.username) {
@@ -3783,7 +4253,8 @@ app.post('/api/posts/:id/comments', async (req, res) => {
     }
 
     const newComment = {
-      id: Date.now().toString(),
+      id: tenancy.store.newId(),
+      tenantId: tenancy.scope.currentTenantId(),
       postId: postId,
       name: name.trim(),
       email: email ? email.trim() : '',
@@ -3815,7 +4286,8 @@ app.post('/api/posts/:id/comments', async (req, res) => {
         const exists = subscriptions.some(s => s.email === normalizedEmail && String(s.postId) === String(postId));
         if (!exists) {
           subscriptions.push({
-            id: Date.now() + 1,
+            id: tenancy.store.newId(),
+            tenantId: tenancy.scope.currentTenantId(),
             postId: String(postId),
             email: normalizedEmail,
             name: name.trim(),
@@ -3976,7 +4448,9 @@ app.post('/api/upload', requireAdminOrBuyerAuth, async (req, res) => {
       return res.status(400).json({ error: 'file_too_large', maxBytes: MAX_BYTES });
     }
 
-    const uploadRes = await uploadFileToStorage(file, 'blog');
+    const scopeId = tenancy.scope.currentTenantId();
+    const folder = scopeId === tenancy.PLATFORM_TENANT_ID ? 'blog' : `blog/${scopeId}`;
+    const uploadRes = await uploadFileToStorage(file, folder, scopeId);
     
     // Return host-relative URLs (e.g. /uploads/x.jpg) so stored image URLs
     // keep working no matter which domain the site is served from.
@@ -3995,18 +4469,22 @@ app.post('/api/upload', requireAdminOrBuyerAuth, async (req, res) => {
   }
 });
 
-// List uploaded files
+// List uploaded files (scoped to the current tenant)
 app.get('/api/uploads', async (req, res) => {
   try {
+    const scopeId = tenancy.scope.currentTenantId();
+    const platformScope = scopeId === tenancy.PLATFORM_TENANT_ID;
     if (isSupabaseEnabled()) {
-      const objects = await listSupabaseStorage();
+      const objects = await listSupabaseStorage(platformScope ? 'blog' : `blog/${scopeId}`);
       const images = objects.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name));
       return res.json({ files: images.map(f => f.url) });
     }
-    const files = fs.readdirSync(UPLOADS_DIR);
-    const images = files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f));
+    const tenantPrefix = platformScope ? '' : `tenant-${String(scopeId).replace(/[^a-z0-9-]/gi, '')}__`;
+    const files = fs.readdirSync(UPLOADS_DIR)
+      .filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f))
+      .filter(f => platformScope ? !/^tenant-[a-z0-9-]+__/i.test(f) : f.startsWith(tenantPrefix));
     const baseUrl = `${req.protocol}://${req.get('host')}`;
-    res.json({ files: images.map(f => `${baseUrl}/uploads/${f}`) });
+    res.json({ files: files.map(f => `${baseUrl}/uploads/${f}`) });
   } catch (err) {
     console.error('List uploads error:', err.message);
     res.json({ files: [] });
@@ -4059,6 +4537,7 @@ app.post('/api/admin/themes', requireAdmin, async (req, res) => {
       year: parseInt(year), 
       title, 
       description: (description || '').trim(),
+      tenantId: tenancy.scope.currentTenantId(),
       createdAt: new Date().toISOString()
     };
     
@@ -4090,7 +4569,8 @@ app.put('/api/admin/themes/:id', requireAdmin, async (req, res) => {
     updatedFields.updatedAt = new Date().toISOString();
     
     if (db) {
-      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const scopeTenantId = tenancy.scope.currentTenantId();
+      const filter = { $and: [{ _id: (id.length === 24 ? new ObjectId(id) : id) }, tenantMongoFilter(scopeTenantId)] };
       const result = await db.collection('themes').updateOne(filter, { $set: updatedFields });
       if (result.matchedCount === 0) return res.status(404).json({ success: false, error: 'Theme not found' });
     } else {
@@ -4110,7 +4590,8 @@ app.delete('/api/admin/themes/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     if (db) {
-      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const scopeTenantId = tenancy.scope.currentTenantId();
+      const filter = { $and: [{ _id: (id.length === 24 ? new ObjectId(id) : id) }, tenantMongoFilter(scopeTenantId)] };
       const result = await db.collection('themes').deleteOne(filter);
       if (result.deletedCount === 0) return res.status(404).json({ success: false, error: 'Theme not found' });
     } else {
@@ -4218,6 +4699,11 @@ async function readSettingsFromMongo() {
 
 // Helper function to read settings (Supabase, then Mongo, then local file)
 async function readSettings() {
+  const activeTenantId = tenancy.currentTenantId();
+  if (activeTenantId !== tenancy.PLATFORM_TENANT_ID) {
+    const stored = await tenancy.store.loadTenantSettings(activeTenantId);
+    return { ...DEFAULT_SETTINGS, ...(stored || {}) };
+  }
   if (settingsCache && Date.now() - settingsCacheAt < SETTINGS_CACHE_TTL_MS) {
     return JSON.parse(JSON.stringify(settingsCache));
   }
@@ -4252,6 +4738,11 @@ async function readSettings() {
 
 // Helper function to write settings (Supabase, then Mongo, then local file)
 async function writeSettings(settings) {
+  const activeTenantId = tenancy.currentTenantId();
+  if (activeTenantId !== tenancy.PLATFORM_TENANT_ID) {
+    await tenancy.store.saveTenantSettings(activeTenantId, settings);
+    return;
+  }
   if (isSupabaseEnabled()) {
     await supabaseStore.saveSettingsObject(settings);
     settingsCache = settings;
@@ -5256,6 +5747,7 @@ app.post('/api/categories', requireAdmin, async (req, res) => {
       name: name.trim(),
       slug,
       description: (description || '').trim(),
+      tenantId: tenancy.scope.currentTenantId(),
       createdAt: new Date().toISOString()
     };
 
@@ -5291,7 +5783,8 @@ app.put('/api/categories/:id', requireAdmin, async (req, res) => {
     };
 
     if (db) {
-      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const scopeTenantId = tenancy.scope.currentTenantId();
+      const filter = { $and: [{ _id: (id.length === 24 ? new ObjectId(id) : id) }, tenantMongoFilter(scopeTenantId)] };
       const result = await db.collection('categories').updateOne(filter, { $set: updatedFields });
       if (result.matchedCount === 0) return res.status(404).json({ error: 'not found' });
     } else {
@@ -5312,7 +5805,8 @@ app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
   try {
     const id = req.params.id;
     if (db) {
-      const filter = { _id: (id.length === 24 ? new ObjectId(id) : id) };
+      const scopeTenantId = tenancy.scope.currentTenantId();
+      const filter = { $and: [{ _id: (id.length === 24 ? new ObjectId(id) : id) }, tenantMongoFilter(scopeTenantId)] };
       const result = await db.collection('categories').deleteOne(filter);
       if (result.deletedCount === 0) return res.status(404).json({ error: 'not found' });
     } else {
@@ -5358,7 +5852,7 @@ app.post('/api/stats/interaction', async (req, res) => {
 app.get('/api/stats', requireAdmin, async (req, res) => {
   try {
     const { period = '7d' } = req.query;
-    const rawAnalytics = await loadAnalytics();
+    const rawAnalytics = scopeAnalytics(await loadAnalytics());
     const posts = await loadPosts();
     const comments = await loadComments();
     
@@ -5649,9 +6143,10 @@ app.post('/api/comments', async (req, res) => {
       imageUrl = uploadRes.url;
     }
 
-    const commentId = Date.now().toString();
+    const commentId = tenancy.store.newId();
     const comment = {
       id: commentId,
+      tenantId: tenancy.scope.currentTenantId(),
       postId: String(postId),
       name: name.trim(),
       email: email.trim(),
@@ -5677,7 +6172,8 @@ app.post('/api/comments', async (req, res) => {
       const existingSub = subscriptions.find(s => s.email === email && String(s.postId) === String(postId));
       if (!existingSub) {
         const subscription = {
-          id: Date.now(),
+          id: tenancy.store.newId(),
+          tenantId: tenancy.scope.currentTenantId(),
           postId: String(postId),
           email: email.trim(),
           name: name.trim(),
@@ -6130,7 +6626,12 @@ app.get('/favicon.ico', (req, res) => {
 
 // ── SEO: canonical base URL, sitemap, RSS feed ───────────────────────
 function publicBaseUrl(req) {
-  if (process.env.BASE_URL) return process.env.BASE_URL.replace(/\/$/, '');
+  // Tenant blogs must use their own host for canonical URLs, sitemap and RSS;
+  // BASE_URL only applies to the platform site itself.
+  const tenantId = tenancy.scope.currentTenantId();
+  if (tenantId === tenancy.PLATFORM_TENANT_ID && process.env.BASE_URL) {
+    return process.env.BASE_URL.replace(/\/$/, '');
+  }
   return `${req.protocol}://${req.get('host')}`;
 }
 
@@ -6270,7 +6771,13 @@ app.get('/api/payments/config', async (req, res) => {
     let templatePrice = 1000;
     const settings = await readSettings();
     templatePrice = settings?.payment?.templatePrice || 1000;
-    res.json({ success: true, templatePrice });
+    res.json({
+      success: true,
+      templatePrice,
+      platformDomain: tenancy.PLATFORM_DOMAIN || null,
+      customDomainTarget: tenancy.CUSTOM_DOMAIN_TARGET || null,
+      reservationMinutes: Math.round(tenancy.RESERVATION_TTL_MS / 60000)
+    });
   } catch (e) {
     res.json({ success: true, templatePrice: 1000 });
   }
@@ -6278,8 +6785,9 @@ app.get('/api/payments/config', async (req, res) => {
 
 // Public: Initiate MPesa STK Push payment
 app.post('/api/payments/checkout', async (req, res) => {
+  let reservedHostname = null;
   try {
-    const { phoneNumber, name, email } = req.body;
+    const { phoneNumber, name, email, subdomain } = req.body;
 
     if (!phoneNumber || !name || !email) {
       return res.status(400).json({ error: 'Phone number, name, and email are required' });
@@ -6289,6 +6797,34 @@ app.post('/api/payments/checkout', async (req, res) => {
     const cleanPhone = phoneNumber.replace(/[^0-9+]/g, '');
     if (cleanPhone.length < 9 || cleanPhone.length > 15) {
       return res.status(400).json({ error: 'Invalid phone number format' });
+    }
+
+    // Reserve the chosen subdomain before charging, so two customers cannot
+    // pay for the same slug. Holds expire automatically.
+    let chosenSlug = null;
+    let chosenHostname = null;
+    if (subdomain !== undefined && subdomain !== null && String(subdomain).trim() !== '') {
+      const slugCheck = tenancy.validateSubdomain(subdomain);
+      if (!slugCheck.valid) {
+        return res.status(400).json({ error: slugCheck.error });
+      }
+      const availability = await tenancy.store.isSubdomainAvailable(slugCheck.hostname);
+      if (!availability.available) {
+        return res.status(409).json({ error: availability.reason === 'reserved'
+          ? 'That subdomain is on hold for another checkout. Please choose another.'
+          : 'That subdomain is already taken.' });
+      }
+      const reservation = await tenancy.store.reserveSubdomain({
+        subdomain: slugCheck.hostname,
+        email,
+        ttlMs: tenancy.RESERVATION_TTL_MS
+      });
+      if (!reservation.ok) {
+        return res.status(409).json({ error: reservation.error });
+      }
+      chosenSlug = slugCheck.slug;
+      chosenHostname = slugCheck.hostname;
+      reservedHostname = slugCheck.hostname;
     }
 
     // Get template price from settings
@@ -6312,7 +6848,10 @@ app.post('/api/payments/checkout', async (req, res) => {
       customerEmail: email,
       customerPhone: cleanPhone,
       amount: templatePrice,
+      subdomain: chosenSlug,
+      hostname: chosenHostname,
       status: stkResult.ResponseCode === '0' ? 'pending' : 'failed',
+      welcomeEmailSent: false,
       createdAt: new Date().toISOString()
     };
 
@@ -6329,6 +6868,9 @@ app.post('/api/payments/checkout', async (req, res) => {
         transactionId: txnId
       });
     } else {
+      if (reservedHostname) {
+        await tenancy.store.releaseReservation(reservedHostname, { email }).catch(() => {});
+      }
       res.status(400).json({
         error: stkResult.ResponseDescription || 'Payment initiation failed',
         responseCode: stkResult.ResponseCode
@@ -6336,6 +6878,9 @@ app.post('/api/payments/checkout', async (req, res) => {
     }
   } catch (e) {
     console.error('MPesa checkout error:', e);
+    if (reservedHostname) {
+      await tenancy.store.releaseReservation(reservedHostname, { email: req.body?.email }).catch(() => {});
+    }
     res.status(500).json({ error: 'Payment processing failed. Please try again.' });
   }
 });
@@ -6367,6 +6912,12 @@ app.post('/api/payments/callback', async (req, res) => {
       txns[txnIndex].resultDescription = resultDesc;
       txns[txnIndex].completedAt = new Date().toISOString();
 
+      if (resultCode !== 0 && (txns[txnIndex].hostname || txns[txnIndex].subdomain)) {
+        await tenancy.store.releaseReservation(txns[txnIndex].hostname || txns[txnIndex].subdomain, {
+          email: txns[txnIndex].customerEmail
+        }).catch(() => {});
+      }
+
       if (resultCode === 0 && stkCallback.CallbackMetadata?.Item) {
         const items = stkCallback.CallbackMetadata.Item;
         const mpesaReceipt = items.find(i => i.Name === 'MpesaReceiptNumber');
@@ -6376,6 +6927,9 @@ app.post('/api/payments/callback', async (req, res) => {
         if (mpesaReceipt) txns[txnIndex].mpesaReceiptNumber = mpesaReceipt.Value;
         if (amount) txns[txnIndex].paidAmount = amount.Value;
         if (phoneNumber) txns[txnIndex].paidPhone = phoneNumber.Value;
+        txns[txnIndex].paymentKey = txns[txnIndex].mpesaReceiptNumber
+          ? `mpesa:${txns[txnIndex].mpesaReceiptNumber}`
+          : `mpesa:${checkoutRequestId}`;
 
         // Auto-register as buyer on successful payment
         const txn = txns[txnIndex];
@@ -6425,6 +6979,10 @@ app.post('/api/payments/callback', async (req, res) => {
           // Send license email
           sendLicenseEmail(buyerRecord);
         }
+
+        // Create the tenant + subdomain and seed the blog. Idempotent on the
+        // M-Pesa receipt number, so duplicate callbacks do not provision twice.
+        await finalizeTenantPurchase(txns[txnIndex], buyerRecord);
       }
 
       await saveMpesaTransactions(txns);
@@ -6464,6 +7022,11 @@ app.get('/api/payments/status/:checkoutRequestId', async (req, res) => {
       amount: txn.amount,
       buyerRegistered: txn.buyerRegistered || false,
       license_key: licenseKey,
+      subdomain: txn.subdomain || null,
+      hostname: txn.hostname || null,
+      blog_url: txn.blogUrl || null,
+      tenant_id: txn.tenantId || null,
+      provisioning: txn.provisionError ? 'failed' : (txn.provisioned ? 'ready' : 'pending'),
       createdAt: txn.createdAt
     });
   } catch (e) {
@@ -6493,12 +7056,261 @@ app.get('/api/payments/license/:email', async (req, res) => {
 });
 
 // ──────────────────────────────────────────────────────────────────────
+// TENANCY — public config + custom-domain management
+// ──────────────────────────────────────────────────────────────────────
+
+// Public: what the frontend needs to render the blog it is serving.
+app.get('/api/tenant-config', async (req, res) => {
+  try {
+    const tenant = req.tenant || tenancy.platformTenant();
+    const settings = await readSettings();
+    const blogInfo = settings.blogInfo || {};
+    const author = settings.author || {};
+    const platform = tenant.id === tenancy.PLATFORM_TENANT_ID;
+
+    let domains = [];
+    if (!platform) {
+      domains = (await tenancy.store.listDomainsForTenant(tenant.id))
+        .filter(domain => domain.status === 'active')
+        .map(domain => ({
+          hostname: domain.hostname,
+          type: domain.type,
+          isPrimary: Boolean(domain.isPrimary)
+        }));
+    }
+
+    res.json({
+      success: true,
+      tenant: {
+        id: tenant.id,
+        name: tenant.name,
+        templateRef: tenant.templateRef || 'default',
+        status: tenant.status || 'active',
+        platform
+      },
+      hostname: req.get('host'),
+      baseUrl: publicBaseUrl(req),
+      primaryHostname: tenant.primaryHostname || (domains.find(d => d.isPrimary) || {}).hostname || null,
+      blog: {
+        title: blogInfo.title || author.name || tenant.name || 'Blog',
+        description: blogInfo.description || author.bio || '',
+        author: author.name || ''
+      },
+      domains
+    });
+  } catch (e) {
+    console.error('Tenant config error:', e);
+    res.status(500).json({ success: false, error: 'tenant_config_failed' });
+  }
+});
+
+// Public: live subdomain availability for the checkout form.
+app.get('/api/tenants/availability', subdomainLookupLimiter, async (req, res) => {
+  const checked = tenancy.validateSubdomain(req.query.subdomain);
+  if (!checked.valid) {
+    return res.json({ success: true, available: false, error: checked.error, subdomain: String(req.query.subdomain || '') });
+  }
+  try {
+    const availability = await tenancy.store.isSubdomainAvailable(checked.hostname);
+    return res.json({
+      success: true,
+      available: availability.available,
+      subdomain: checked.slug,
+      hostname: checked.hostname,
+      reason: availability.reason || null
+    });
+  } catch (e) {
+    console.error('Subdomain availability error:', e);
+    return res.status(500).json({ success: false, error: 'availability_failed' });
+  }
+});
+
+// Auth: list the current tenant's domains with DNS instructions.
+app.get('/api/tenant/domains', requireAuth, async (req, res) => {
+  try {
+    const tenant = await getManagedTenant(req);
+    if (!tenant) return res.status(404).json({ success: false, error: 'no_tenant' });
+    const domains = await tenancy.listTenantDomains(tenant.id);
+    return res.json({
+      success: true,
+      tenant: { id: tenant.id, name: tenant.name },
+      platformDomain: tenancy.PLATFORM_DOMAIN || null,
+      customDomainTarget: tenancy.CUSTOM_DOMAIN_TARGET || null,
+      serverIp: tenancy.SERVER_IP || null,
+      primaryHostname: tenant.primaryHostname || null,
+      domains
+    });
+  } catch (e) {
+    console.error('List domains error:', e);
+    return res.status(500).json({ success: false, error: 'list_domains_failed' });
+  }
+});
+
+// Auth: connect a custom domain (starts in "pending" until DNS is verified).
+app.post('/api/tenant/domains', requireAuth, async (req, res) => {
+  try {
+    const tenant = await getManagedTenant(req);
+    if (!tenant) return res.status(404).json({ success: false, error: 'no_tenant' });
+    const { hostname, makePrimary } = req.body || {};
+    const result = await tenancy.addCustomDomain({ tenant, hostname, makePrimary: Boolean(makePrimary) });
+    return res.json({ success: true, domain: result.domain, instructions: result.instructions });
+  } catch (e) {
+    const status = e.code === 'DOMAIN_TAKEN' ? 409 : 400;
+    return res.status(status).json({ success: false, error: e.code || 'add_domain_failed', message: e.message });
+  }
+});
+
+// Auth: verify DNS for one custom domain.
+app.post('/api/tenant/domains/:id/verify', requireAuth, domainVerifyLimiter, async (req, res) => {
+  try {
+    const tenant = await getManagedTenant(req);
+    if (!tenant) return res.status(404).json({ success: false, error: 'no_tenant' });
+    const result = await tenancy.verifyCustomDomain({ tenantId: tenant.id, domainId: req.params.id });
+    if (!result.verified && !result.alreadyActive) {
+      return res.status(400).json({
+        success: false,
+        verified: false,
+        error: 'dns_not_verified',
+        message: 'DNS records are not visible yet. Changes can take a few minutes to propagate.',
+        check: result.check,
+        instructions: result.instructions
+      });
+    }
+    return res.json({
+      success: true,
+      verified: true,
+      domain: result.domain,
+      certificate: result.certificate || null,
+      instructions: result.instructions
+    });
+  } catch (e) {
+    const status = e.code === 'NOT_FOUND' ? 404 : 400;
+    return res.status(status).json({ success: false, error: e.code || 'verify_failed', message: e.message });
+  }
+});
+
+// Auth: choose which active domain is primary (others 301 to it).
+app.post('/api/tenant/domains/:id/primary', requireAuth, async (req, res) => {
+  try {
+    const tenant = await getManagedTenant(req);
+    if (!tenant) return res.status(404).json({ success: false, error: 'no_tenant' });
+    const result = await tenancy.setPrimaryDomain({ tenantId: tenant.id, domainId: req.params.id });
+    return res.json({ success: true, domain: result.domain, domains: result.domains });
+  } catch (e) {
+    const status = e.code === 'NOT_FOUND' ? 404 : 400;
+    return res.status(status).json({ success: false, error: e.code || 'primary_failed', message: e.message });
+  }
+});
+
+// Auth: disconnect a custom domain. Platform subdomains cannot be removed.
+app.delete('/api/tenant/domains/:id', requireAuth, async (req, res) => {
+  try {
+    const tenant = await getManagedTenant(req);
+    if (!tenant) return res.status(404).json({ success: false, error: 'no_tenant' });
+    await tenancy.removeCustomDomain({ tenantId: tenant.id, domainId: req.params.id });
+    return res.json({ success: true });
+  } catch (e) {
+    const status = e.code === 'NOT_FOUND' ? 404 : 400;
+    return res.status(status).json({ success: false, error: e.code || 'remove_failed', message: e.message });
+  }
+});
+
+// Seller/cron: re-check every pending custom domain and expire stale ones.
+app.post('/api/tenant/domains/verify-pending', requireCronOrSeller, async (req, res) => {
+  try {
+    const expired = await tenancy.expireStalePendingDomains();
+    const domains = await tenancy.store.loadDomains();
+    const pending = domains.filter(domain => domain.type === 'custom' && domain.status === 'pending');
+    const results = [];
+    for (const domain of pending) {
+      try {
+        const result = await tenancy.verifyCustomDomain({
+          tenantId: domain.tenantId,
+          domainId: domain.id
+        });
+        results.push({ domainId: domain.id, hostname: domain.hostname, verified: Boolean(result.verified || result.alreadyActive) });
+      } catch (e) {
+        results.push({ domainId: domain.id, hostname: domain.hostname, verified: false, error: e.message });
+      }
+    }
+    let certificates = { checked: 0, updated: [] };
+    try {
+      certificates = await tenancy.refreshDomainCertificates();
+    } catch (e) {
+      console.warn('[tenancy] certificate refresh failed:', e.message);
+    }
+    return res.json({
+      success: true,
+      checked: pending.length,
+      results,
+      expired: expired.expired.map(d => d.hostname),
+      certificates
+    });
+  } catch (e) {
+    console.error('Pending domain verification error:', e);
+    return res.status(500).json({ success: false, error: 'verify_pending_failed' });
+  }
+});
+
+// Shared-secret access for scheduled jobs (Vercel cron or external
+// scheduler); falls back to a seller session for manual runs.
+function isCronAuthorized(req) {
+  const secret = String(process.env.CRON_SECRET || '');
+  if (!secret) return false;
+  const provided = String(req.get('x-cron-secret') || '');
+  if (!provided || provided.length !== secret.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(secret));
+  } catch {
+    return false;
+  }
+}
+
+function requireCronOrSeller(req, res, next) {
+  if (isCronAuthorized(req)) return next();
+  return requireAuth(req, res, () => requireSellerOnly(req, res, next));
+}
+
+// Retry paid-but-unprovisioned purchases. Safe to call repeatedly.
+async function provisionRecoveryHandler(req, res) {
+  try {
+    const force = String(req.query.force || '') === '1';
+    const result = await recoverPendingProvisioning({ force });
+    return res.json({ success: true, ...result });
+  } catch (e) {
+    console.error('Provisioning recovery error:', e);
+    return res.status(500).json({ success: false, error: 'provision_recovery_failed' });
+  }
+}
+app.get('/api/admin/payments/provision-recovery', requireCronOrSeller, provisionRecoveryHandler);
+app.post('/api/admin/payments/provision-recovery', requireCronOrSeller, provisionRecoveryHandler);
+
+// Caddy on-demand TLS "ask" endpoint. Only known, eligible hostnames get certs.
+app.get('/internal/tls/ask', async (req, res) => {
+  const hostname = String(req.query.domain || '').toLowerCase();
+  if (!hostname) return res.status(400).send('missing domain');
+  try {
+    const eligible = await tenancy.isCertificateEligible(hostname);
+    if (!eligible) return res.status(404).send('unknown hostname');
+    return res.status(200).send('ok');
+  } catch (e) {
+    return res.status(500).send('error');
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────
 // TEMPLATE PURCHASE — creates a buyer account with TEMPLATE_BUYER role
 // ──────────────────────────────────────────────────────────────────────
 app.post('/api/template/purchase', async (req, res) => {
+  let reservedHostname = null;
+  let reservedEmail = null;
   try {
-    const { name, email, phone, payment_method, card_token, checkoutRequestId } = req.body || {};
+    const { name, email, phone, payment_method, card_token, checkoutRequestId, subdomain } = req.body || {};
     if (!name || !email) return res.status(400).json({ success: false, message: 'Name and email are required.' });
+
+    let purchaseSubdomain = subdomain;
+    let paymentKey = null;
+    let mpesaTxn = null;
 
     // ── Payment Validation ──
     if (payment_method === 'mpesa') {
@@ -6517,6 +7329,10 @@ app.post('/api/template/purchase', async (req, res) => {
       if ((txn.customerEmail || '').toLowerCase() !== email.toLowerCase()) {
         return res.status(400).json({ success: false, message: 'Payment email mismatch.' });
       }
+      mpesaTxn = txn;
+      purchaseSubdomain = txn.subdomain || subdomain;
+      paymentKey = txn.paymentKey
+        || (txn.mpesaReceiptNumber ? `mpesa:${txn.mpesaReceiptNumber}` : `mpesa:${checkoutRequestId}`);
     } else {
       // Card: simulate payment validation with delay
       if (!card_token) {
@@ -6538,8 +7354,42 @@ app.post('/api/template/purchase', async (req, res) => {
       }
     }
 
+    // ── Subdomain selection ──
+    // M-Pesa reuses the subdomain the customer chose when the STK push was
+    // initiated (and already holds its reservation). Card payments arrive in a
+    // single request, so validate and reserve here before touching the buyer.
+    let chosenSlug = null;
+    let chosenHostname = null;
+    if (mpesaTxn) {
+      chosenSlug = mpesaTxn.subdomain || null;
+      chosenHostname = mpesaTxn.hostname || (chosenSlug && tenancy.PLATFORM_DOMAIN
+        ? `${chosenSlug}.${tenancy.PLATFORM_DOMAIN}`
+        : chosenSlug);
+    } else if (purchaseSubdomain !== undefined && purchaseSubdomain !== null && String(purchaseSubdomain).trim() !== '') {
+      const slugCheck = tenancy.validateSubdomain(purchaseSubdomain);
+      if (!slugCheck.valid) return res.status(400).json({ success: false, message: slugCheck.error });
+      const availability = await tenancy.store.isSubdomainAvailable(slugCheck.hostname);
+      if (!availability.available) {
+        return res.status(409).json({ success: false, message: 'That subdomain is already taken or reserved.' });
+      }
+      const reservation = await tenancy.store.reserveSubdomain({
+        subdomain: slugCheck.hostname,
+        email,
+        ttlMs: tenancy.RESERVATION_TTL_MS
+      });
+      if (!reservation.ok) return res.status(409).json({ success: false, message: reservation.error });
+      chosenSlug = slugCheck.slug;
+      chosenHostname = slugCheck.hostname;
+      reservedHostname = slugCheck.hostname;
+      reservedEmail = email;
+    }
+
     const buyers = await loadTemplateBuyers();
     if (buyers.find(b => b.email.toLowerCase() === email.toLowerCase())) {
+      if (reservedHostname) {
+        await tenancy.store.releaseReservation(reservedHostname, { email: reservedEmail }).catch(() => {});
+        reservedHostname = null;
+      }
       return res.status(400).json({ success: false, message: 'An account with this email already exists.' });
     }
 
@@ -6582,9 +7432,54 @@ app.post('/api/template/purchase', async (req, res) => {
     // Send license key via email
     sendLicenseEmail(buyer);
 
-    res.json({ success: true, license_key: licenseKey, buyer });
+    // Provision the blog (idempotent for M-Pesa where the callback may have
+    // already created it). This is the only addition to the purchase flow.
+    let tenantResult = null;
+    if (chosenSlug) {
+      const txnForTenant = mpesaTxn || {
+        id,
+        customerName: name,
+        customerEmail: email
+      };
+      txnForTenant.subdomain = chosenSlug;
+      txnForTenant.hostname = chosenHostname;
+      txnForTenant.paymentKey = paymentKey || `card:${checkoutRequestId || card_token}`;
+      tenantResult = await finalizeTenantPurchase(txnForTenant, buyer);
+
+      // Persist provisioning state on the M-Pesa transaction so the status
+      // endpoint can report the blog URL immediately after purchase.
+      if (mpesaTxn) {
+        const txns = await loadMpesaTransactions();
+        const idx = txns.findIndex(t => t.id === mpesaTxn.id ||
+          (t.checkoutRequestId && t.checkoutRequestId === mpesaTxn.checkoutRequestId));
+        if (idx !== -1) {
+          txns[idx] = {
+            ...txns[idx],
+            subdomain: chosenSlug,
+            hostname: chosenHostname,
+            paymentKey: txnForTenant.paymentKey,
+            tenantId: tenantResult?.tenant?.id || txns[idx].tenantId || null,
+            blogUrl: tenantResult?.blogUrl || txns[idx].blogUrl || null,
+            provisioned: Boolean(tenantResult)
+          };
+          await saveMpesaTransactions(txns);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      license_key: licenseKey,
+      buyer,
+      subdomain: chosenSlug,
+      blog_url: tenantResult?.blogUrl || null,
+      tenant_id: tenantResult?.tenant?.id || null
+    });
   } catch (e) {
     console.error('Template purchase error:', e);
+    if (reservedHostname) {
+      await tenancy.store.releaseReservation(reservedHostname, { email: reservedEmail }).catch(() => {});
+    }
     res.status(500).json({ success: false, message: 'Purchase failed. Please try again.' });
   }
 });
@@ -6636,14 +7531,16 @@ app.post('/auth/license-login', async (req, res) => {
       username: userKey,
       email: user.email,
       name: user.name,
-      role: user.role || 'TEMPLATE_BUYER'
+      role: user.role || 'TEMPLATE_BUYER',
+      tenantId: user.tenantId || null
     }, JWT_SECRET, { expiresIn: '8h' });
 
     req.session.user = {
       username: userKey,
       email: user.email,
       name: user.name,
-      role: user.role || 'TEMPLATE_BUYER'
+      role: user.role || 'TEMPLATE_BUYER',
+      tenantId: user.tenantId || null
     };
 
     return req.session.save((err) => {
@@ -6706,7 +7603,11 @@ app.post('/api/admin/suspend-user', requireAdmin, async (req, res) => {
     users[userKey].active = false;
     users[userKey].suspendedAt = new Date().toISOString();
     users[userKey].suspensionReason = reason || 'Suspended by administrator.';
+    const tenantId = users[userKey].tenantId || null;
     await saveUsers(users);
+
+    // Stop serving the tenant's blog while the account is suspended.
+    await setTenantServing(tenantId, false, reason);
 
     // Also suspend the buyer record if linked
     if (users[userKey].buyerId) {
@@ -6739,7 +7640,10 @@ app.post('/api/admin/unsuspend-user', requireAdmin, async (req, res) => {
     users[userKey].active = true;
     delete users[userKey].suspendedAt;
     delete users[userKey].suspensionReason;
+    const tenantId = users[userKey].tenantId || null;
     await saveUsers(users);
+
+    await setTenantServing(tenantId, true);
 
     if (users[userKey].buyerId) {
       const buyers = await loadTemplateBuyers();
@@ -6766,6 +7670,41 @@ app.get('/api/content/sensitive-keywords', (req, res) => {
 
 // Error handler must be last middleware to catch errors from all routes
 app.use(errorHandler);
+
+// Long-running processes (not Vercel functions) expire stale pending domain
+// claims, retry DNS verification and resume interrupted provisioning once an
+// hour. On Vercel, call POST /api/tenant/domains/verify-pending and
+// POST /api/admin/payments/provision-recovery from a cron job instead.
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
+  const TENANCY_JOB_INTERVAL_MS = 60 * 60 * 1000;
+  const timer = setInterval(async () => {
+    try {
+      const expired = await tenancy.expireStalePendingDomains();
+      if (expired.expired.length) {
+        console.log('[tenancy] expired stale pending domains:', expired.expired.map(d => d.hostname));
+      }
+    } catch (e) {
+      console.warn('[tenancy] stale domain job failed:', e.message);
+    }
+    try {
+      const certificates = await tenancy.refreshDomainCertificates();
+      if (certificates.updated.length) {
+        console.log('[tenancy] certificate refresh:', certificates.updated);
+      }
+    } catch (e) {
+      console.warn('[tenancy] certificate refresh job failed:', e.message);
+    }
+    try {
+      const recovered = await recoverPendingProvisioning();
+      if (recovered.provisioned || recovered.failed) {
+        console.log('[tenancy] provisioning recovery:', recovered);
+      }
+    } catch (e) {
+      console.warn('[tenancy] provisioning recovery job failed:', e.message);
+    }
+  }, TENANCY_JOB_INTERVAL_MS);
+  if (typeof timer.unref === 'function') timer.unref();
+}
 
 // Tests import the app and bind their own ephemeral port (DISABLE_LISTEN=true)
 if (process.env.NODE_ENV !== 'production' && process.env.DISABLE_LISTEN !== 'true') {

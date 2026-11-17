@@ -2652,6 +2652,12 @@
                         <span>Template Buyers</span>
                     </a>
                 </div>
+                <div class="nav-item" id="nav-domains-item" style="display: none;">
+                    <a id="nav-domains" href="#domains" class="nav-link" onclick="showDomainsSection()">
+                        <i class="ti ti-world"></i>
+                        <span>My Domains</span>
+                    </a>
+                </div>
                 <div class="nav-item">
                     <a id="nav-settings" href="#settings" class="nav-link">
                         <i class="ti ti-settings"></i>
@@ -3333,6 +3339,54 @@
                             <div id="buyers-list">
                                 <div style="padding:12px;color:var(--text-medium);font-size:13px;">Loading buyers...</div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- My Domains Section (template buyers) -->
+                <div id="domains-section" class="section-content" style="display: none;">
+                    <div class="section-header" style="margin-bottom:10px;">
+                        <h3 class="section-title" style="display:flex;align-items:center;gap:6px;font-size:15px;"><i class="ti ti-world"></i> My Domains</h3>
+                        <p class="section-description" style="font-size:12px;">Connect a domain you own. Your blog always stays available on its platform address.</p>
+                    </div>
+
+                    <div class="section-body">
+                        <div class="um-card">
+                            <div class="um-card-label">
+                                <span class="icon-circle icl-plus"><i class="ti ti-plus"></i></span>
+                                Connect a custom domain
+                            </div>
+                            <form id="connect-domain-form" onsubmit="event.preventDefault(); addCustomDomain();">
+                                <div class="form-group">
+                                    <label for="new-domain-hostname">Domain</label>
+                                    <input type="text" id="new-domain-hostname" class="form-input" placeholder="blog.example.com" autocomplete="off" spellcheck="false">
+                                </div>
+                                <div class="um-form-actions">
+                                    <button type="submit" class="um-create-btn">
+                                        <i class="ti ti-plus"></i>
+                                        Connect domain
+                                    </button>
+                                </div>
+                            </form>
+                            <p id="domain-form-message" class="section-description" style="font-size:12px;margin-top:8px;"></p>
+                        </div>
+
+                        <div class="um-card" style="margin-top: 20px;">
+                            <div class="um-card-label">
+                                <span class="icon-circle icl-list"><i class="ti ti-list"></i></span>
+                                Your domains
+                            </div>
+                            <div id="domains-list">
+                                <div style="padding:12px;color:var(--text-medium);font-size:13px;">Loading domains...</div>
+                            </div>
+                        </div>
+
+                        <div class="um-card" id="domain-instructions-card" style="margin-top: 20px; display: none;">
+                            <div class="um-card-label">
+                                <span class="icon-circle icl-list"><i class="ti ti-dns"></i></span>
+                                DNS setup
+                            </div>
+                            <div id="domain-instructions"></div>
                         </div>
                     </div>
                 </div>
