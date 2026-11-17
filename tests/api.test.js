@@ -284,3 +284,54 @@ describe('payment provisioning recovery', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('admin buyers list', () => {
+  it('shows the tenant domains generated for each buyer', async () => {
+    fs.writeFileSync(path.join(dataDir, 'template_buyers.json'), JSON.stringify([{
+      id: 'buyer-recovery-1',
+      name: 'Recovery Buyer',
+      email: 'recovery@example.com',
+      licenseKey: 'BLG-TEST-TEST-TEST',
+      purchaseDate: '2026-02-02T00:00:00.000Z',
+      status: 'active'
+    }]));
+
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { username: 'seller', role: 'ADMIN' },
+      process.env.JWT_SECRET || 'dev-jwt-secret'
+    );
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const res = await fetch(`${base}/api/admin/buyers`, { headers });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const buyer = body.buyers[0];
+    expect(buyer.email).toBe('recovery@example.com');
+    expect(buyer.tenantId).toBeTruthy();
+    const platform = buyer.domains.find(domain => domain.type === 'platform');
+    expect(platform.hostname).toBe('recovery-blog');
+    expect(platform.status).toBe('active');
+
+    // A custom domain connected by the buyer appears on the same row.
+    const store = require('../lib/tenancy/store');
+    const tenants = await store.loadTenants();
+    const tenant = tenants.find(item => String(item.id) === String(buyer.tenantId));
+    await store.upsertDomain({
+      id: 'dom-custom-buyer-1',
+      tenantId: tenant.id,
+      hostname: 'blog.recovery.example',
+      type: 'custom',
+      status: 'active',
+      isPrimary: false,
+      verifiedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
+    });
+
+    const again = await fetch(`${base}/api/admin/buyers`, { headers });
+    const againBody = await again.json();
+    const custom = againBody.buyers[0].domains.find(domain => domain.hostname === 'blog.recovery.example');
+    expect(custom).toBeTruthy();
+    expect(custom.url).toBe('https://blog.recovery.example');
+  });
+});

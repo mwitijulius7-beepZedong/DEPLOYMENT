@@ -125,16 +125,38 @@
                 const response = await apiFetch('/api/admin/buyers');
                 const data = await response.json();
                 if (data.success && data.buyers.length > 0) {
-                    listEl.innerHTML = data.buyers.map(b => `
-                        <div style="padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: #fff;">
-                            <div>
-                                <strong style="color: var(--text-dark);">${b.name}</strong> <span style="font-size: 12px; color: var(--text-medium);">(${b.email})</span><br>
-                                <span style="font-size: 11px; background: #e0e7ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px; font-family: monospace;">Key: ${b.licenseKey}</span>
-                                <span style="font-size: 11px; color: var(--text-light); margin-left: 8px;">Purchased: ${new Date(b.purchaseDate).toLocaleDateString()}</span>
+                    listEl.innerHTML = data.buyers.map(b => {
+                        const domainRows = (b.domains || []).map(d => {
+                            const statusColor = d.status === 'active' ? '#15803d' : d.status === 'failed' ? '#dc2626' : '#b45309';
+                            return `
+                                <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px;">
+                                    <a href="${escapeDomainHtml(d.url)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#4338ca;word-break:break-all;">${escapeDomainHtml(d.hostname)}</a>
+                                    <span style="font-size:10px;background:#eef2ff;color:#4338ca;padding:2px 6px;border-radius:4px;">${d.type === 'platform' ? 'Platform' : 'Custom'}</span>
+                                    ${d.isPrimary ? '<span style="font-size:10px;background:#e0e7ff;color:#4338ca;padding:2px 6px;border-radius:4px;">PRIMARY</span>' : ''}
+                                    <span style="font-size:10px;color:${statusColor};padding:2px 6px;border-radius:4px;border:1px solid var(--border-color);text-transform:capitalize;">${escapeDomainHtml(d.status)}</span>
+                                    ${d.sslStatus ? `<span style="font-size:10px;color:var(--text-medium);">SSL: ${escapeDomainHtml(d.sslStatus)}</span>` : ''}
+                                </div>
+                            `;
+                        }).join('');
+                        const noDomains = '<div style="font-size:11px;color:var(--text-light);margin-top:4px;">No blog or domain provisioned yet.</div>';
+                        const suspended = b.tenantStatus && b.tenantStatus !== 'active'
+                            ? `<span style="font-size:10px;background:#fef3c7;color:#b45309;padding:2px 6px;border-radius:4px;margin-left:6px;">BLOG ${escapeDomainHtml(String(b.tenantStatus).toUpperCase())}</span>`
+                            : '';
+                        return `
+                            <div style="padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; background: #fff;">
+                                <div>
+                                    <strong style="color: var(--text-dark);">${escapeDomainHtml(b.name)}</strong> <span style="font-size: 12px; color: var(--text-medium);">(${escapeDomainHtml(b.email)})</span>${suspended}<br>
+                                    <span style="font-size: 11px; background: #e0e7ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px; font-family: monospace;">Key: ${escapeDomainHtml(b.licenseKey)}</span>
+                                    <span style="font-size: 11px; color: var(--text-light); margin-left: 8px;">Purchased: ${b.purchaseDate ? new Date(b.purchaseDate).toLocaleDateString() : '—'}</span>
+                                    <div style="margin-top:8px;">
+                                        <div style="font-size:11px;font-weight:600;color:var(--text-medium);">Domains</div>
+                                        ${domainRows || noDomains}
+                                    </div>
+                                </div>
+                                <button onclick="deleteBuyer('${b.id}')" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer; flex-shrink:0;">Remove</button>
                             </div>
-                            <button onclick="deleteBuyer('${b.id}')" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer;">Remove</button>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 } else {
                     listEl.innerHTML = '<div style="padding:12px;color:var(--text-medium);font-size:13px;">No buyers found.</div>';
                 }

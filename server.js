@@ -2074,8 +2074,45 @@ const requireSeller = [requireAuth, requireSellerOnly];
 // Admin: Template Buyers API (seller-only)
 app.get('/api/admin/buyers', requireSeller, async (req, res) => {
   try {
-    const buyers = await loadTemplateBuyers();
-    res.json({ success: true, buyers });
+    const [buyers, tenants, domains] = await Promise.all([
+      loadTemplateBuyers(),
+      tenancy.store.loadTenants().catch(() => []),
+      tenancy.store.loadDomains().catch(() => [])
+    ]);
+
+    // Attach the buyer's tenant and its platform/custom domains so the seller
+    // sees the blog addresses generated at checkout or added later.
+    const enriched = buyers.map(buyer => {
+      const tenant = tenants.find(item =>
+        (buyer.id && String(item.ownerUserId || '') === String(buyer.id)) ||
+        (buyer.email && item.ownerEmail &&
+          String(item.ownerEmail).toLowerCase() === String(buyer.email).toLowerCase())
+      ) || null;
+      const tenantDomains = tenant
+        ? domains.filter(domain => String(domain.tenantId) === String(tenant.id))
+        : [];
+      const sorted = [...tenantDomains].sort((a, b) => {
+        if (a.type !== b.type) return a.type === 'platform' ? -1 : 1;
+        if (Boolean(a.isPrimary) !== Boolean(b.isPrimary)) return a.isPrimary ? -1 : 1;
+        return String(a.hostname).localeCompare(String(b.hostname));
+      });
+      return {
+        ...buyer,
+        tenantId: tenant ? tenant.id : (buyer.tenantId || null),
+        tenantStatus: tenant ? tenant.status : null,
+        domains: sorted.map(domain => ({
+          id: domain.id,
+          hostname: domain.hostname,
+          type: domain.type,
+          status: domain.status,
+          isPrimary: Boolean(domain.isPrimary),
+          sslStatus: domain.sslStatus || null,
+          url: tenancy.blogUrlFor(domain.hostname)
+        }))
+      };
+    });
+
+    res.json({ success: true, buyers: enriched });
   } catch (err) {
     console.error('Error fetching template buyers:', err);
     res.status(500).json({ error: 'failed_fetch_buyers' });
