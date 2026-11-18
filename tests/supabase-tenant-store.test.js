@@ -20,7 +20,9 @@ function createFakeSupabase(seed = {}, options = {}) {
 
   const missingColumnError = name => ({
     data: null,
-    error: { code: '42703', message: `column ${name}.tenant_id does not exist` }
+    error: options.schemaCacheError
+      ? { code: 'PGRST204', message: `Could not find the 'tenant_id' column of '${name}' in the schema cache` }
+      : { code: '42703', message: `column ${name}.tenant_id does not exist` }
   });
 
   const matches = (row, filters) => filters.every(([column, op, value]) => {
@@ -263,6 +265,35 @@ describe('Supabase before the tenancy migration is applied', () => {
       expect(rows[0]).not.toHaveProperty('tenant_id');
     } finally {
       warn.mockRestore();
+      restore();
+    }
+  });
+
+  it('saves platform rows when PostgREST reports a stale schema cache', async () => {
+    const fake = createFakeSupabase({ categories: [] }, { missingTenantColumns: true, schemaCacheError: true });
+    const { store, restore } = loadStoreWith(fake);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await store.saveCategoriesForTenant('platform', [{ id: 'c1', name: 'News' }]);
+      const rows = fake.__tables.get('categories');
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ id: 'c1' });
+      expect(rows[0]).not.toHaveProperty('tenant_id');
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      restore();
+    }
+  });
+
+  it('still refuses cross-tenant writes that report a stale schema cache', async () => {
+    const fake = createFakeSupabase({ categories: [] }, { missingTenantColumns: true, schemaCacheError: true });
+    const { store, restore } = loadStoreWith(fake);
+    try {
+      await expect(
+        store.saveCategoriesForTenant('tenant-a', [{ id: 'c1', name: 'News' }])
+      ).rejects.toThrow(/tenant_id/);
+    } finally {
       restore();
     }
   });
