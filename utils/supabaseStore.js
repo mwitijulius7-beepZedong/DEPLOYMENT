@@ -73,7 +73,10 @@ function currentTenantIdSafe() {
   }
 }
 
-const MISSING_TENANT_COLUMN_RE = /tenant_id"?\s+does not exist|column .*tenant_id.*does not exist/i;
+// PostgREST reports a missing column either as "column <table>.tenant_id does
+// not exist" (Postgres) or "Could not find the 'tenant_id' column of
+// '<table>' in the schema cache" (stale PostgREST schema cache).
+const MISSING_TENANT_COLUMN_RE = /tenant_id[^\n]*?(does not exist|schema cache)|column[^\n]*tenant_id[^\n]*does not exist/i;
 let warnedMissingTenantSchema = false;
 
 function isMissingTenantColumn(error) {

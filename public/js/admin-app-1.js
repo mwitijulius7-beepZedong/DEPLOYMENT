@@ -589,16 +589,22 @@
                 if (data.categories && data.categories.length > 0) {
                     console.log('Rendering', data.categories.length, 'categories');
                     categoriesList.innerHTML = data.categories.map(category => `
-                        <div class="category-item" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; transition: all 0.2s ease;">
+                        <div class="category-item" data-category-row="${category.id}" data-original-name="${escapeDomainHtml(category.name)}" data-original-description="${escapeDomainHtml(category.description || '')}" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; transition: all 0.2s ease;">
                             <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
                                 <input type="checkbox" class="category-checkbox" data-category-id="${category.id}" onchange="updateSelectedCategoriesCount()" style="width: 14px; height: 14px; cursor: pointer;">
-                                <div style="display: flex; flex-direction: column; min-width: 0;">
-                                    <h4 style="margin: 0; font-size: 13px; font-weight: 600; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${category.name}</h4>
-                                    <p style="margin: 0; font-size: 11px; color: var(--text-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${category.description || 'No description provided'}</p>
+                                <div class="category-view" style="display: flex; flex-direction: column; min-width: 0; flex: 1;">
+                                    <h4 style="margin: 0; font-size: 13px; font-weight: 600; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeDomainHtml(category.name)}</h4>
+                                    <p style="margin: 0; font-size: 11px; color: var(--text-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeDomainHtml(category.description || 'No description provided')}</p>
+                                </div>
+                                <div class="category-editor" style="display: none; flex-direction: column; gap: 6px; flex: 1; min-width: 0;">
+                                    <input type="text" class="category-edit-name" value="${escapeDomainHtml(category.name)}" placeholder="Category name" aria-label="Category name" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 12px; font-family: var(--sans);">
+                                    <input type="text" class="category-edit-description" value="${escapeDomainHtml(category.description || '')}" placeholder="Description (optional)" aria-label="Category description" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 12px; font-family: var(--sans);">
                                 </div>
                             </div>
                             <div style="display: flex; gap: 6px; flex-shrink: 0;">
-                                <button class="btn-modern sm secondary" style="padding: 4px 8px; font-size: 11px;" onclick="editCategory('${category.id}')">Edit</button>
+                                <button class="btn-modern sm secondary category-edit-action" style="padding: 4px 8px; font-size: 11px;" onclick="editCategory('${category.id}', this)">Edit</button>
+                                <button class="btn-modern sm category-save-action" style="display: none; padding: 4px 8px; font-size: 11px;" onclick="saveCategory('${category.id}', this)">Save</button>
+                                <button class="btn-modern sm secondary category-cancel-action" style="display: none; padding: 4px 8px; font-size: 11px;" onclick="cancelCategory('${category.id}')">Cancel</button>
                                 <button class="btn-modern sm" style="padding: 4px 8px; font-size: 11px; background: #fee2e2; color: #dc2626; border-color: #fecaca;" onclick="deleteCategory('${category.id}', this)">Delete</button>
                             </div>
                         </div>
@@ -643,8 +649,74 @@
             }
         }
 
-        async function editCategory(categoryId) {
-            alert(`Edit category functionality - This would open a form to edit category with ID: ${categoryId}`);
+        function setCategoryEditMode(categoryId, editing) {
+            const row = document.querySelector(`[data-category-row="${categoryId}"]`);
+            if (!row) return null;
+            const view = row.querySelector('.category-view');
+            const editor = row.querySelector('.category-editor');
+            if (!view || !editor) return null;
+            view.style.display = editing ? 'none' : 'flex';
+            editor.style.display = editing ? 'flex' : 'none';
+            row.querySelector('.category-edit-action').style.display = editing ? 'none' : '';
+            row.querySelector('.category-save-action').style.display = editing ? '' : 'none';
+            row.querySelector('.category-cancel-action').style.display = editing ? '' : 'none';
+            return editor;
+        }
+
+        function editCategory(categoryId) {
+            const editor = setCategoryEditMode(categoryId, true);
+            if (!editor) return;
+            const nameInput = editor.querySelector('.category-edit-name');
+            if (nameInput) {
+                nameInput.focus();
+                nameInput.select();
+            }
+        }
+
+        function cancelCategory(categoryId) {
+            const row = document.querySelector(`[data-category-row="${categoryId}"]`);
+            const editor = setCategoryEditMode(categoryId, false);
+            if (!row || !editor) return;
+            editor.querySelector('.category-edit-name').value = row.dataset.originalName || '';
+            editor.querySelector('.category-edit-description').value = row.dataset.originalDescription || '';
+        }
+
+        async function saveCategory(categoryId, button) {
+            const editor = setCategoryEditMode(categoryId, true);
+            if (!editor) return;
+            const nameInput = editor.querySelector('.category-edit-name');
+            const descriptionInput = editor.querySelector('.category-edit-description');
+            const name = nameInput.value.trim();
+
+            if (!name) {
+                alert('Please enter a category name.');
+                nameInput.focus();
+                return;
+            }
+
+            await withLoading(button, async () => {
+                try {
+                    const response = await apiFetch(`/api/categories/${encodeURIComponent(categoryId)}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ name, description: descriptionInput.value.trim() })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        await loadCategories();
+                        if (typeof populatePostCategoryDropdown === 'function') {
+                            await populatePostCategoryDropdown();
+                        }
+                    } else {
+                        const errorMessage = data.details || data.error || data.message || 'Failed to update category.';
+                        alert(`Error: ${errorMessage}`);
+                    }
+                } catch (error) {
+                    console.error('Error updating category:', error);
+                    alert('Network error: Failed to update category.');
+                }
+            }, 'Saving...');
         }
 
         async function deleteCategory(categoryId, deleteButton) {

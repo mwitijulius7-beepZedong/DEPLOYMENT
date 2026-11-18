@@ -5809,13 +5809,14 @@ app.put('/api/categories/:id', requireAdmin, async (req, res) => {
   try {
     const id = req.params.id;
     const { name, description } = req.body || {};
-    if (!name) return res.status(400).json({ error: 'missing name' });
+    const trimmedName = typeof name === 'string' ? name.trim() : '';
+    if (!trimmedName) return res.status(400).json({ error: 'missing name' });
 
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const slug = trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const updatedFields = {
-      name: name.trim(),
+      name: trimmedName,
       slug,
-      description: description ? description.trim() : '',
+      description: typeof description === 'string' ? description.trim() : '',
       updatedAt: new Date().toISOString()
     };
 

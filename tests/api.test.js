@@ -285,6 +285,89 @@ describe('payment provisioning recovery', () => {
   });
 });
 
+describe('categories API', () => {
+  const adminHeaders = () => {
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { username: 'seller', role: 'ADMIN' },
+      process.env.JWT_SECRET || 'dev-jwt-secret'
+    );
+    return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  };
+
+  it('creates, renames and deletes a category', async () => {
+    const headers = adminHeaders();
+
+    const created = await fetch(`${base}/api/categories`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name: 'Test Category', description: 'before' })
+    });
+    expect(created.status).toBe(200);
+    const createdBody = await created.json();
+    const id = createdBody.category.id;
+    expect(createdBody.category.slug).toBe('test-category');
+
+    const updated = await fetch(`${base}/api/categories/${id}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({ name: 'Renamed Category', description: 'after' })
+    });
+    expect(updated.status).toBe(200);
+
+    const list = await fetch(`${base}/api/categories`, { headers });
+    const listBody = await list.json();
+    const renamed = listBody.categories.find(category => category.id === id);
+    expect(renamed).toMatchObject({
+      name: 'Renamed Category',
+      slug: 'renamed-category',
+      description: 'after'
+    });
+    expect(renamed.updatedAt).toBeTruthy();
+
+    const deleted = await fetch(`${base}/api/categories/${id}`, { method: 'DELETE', headers });
+    expect(deleted.status).toBe(200);
+
+    const afterDelete = await fetch(`${base}/api/categories`, { headers });
+    const afterDeleteBody = await afterDelete.json();
+    expect(afterDeleteBody.categories.some(category => category.id === id)).toBe(false);
+  });
+
+  it('rejects a blank name and leaves the category untouched', async () => {
+    const headers = adminHeaders();
+
+    const created = await fetch(`${base}/api/categories`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name: 'Keep Me', description: 'original' })
+    });
+    const id = (await created.json()).category.id;
+
+    try {
+      const blank = await fetch(`${base}/api/categories/${id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ name: '   ', description: 'blank' })
+      });
+      expect(blank.status).toBe(400);
+
+      const list = await fetch(`${base}/api/categories`, { headers });
+      const body = await list.json();
+      const unchanged = body.categories.find(category => category.id === id);
+      expect(unchanged).toMatchObject({ name: 'Keep Me', description: 'original' });
+
+      const missing = await fetch(`${base}/api/categories/does-not-exist`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ name: 'Nope' })
+      });
+      expect(missing.status).toBe(404);
+    } finally {
+      await fetch(`${base}/api/categories/${id}`, { method: 'DELETE', headers });
+    }
+  });
+});
+
 describe('admin buyers list', () => {
   it('shows the tenant domains generated for each buyer', async () => {
     fs.writeFileSync(path.join(dataDir, 'template_buyers.json'), JSON.stringify([{
