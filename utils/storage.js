@@ -123,14 +123,14 @@ async function loadFromKV(kvKey) {
   return null;
 }
 
-function loadFromFile(filePath, defaultData = []) {
+async function loadFromFile(filePath, defaultData = []) {
   try {
-    if (fs.existsSync(filePath)) {
-      const raw = fs.readFileSync(filePath, 'utf8');
-      return JSON.parse(raw);
-    }
+    const raw = await fs.promises.readFile(filePath, 'utf8');
+    return JSON.parse(raw);
   } catch (e) {
-    console.warn(`Local file ${path.basename(filePath)} error:`, e.message);
+    if (e.code !== 'ENOENT') {
+      console.warn(`Local file ${path.basename(filePath)} error:`, e.message);
+    }
   }
   return defaultData;
 }
@@ -196,9 +196,9 @@ async function saveToKV(kvKey, data) {
   return false;
 }
 
-function saveToFile(filePath, data) {
+async function saveToFile(filePath, data) {
   if (process.env.VERCEL) return false;
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+  await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2));
   return true;
 }
 
@@ -209,7 +209,7 @@ async function saveWithFallback(collectionName, kvKey, filePath, data, options =
     return;
   }
   if (await saveToKV(kvKey, data)) return;
-  const saved = saveToFile(filePath, data);
+  const saved = await saveToFile(filePath, data);
   if (!saved && process.env.VERCEL) {
     const hasMongoUri = !!(process.env.MONGODB_URI || process.env.PERSONALBLOG_MONGODB_URI);
     const reason = hasMongoUri ? 'MongoDB connection failed' : 'MONGODB_URI not set';
@@ -227,7 +227,7 @@ async function loadWithFallback({ collectionName, kvKey, filePath, mongoQuery = 
     return transform && Array.isArray(kvData) ? kvData.map(transform) : kvData;
   }
 
-  return loadFromFile(filePath, defaultData);
+  return await loadFromFile(filePath, defaultData);
 }
 
 async function loadWithFallbackSingle({ collectionName, mongoFilter, kvKey, filePath, defaultData }) {
@@ -237,7 +237,7 @@ async function loadWithFallbackSingle({ collectionName, mongoFilter, kvKey, file
   const kvData = await loadFromKV(kvKey);
   if (kvData !== null && kvData !== undefined) return kvData;
 
-  return loadFromFile(filePath, defaultData);
+  return await loadFromFile(filePath, defaultData);
 }
 
 /**

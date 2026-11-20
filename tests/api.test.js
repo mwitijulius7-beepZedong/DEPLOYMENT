@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -207,6 +208,45 @@ describe('posts API', () => {
     expect(body.posts[0].id).toBe('2');
   });
 
+  it('revalidates unchanged lists with an ETag instead of resending them', async () => {
+    // Node's fetch always sends cache-control: no-cache, which correctly
+    // forces a full response. A browser revalidation sends the validator
+    // alone, so use the raw HTTP client here.
+    const request = headers => new Promise((resolve, reject) => {
+      const req = http.request({
+        host: '127.0.0.1',
+        port: server.address().port,
+        path: '/api/posts',
+        headers
+      }, res => {
+        res.resume();
+        resolve({ status: res.statusCode, headers: res.headers });
+      });
+      req.on('error', reject);
+      req.end();
+    });
+
+    const first = await request({});
+    expect(first.status).toBe(200);
+    expect(first.headers.etag).toBeTruthy();
+    expect(first.headers['cache-control']).toContain('private');
+
+    const second = await request({ 'If-None-Match': first.headers.etag });
+    expect(second.status).toBe(304);
+    expect(second.headers.etag).toBe(first.headers.etag);
+  });
+
+  it('returns a newly posted comment immediately', async () => {
+    const created = await fetch(`${base}/api/posts/2/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Reader', email: 'reader@example.com', content: 'Great post' })
+    });
+    expect(created.status).toBe(200);
+    const body = await (await get('/api/posts/2/comments')).json();
+    expect(body.comments.some(comment => comment.content === 'Great post')).toBe(true);
+  });
+
   it('exposes prev/next and related posts on the detail endpoint', async () => {
     const body = await (await get('/api/posts/1')).json();
     expect(body.post).toBeDefined();
@@ -215,6 +255,25 @@ describe('posts API', () => {
     expect(Array.isArray(body.related)).toBe(true);
     expect(body.related.map(p => p.id)).toContain('2');
     expect(body.related[0].content).toBeUndefined();
+  });
+});
+
+describe('analytics recording', () => {
+  it('keeps every concurrent page view when writing to file storage', async () => {
+    const analyticsPath = path.join(dataDir, 'analytics.json');
+    const before = fs.existsSync(analyticsPath)
+      ? (JSON.parse(fs.readFileSync(analyticsPath, 'utf8')).pageViews || []).length
+      : 0;
+
+    const responses = await Promise.all(Array.from({ length: 12 }, (_, index) => fetch(`${base}/api/stats/pageview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: `/concurrent/${index}` })
+    })));
+    expect(responses.every(response => response.status === 200)).toBe(true);
+
+    const after = JSON.parse(fs.readFileSync(analyticsPath, 'utf8')).pageViews || [];
+    expect(after).toHaveLength(before + 12);
   });
 });
 

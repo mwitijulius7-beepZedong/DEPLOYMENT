@@ -44,11 +44,13 @@ function cloneData(item, id) {
   return data;
 }
 
-async function selectAll(table, order) {
+async function selectAll(table, order, filter) {
   const rows = [];
   let from = 0;
   for (;;) {
-    let query = db().from(table).select('id,data').range(from, from + PAGE_SIZE - 1);
+    let query = db().from(table).select('id,data');
+    if (filter) query = query.eq(filter.column, filter.value);
+    query = query.range(from, from + PAGE_SIZE - 1);
     if (order) query = query.order(order.column, { ascending: Boolean(order.ascending), nullsFirst: false });
     const { data, error } = await query;
     if (error) throw new Error(`Supabase ${table} select failed: ${error.message}`);
@@ -100,13 +102,15 @@ function stripTenantColumn(row) {
   return rest;
 }
 
-async function selectAllForTenant(table, tenantId, order) {
+async function selectAllForTenant(table, tenantId, order, filter) {
   const scopeId = tenantIdOf(tenantId);
   try {
     const rows = [];
     let from = 0;
     for (;;) {
-      let query = db().from(table).select('id,data').eq('tenant_id', scopeId).range(from, from + PAGE_SIZE - 1);
+      let query = db().from(table).select('id,data').eq('tenant_id', scopeId);
+      if (filter) query = query.eq(filter.column, filter.value);
+      query = query.range(from, from + PAGE_SIZE - 1);
       if (order) query = query.order(order.column, { ascending: Boolean(order.ascending), nullsFirst: false });
       const { data, error } = await query;
       if (error) throw new Error(`Supabase ${table} select failed: ${error.message}`);
@@ -119,7 +123,7 @@ async function selectAllForTenant(table, tenantId, order) {
   } catch (e) {
     if (scopeId === 'platform' && isMissingTenantColumn(e)) {
       warnMissingTenantSchema(e);
-      return selectAll(table, order);
+      return selectAll(table, order, filter);
     }
     throw e;
   }
@@ -309,6 +313,15 @@ async function loadComments() {
 
 async function loadCommentsForTenant(tenantId) {
   return selectAllForTenant('comments', tenantId, { column: 'date', ascending: false });
+}
+
+async function loadCommentsForPostForTenant(tenantId, postId) {
+  return selectAllForTenant(
+    'comments',
+    tenantId,
+    { column: 'date', ascending: false },
+    { column: 'post_id', value: String(postId) }
+  );
 }
 
 async function saveCommentsForTenant(tenantId, comments) {
@@ -705,6 +718,7 @@ module.exports = {
   loadComments,
   saveComments,
   loadCommentsForTenant,
+  loadCommentsForPostForTenant,
   saveCommentsForTenant,
   insertComment,
   loadCategories,
