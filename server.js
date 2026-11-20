@@ -1209,6 +1209,10 @@ function invalidateCommentsCache() {
   commentsCacheTime = 0;
 }
 
+// Short-lived in-process subscriptions cache. Invalidated on save.
+let subscriptionsCache = null;
+let subscriptionsCacheTime = 0;
+
 async function saveAllComments(comments) {
   invalidateCommentsCache();
   if (isSupabaseEnabled()) return supabaseStore.saveComments(comments);
@@ -1297,13 +1301,21 @@ async function saveComments(comments) {
 
 async function loadAllSubscriptions() {
   if (isSupabaseEnabled()) return supabaseStore.loadSubscriptions();
+  const now = Date.now();
+  if (subscriptionsCache && now - subscriptionsCacheTime < CACHE_TTL) {
+    return subscriptionsCache;
+  }
   try {
     const db = await getMongoDB();
     if (db) {
       const subscriptions = await db.collection('subscriptions').find({}).toArray();
-      return subscriptions.map(s => ({ ...s, id: s._id || s.id }));
+      subscriptionsCache = subscriptions.map(s => ({ ...s, id: s._id || s.id }));
+      subscriptionsCacheTime = now;
+      return subscriptionsCache;
     }
-    return JSON.parse(await fs.promises.readFile(SUBSCRIPTIONS_FILE, 'utf8')) || [];
+    subscriptionsCache = JSON.parse(await fs.promises.readFile(SUBSCRIPTIONS_FILE, 'utf8')) || [];
+    subscriptionsCacheTime = now;
+    return subscriptionsCache;
   } catch (e) {
     return [];
   }
@@ -1311,6 +1323,8 @@ async function loadAllSubscriptions() {
 
 async function saveAllSubscriptions(subscriptions) {
   if (isSupabaseEnabled()) return supabaseStore.saveSubscriptions(subscriptions);
+  subscriptionsCache = null;
+  subscriptionsCacheTime = 0;
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
