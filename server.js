@@ -851,15 +851,8 @@ async function loadPostsEntry() {
     }
     return { posts: entry.posts.slice(), byId: entry.byId };
   }
-  const tenantId = tenancy.scope.currentTenantId();
-  const key = `posts-byid:${tenantId}`;
-  let entry = postsScopeCache.get(key);
-  if (!entry) {
-    const posts = tenancy.scope.filterForTenant(await loadAllPosts());
-    entry = { posts, byId: indexPostsById(posts) };
-    postsScopeCache.set(key, entry);
-  }
-  return { posts: entry.posts.slice(), byId: entry.byId };
+  const posts = tenancy.scope.filterForTenant(await loadAllPosts());
+  return { posts, byId: null };
 }
 
 async function loadPosts() {
@@ -871,9 +864,7 @@ async function savePosts(posts) {
   if (isSupabaseEnabled()) {
     postsCache = null;
     postsCacheTime = 0;
-    postsByIdCache = null;
     postsScopeCache.clear(tenantId);
-    postsScopeCache.clear(`posts-byid:${tenantId}`);
     return supabaseStore.savePostsForTenant(tenantId, posts);
   }
   const all = await loadAllPosts();
@@ -1330,9 +1321,7 @@ async function loadAllSubscriptions() {
       subscriptionsCacheTime = now;
       return subscriptionsCache;
     }
-    subscriptionsCache = JSON.parse(await fs.promises.readFile(SUBSCRIPTIONS_FILE, 'utf8')) || [];
-    subscriptionsCacheTime = now;
-    return subscriptionsCache;
+    return JSON.parse(await fs.promises.readFile(SUBSCRIPTIONS_FILE, 'utf8')) || [];
   } catch (e) {
     return [];
   }
@@ -3794,6 +3783,7 @@ function setPrivateRevalidate(res) {
 
 app.get('/api/posts', async (req, res) => {
   try {
+    setPrivateRevalidate(res);
     const posts = await loadPosts();
     const includeDrafts = req.query.include_drafts === 'true';
     const isAdmin = isUserAdmin(req);
@@ -5912,6 +5902,7 @@ app.post('/api/settings/content', requireAdmin, async (req, res) => {
 // Categories API
 app.get('/api/categories', async (req, res) => {
   try {
+    setPrivateRevalidate(res);
     const categories = await loadCategories();
     const isAdmin = isUserAdmin(req);
 
