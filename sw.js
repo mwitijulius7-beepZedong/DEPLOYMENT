@@ -1,5 +1,12 @@
-/* Service worker: offline shell + cache fallback for the blog. */
-const VERSION = 'zedong-shell-v4';
+/* Service worker: offline shell + fast repeat visits.
+ *
+ * Navigations are network-first so deployed HTML wins, falling back to the
+ * cached shell offline. Scripts/styles are stale-while-revalidate so a deploy
+ * reaches the next visit without pinning an old bundle. Images are
+ * cache-first. API responses are never cached: they are role- and
+ * tenant-dependent, and a shared browser cache could leak premium content.
+ */
+const VERSION = 'zedong-shell-v5';
 const PRECACHE = [
   '/',
   '/about.html',
@@ -24,6 +31,42 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+function cachePut(request, response) {
+  if (!response || !response.ok) return;
+  if ((response.headers.get('Cache-Control') || '').includes('no-store')) return;
+  const copy = response.clone();
+  caches.open(VERSION).then(cache => cache.put(request, copy)).catch(() => {});
+}
+
+async function networkFirst(request, fallbackUrl) {
+  try {
+    const response = await fetch(request);
+    cachePut(request, response);
+    return response;
+  } catch (e) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    if (fallbackUrl) {
+      const fallback = await caches.match(fallbackUrl);
+      if (fallback) return fallback;
+    }
+    throw e;
+  }
+}
+
+async function staleWhileRevalidate(request) {
+  const cached = await caches.match(request);
+  const network = fetch(request).then(response => {
+    cachePut(request, response);
+    return response;
+  });
+  if (cached) {
+    network.catch(() => {});
+    return cached;
+  }
+  return network;
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -33,28 +76,9 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then(response => {
-          const copy = response.clone();
-          caches.open(VERSION).then(cache => cache.put(request, copy)).catch(() => {});
-          return response;
-        })
-        .catch(() => caches.match(request).then(cached => cached || caches.match('/')))
-    );
+    event.respondWith(networkFirst(request, '/'));
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then(cached => {
-      if (cached) return cached;
-      return fetch(request).then(response => {
-        if (response && response.ok) {
-          const copy = response.clone();
-          caches.open(VERSION).then(cache => cache.put(request, copy)).catch(() => {});
-        }
-        return response;
-      });
-    })
-  );
+  event.respondWith(staleWhileRevalidate(request));
 });

@@ -619,6 +619,57 @@ function normalizeComment(c) {
   };
 }
 
+// ── Hot-path caches ─────────────────────────────────────────────────
+// A single page visit reads the same tenant data several times (SSR homepage
+// then /api/posts, post page then /api/posts/:id). A short TTL cache turns
+// those into one backend round trip. Writes clear the current tenant's entry
+// immediately; other instances converge within the TTL.
+function createScopedCache(ttlMs, maxEntries = 100) {
+  const store = new Map();
+  return {
+    get(key) {
+      const hit = store.get(key);
+      if (!hit) return null;
+      if (Date.now() - hit.at > ttlMs) {
+        store.delete(key);
+        return null;
+      }
+      return hit.value;
+    },
+    set(key, value) {
+      store.set(key, { at: Date.now(), value });
+      if (store.size > maxEntries) store.delete(store.keys().next().value);
+    },
+    clear(key) {
+      if (key === undefined) store.clear();
+      else store.delete(key);
+    }
+  };
+}
+
+// Serializes read-modify-write cycles for the JSON-file fallback so concurrent
+// requests cannot overwrite each other's analytics or post counters.
+function createSerialQueue() {
+  let tail = Promise.resolve();
+  return task => {
+    const run = tail.then(task, task);
+    tail = run.then(() => {}, () => {});
+    return run;
+  };
+}
+
+const postsScopeCache = createScopedCache(5000);
+const categoriesScopeCache = createScopedCache(10000);
+const postCommentsScopeCache = createScopedCache(5000);
+const analyticsWriteQueue = createSerialQueue();
+const postWriteQueue = createSerialQueue();
+
+function indexPostsById(posts) {
+  const byId = new Map();
+  for (const post of posts) byId.set(String(post.id), post);
+  return byId;
+}
+
 async function loadAllPosts() {
   if (isSupabaseEnabled()) return (await supabaseStore.loadPosts()).map(normalizePost);
   const now = Date.now();
@@ -674,7 +725,7 @@ async function loadAllPosts() {
 
     // Fall back to local file
     try {
-      const data = JSON.parse(fs.readFileSync(POSTS_FILE, 'utf8')) || [];
+      const data = JSON.parse(await fs.promises.readFile(POSTS_FILE, 'utf8')) || [];
       console.log('Loaded posts from local file:', data.length, 'posts');
       result = data.map(normalizePost);
       if (db && result.length > 0) {
@@ -755,7 +806,7 @@ async function saveAllPosts(posts) {
       console.error(`savePosts: cannot write on Vercel without storage. Reason: ${reason}`);
       throw new Error(`No writable storage available on Vercel (${reason}). Configure MONGODB_URI.`);
     }
-    fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
+    await fs.promises.writeFile(POSTS_FILE, JSON.stringify(posts, null, 2));
   } catch (e) {
     console.error('Save posts error:', e);
     throw e; // propagate so callers know it failed
@@ -765,11 +816,25 @@ async function saveAllPosts(posts) {
 // Tenant-scoped wrappers: the storage layer stays global, while every read and
 // write is filtered/tagged for the tenant attached to the current request.
 // Platform-owned content is the `platform` tenant.
-async function loadPosts() {
+// Returns the tenant's posts plus an id index. The index is only cached for
+// Supabase; the file/Mongo path already caches the raw list in loadAllPosts.
+async function loadPostsEntry() {
   if (isSupabaseEnabled()) {
-    return (await supabaseStore.loadPostsForTenant(tenancy.scope.currentTenantId())).map(normalizePost);
+    const tenantId = tenancy.scope.currentTenantId();
+    let entry = postsScopeCache.get(tenantId);
+    if (!entry) {
+      const posts = (await supabaseStore.loadPostsForTenant(tenantId)).map(normalizePost);
+      entry = { posts, byId: indexPostsById(posts) };
+      postsScopeCache.set(tenantId, entry);
+    }
+    return { posts: entry.posts.slice(), byId: entry.byId };
   }
-  return tenancy.scope.filterForTenant(await loadAllPosts());
+  const posts = tenancy.scope.filterForTenant(await loadAllPosts());
+  return { posts, byId: null };
+}
+
+async function loadPosts() {
+  return (await loadPostsEntry()).posts;
 }
 
 async function savePosts(posts) {
@@ -777,6 +842,7 @@ async function savePosts(posts) {
   if (isSupabaseEnabled()) {
     postsCache = null;
     postsCacheTime = 0;
+    postsScopeCache.clear(tenantId);
     return supabaseStore.savePostsForTenant(tenantId, posts);
   }
   const all = await loadAllPosts();
@@ -818,8 +884,13 @@ async function saveAllCategories(categories) {
 
 async function loadCategories() {
   if (isSupabaseEnabled()) {
+    const tenantId = tenancy.scope.currentTenantId();
+    const cached = categoriesScopeCache.get(tenantId);
+    if (cached) return cached.slice();
     try {
-      return await supabaseStore.loadCategoriesForTenant(tenancy.scope.currentTenantId());
+      const categories = await supabaseStore.loadCategoriesForTenant(tenantId);
+      categoriesScopeCache.set(tenantId, categories);
+      return categories.slice();
     } catch (e) {
       console.error('Supabase categories load failed:', e.message);
       return [];
@@ -831,6 +902,7 @@ async function loadCategories() {
 async function saveCategories(categories) {
   const tenantId = tenancy.scope.currentTenantId();
   if (isSupabaseEnabled()) {
+    categoriesScopeCache.clear(tenantId);
     return supabaseStore.saveCategoriesForTenant(tenantId, categories);
   }
   const all = await loadAllCategories();
@@ -872,7 +944,7 @@ async function saveAnalytics(analytics) {
       );
       return;
     }
-    fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(analytics, null, 2));
+    await fs.promises.writeFile(ANALYTICS_FILE, JSON.stringify(analytics, null, 2));
   } catch (e) {
     console.error('Save analytics error:', e);
   }
@@ -927,11 +999,13 @@ async function recordInteraction(type, target, value = '', req = null) {
       return;
     }
 
-    const analytics = await loadAnalytics();
-    if (!analytics.interactions) analytics.interactions = [];
-    analytics.interactions.push(interaction);
-    await saveAnalytics(analytics);
-    console.log(`[Analytics] Recorded interaction: ${type} on ${target}`);
+    await analyticsWriteQueue(async () => {
+      const analytics = await loadAnalytics();
+      if (!analytics.interactions) analytics.interactions = [];
+      analytics.interactions.push(interaction);
+      await saveAnalytics(analytics);
+      console.log(`[Analytics] Recorded interaction: ${type} on ${target}`);
+    });
   } catch (e) {
     console.error('Failed to record interaction:', e);
   }
@@ -969,10 +1043,12 @@ async function recordPageView(page, req) {
       return;
     }
 
-    const analytics = await loadAnalytics();
-    if (!analytics.pageViews) analytics.pageViews = [];
-    analytics.pageViews.push(view);
-    await saveAnalytics(analytics);
+    await analyticsWriteQueue(async () => {
+      const analytics = await loadAnalytics();
+      if (!analytics.pageViews) analytics.pageViews = [];
+      analytics.pageViews.push(view);
+      await saveAnalytics(analytics);
+    });
   } catch (e) {
     console.error('Failed to record page view:', e);
   }
@@ -1102,7 +1178,7 @@ async function loadAllComments() {
       commentsCacheTime = now;
       return commentsCache;
     }
-    commentsCache = (JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf8')) || []).map(normalizeComment);
+    commentsCache = (JSON.parse(await fs.promises.readFile(COMMENTS_FILE, 'utf8')) || []).map(normalizeComment);
     commentsCacheTime = now;
     return commentsCache || [];
   } catch (e) {
@@ -1150,7 +1226,7 @@ async function saveAllComments(comments) {
       await kv.set('comments', JSON.stringify(comments));
       return;
     }
-    fs.writeFileSync(COMMENTS_FILE, JSON.stringify(comments, null, 2));
+    await fs.promises.writeFile(COMMENTS_FILE, JSON.stringify(comments, null, 2));
   } catch (e) {
     console.error('Save comments error:', e);
   }
@@ -1168,8 +1244,31 @@ async function loadComments() {
   return tenancy.scope.filterForTenant(await loadAllComments());
 }
 
+async function loadCommentsForPost(postId) {
+  if (isSupabaseEnabled()) {
+    const tenantId = tenancy.scope.currentTenantId();
+    const key = `${tenantId}:${postId}`;
+    const cached = postCommentsScopeCache.get(key);
+    if (cached) return cached.slice();
+    try {
+      const comments = (await supabaseStore.loadCommentsForPostForTenant(tenantId, postId)).map(normalizeComment);
+      postCommentsScopeCache.set(key, comments);
+      return comments.slice();
+    } catch (e) {
+      console.error('Supabase post comments load failed:', e.message);
+      return [];
+    }
+  }
+  return (await loadComments()).filter(c => String(c.postId) === String(postId));
+}
+
+function invalidatePostComments() {
+  postCommentsScopeCache.clear();
+}
+
 async function saveComments(comments) {
   const tenantId = tenancy.scope.currentTenantId();
+  invalidatePostComments();
   if (isSupabaseEnabled()) {
     invalidateCommentsCache();
     return supabaseStore.saveCommentsForTenant(tenantId, comments);
@@ -1186,7 +1285,7 @@ async function loadAllSubscriptions() {
       const subscriptions = await db.collection('subscriptions').find({}).toArray();
       return subscriptions.map(s => ({ ...s, id: s._id || s.id }));
     }
-    return JSON.parse(fs.readFileSync(SUBSCRIPTIONS_FILE, 'utf8')) || [];
+    return JSON.parse(await fs.promises.readFile(SUBSCRIPTIONS_FILE, 'utf8')) || [];
   } catch (e) {
     return [];
   }
@@ -1225,7 +1324,7 @@ async function saveAllSubscriptions(subscriptions) {
       await kv.set('subscriptions', JSON.stringify(subscriptions));
       return;
     }
-    fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptions, null, 2));
+    await fs.promises.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptions, null, 2));
   } catch (e) {
     console.error('Save subscriptions error:', e);
   }
@@ -1511,8 +1610,7 @@ async function loadAllThemes() {
       const data = await kv.get('themes');
       return data ? JSON.parse(data) : [];
     }
-    if (!fs.existsSync(THEMES_FILE)) return [];
-    return JSON.parse(fs.readFileSync(THEMES_FILE, 'utf8')) || [];
+    return JSON.parse(await fs.promises.readFile(THEMES_FILE, 'utf8')) || [];
   } catch (e) {
     return [];
   }
@@ -1551,7 +1649,7 @@ async function saveAllThemes(themes) {
       await kv.set('themes', JSON.stringify(themes));
       return;
     }
-    fs.writeFileSync(THEMES_FILE, JSON.stringify(themes, null, 2));
+    await fs.promises.writeFile(THEMES_FILE, JSON.stringify(themes, null, 2));
   } catch (e) {
     console.error('Save themes error:', e);
   }
@@ -3638,8 +3736,16 @@ function redactPremiumPost(post, req) {
   return view;
 }
 
+// Responses depend on the caller's role (drafts, premium teasers) and on the
+// tenant host, so keep them out of shared caches while letting browsers
+// revalidate cheaply with the ETag Express attaches to res.json().
+function setPrivateRevalidate(res) {
+  res.set('Cache-Control', 'private, max-age=0, must-revalidate');
+}
+
 app.get('/api/posts', async (req, res) => {
   try {
+    setPrivateRevalidate(res);
     const posts = await loadPosts();
     const includeDrafts = req.query.include_drafts === 'true';
     const isAdmin = isUserAdmin(req);
@@ -3712,6 +3818,7 @@ app.get('/api/posts', async (req, res) => {
 // author > body. Good enough for a personal archive without a search index.
 app.get('/api/search', async (req, res) => {
   try {
+    setPrivateRevalidate(res);
     const query = String(req.query.q || '').trim();
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
@@ -3773,8 +3880,8 @@ app.get('/api/search', async (req, res) => {
 app.get('/api/posts/:id', async (req, res) => {
   try {
     const id = req.params.id;
-    const posts = await loadPosts();
-    const post = posts.find(p => p.id.toString() === id.toString());
+    const { posts, byId } = await loadPostsEntry();
+    const post = (byId && byId.get(String(id))) || posts.find(p => p.id.toString() === id.toString());
 
     if (!post || post.isDeleted) {
       return res.status(404).json({ error: 'Post not found' });
@@ -4184,6 +4291,7 @@ async function adjustPostCounter(id, field, delta, action, type, req) {
   if (isSupabaseEnabled()) {
     const value = await supabaseStore.adjustPostCounter(id, field, delta);
     if (value === null) return null;
+    postsScopeCache.clear(tenancy.scope.currentTenantId());
     if (action === 'add') await recordInteraction(type, id, null, req);
     return value;
   }
@@ -4202,18 +4310,20 @@ async function adjustPostCounter(id, field, delta, action, type, req) {
     return typeof result.value[field] === 'number' ? result.value[field] : 0;
   }
 
-  const posts = await loadPosts();
-  const idx = posts.findIndex(p => p.id.toString() === id.toString());
-  if (idx === -1) return null;
-  if (typeof posts[idx][field] !== 'number') posts[idx][field] = 0;
-  if (action === 'remove') {
-    posts[idx][field] = Math.max(0, posts[idx][field] - 1);
-  } else {
-    posts[idx][field] += 1;
-    await recordInteraction(type, id, null, req);
-  }
-  await savePosts(posts);
-  return posts[idx][field];
+  return postWriteQueue(async () => {
+    const posts = await loadPosts();
+    const idx = posts.findIndex(p => p.id.toString() === id.toString());
+    if (idx === -1) return null;
+    if (typeof posts[idx][field] !== 'number') posts[idx][field] = 0;
+    if (action === 'remove') {
+      posts[idx][field] = Math.max(0, posts[idx][field] - 1);
+    } else {
+      posts[idx][field] += 1;
+      await recordInteraction(type, id, null, req);
+    }
+    await savePosts(posts);
+    return posts[idx][field];
+  });
 }
 
 // Like a post
@@ -4252,8 +4362,7 @@ app.get('/api/posts/:id/comments', async (req, res) => {
     const postId = req.params.id;
     const includeDeleted = req.query.includeDeleted === 'true';
     const isAdmin = isUserAdmin(req);
-    const allComments = await loadComments();
-    let postComments = allComments.filter(c => String(c.postId) === postId);
+    let postComments = await loadCommentsForPost(postId);
     if (!includeDeleted) {
       postComments = postComments.filter(c => !c.deleted);
     }
@@ -4308,6 +4417,7 @@ app.post('/api/posts/:id/comments', async (req, res) => {
       // Insert only the new row; a load-all + replace would drop comments
       // created by concurrent requests.
       await supabaseStore.insertComment(newComment);
+      invalidatePostComments();
     } else {
       const allComments = await loadComments();
       allComments.push(newComment);
@@ -4517,7 +4627,7 @@ app.get('/api/uploads', async (req, res) => {
       return res.json({ files: images.map(f => f.url) });
     }
     const tenantPrefix = platformScope ? '' : `tenant-${String(scopeId).replace(/[^a-z0-9-]/gi, '')}__`;
-    const files = fs.readdirSync(UPLOADS_DIR)
+    const files = (await fs.promises.readdir(UPLOADS_DIR))
       .filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f))
       .filter(f => platformScope ? !/^tenant-[a-z0-9-]+__/i.test(f) : f.startsWith(tenantPrefix));
     const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -4543,11 +4653,12 @@ app.delete('/api/uploads', requireAdmin, async (req, res) => {
     const filename = path.basename(urlObj.pathname);
     const filePath = path.join(UPLOADS_DIR, filename);
     
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    try {
+      await fs.promises.unlink(filePath);
       res.json({ success: true });
-    } else {
-      res.status(404).json({ success: false, error: 'File not found' });
+    } catch (error) {
+      if (error.code === 'ENOENT') return res.status(404).json({ success: false, error: 'File not found' });
+      throw error;
     }
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -4758,12 +4869,9 @@ async function readSettings() {
 
   if (!stored) {
     try {
-      if (fs.existsSync(settingsPath)) {
-        const data = fs.readFileSync(settingsPath, 'utf8');
-        stored = JSON.parse(data);
-      }
+      stored = JSON.parse(await fs.promises.readFile(settingsPath, 'utf8'));
     } catch (error) {
-      console.error('Error reading settings:', error);
+      if (error.code !== 'ENOENT') console.error('Error reading settings:', error);
     }
   }
 
@@ -4821,7 +4929,7 @@ async function writeSettings(settings) {
   }
 
   try {
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    await fs.promises.writeFile(settingsPath, JSON.stringify(settings, null, 2));
     settingsCache = settings;
     settingsCacheAt = Date.now();
   } catch (error) {
@@ -4967,14 +5075,19 @@ async function loadAbout() {
       }
     }
 
-    if (!aboutData && fs.existsSync(aboutPath)) {
-      const data = fs.readFileSync(aboutPath, 'utf8');
-      aboutData = JSON.parse(data);
-      // Seed MongoDB/KV with about.json data on first load
-      if (aboutData) {
-        console.log('Seeding about data from about.json to persistent storage...');
-        await saveAbout(aboutData);
+    let readFromFile = false;
+    if (!aboutData) {
+      try {
+        aboutData = JSON.parse(await fs.promises.readFile(aboutPath, 'utf8'));
+        readFromFile = true;
+      } catch (readErr) {
+        if (readErr.code !== 'ENOENT') throw readErr;
       }
+    }
+    // Seed MongoDB/KV with about.json data on first load
+    if (readFromFile && aboutData) {
+      console.log('Seeding about data from about.json to persistent storage...');
+      await saveAbout(aboutData);
     }
   } catch (error) {
     console.error('Error loading about info:', error);
@@ -5015,7 +5128,7 @@ async function saveAbout(about) {
       return;
     }
 
-    fs.writeFileSync(aboutPath, JSON.stringify(about, null, 2));
+    await fs.promises.writeFile(aboutPath, JSON.stringify(about, null, 2));
   } catch (error) {
     console.error('Error saving about info:', error);
   }
@@ -5127,6 +5240,7 @@ app.post('/api/about', requireAdmin, async (req, res) => {
 // Get current background image
 app.get('/api/settings/background', async (req, res) => {
   try {
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     const settings = await readSettings();
     return res.json({ backgroundUrl: normalizeAssetUrl(settings.backgroundUrl || '') });
   } catch (e) {
@@ -5160,6 +5274,7 @@ app.post('/api/settings/background', requireAdmin, async (req, res) => {
 // Multiple backgrounds API
 app.get('/api/settings/backgrounds', async (req, res) => {
   try {
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     const settings = await readSettings();
     const list = Array.isArray(settings.backgrounds) ? settings.backgrounds : (settings.backgroundUrl ? [settings.backgroundUrl] : []);
     return res.json({ backgrounds: list.map(normalizeAssetUrl) });
@@ -5381,6 +5496,7 @@ app.put('/api/settings/social-credentials', requireAdmin, async (req, res) => {
 
 app.get('/api/settings/blog-info', async (req, res) => {
   try {
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     const settings = await readSettings();
     const blogInfo = settings.blogInfo || { title: 'zedong254ke', description: 'Discover insights, tutorials, and thoughts on web development, programming, and technology.' };
     return res.json({ blogInfo });
@@ -5747,6 +5863,7 @@ app.post('/api/settings/content', requireAdmin, async (req, res) => {
 // Categories API
 app.get('/api/categories', async (req, res) => {
   try {
+    setPrivateRevalidate(res);
     const categories = await loadCategories();
     const isAdmin = isUserAdmin(req);
 
@@ -6446,18 +6563,19 @@ app.get('/post.html', async (req, res) => {
   const baseUrl = `${req.protocol}://${req.get('host')}`;
 
   // Cache the template in memory; reload automatically if the file changes
-  const postHtmlPathBuf = fs.statSync(path.join(__dirname, 'post.html'));
-  if (!postHtmlTemplate || postHtmlPathBuf.mtimeMs !== postHtmlTemplateMtimeMs) {
-    postHtmlTemplate = fs.readFileSync(path.join(__dirname, 'post.html'), 'utf8');
-    postHtmlTemplateMtimeMs = postHtmlPathBuf.mtimeMs;
+  const postHtmlPath = path.join(__dirname, 'post.html');
+  const postHtmlStat = await fs.promises.stat(postHtmlPath);
+  if (!postHtmlTemplate || postHtmlStat.mtimeMs !== postHtmlTemplateMtimeMs) {
+    postHtmlTemplate = await fs.promises.readFile(postHtmlPath, 'utf8');
+    postHtmlTemplateMtimeMs = postHtmlStat.mtimeMs;
   }
   let html = postHtmlTemplate;
 
   if (postId) {
     try {
-      // loadPosts() is storage-aware (Mongo/KV/file) and cached in-process
-      const posts = await loadPosts();
-      const post = posts.find(p => String(p.id) === String(postId));
+      // loadPostsEntry() is storage-aware and cached in-process
+      const { posts, byId } = await loadPostsEntry();
+      const post = (byId && byId.get(String(postId))) || posts.find(p => String(p.id) === String(postId));
 
       if (post) {
         const settings = await readSettings();
@@ -6519,14 +6637,14 @@ app.get('/', async (req, res) => {
     // Reload the template when the file changes on disk so HTML edits go live
     // without a server restart (mtime-based cache, same file always cached).
     try {
-      const mtimeMs = fs.statSync(indexHtmlPath).mtimeMs;
-      if (!indexHtmlTemplate || mtimeMs !== indexHtmlTemplateMtimeMs) {
-        indexHtmlTemplate = fs.readFileSync(indexHtmlPath, 'utf8');
-        indexHtmlTemplateMtimeMs = mtimeMs;
+      const indexStat = await fs.promises.stat(indexHtmlPath);
+      if (!indexHtmlTemplate || indexStat.mtimeMs !== indexHtmlTemplateMtimeMs) {
+        indexHtmlTemplate = await fs.promises.readFile(indexHtmlPath, 'utf8');
+        indexHtmlTemplateMtimeMs = indexStat.mtimeMs;
       }
     } catch (e) {
       if (!indexHtmlTemplate) {
-        indexHtmlTemplate = fs.readFileSync(indexHtmlPath, 'utf8');
+        indexHtmlTemplate = await fs.promises.readFile(indexHtmlPath, 'utf8');
       }
     }
 

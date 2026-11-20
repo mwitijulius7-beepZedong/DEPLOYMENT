@@ -407,7 +407,7 @@
                     },
                     async loadPosts() {
                         try {
-                            const resp = await fetch(`/api/posts?t=${new Date().getTime()}`);
+                            const resp = await fetch('/api/posts');
                             const data = await resp.json();
                             this.posts = data.posts || [];
                             this.buildHistoryRelated();
@@ -418,7 +418,7 @@
                     },
                     async loadCategories() {
                         try {
-                            const resp = await fetch(`/api/categories?t=${new Date().getTime()}`);
+                            const resp = await fetch('/api/categories');
                             const data = await resp.json();
                             this.categories = data.categories || [];
                         } catch (e) {
@@ -427,11 +427,10 @@
                         }
                     },
                     async loadSettings() {
-                        const ts = new Date().getTime();
                         const [bg, blog, author] = await Promise.allSettled([
-                            fetch(`/api/settings/background?t=${ts}`).then(r => r.json()).catch(() => null),
-                            fetch(`/api/settings/blog-info?t=${ts}`).then(r => r.json()).catch(() => null),
-                            fetch(`/api/settings/author?t=${ts}`).then(r => r.json()).catch(() => null)
+                            fetch('/api/settings/background').then(r => r.json()).catch(() => null),
+                            fetch('/api/settings/blog-info').then(r => r.json()).catch(() => null),
+                            fetch('/api/settings/author').then(r => r.json()).catch(() => null)
                         ]);
 
                         const bgData = bg.value;

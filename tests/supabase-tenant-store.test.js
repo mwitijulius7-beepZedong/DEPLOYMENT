@@ -163,6 +163,27 @@ describe('Supabase tenant-scoped store', () => {
     }
   });
 
+  it('filters post comments by tenant and post id at the query level', async () => {
+    const fake = createFakeSupabase({
+      comments: [
+        { id: 'c1', tenant_id: 'tenant-a', post_id: 'p1', data: { id: 'c1', postId: 'p1', date: '2026-01-02' } },
+        { id: 'c2', tenant_id: 'tenant-a', post_id: 'p2', data: { id: 'c2', postId: 'p2', date: '2026-01-01' } },
+        { id: 'c3', tenant_id: 'tenant-b', post_id: 'p1', data: { id: 'c3', postId: 'p1', date: '2026-01-03' } }
+      ]
+    });
+    const { store, restore } = loadStoreWith(fake);
+    try {
+      const comments = await store.loadCommentsForPostForTenant('tenant-a', 'p1');
+      expect(comments.map(comment => comment.id)).toEqual(['c1']);
+
+      const select = fake.__calls.find(call => call.action === 'select');
+      expect(select.filters).toContainEqual(['tenant_id', 'eq', 'tenant-a']);
+      expect(select.filters).toContainEqual(['post_id', 'eq', 'p1']);
+    } finally {
+      restore();
+    }
+  });
+
   it('writes and prunes only the calling tenant rows', async () => {
     const fake = createFakeSupabase({
       posts: [
@@ -218,6 +239,25 @@ describe('Supabase before the tenancy migration is applied', () => {
     try {
       const posts = await store.loadPostsForTenant('platform');
       expect(posts.map(post => post.id).sort()).toEqual(['p1', 'p2']);
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      restore();
+    }
+  });
+
+  it('still narrows post comments to one post without tenant columns', async () => {
+    const fake = createFakeSupabase({
+      comments: [
+        { id: 'c1', post_id: 'p1', data: { id: 'c1', postId: 'p1', date: '2026-01-02' } },
+        { id: 'c2', post_id: 'p2', data: { id: 'c2', postId: 'p2', date: '2026-01-01' } }
+      ]
+    }, { missingTenantColumns: true });
+    const { store, restore } = loadStoreWith(fake);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const comments = await store.loadCommentsForPostForTenant('platform', 'p1');
+      expect(comments.map(comment => comment.id)).toEqual(['c1']);
       expect(warn).toHaveBeenCalled();
     } finally {
       warn.mockRestore();

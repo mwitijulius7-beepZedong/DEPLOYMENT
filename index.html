@@ -2609,14 +2609,14 @@
                         <div class="trending-track" :style="{ animationDuration: trendingMarqueeDuration }">
                             <div class="trending-group">
                                 <a v-for="post in trendingPosts" :key="'tr-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card">
-                                    <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
+                                    <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
                                     <div class="fmc-title">{{ post.title }}</div>
                                     <div class="fmc-meta">{{ (post.likes || 0) + (post.dislikes || 0) }} reactions <span class="trending-badge">🔥 Hot</span></div>
                                 </a>
                             </div>
                             <div class="trending-group" aria-hidden="true">
                                 <a v-for="post in trendingPosts" :key="'tr-clone-' + post.id" :href="'/post.html?id=' + post.id" class="feed-mini-card" tabindex="-1">
-                                    <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
+                                    <img v-if="post.image" :src="post.image" class="fmc-img" :alt="post.title" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' fill=\'%23f0f0f0\'><rect width=\'200\' height=\'120\'/><text x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'12\' fill=\'%23999\'>No image</text></svg>'">
                                     <div class="fmc-title">{{ post.title }}</div>
                                     <div class="fmc-meta">{{ (post.likes || 0) + (post.dislikes || 0) }} reactions <span class="trending-badge">🔥 Hot</span></div>
                                 </a>

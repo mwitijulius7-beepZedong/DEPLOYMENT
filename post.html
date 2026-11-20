@@ -1983,7 +1983,7 @@
 
         async function loadAuthorInfo() {
             try {
-                const authorResp = await fetch(`/api/settings/author?t=${Date.now()}`);
+                const authorResp = await fetch('/api/settings/author');
                 const authorData = await authorResp.json();
                 if (authorData.author) globalAuthorInfo = authorData.author;
                 applyHeaderProfilePhoto(globalAuthorInfo);
@@ -1994,7 +1994,7 @@
 
         async function loadBlogInfo() {
             try {
-                const resp = await fetch(`/api/settings/blog-info?t=${Date.now()}`);
+                const resp = await fetch('/api/settings/blog-info');
                 const data = await resp.json();
                 if (data && data.blogInfo) globalBlogInfo = data.blogInfo;
             } catch (e) {
@@ -2184,7 +2184,7 @@
                     <div class="story-gallery-label">Photos from this story</div>
                     <div class="story-gallery-grid${heroImages.length === 1 ? ' single' : ''}">
                         ${heroImages.map((img, i) => `<figure class="story-gallery-item" role="button" tabindex="0" data-src="${img.replace(/"/g, '&quot;')}" aria-label="View photo ${i + 1} of ${heroImages.length}">
-                            <img src="${img.replace(/"/g, '&quot;')}" alt="${escapeHtml(post.title)} — photo ${i + 1}" decoding="async">
+                            <img src="${img.replace(/"/g, '&quot;')}" alt="${escapeHtml(post.title)} — photo ${i + 1}" loading="lazy" decoding="async">
                         </figure>`).join('')}
                     </div>
                 </section>`
@@ -2826,7 +2826,7 @@
             const ctId = `ct-${c.id}`;
             const rmId = `rm-${c.id}`;
             const photoHtml = c.image
-                ? `<img class="comment-photo" src="${escapeHtml(c.image)}" onerror="this.style.display='none'" onclick="openCommentLightbox('${escapeHtml(c.image)}')" alt="comment photo">`
+                ? `<img class="comment-photo" src="${escapeHtml(c.image)}" loading="lazy" decoding="async" onerror="this.style.display='none'" onclick="openCommentLightbox('${escapeHtml(c.image)}')" alt="comment photo">`
                 : '';
             const pinnedBadge = c.pinned ? '<span class="pin-badge">📌 Pinned</span>' : '';
             const pinButton = isAdminUser
@@ -3180,7 +3180,7 @@
                     // Server-computed related posts (summaries) — no extra fetch
                     top = postNavData.related;
                 } else {
-                    const resp = await fetch(`/api/posts?t=${Date.now()}`);
+                    const resp = await fetch('/api/posts');
                     const data = await resp.json();
                     const allPosts = (data.posts || []).filter(p => p.id !== currentPost.id);
                     if (allPosts.length === 0) { section.style.display = 'none'; return; }
@@ -3206,7 +3206,7 @@
                     return `
                         <a href="/post.html?id=${p.id}" class="rp-card">
                             <div class="rp-card-img">
-                                ${img ? `<img src="${img}" alt="${p.title}" loading="lazy" onerror="this.onerror=null;this.outerHTML='<div class=\\'rp-card-img-ph\\'></div>'">` : '<div class="rp-card-img-ph"></div>'}
+                                ${img ? `<img src="${img}" alt="${p.title}" loading="lazy" decoding="async" onerror="this.onerror=null;this.outerHTML='<div class=\\'rp-card-img-ph\\'></div>'">` : '<div class="rp-card-img-ph"></div>'}
                                 <span class="rp-card-rt">\u23f1 ${rt} min</span>
                             </div>
                             <div class="rp-card-body">
