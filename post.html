@@ -2157,7 +2157,7 @@
                 : '';
 
             const authorBioCard = authorPic
-                ? `<img src="${authorPic}" class="author-bio-avatar" onerror="this.outerHTML='<div class=\\'author-bio-avatar-placeholder\\'>${authorName.charAt(0).toUpperCase()}</div>'" onclick="openLightbox('${authorPic}')" alt="${authorName}">`
+                ? `<img src="${authorPic}" class="author-bio-avatar" loading="lazy" decoding="async" onerror="this.outerHTML='<div class=\\'author-bio-avatar-placeholder\\'>${authorName.charAt(0).toUpperCase()}</div>'" onclick="openLightbox('${authorPic}')" alt="${authorName}">`
                 : `<div class="author-bio-avatar-placeholder">${authorName.charAt(0).toUpperCase()}</div>`;
 
             const categoryHtml = post.categoryName
