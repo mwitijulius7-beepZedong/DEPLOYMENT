@@ -688,6 +688,7 @@ async function loadAllPosts() {
           result = posts.map(normalizePost);
           postsCache = result;
           postsCacheTime = now;
+          postsByIdCache = indexPostsById(result);
           return result;
         }
         if (posts && posts.length === 0) {
@@ -716,6 +717,7 @@ async function loadAllPosts() {
           }
           postsCache = result;
           postsCacheTime = now;
+          postsByIdCache = indexPostsById(result);
           return result;
         }
       } catch (kvErr) {
@@ -738,6 +740,7 @@ async function loadAllPosts() {
       }
       postsCache = result;
       postsCacheTime = now;
+      postsByIdCache = indexPostsById(result);
       return result;
     } catch (fileErr) {
       console.warn('Local posts file error:', fileErr.message);
@@ -752,10 +755,12 @@ async function saveAllPosts(posts) {
   if (isSupabaseEnabled()) {
     postsCache = null;
     postsCacheTime = 0;
+    postsByIdCache = null;
     return supabaseStore.savePosts(posts);
   }
   postsCache = null;
   postsCacheTime = 0;
+  postsByIdCache = null;
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -829,8 +834,15 @@ async function loadPostsEntry() {
     }
     return { posts: entry.posts.slice(), byId: entry.byId };
   }
-  const posts = tenancy.scope.filterForTenant(await loadAllPosts());
-  return { posts, byId: null };
+  const tenantId = tenancy.scope.currentTenantId();
+  const key = `posts-byid:${tenantId}`;
+  let entry = postsScopeCache.get(key);
+  if (!entry) {
+    const posts = tenancy.scope.filterForTenant(await loadAllPosts());
+    entry = { posts, byId: indexPostsById(posts) };
+    postsScopeCache.set(key, entry);
+  }
+  return { posts: entry.posts.slice(), byId: entry.byId };
 }
 
 async function loadPosts() {
@@ -842,7 +854,9 @@ async function savePosts(posts) {
   if (isSupabaseEnabled()) {
     postsCache = null;
     postsCacheTime = 0;
+    postsByIdCache = null;
     postsScopeCache.clear(tenantId);
+    postsScopeCache.clear(`posts-byid:${tenantId}`);
     return supabaseStore.savePostsForTenant(tenantId, posts);
   }
   const all = await loadAllPosts();
@@ -1143,6 +1157,10 @@ const CACHE_TTL = 5000; // 5 seconds
 // every read-heavy request (mirrors commentsCache). Invalidated on save.
 let postsCache = null;
 let postsCacheTime = 0;
+
+// In-memory index for O(1) single-post lookups. Populated from postsCache;
+// keyed by post id string. Invalidated alongside postsCache on save.
+let postsByIdCache = null;
 
 // post.html template cached in memory so OG-meta generation doesn't
 // re-read the file synchronously on every page load (mtime-checked so
