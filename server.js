@@ -1391,7 +1391,7 @@ async function loadTemplateBuyers() {
       return data ? JSON.parse(data) : [];
     }
     if (!fs.existsSync(TEMPLATE_BUYERS_FILE)) return [];
-    return JSON.parse(fs.readFileSync(TEMPLATE_BUYERS_FILE, 'utf8')) || [];
+    return JSON.parse(await fs.promises.readFile(TEMPLATE_BUYERS_FILE, 'utf8')) || [];
   } catch (e) {
     return [];
   }
