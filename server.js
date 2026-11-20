@@ -417,6 +417,23 @@ app.use('/uploads', express.static(UPLOADS_DIR, {
 // 2026: Trust proxy is required for 'secure: true' cookies to work behind Vercel edge
 app.set('trust proxy', 1);
 
+// ── ETag / conditional-request helper for JSON API GET endpoints ─────────
+// Generates a weak ETag from the response body, honors If-None-Match with 304,
+// and sets Cache-Control so browsers/CDNs can revalidate instead of re-fetching.
+function sendJsonWithEtag(req, res, data, cacheControl = 'private, max-age=0, must-revalidate') {
+  const body = JSON.stringify(data);
+  const etag = `W/${crypto.createHash('md5').update(body).digest('hex')}`;
+  const inm = req.headers['if-none-match'];
+  if (inm && inm === etag) {
+    res.status(304).set('Cache-Control', cacheControl).set('ETag', etag).end();
+    return true;
+  }
+  res.set('ETag', etag);
+  res.set('Cache-Control', cacheControl);
+  res.json(data);
+  return false;
+}
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
@@ -3777,7 +3794,6 @@ function setPrivateRevalidate(res) {
 
 app.get('/api/posts', async (req, res) => {
   try {
-    setPrivateRevalidate(res);
     const posts = await loadPosts();
     const includeDrafts = req.query.include_drafts === 'true';
     const isAdmin = isUserAdmin(req);
@@ -3827,18 +3843,19 @@ app.get('/api/posts', async (req, res) => {
     items = items.map(p => redactPremiumPost(p, req));
     if (wantsSummary) items = items.map(toSummary);
 
-    if (paginated || wantsSummary || tag) {
-      return res.json({
-        posts: items,
-        summary: wantsSummary,
-        tag: req.query.tag || '',
-        total: visiblePosts.length,
-        page,
-        limit,
-        hasMore: paginated && page * limit < visiblePosts.length
-      });
-    }
-    return res.json({ posts: filteredPosts.map(p => redactPremiumPost(p, req)) });
+    const payload = paginated || wantsSummary || tag
+      ? {
+          posts: items,
+          summary: wantsSummary,
+          tag: req.query.tag || '',
+          total: visiblePosts.length,
+          page,
+          limit,
+          hasMore: paginated && page * limit < visiblePosts.length
+        }
+      : { posts: filteredPosts.map(p => redactPremiumPost(p, req)) };
+
+    return sendJsonWithEtag(req, res, payload);
   } catch (error) {
     console.error('Error in GET /api/posts:', error);
     return res.status(500).json({ error: 'Failed to load posts' });
@@ -3964,7 +3981,7 @@ app.get('/api/posts/:id', async (req, res) => {
       payload = safe;
     }
 
-    return res.json({ post: payload, prev, next, related, locked, preview: !!hasValidPreview });
+    return sendJsonWithEtag(req, res, { post: payload, prev, next, related, locked, preview: !!hasValidPreview });
   } catch (error) {
     console.error('Error in GET /api/posts/:id:', error);
     return res.status(500).json({ error: 'Failed to load post' });
@@ -5895,12 +5912,11 @@ app.post('/api/settings/content', requireAdmin, async (req, res) => {
 // Categories API
 app.get('/api/categories', async (req, res) => {
   try {
-    setPrivateRevalidate(res);
     const categories = await loadCategories();
     const isAdmin = isUserAdmin(req);
 
     if (isAdmin) {
-      return res.json({ categories });
+      return sendJsonWithEtag(req, res, { categories });
     }
 
     // For readers, only show categories with at least one published post
@@ -5916,7 +5932,7 @@ app.get('/api/categories', async (req, res) => {
 
     const filteredCategories = categories.filter(c => publishedCategoryIds.has(c.id.toString()));
 
-    return res.json({ categories: filteredCategories });
+    return sendJsonWithEtag(req, res, { categories: filteredCategories });
   } catch (error) {
     console.error('Categories load error:', error);
     return res.status(500).json({ error: 'failed_to_load_categories' });
