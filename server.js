@@ -417,6 +417,23 @@ app.use('/uploads', express.static(UPLOADS_DIR, {
 // 2026: Trust proxy is required for 'secure: true' cookies to work behind Vercel edge
 app.set('trust proxy', 1);
 
+// ── ETag / conditional-request helper for JSON API GET endpoints ─────────
+// Generates a weak ETag from the response body, honors If-None-Match with 304,
+// and sets Cache-Control so browsers/CDNs can revalidate instead of re-fetching.
+function sendJsonWithEtag(req, res, data, cacheControl = 'private, max-age=0, must-revalidate') {
+  const body = JSON.stringify(data);
+  const etag = `W/${crypto.createHash('md5').update(body).digest('hex')}`;
+  const inm = req.headers['if-none-match'];
+  if (inm && inm === etag) {
+    res.status(304).set('Cache-Control', cacheControl).set('ETag', etag).end();
+    return true;
+  }
+  res.set('ETag', etag);
+  res.set('Cache-Control', cacheControl);
+  res.json(data);
+  return false;
+}
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
@@ -456,7 +473,7 @@ async function loadUsers() {
     // before the migration script runs cannot lock everyone out.
     try {
       if (fs.existsSync(USERS_FILE)) {
-        const raw = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+        const raw = JSON.parse(await fs.promises.readFile(USERS_FILE, 'utf8'));
         const data = Array.isArray(raw) ? Object.fromEntries(raw.map(u => [u.username, u])) : raw;
         Object.values(data).forEach(u => { if (!u.role) u.role = 'ADMIN'; });
         if (Object.keys(data).length > 0) {
@@ -511,7 +528,7 @@ async function loadUsers() {
 
     // Local file loader
     try {
-      const dataStr = fs.readFileSync(USERS_FILE, 'utf8');
+      const dataStr = await fs.promises.readFile(USERS_FILE, 'utf8');
       const raw = JSON.parse(dataStr);
       // Normalize array format (from MongoDB sync) to object format keyed by username
       const data = Array.isArray(raw)
@@ -560,7 +577,7 @@ async function saveUsers(users) {
       await kv.set('users', JSON.stringify(users));
       return;
     }
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+    await fs.promises.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
   } catch (e) {
     console.error('Save users error:', e);
     throw e;
@@ -688,6 +705,7 @@ async function loadAllPosts() {
           result = posts.map(normalizePost);
           postsCache = result;
           postsCacheTime = now;
+          postsByIdCache = indexPostsById(result);
           return result;
         }
         if (posts && posts.length === 0) {
@@ -716,6 +734,7 @@ async function loadAllPosts() {
           }
           postsCache = result;
           postsCacheTime = now;
+          postsByIdCache = indexPostsById(result);
           return result;
         }
       } catch (kvErr) {
@@ -738,6 +757,7 @@ async function loadAllPosts() {
       }
       postsCache = result;
       postsCacheTime = now;
+      postsByIdCache = indexPostsById(result);
       return result;
     } catch (fileErr) {
       console.warn('Local posts file error:', fileErr.message);
@@ -752,10 +772,12 @@ async function saveAllPosts(posts) {
   if (isSupabaseEnabled()) {
     postsCache = null;
     postsCacheTime = 0;
+    postsByIdCache = null;
     return supabaseStore.savePosts(posts);
   }
   postsCache = null;
   postsCacheTime = 0;
+  postsByIdCache = null;
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -1144,6 +1166,10 @@ const CACHE_TTL = 5000; // 5 seconds
 let postsCache = null;
 let postsCacheTime = 0;
 
+// In-memory index for O(1) single-post lookups. Populated from postsCache;
+// keyed by post id string. Invalidated alongside postsCache on save.
+let postsByIdCache = null;
+
 // post.html template cached in memory so OG-meta generation doesn't
 // re-read the file synchronously on every page load (mtime-checked so
 // edits during development are picked up without a restart).
@@ -1190,6 +1216,10 @@ function invalidateCommentsCache() {
   commentsCache = null;
   commentsCacheTime = 0;
 }
+
+// Short-lived in-process subscriptions cache. Invalidated on save.
+let subscriptionsCache = null;
+let subscriptionsCacheTime = 0;
 
 async function saveAllComments(comments) {
   invalidateCommentsCache();
@@ -1279,11 +1309,17 @@ async function saveComments(comments) {
 
 async function loadAllSubscriptions() {
   if (isSupabaseEnabled()) return supabaseStore.loadSubscriptions();
+  const now = Date.now();
+  if (subscriptionsCache && now - subscriptionsCacheTime < CACHE_TTL) {
+    return subscriptionsCache;
+  }
   try {
     const db = await getMongoDB();
     if (db) {
       const subscriptions = await db.collection('subscriptions').find({}).toArray();
-      return subscriptions.map(s => ({ ...s, id: s._id || s.id }));
+      subscriptionsCache = subscriptions.map(s => ({ ...s, id: s._id || s.id }));
+      subscriptionsCacheTime = now;
+      return subscriptionsCache;
     }
     return JSON.parse(await fs.promises.readFile(SUBSCRIPTIONS_FILE, 'utf8')) || [];
   } catch (e) {
@@ -1293,6 +1329,8 @@ async function loadAllSubscriptions() {
 
 async function saveAllSubscriptions(subscriptions) {
   if (isSupabaseEnabled()) return supabaseStore.saveSubscriptions(subscriptions);
+  subscriptionsCache = null;
+  subscriptionsCacheTime = 0;
   try {
     const mongoDb = await getMongoDB();
     if (mongoDb) {
@@ -1359,7 +1397,7 @@ async function loadTemplateBuyers() {
       return data ? JSON.parse(data) : [];
     }
     if (!fs.existsSync(TEMPLATE_BUYERS_FILE)) return [];
-    return JSON.parse(fs.readFileSync(TEMPLATE_BUYERS_FILE, 'utf8')) || [];
+    return JSON.parse(await fs.promises.readFile(TEMPLATE_BUYERS_FILE, 'utf8')) || [];
   } catch (e) {
     return [];
   }
@@ -1384,7 +1422,7 @@ async function saveTemplateBuyers(buyers) {
       await kv.set('template_buyers', JSON.stringify(buyers));
       return;
     }
-    fs.writeFileSync(TEMPLATE_BUYERS_FILE, JSON.stringify(buyers, null, 2));
+    await fs.promises.writeFile(TEMPLATE_BUYERS_FILE, JSON.stringify(buyers, null, 2));
   } catch (e) {
     console.error('Save template buyers error:', e);
   }
@@ -1403,7 +1441,7 @@ async function loadTemplateApplications() {
       return data ? JSON.parse(data) : [];
     }
     if (!fs.existsSync(TEMPLATE_APPLICATIONS_FILE)) return [];
-    return JSON.parse(fs.readFileSync(TEMPLATE_APPLICATIONS_FILE, 'utf8')) || [];
+    return JSON.parse(await fs.promises.readFile(TEMPLATE_APPLICATIONS_FILE, 'utf8')) || [];
   } catch (e) {
     return [];
   }
@@ -1428,7 +1466,7 @@ async function saveTemplateApplications(apps) {
       await kv.set('template_applications', JSON.stringify(apps));
       return;
     }
-    fs.writeFileSync(TEMPLATE_APPLICATIONS_FILE, JSON.stringify(apps, null, 2));
+    await fs.promises.writeFile(TEMPLATE_APPLICATIONS_FILE, JSON.stringify(apps, null, 2));
   } catch (e) {
     console.error('Save template apps error:', e);
   }
@@ -1448,7 +1486,7 @@ async function loadMpesaTransactions() {
       return data ? JSON.parse(data) : [];
     }
     if (!fs.existsSync(MPESA_TRANSACTIONS_FILE)) return [];
-    return JSON.parse(fs.readFileSync(MPESA_TRANSACTIONS_FILE, 'utf8')) || [];
+    return JSON.parse(await fs.promises.readFile(MPESA_TRANSACTIONS_FILE, 'utf8')) || [];
   } catch (e) {
     return [];
   }
@@ -1473,7 +1511,7 @@ async function saveMpesaTransactions(txns) {
       await kv.set('mpesa_transactions', JSON.stringify(txns));
       return;
     }
-    fs.writeFileSync(MPESA_TRANSACTIONS_FILE, JSON.stringify(txns, null, 2));
+    await fs.promises.writeFile(MPESA_TRANSACTIONS_FILE, JSON.stringify(txns, null, 2));
   } catch (e) {
     console.error('Save MPesa transactions error:', e);
   }
@@ -3534,7 +3572,7 @@ async function saveResetTokens(tokens) {
       await kv.set(RESET_TOKENS_KV_KEY, JSON.stringify({ tokens }));
       return;
     }
-    fs.writeFileSync(RESET_TOKENS_FILE, JSON.stringify({ tokens }, null, 2));
+    await fs.promises.writeFile(RESET_TOKENS_FILE, JSON.stringify({ tokens }, null, 2));
   } catch (e) {
     console.error('saveResetTokens error:', e.message);
   }
@@ -3795,18 +3833,19 @@ app.get('/api/posts', async (req, res) => {
     items = items.map(p => redactPremiumPost(p, req));
     if (wantsSummary) items = items.map(toSummary);
 
-    if (paginated || wantsSummary || tag) {
-      return res.json({
-        posts: items,
-        summary: wantsSummary,
-        tag: req.query.tag || '',
-        total: visiblePosts.length,
-        page,
-        limit,
-        hasMore: paginated && page * limit < visiblePosts.length
-      });
-    }
-    return res.json({ posts: filteredPosts.map(p => redactPremiumPost(p, req)) });
+    const payload = paginated || wantsSummary || tag
+      ? {
+          posts: items,
+          summary: wantsSummary,
+          tag: req.query.tag || '',
+          total: visiblePosts.length,
+          page,
+          limit,
+          hasMore: paginated && page * limit < visiblePosts.length
+        }
+      : { posts: filteredPosts.map(p => redactPremiumPost(p, req)) };
+
+    return sendJsonWithEtag(req, res, payload);
   } catch (error) {
     console.error('Error in GET /api/posts:', error);
     return res.status(500).json({ error: 'Failed to load posts' });
@@ -3932,7 +3971,7 @@ app.get('/api/posts/:id', async (req, res) => {
       payload = safe;
     }
 
-    return res.json({ post: payload, prev, next, related, locked, preview: !!hasValidPreview });
+    return sendJsonWithEtag(req, res, { post: payload, prev, next, related, locked, preview: !!hasValidPreview });
   } catch (error) {
     console.error('Error in GET /api/posts/:id:', error);
     return res.status(500).json({ error: 'Failed to load post' });
@@ -5033,7 +5072,7 @@ async function loadAbout() {
 
       // No row yet: seed from the repo snapshot once, then serve it.
       if (fs.existsSync(aboutPath)) {
-        const seeded = JSON.parse(fs.readFileSync(aboutPath, 'utf8'));
+        const seeded = JSON.parse(await fs.promises.readFile(aboutPath, 'utf8'));
         if (seeded) {
           try { await supabaseStore.saveAbout(seeded); } catch (e) {
             console.warn('Could not seed about data into Supabase:', e.message);
@@ -5868,7 +5907,7 @@ app.get('/api/categories', async (req, res) => {
     const isAdmin = isUserAdmin(req);
 
     if (isAdmin) {
-      return res.json({ categories });
+      return sendJsonWithEtag(req, res, { categories });
     }
 
     // For readers, only show categories with at least one published post
@@ -5884,7 +5923,7 @@ app.get('/api/categories', async (req, res) => {
 
     const filteredCategories = categories.filter(c => publishedCategoryIds.has(c.id.toString()));
 
-    return res.json({ categories: filteredCategories });
+    return sendJsonWithEtag(req, res, { categories: filteredCategories });
   } catch (error) {
     console.error('Categories load error:', error);
     return res.status(500).json({ error: 'failed_to_load_categories' });
