@@ -473,7 +473,7 @@ async function loadUsers() {
     // before the migration script runs cannot lock everyone out.
     try {
       if (fs.existsSync(USERS_FILE)) {
-        const raw = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+        const raw = JSON.parse(await fs.promises.readFile(USERS_FILE, 'utf8'));
         const data = Array.isArray(raw) ? Object.fromEntries(raw.map(u => [u.username, u])) : raw;
         Object.values(data).forEach(u => { if (!u.role) u.role = 'ADMIN'; });
         if (Object.keys(data).length > 0) {
@@ -528,7 +528,7 @@ async function loadUsers() {
 
     // Local file loader
     try {
-      const dataStr = fs.readFileSync(USERS_FILE, 'utf8');
+      const dataStr = await fs.promises.readFile(USERS_FILE, 'utf8');
       const raw = JSON.parse(dataStr);
       // Normalize array format (from MongoDB sync) to object format keyed by username
       const data = Array.isArray(raw)
@@ -577,7 +577,7 @@ async function saveUsers(users) {
       await kv.set('users', JSON.stringify(users));
       return;
     }
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+    await fs.promises.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
   } catch (e) {
     console.error('Save users error:', e);
     throw e;
@@ -1433,7 +1433,7 @@ async function saveTemplateBuyers(buyers) {
       await kv.set('template_buyers', JSON.stringify(buyers));
       return;
     }
-    fs.writeFileSync(TEMPLATE_BUYERS_FILE, JSON.stringify(buyers, null, 2));
+    await fs.promises.writeFile(TEMPLATE_BUYERS_FILE, JSON.stringify(buyers, null, 2));
   } catch (e) {
     console.error('Save template buyers error:', e);
   }
@@ -1452,7 +1452,7 @@ async function loadTemplateApplications() {
       return data ? JSON.parse(data) : [];
     }
     if (!fs.existsSync(TEMPLATE_APPLICATIONS_FILE)) return [];
-    return JSON.parse(fs.readFileSync(TEMPLATE_APPLICATIONS_FILE, 'utf8')) || [];
+    return JSON.parse(await fs.promises.readFile(TEMPLATE_APPLICATIONS_FILE, 'utf8')) || [];
   } catch (e) {
     return [];
   }
@@ -1477,7 +1477,7 @@ async function saveTemplateApplications(apps) {
       await kv.set('template_applications', JSON.stringify(apps));
       return;
     }
-    fs.writeFileSync(TEMPLATE_APPLICATIONS_FILE, JSON.stringify(apps, null, 2));
+    await fs.promises.writeFile(TEMPLATE_APPLICATIONS_FILE, JSON.stringify(apps, null, 2));
   } catch (e) {
     console.error('Save template apps error:', e);
   }
@@ -1497,7 +1497,7 @@ async function loadMpesaTransactions() {
       return data ? JSON.parse(data) : [];
     }
     if (!fs.existsSync(MPESA_TRANSACTIONS_FILE)) return [];
-    return JSON.parse(fs.readFileSync(MPESA_TRANSACTIONS_FILE, 'utf8')) || [];
+    return JSON.parse(await fs.promises.readFile(MPESA_TRANSACTIONS_FILE, 'utf8')) || [];
   } catch (e) {
     return [];
   }
@@ -1522,7 +1522,7 @@ async function saveMpesaTransactions(txns) {
       await kv.set('mpesa_transactions', JSON.stringify(txns));
       return;
     }
-    fs.writeFileSync(MPESA_TRANSACTIONS_FILE, JSON.stringify(txns, null, 2));
+    await fs.promises.writeFile(MPESA_TRANSACTIONS_FILE, JSON.stringify(txns, null, 2));
   } catch (e) {
     console.error('Save MPesa transactions error:', e);
   }
@@ -3583,7 +3583,7 @@ async function saveResetTokens(tokens) {
       await kv.set(RESET_TOKENS_KV_KEY, JSON.stringify({ tokens }));
       return;
     }
-    fs.writeFileSync(RESET_TOKENS_FILE, JSON.stringify({ tokens }, null, 2));
+    await fs.promises.writeFile(RESET_TOKENS_FILE, JSON.stringify({ tokens }, null, 2));
   } catch (e) {
     console.error('saveResetTokens error:', e.message);
   }
@@ -5082,7 +5082,7 @@ async function loadAbout() {
 
       // No row yet: seed from the repo snapshot once, then serve it.
       if (fs.existsSync(aboutPath)) {
-        const seeded = JSON.parse(fs.readFileSync(aboutPath, 'utf8'));
+        const seeded = JSON.parse(await fs.promises.readFile(aboutPath, 'utf8'));
         if (seeded) {
           try { await supabaseStore.saveAbout(seeded); } catch (e) {
             console.warn('Could not seed about data into Supabase:', e.message);
